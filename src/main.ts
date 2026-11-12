@@ -7,6 +7,7 @@ import { Game, type Hud } from './game/game';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
+import { findPlace } from './places';
 import { BAKED } from './geo/mapCache';
 import type { LngLat } from './geo/projection';
 
@@ -166,22 +167,16 @@ function parseLatLon(q: string): LngLat | null {
 async function search(q: string): Promise<void> {
   const typed = parseLatLon(q);
   if (typed) return go(typed);
+  if (busy) return;
   status.className = 'status';
   status.textContent = 'Searching…';
-  try {
-    const res = await fetch(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(q)}`);
-    const json = (await res.json()) as { features?: Array<{ geometry: { coordinates: [number, number] }; properties: { name?: string } }> };
-    const f = json.features?.[0];
-    if (!f) {
-      status.className = 'status error';
-      status.textContent = 'Nothing found by that name.';
-      return;
-    }
-    await go({ lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }, f.properties.name);
-  } catch {
+  const found = await findPlace(q);
+  if (found === 'none' || found === 'silent') {
     status.className = 'status error';
-    status.textContent = 'The search didn’t answer. Try a city button, or type lat, lon.';
+    status.textContent = found === 'none' ? 'Nothing found by that name. Check the spelling, or add the country.' : 'The place search isn’t answering right now. Try a city button, a big city by name, or type lat, lon.';
+    return;
   }
+  await go(found.at, found.name);
 }
 
 // ------------------------------------------------------------------ screen

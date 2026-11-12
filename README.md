@@ -94,4 +94,5 @@ kerb `#bdb7a8`; in the game, blue `#2bd4e0` is a package and red `#ff5a4d` is th
 
 Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL), vector tiles by
 [OpenFreeMap](https://openfreemap.org). Terrain: Mapzen Terrain Tiles on AWS Open Data. Place search:
-[Photon](https://photon.komoot.io) by komoot. Built on the Your Place 3D engine (MIT, see LICENSE).
+[Photon](https://photon.komoot.io) by komoot, with [Nominatim](https://nominatim.openstreetmap.org) as a fallback;
+sixty big cities are built in and need no search at all. Built on the Your Place 3D engine (MIT, see LICENSE).

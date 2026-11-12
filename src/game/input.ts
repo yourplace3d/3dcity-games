@@ -18,7 +18,7 @@ export interface Input {
 
 const KEYS: Record<string, string> = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  Space: 'handbrake', KeyE: 'action', KeyF: 'action', Enter: 'action', KeyR: 'reset',
+  Space: 'handbrake', KeyE: 'action', KeyF: 'action', Enter: 'action', KeyR: 'reset', KeyG: 'route',
 };
 
 export class Controls {
@@ -30,6 +30,7 @@ export class Controls {
   /** called once per press */
   onAction: () => void = () => undefined;
   onReset: () => void = () => undefined;
+  onRoute: () => void = () => undefined;
   enabled = false;
 
   constructor(pad: HTMLElement, private readonly knob: HTMLElement, actionBtn: HTMLElement, brakeBtn: HTMLElement) {
@@ -41,6 +42,7 @@ export class Controls {
       if (e.repeat) return;
       if (k === 'action') this.onAction();
       else if (k === 'reset') this.onReset();
+      else if (k === 'route') this.onRoute();
       else this.down.add(k);
     });
     addEventListener('keyup', (e) => {

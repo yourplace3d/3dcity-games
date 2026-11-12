@@ -15,7 +15,9 @@ the streets, buildings, water and hills come from the same map squares as
   four badges). More heat brings more police cars. Stay out of their sight and it cools off; stop next to
   one and you're caught and fined.
 - An arrow at the edge of the screen points to the drop-off (yellow), or to the nearest package (blue).
-  `game.showRoute = true` in the console also draws the way as a line on the road.
+- **The little map** in the corner shows the streets around you, north up, with the way to the next ring
+  drawn in, the rings, the subway entrances, and the police while they're after you. Press `G`, or tap the
+  map, to also draw the way as a line on the road; the game remembers the choice.
 - Cars dent: below a third they smoke and slow down, at zero they're wrecked. The water's edge stops you.
   The car you left has a white ring around it.
 - **Public transport, from the map.** Trams run on the real tram tracks and buses on the bigger streets, and
@@ -33,6 +35,7 @@ the streets, buildings, water and hills come from the same map squares as
 | In and out of cars | `E` | **In / out** |
 | Brake, reverse | `S` | **Brake** |
 | Handbrake | `Space` | |
+| Route line on the road | `G` | tap the little map |
 | Back onto the road when stuck | `R` | |
 
 ## Run it

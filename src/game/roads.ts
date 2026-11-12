@@ -276,7 +276,8 @@ export class RoadNet {
       let next = -1;
       let cost = 0;
       for (const [v, c] of this.adj[u]) {
-        if (f.dist[v] + c < f.dist[u] - 1e-3 && (next < 0 || f.dist[v] + c < f.dist[next] + cost)) {
+        // downhill in distance; among those, the neighbour the shortest way runs through
+        if (f.dist[v] < f.dist[u] - 1e-6 && (next < 0 || f.dist[v] + c < f.dist[next] + cost)) {
           next = v;
           cost = c;
         }

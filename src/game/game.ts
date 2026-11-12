@@ -25,6 +25,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
+import type { Pt } from '../geo/polygon';
 import type { LngLat } from '../geo/projection';
 import { Car, collideCars, type CarKind } from './cars';
 import type { Input } from './input';
@@ -146,6 +147,7 @@ export class Game {
   private copT = 0;
   private caughtT = 0;
   private routeT = 0;
+  private routePts: Pt[] | null = null;
   private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
   /** drive yourself (for filming and tests), how fast, and whether to brake for what's ahead */
   auto = false;
@@ -283,6 +285,7 @@ export class Game {
     for (const p of this.people) p.path = this.attach(p.x, p.y, p.th, 'walk');
     this.parkCars(this.pos());
     this.routeT = 0;
+    this.routePts = null;
   }
 
   private maybeLoadNext(): void {
@@ -1038,16 +1041,14 @@ export class Game {
   }
 
   private drawRoute(to: Marker | null, colour: string): void {
-    if (!this.showRoute) {
-      this.routeLine.visible = false;
-      return;
-    }
-    this.routeLine.material.color.set(colour);
     const f = to && this.fieldOf(to);
     const [px, py] = this.pos();
     const r = f ? this.world.roads.route(f, px, py, 600) : null;
-    this.routeLine.visible = !!r && r.pts.length > 1;
-    if (!r || r.pts.length < 2) return;
+    // the little map always shows the way; the line on the road is a choice
+    this.routePts = r && r.pts.length > 1 ? r.pts : null;
+    this.routeLine.visible = this.showRoute && !!this.routePts;
+    if (!this.routeLine.visible || !r) return;
+    this.routeLine.material.color.set(colour);
     const strip = new Strip();
     strip.add(r.pts, 1.7, 0.4, (x, y) => this.world.groundY(x, y));
     this.routeLine.geometry.dispose();
@@ -1293,6 +1294,20 @@ export class Game {
       s.mesh.material.opacity = Math.max(0, s.life) * 0.5;
       if (s.life <= 0) s.mesh.visible = false;
     }
+  }
+
+  /** What the little map draws: you, the rings, the way there, and the police while they're after you. */
+  mapView(): { x: number; y: number; th: number; pickups: Pt[]; drop: Pt | null; cops: Pt[]; route: Pt[] | null } {
+    const [x, y] = this.pos();
+    return {
+      x,
+      y,
+      th: this.car ? this.car.th : this.me.th,
+      pickups: this.job ? [] : this.pickups.map((m) => this.local(m)),
+      drop: this.job ? this.local(this.job.to) : null,
+      cops: this.heat > 0 ? this.cars.filter((c) => c.driver === 'cop' && !c.gone).map((c): Pt => [c.x, c.y]) : [],
+      route: this.routePts,
+    };
   }
 
   /** What the screen shows around the picture. */

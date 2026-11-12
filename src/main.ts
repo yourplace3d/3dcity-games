@@ -5,6 +5,7 @@
 
 import { Game, type Hud } from './game/game';
 import { Controls } from './game/input';
+import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
 import { BAKED } from './geo/mapCache';
 import type { LngLat } from './geo/projection';
@@ -32,6 +33,26 @@ addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e
 let game: Game | null = null;
 let playing = false;
 let busy = false;
+const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
+const ROUTE = 'drive-it-3d-route';
+
+/** The line on the road to the next ring: off unless the player turns it on, and remembered. */
+function routeLine(on?: boolean): boolean {
+  try {
+    if (on !== undefined) localStorage.setItem(ROUTE, on ? '1' : '0');
+    return localStorage.getItem(ROUTE) === '1';
+  } catch {
+    return !!on;
+  }
+}
+
+function toggleRoute(): void {
+  if (!game || !playing) return;
+  game.showRoute = !game.showRoute;
+  routeLine(game.showRoute);
+  toast(game.showRoute ? 'Route line on' : 'Route line off', 'info');
+}
+
 const controls = new Controls($('pad'), $('knob'), $('btn-action'), $('btn-brake'));
 
 function load(): { cash: number; delivered: number; at?: LngLat } {
@@ -96,6 +117,8 @@ async function go(at: LngLat, name?: string): Promise<void> {
       game.onSave = () => save();
       controls.onAction = () => game!.action();
       controls.onReset = () => game!.reset();
+      controls.onRoute = toggleRoute;
+      game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
     }
     await game.start(at);
@@ -232,6 +255,7 @@ function frame(now: number): void {
   if (!game?.world || !playing) return;
   game.update(dt, controls.read());
   paint(game.hud());
+  minimap.draw(game);
 }
 requestAnimationFrame(frame);
 document.addEventListener('visibilitychange', () => (before = 0));
@@ -289,6 +313,7 @@ $('btn-menu').addEventListener('click', () => {
   setScreen('start');
 });
 $('btn-resume').addEventListener('click', () => setScreen('play'));
+$('minimap').addEventListener('click', toggleRoute);
 $('btn-anyway').addEventListener('click', begin);
 addEventListener('pagehide', () => save());
 

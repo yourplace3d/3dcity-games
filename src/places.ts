@@ -24,7 +24,7 @@ const CITIES: Array<[number, number, ...string[]]> = [
 ];
 
 /** Lower case, no accents, letters and digits only: "São Paulo" and "sao-paulo" are the same place. */
-const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const KNOWN = new Map<string, { at: LngLat; name: string }>();
 for (const [lat, lon, ...names] of CITIES) for (const n of names) KNOWN.set(plain(n), { at: { lat, lon }, name: names[0] });

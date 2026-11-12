@@ -258,7 +258,7 @@ export class Game {
     const [hx, hy] = world.roads.heading(place);
     const car = this.addCar('sedan', cx, cy, Math.atan2(hy, hx));
     car.driver = 'none';
-    const [px, py] = world.roads.lanePoint(place, line.w / 2 + 3.4);
+    const [px, py] = this.standBeside(place);
     this.me.x = px;
     this.me.y = py;
     this.me.hp = 100;
@@ -834,7 +834,15 @@ export class Game {
     this.toRoad(0, 60);
   }
 
-  private toRoad(minD: number, maxD: number): void {
+  /** Where to stand next to a car parked at the kerb there: on the pavement, or in the road where a wall is in the way. */
+  private standBeside(p: PathState): [number, number] {
+    const w = this.world;
+    const half = w.roads.lines[p.line].w / 2;
+    const [x, y] = w.roads.lanePoint(p, half + 3.4);
+    return w.free(x, y, 0.5) ? [x, y] : w.roads.lanePoint(p, half - 1.4);
+  }
+
+  private toRoad(minD: number, maxD: number): PathState | null {
     const w = this.world;
     const [x, y] = this.pos();
     if (this.car) {
@@ -843,12 +851,13 @@ export class Game {
       this.car = null;
     }
     const p = (minD > 0 ? w.roads.randomPlace('drive', x, y, minD, maxD) : null) ?? this.attach(x, y, 0, 'drive') ?? w.roads.randomPlace('drive', x, y, 0, 3000);
-    if (!p) return;
+    if (!p) return null;
     const [nx, ny] = w.roads.lanePoint(p, w.roads.lines[p.line].w / 2 + 1.5);
     this.me.x = nx;
     this.me.y = ny;
     this.me.vx = 0;
     this.me.vy = 0;
+    return p;
   }
 
   private walk(input: Input, dt: number): void {
@@ -955,7 +964,16 @@ export class Game {
     this.frozen = 1.6;
     this.onFlash(cost > 0 ? `${title}  −$${cost}` : title);
     if (this.job) this.endJob(false);
-    this.toRoad(120, 320);
+    // start again as the game began: on foot, with a parked car to take right beside you
+    const p = this.toRoad(120, 320);
+    if (p) {
+      const w = this.world;
+      const half = w.roads.lines[p.line].w / 2;
+      const [cx, cy] = w.roads.lanePoint(p, half + 1);
+      const [hx, hy] = w.roads.heading(p);
+      this.addCar('sedan', cx, cy, Math.atan2(hy, hx)).driver = 'none';
+      [this.me.x, this.me.y] = this.standBeside(p);
+    }
     this.onSave();
   }
 

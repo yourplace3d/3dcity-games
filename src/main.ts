@@ -208,6 +208,8 @@ const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = 
 let step = -1;
 /** seconds the last step has been up */
 let lastFor = 0;
+/** seconds with no package anywhere to point at */
+let noTarget = 0;
 
 function endTour(): void {
   step = -1;
@@ -230,13 +232,22 @@ function tour(h: Hud, dt: number): void {
     step++;
   }
   const last = step === TOUR.length - 1;
+  // a place with hardly a street to drive on has no deliveries: say so and stop
+  noTarget = step === 1 && !h.target && !h.job ? noTarget + dt : 0;
+  if (noTarget > 12) {
+    toast('No deliveries around here: too few streets. Try another place from the menu.', 'info');
+    return endTour();
+  }
   if (last) {
     lastFor += dt;
     if (lastFor > 14) return endTour();
   }
   $('coach').hidden = false;
   put('coach-n', `${step + 1} of ${TOUR.length}`);
-  put('coach-text', document.body.classList.contains('touch') ? TOUR[step].touch : TOUR[step].keys);
+  const touch = document.body.classList.contains('touch');
+  // out of the car in the middle of it all: the next thing is to get back into one
+  const onFoot = h.carHp === null && step > 0 && !last;
+  put('coach-text', onFoot ? (touch ? 'You are on foot. Walk up to a car and tap <b>In / out</b>. A parked one is free to take.' : 'You are on foot. Walk up to a car and press <kbd>E</kbd>. A parked one is free to take.') : touch ? TOUR[step].touch : TOUR[step].keys);
   put('coach-skip', last ? 'Got it' : 'Skip the tour');
 }
 $('coach-skip').addEventListener('click', endTour);

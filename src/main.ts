@@ -166,10 +166,80 @@ async function go(at: LngLat, name?: string): Promise<void> {
 function begin(): void {
   $('thin').hidden = true;
   setScreen('play');
-  {
-    toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
+  if (coached()) toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
+  else if (step < 0) step = 0;
+}
+
+// ------------------------------------------------------------------ first-time tour
+
+const COACHED = '3da-coached';
+function coached(): boolean {
+  try {
+    return localStorage.getItem(COACHED) === '1';
+  } catch {
+    return true;
   }
 }
+
+/** The tour's steps: what to say (keys, touch) and what the player must have done to move on. */
+const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = [
+  {
+    keys: 'You walk with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys. Step up to the car beside you and press <kbd>E</kbd> to get in.',
+    touch: 'Drag anywhere on the left half of the screen to walk. Step up to the car beside you and tap <b>In / out</b>.',
+    done: (h) => h.carHp !== null,
+  },
+  {
+    keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
+    touch: 'Drag to steer and drive, <b>Brake</b> to stop. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
+    done: (h) => h.job !== null,
+  },
+  {
+    keys: 'Now take it to the <b class="y">yellow ring</b> before the clock at the top runs out. Time left over pays a bonus. <kbd>G</kbd> draws the way on the road.',
+    touch: 'Now take it to the <b class="y">yellow ring</b> before the clock at the top runs out. Time left over pays a bonus. Tap the little map to draw the way on the road.',
+    done: (h) => h.job === null,
+  },
+  {
+    keys: 'Five deliveries make a run for the scoreboard. Mind the police: knocking people over, ramming and taking cars light up the badges and bring patrol cars. Stay out of their sight to cool off; stop next to one and you pay a fine.',
+    touch: 'Five deliveries make a run for the scoreboard. Mind the police: knocking people over, ramming and taking cars light up the badges and bring patrol cars. Stay out of their sight to cool off; stop next to one and you pay a fine.',
+    done: () => false,
+  },
+];
+/** which step of the tour is showing; -1: none */
+let step = -1;
+/** seconds the last step has been up */
+let lastFor = 0;
+
+function endTour(): void {
+  step = -1;
+  $('coach').hidden = true;
+  try {
+    localStorage.setItem(COACHED, '1');
+  } catch {
+    /* it will show again next time */
+  }
+}
+
+function tour(h: Hud, dt: number): void {
+  if (step < 0) return;
+  while (step < TOUR.length - 1 && TOUR[step].done(h)) {
+    // the package ran out of time: back to fetching one
+    if (step === 2 && h.run?.n === 1) {
+      step = 1;
+      break;
+    }
+    step++;
+  }
+  const last = step === TOUR.length - 1;
+  if (last) {
+    lastFor += dt;
+    if (lastFor > 14) return endTour();
+  }
+  $('coach').hidden = false;
+  put('coach-n', `${step + 1} of ${TOUR.length}`);
+  put('coach-text', document.body.classList.contains('touch') ? TOUR[step].touch : TOUR[step].keys);
+  put('coach-skip', last ? 'Got it' : 'Skip the tour');
+}
+$('coach-skip').addEventListener('click', endTour);
 
 /** "52.5, 13.4" typed straight in. */
 function parseLatLon(q: string): LngLat | null {
@@ -343,7 +413,9 @@ function frame(now: number): void {
   before = now;
   if (!game?.world || !playing) return;
   game.update(dt, controls.read());
-  paint(game.hud());
+  const h = game.hud();
+  paint(h);
+  tour(h, dt);
   minimap.draw(game);
 }
 requestAnimationFrame(frame);

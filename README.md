@@ -6,6 +6,8 @@ the streets, buildings, water and hills come from the same map squares as
 
 ## How it plays
 
+- The first time you play, a short tour walks you through it: get in, pick up, deliver, and what the
+  police are about. It moves on as you do each thing, and can be skipped.
 - You start on foot beside a parked car. Walk up to any car and get in: parked ones are free, taking one
   with a driver in it is an offence.
 - **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred

@@ -170,3 +170,14 @@ body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto
 #board li b { grid-column: 3; grid-row: 1 / span 2; align-self: center; font-variant-numeric: tabular-nums; }
 #board li.mine { background: rgba(255, 212, 0, 0.12); outline: 1px solid rgba(255, 212, 0, 0.5); }
 #board li.mine b { color: var(--yellow); }
+
+/* the first-time tour */
+#coach { left: 50%; transform: translateX(-50%); bottom: calc(78px + env(safe-area-inset-bottom)); width: min(460px, calc(100vw - 24px)); padding: 10px 14px 12px; border-color: rgba(43, 212, 224, 0.55); display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center; }
+#coach small { color: var(--cyan); font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+#coach p { grid-column: 1 / -1; margin: 2px 0 4px; line-height: 1.4; font-size: 15px; font-weight: 500; }
+#coach b.c { color: var(--cyan); }
+#coach b.y { color: var(--yellow); }
+#coach kbd { display: inline-block; min-width: 1.5em; padding: 1px 5px; margin-right: 3px; border-radius: 5px; background: #f4f1ea; color: #1c1f24; font: 700 12px/1.5 ui-monospace, monospace; text-align: center; }
+#coach button { grid-row: 1; grid-column: 2; pointer-events: auto; background: none; border: 0; padding: 4px 0; color: var(--dim); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+body.touch #coach { left: calc(12px + env(safe-area-inset-left)); transform: none; width: min(460px, calc(100vw - 150px)); }
+body.touch #coach p { font-size: 14px; }

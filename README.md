@@ -85,7 +85,7 @@ stand over a street (gateways, passages) aren't walls.
 - `tools/selfdrive-test.mjs`: the game drives itself for eight game-minutes per place and reports deliveries
   and mishaps. A quick check after changes to roads, traffic or collisions.
 - `tools/film.mjs`: films a scene frame by frame at 1080p for trailers.
-- `tools/intro.mjs`, `tools/intro-titles.mjs`, `tools/intro-cut.py`: the "guess the city" intro. Films the tutorial steps in one place and the rise over the city, renders the titles in the brand look, and cuts both into a video with titles and a clean one.
+- `tools/intro.mjs`, `tools/intro-still.mjs`, `tools/intro-cut.mjs`: the "guess the city" intro. The first films the tutorial steps in one place and the rise over the city, the second takes the square picture of the city from above, the third cuts both in the trailer's look (neon opener, pixel titles, the city as a tilted slab). The pixel font (Press Start 2P, OFL) is passed in as a file.
 
 Both need Playwright (`npm i -D playwright && npx playwright install chromium`) and a preview server
 (`npm run build && npx vite preview --port 4173`). `HANDOFF.md` has the project's state and history.

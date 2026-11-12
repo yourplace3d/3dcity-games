@@ -29,6 +29,17 @@ const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCa
 const KNOWN = new Map<string, { at: LngLat; name: string }>();
 for (const [lat, lon, ...names] of CITIES) for (const n of names) KNOWN.set(plain(n), { at: { lat, lon }, name: names[0] });
 
+/** The well-known city a spot lies in or right beside, if any: a name for it where none was given. */
+export function nearCity(at: LngLat): string | null {
+  let best: string | null = null;
+  let bestKm = 15;
+  for (const [lat, lon, name] of CITIES) {
+    const km = Math.hypot((lat - at.lat) * 111, (lon - at.lon) * 111 * Math.cos((at.lat * Math.PI) / 180));
+    if (km < bestKm) [best, bestKm] = [name, km];
+  }
+  return best;
+}
+
 export interface Found {
   at: LngLat;
   name?: string;

@@ -9,7 +9,9 @@ import { PALETTE } from '../scene/overlay';
 import type { RoadLine, RoadNet } from './roads';
 
 /** Ribbons bend with the ground at least this often (m). */
-const STEP_M = 9;
+const STEP_M = 5;
+/** Wide ribbons bend across their width too, in pieces no wider than this (m). */
+const ACROSS_M = 5;
 
 export class Strip {
   private readonly pos: number[] = [];
@@ -25,6 +27,7 @@ export class Strip {
       for (let k = 1; k <= n; k++) p.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
     }
     const hw = width / 2;
+    const cols = Math.max(1, Math.ceil(width / ACROSS_M));
     const base = this.pos.length / 3;
     for (let i = 0; i < p.length; i++) {
       const a = p[Math.max(0, i - 1)];
@@ -56,14 +59,18 @@ export class Strip {
         ny /= l;
       }
       const m = Math.min(1.8, 1 / Math.max(0.2, nx * n0x + ny * n0y));
-      for (const s of [1, -1]) {
+      for (let k = 0; k <= cols; k++) {
+        const s = 1 - (2 * k) / cols;
         const x = c[0] + nx * hw * m * s;
         const y = c[1] + ny * hw * m * s;
         this.pos.push(x, groundY(x, y) + lift, -y);
       }
       if (i > 0) {
-        const v = base + i * 2;
-        this.idx.push(v - 2, v - 1, v, v - 1, v + 1, v);
+        const row = cols + 1;
+        for (let k = 0; k < cols; k++) {
+          const v = base + i * row + k;
+          this.idx.push(v - row, v - row + 1, v, v - row + 1, v + 1, v);
+        }
       }
     }
   }
@@ -76,7 +83,8 @@ export class Strip {
     return geo;
   }
 
-  mesh(colour: string, offset: number): Mesh<BufferGeometry, MeshStandardMaterial> {
+  /** `layer`: ribbons with a higher number are drawn over those with a lower one. */
+  mesh(colour: string, layer: number): Mesh<BufferGeometry, MeshStandardMaterial> {
     const geo = new BufferGeometry();
     geo.setAttribute('position', new BufferAttribute(Float32Array.from(this.pos), 3));
     geo.setIndex(new BufferAttribute(Uint32Array.from(this.idx), 1));
@@ -84,8 +92,11 @@ export class Strip {
     // every ribbon faces up, whichever way its line runs
     const normals = geo.getAttribute('normal');
     for (let i = 0; i < normals.count; i++) if (normals.getY(i) < 0) normals.setXYZ(i, -normals.getX(i), -normals.getY(i), -normals.getZ(i));
-    const mat = new MeshStandardMaterial({ color: colour, roughness: 0.95, metalness: 0, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: offset, polygonOffsetUnits: offset });
+    const mat = new MeshStandardMaterial({ color: colour, roughness: 0.95, metalness: 0, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, depthWrite: false });
     const mesh = new Mesh(geo, mat);
+    // ribbons don't hide one another by height: where streets cross on a slope the kerb of one
+    // would cut through the surface of the other. They are drawn in a fixed order instead.
+    mesh.renderOrder = layer;
     mesh.receiveShadow = true;
     return mesh;
   }
@@ -124,7 +135,7 @@ export function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) =>
     if (l.traffic && l.w >= 7.5) for (const d of dashes(l, 3, 6)) paint.add(d, 0.28, 0.17, groundY);
   }
   const g = new Group();
-  g.add(path.mesh(PALETTE.path, -1), kerb.mesh(PALETTE.roadCasing, -2), fill.mesh(PALETTE.roadFill, -3), paint.mesh('#e9e6dc', -4), rails.mesh('#7d8490', -5));
+  g.add(path.mesh(PALETTE.path, 1), kerb.mesh(PALETTE.roadCasing, 2), fill.mesh(PALETTE.roadFill, 3), paint.mesh('#e9e6dc', 4), rails.mesh('#7d8490', 5));
   return g;
 }
 

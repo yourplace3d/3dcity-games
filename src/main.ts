@@ -7,7 +7,8 @@ import { Game, type Hud } from './game/game';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
-import { findPlace } from './places';
+import { findPlace, nearCity } from './places';
+import { addScore, lastName, nameScore, scores, type Score } from './scores';
 import { BAKED } from './geo/mapCache';
 import type { LngLat } from './geo/projection';
 
@@ -34,6 +35,8 @@ addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e
 let game: Game | null = null;
 let playing = false;
 let busy = false;
+/** what to call the place being played on the scoreboard */
+let placeName = '';
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const ROUTE = 'drive-it-3d-route';
 
@@ -124,6 +127,8 @@ async function go(at: LngLat, name?: string): Promise<void> {
       game.onRide = (t) => flash(t, true);
       game.onSquare = (s) => ($('next').hidden = s !== 'loading');
       game.onSave = () => save();
+      // let the last delivery's message be read before the result covers it
+      game.onRunEnd = (score, seconds) => setTimeout(() => runEnded(score, seconds), 1400);
       controls.onAction = () => game!.action();
       controls.onReset = () => game!.reset();
       controls.onRoute = toggleRoute;
@@ -131,6 +136,8 @@ async function go(at: LngLat, name?: string): Promise<void> {
       (window as unknown as { game: Game }).game = game;
     }
     await game.start(at);
+    game.newRun();
+    placeName = name ?? nearCity(at) ?? `${at.lat.toFixed(2)}, ${at.lon.toFixed(2)}`;
     save(at);
     if (!BAKED) history.replaceState(null, '', `#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
     $('btn-menu').blur();
@@ -190,6 +197,80 @@ async function search(q: string): Promise<void> {
   await go(found.at, found.name);
 }
 
+// ------------------------------------------------------------------ scoreboard
+
+/** the run that has just ended, while its result is on screen */
+let fresh: Score | null = null;
+
+function drawBoard(): void {
+  const list = scores().slice(0, 10);
+  const board = $('board');
+  board.replaceChildren();
+  $('board-empty').hidden = list.length > 0;
+  for (const s of list) {
+    const li = document.createElement('li');
+    if (fresh && s.at === fresh.at) li.className = 'mine';
+    const who = document.createElement('span');
+    who.textContent = s.name || 'No name';
+    if (!s.name) who.className = 'anon';
+    const where = document.createElement('small');
+    where.textContent = `${s.place} · ${fmtTime(s.seconds)}`;
+    const what = document.createElement('b');
+    what.textContent = fmtMoney(s.score);
+    li.append(who, where, what);
+    board.append(li);
+  }
+}
+
+/** Show the scoreboard over whatever is on screen; with a run that has just ended, its result too. */
+function showBoard(run: Score | null): void {
+  fresh = run;
+  $('result-title').textContent = run ? 'Run complete' : 'Scoreboard';
+  $('result-run').hidden = !run;
+  if (run) {
+    $('result-score').textContent = fmtMoney(run.score);
+    $('result-line').textContent = `Five deliveries in ${fmtTime(run.seconds)} · ${run.place}`;
+    $('result-form').hidden = false;
+    $<HTMLInputElement>('result-name').value = lastName();
+  }
+  $('btn-newrun').hidden = !game?.world;
+  $('btn-close').textContent = document.body.dataset.screen === 'play' ? 'Keep driving' : 'Close';
+  drawBoard();
+  $('result').hidden = false;
+  playing = false;
+  controls.enabled = false;
+}
+
+function closeBoard(): void {
+  $('result').hidden = true;
+  fresh = null;
+  setScreen(document.body.dataset.screen === 'play' ? 'play' : 'start');
+}
+
+function runEnded(score: number, seconds: number): void {
+  const run: Score = { name: '', score, seconds, place: placeName, at: Date.now() };
+  addScore(run);
+  showBoard(run);
+}
+
+$<HTMLFormElement>('result-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $<HTMLInputElement>('result-name').value.trim().slice(0, 16);
+  if (!fresh || !name) return;
+  nameScore(fresh.at, name);
+  $('result-form').hidden = true;
+  drawBoard();
+});
+$('btn-newrun').addEventListener('click', () => {
+  game?.newRun();
+  $('result').hidden = true;
+  fresh = null;
+  setScreen('play');
+  toast('New run: five deliveries', 'info');
+});
+$('btn-close').addEventListener('click', closeBoard);
+$('btn-scores').addEventListener('click', () => showBoard(null));
+
 // ------------------------------------------------------------------ screen
 
 const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -216,10 +297,12 @@ function paint(h: Hud): void {
   }
   $('speed').hidden = h.carHp === null;
   if (h.carHp !== null) put('speed', `${Math.round(h.kmh)}<small>km/h</small>`);
+  $('run').hidden = !h.run;
+  if (h.run) put('run', `Run ${Math.min(h.run.n, h.run.of)}/${h.run.of} · ${fmtMoney(h.run.score)}`);
   $('job').hidden = !h.job;
   if (h.job) {
     $('job').classList.toggle('late', h.job.left < 10);
-    put('job', `Deliver · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+    put('job', `${h.run ? `Delivery ${h.run.n}/${h.run.of}` : 'Deliver'} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
   }
   $('hint').hidden = !h.hint;
   if (h.hint) put('hint', `<kbd>E</kbd>${h.hint}`);

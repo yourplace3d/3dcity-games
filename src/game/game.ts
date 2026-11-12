@@ -84,7 +84,20 @@ export interface Hud {
   /** where the arrow points: the drop-off, or the nearest job */
   target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' } | null;
   delivered: number;
+  /** the run of deliveries being scored: which one is next, and the score so far */
+  run: { n: number; of: number; score: number } | null;
 }
+
+/** A run is this many deliveries; each asks a little more than the one before. */
+export const RUN_JOBS = 5;
+/** Per delivery of a run: how far the drop-off is (m, from, to) and the speed the clock assumes (m/s). */
+const RUN_STEPS: Array<[number, number, number]> = [
+  [250, 550, 7],
+  [350, 700, 7.5],
+  [450, 850, 8],
+  [550, 1000, 8.5],
+  [650, 1200, 9],
+];
 
 const SHIRTS = ['#d9534f', '#3f7fbf', '#e8c547', '#5aa469', '#8e6bbf', '#e07b39', '#f2f2f2', '#3a3f47', '#4fb3bf', '#d87ca8'];
 const personBody = new CylinderGeometry(0.3, 0.26, 1.15, 10);
@@ -171,6 +184,15 @@ export class Game {
   onRide: (text: string) => void = () => undefined;
   onSquare: (state: 'loading' | 'ready') => void = () => undefined;
   onSave: () => void = () => undefined;
+  /** The last delivery of a run is in: what it scored and how long it took (s). */
+  onRunEnd: (score: number, seconds: number) => void = () => undefined;
+  /** The run being scored: deliveries done, what they earned less fines, and the time played. */
+  run = { done: 0, score: 0, seconds: 0, over: false };
+
+  /** Start counting a new run of deliveries. */
+  newRun(): void {
+    this.run = { done: 0, score: 0, seconds: 0, over: false };
+  }
 
   constructor(readonly canvas: HTMLCanvasElement, private readonly small: boolean) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -926,6 +948,7 @@ export class Game {
   private fine(title: string, share: number): void {
     const cost = Math.min(this.cash, Math.max(50, Math.round((this.cash * share) / 10) * 10));
     this.cash -= cost;
+    if (!this.run.over) this.run.score = Math.max(0, this.run.score - cost);
     this.heat = 0;
     this.caughtT = 0;
     this.me.hp = 100;
@@ -962,9 +985,18 @@ export class Game {
         const bonus = Math.round((j.left * 2) / 10) * 10;
         this.cash += j.pay + bonus;
         this.delivered++;
-        this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
+        const r = this.run;
+        if (!r.over) {
+          r.done++;
+          r.score += j.pay + bonus;
+          this.onToast(`Delivery ${r.done} of ${RUN_JOBS}  +$${j.pay + bonus}`, 'good');
+        } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
         this.endJob(true);
         this.onSave();
+        if (!r.over && r.done >= RUN_JOBS) {
+          r.over = true;
+          this.onRunEnd(r.score, r.seconds);
+        }
       } else if (j.left <= 0) {
         this.onToast('Too late: the job is gone', 'bad');
         this.endJob(false);
@@ -977,10 +1009,11 @@ export class Game {
       const d = Math.hypot(x - px, y - py);
       if (d < 6.5) {
         // a drop-off on a real street that the roads actually lead to
+        const [near, far, pace] = RUN_STEPS[this.run.over ? 2 : Math.min(this.run.done, RUN_STEPS.length - 1)];
         let marker: Marker | null = null;
         let metres = 0;
         for (let k = 0; k < 10 && !marker; k++) {
-          const to = w.roads.randomPlace('traffic', px, py, k < 6 ? 380 : 150, k < 6 ? 950 : 3000);
+          const to = w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
           if (!to) continue;
           const cand = this.newMarker('#ffd400', to);
           const f = this.fieldOf(cand);
@@ -991,7 +1024,7 @@ export class Game {
           } else this.scene.remove(cand.mesh);
         }
         if (!marker) continue;
-        this.job = { to: marker, metres, left: 25 + metres / 7, pay: Math.max(50, Math.round((metres * (0.5 + this.delivered * 0.03)) / 10) * 10) };
+        this.job = { to: marker, metres, left: 25 + metres / pace, pay: Math.max(50, Math.round((metres * (0.5 + this.delivered * 0.03)) / 10) * 10) };
         this.routeT = 0;
         for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
         this.onToast('Package on board: get it to the yellow ring', 'info');
@@ -1207,6 +1240,7 @@ export class Game {
     }
     if (live) {
       this.law(dt);
+      if (!this.run.over) this.run.seconds += dt;
       this.jobs(dt);
       // a line on the road to the drop-off, or to the nearest package
       this.routeT -= dt;
@@ -1345,6 +1379,7 @@ export class Game {
       hint,
       target,
       delivered: this.delivered,
+      run: this.run.over ? null : { n: this.run.done + 1, of: RUN_JOBS, score: this.run.score },
     };
   }
 }

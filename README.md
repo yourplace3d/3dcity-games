@@ -11,6 +11,9 @@ the streets, buildings, water and hills come from the same map squares as
 - **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
+- **Five deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
+  the one before. What the five earn, less any fines, is the score; it goes on a scoreboard, with your
+  name if you care to write one. The board is kept in the browser, so it is the board of one device.
 - **Heat.** Knocking people over, taking someone's car and ramming traffic or the police raise it (up to
   four badges). More heat brings more police cars. Stay out of their sight and it cools off; stop next to
   one and you're caught and fined.

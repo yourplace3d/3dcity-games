@@ -80,7 +80,7 @@ button { font: inherit; cursor: pointer; }
 .card button:disabled { opacity: 0.5; cursor: default; }
 .places { display: flex; flex-wrap: wrap; gap: 6px; }
 .places button { padding: 7px 11px; font-size: 14px; }
-#btn-resume { margin-top: 10px; width: 100%; }
+#btn-resume { flex: 1; }
 .status { min-height: 1.4em; color: var(--dim); font-size: 14px; }
 .status.error { color: var(--red); }
 .keys { margin: 8px 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 14px; color: var(--dim); }
@@ -151,3 +151,22 @@ body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto
 @keyframes road { to { background-position: -60px 50%; } }
 @media (prefers-reduced-motion: reduce) { #busy i { animation: none; } }
 .status.error { background: rgba(255, 90, 77, 0.12); border: 1px solid rgba(255, 90, 77, 0.5); border-radius: 10px; padding: 9px 12px; font-size: 15px; font-weight: 600; }
+
+/* the run and the scoreboard */
+#run { color: var(--dim); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+#result { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(12, 14, 17, 0.72); overflow: auto; -webkit-user-select: text; user-select: text; touch-action: auto; }
+#result .card { width: min(440px, 100%); }
+#result h2 { margin: 0 0 6px; font-size: 24px; }
+#result .score { margin: 4px 0 0; font-size: 46px; font-weight: 800; color: var(--yellow); line-height: 1.05; font-variant-numeric: tabular-nums; }
+#result-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+#result-form input { flex: 1 1 190px; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: #181b20; color: var(--ink); font: inherit; font-size: 16px; }
+#board { list-style: none; counter-reset: rank; margin: 14px 0 6px; padding: 0; display: grid; gap: 2px; }
+#board li { counter-increment: rank; display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 8px; }
+#board li::before { content: counter(rank); grid-row: 1 / span 2; color: var(--dim); font-weight: 700; font-variant-numeric: tabular-nums; }
+#board li span { grid-column: 2; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#board li span.anon { color: var(--dim); font-weight: 500; }
+#board li small { grid-column: 2; color: var(--dim); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#board li b { grid-column: 3; grid-row: 1 / span 2; align-self: center; font-variant-numeric: tabular-nums; }
+#board li.mine { background: rgba(255, 212, 0, 0.12); outline: 1px solid rgba(255, 212, 0, 0.5); }
+#board li.mine b { color: var(--yellow); }

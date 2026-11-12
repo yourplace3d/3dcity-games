@@ -53,6 +53,13 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   borough, you might take the subway." Not started. One caution raised with the owner and left for them to
   decide: tie wealth data to prices, cars and pay, and keep police behaviour the same everywhere, so the game
   makes no statement about real neighbourhoods.
+- **A run is five deliveries, with a scoreboard** (`RUN_JOBS` and `RUN_STEPS` in `game.ts`, `src/scores.ts`).
+  The owner asked for simple missions because cities differ, and a board "where one can write their name
+  if they want to". The board is kept in the browser only. A board shared between players needs a
+  server; that was put to the owner and not yet decided.
+- **Streets are drawn in a fixed order, not by height** (`roadMesh.ts`). Before, where streets crossed on a
+  slope, the pale kerb of one cut through the dark surface of the other ("shards"), seen by the owner in
+  Ottawa and clear in Hong Kong.
 - **Keep it its own thing.** The name nods at a famous game; the look, the mark and the wording must not
   imitate that game or any other. No references to it in the product or its publicity.
 

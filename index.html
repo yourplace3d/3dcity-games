@@ -26,6 +26,7 @@
         <span id="heat" aria-label="Police heat"><i></i><i></i><i></i><i></i></span>
         <span class="bar" title="You"><i id="health"></i></span>
         <span class="bar car" id="carbar" title="Car" hidden><i id="carhp"></i></span>
+        <small id="run" hidden></small>
       </div>
       <div class="panel job" id="job" hidden></div>
       <div class="panel speed" id="speed" hidden></div>
@@ -50,7 +51,7 @@
       <div class="card">
         <h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 368 160" class="wordmark" role="img" aria-label="3DA"><g transform="translate(20,20) scale(1)" fill="none" stroke="#f4f1ea" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"><path d="M14,18 H52 a21,21 0 0 1 0,42 H34"/><path d="M52,60 a21,21 0 0 1 0,42 H14"/></g><g transform="translate(134,20) scale(1)" fill="none" stroke="#f4f1ea" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"><path d="M18,18 V102 H44 a42,42 0 0 0 0,-84 Z"/></g><polygon points="288.0,26.0 308.0,26.0 348.0,134.0 248.0,134.0" fill="#ffd400"/><polygon points="292.5,33.0 303.5,33.0 334.0,134.0 262.0,134.0" fill="#565b63"/><polygon points="297.2,42.0 298.8,42.0 299.1,51.0 296.9,51.0" fill="#f4f1ea"/><polygon points="296.6,61.0 299.4,61.0 299.9,75.0 296.1,75.0" fill="#f4f1ea"/><polygon points="295.7,87.0 300.3,87.0 301.0,107.0 295.0,107.0" fill="#f4f1ea"/><polygon points="294.5,120.0 301.5,120.0 302.0,134.0 294.0,134.0" fill="#f4f1ea"/></svg></h1>
         <p class="tag">Drive any city.</p>
-        <p>The real streets and buildings of any place on Earth, seen from above. Walk up to a car and take it, run deliveries against the clock for cash, and shake off the police when you've been careless.</p>
+        <p>The real streets and buildings of any place on Earth, seen from above. Walk up to a car and take it, run deliveries against the clock for cash (five make a run for the scoreboard), and shake off the police when you've been careless.</p>
         <form id="search">
           <input id="q" type="search" placeholder="City, street or lat, lon" autocomplete="off" enterkeyhint="go" />
           <button class="primary">Go</button>
@@ -63,7 +64,7 @@
           <p>New map material shows up in the game after some days. Or play one of the recommended cities above.</p>
           <button id="btn-anyway">Play here anyway</button>
         </div>
-        <button id="btn-resume" hidden>Back to the game</button>
+        <div class="row"><button id="btn-resume" hidden>Back to the game</button><button id="btn-scores">Scoreboard</button></div>
         <p class="status" id="status" role="status" aria-live="polite"></p>
         <div id="busy" hidden><b id="busy-text">Searching</b><i aria-hidden="true"></i></div>
         <dl class="keys">
@@ -77,6 +78,26 @@
           <dd><span class="dot sub"></span> subway entrance: walk in to ride towards your target · buses stop at <span class="dot bus"></span>, trams at <span class="dot tram"></span></dd>
         </dl>
         <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Stops and stations from OpenStreetMap. Search by Photon (komoot) and Nominatim. Built on the Your Place 3D engine.</p>
+      </div>
+    </section>
+    <section id="result" hidden>
+      <div class="card">
+        <h2 id="result-title">Scoreboard</h2>
+        <div id="result-run" hidden>
+          <p class="score" id="result-score"></p>
+          <p class="small" id="result-line"></p>
+          <form id="result-form">
+            <input id="result-name" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off" enterkeyhint="done" />
+            <button class="primary">Put it on the board</button>
+          </form>
+        </div>
+        <ol id="board"></ol>
+        <p class="small" id="board-empty" hidden>No runs yet. Five deliveries make a run; what they earn, less any fines, is the score.</p>
+        <div class="row">
+          <button class="primary" id="btn-newrun">New run</button>
+          <button id="btn-close">Keep driving</button>
+        </div>
+        <p class="small">Scores are kept on this device.</p>
       </div>
     </section>
     <script type="module" src="/src/main.ts"></script>

@@ -1,5 +1,5 @@
 // Films a scene frame by frame at 1080p: the game is stepped 1/30 s per frame, so the video is smooth however slow the renderer.
-// Usage: node tools/film.mjs <delivery|chase|cruise> <lat,lon> <outDir> [caption]   (NOCAP=1 for no captions)
+// Usage: node tools/film.mjs <delivery|chase|cruise> <lat,lon> <outDir> [caption]   (NOCAP=1 for no captions, VIEW=540x960 SCALE=2 for 1080x1920 portrait with a phone-sized display)
 // Then: ffmpeg -framerate 30 -i outDir/%05d.jpg -c:v libx264 -crf 16 -pix_fmt yuv420p clip.mp4
 // Films one scene frame by frame: the game is stepped 1/30 s per frame, so the video is smooth however slow the renderer.
 import { createRequire } from 'node:module';
@@ -10,7 +10,7 @@ const BASE = process.env.BASE ?? 'http://127.0.0.1:4173/';
 const [scene, place, outDir, caption = ''] = process.argv.slice(2);
 mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({ ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {}), args: process.env.SOFTWARE_GL ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] });
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width: Number((process.env.VIEW ?? '1920x1080').split('x')[0]), height: Number((process.env.VIEW ?? '1920x1080').split('x')[1]) }, deviceScaleFactor: Number(process.env.SCALE ?? 1) });
 page.on('pageerror', (e) => console.log('pageerror: ' + e.message));
 await page.goto(BASE + '#' + place);
 await page.waitForFunction(() => window.game?.world && document.body.dataset.screen === 'play', null, { timeout: 90000 });

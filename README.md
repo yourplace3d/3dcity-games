@@ -2,7 +2,7 @@
 
 **Drive any city.** (Working title was *Drive it 3D*.) A small top-down driving game on the real 3D map of any place on Earth:
 the streets, buildings, water and hills come from the same map squares as
-[Your Place](https://github.com/yourplace3d/3d-city) and [Walk it 3D](https://github.com/yourplace3d/3d-walking-app).
+[Your Place](https://github.com/yourplace3d/3d-city).
 
 ## How it plays
 

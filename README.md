@@ -17,6 +17,12 @@ the streets, buildings, water and hills come from the same map squares as
 - A line on the road shows the way to the drop-off (yellow), or to the nearest package (blue).
 - Cars dent: below a third they smoke and slow down, at zero they're wrecked. The water's edge stops you.
   The car you left has a white ring around it.
+- **Public transport, from the map.** Trams run on the real tram tracks and buses on the bigger streets, and
+  both wait at the real stops (red and yellow dots). You can take a bus; trams stay on their rails. A blue disc is
+  a subway entrance: walk in on foot and you come up at the station nearest to where you're headed.
+- Where the map says so, traffic keeps left (Britain, Japan, Australia, India, parts of Africa: rough boxes).
+- **Thin places.** Where OpenStreetMap has few buildings or streets, the start screen says so, links to the
+  place on OpenStreetMap and to how to add to it, and lets you play anyway.
 - The map loads one 1.5 km square at a time on a fixed grid, and the next square loads as you near the
   edge, so you can keep driving.
 
@@ -36,7 +42,7 @@ npm run dev        # http://localhost:5173
 npm run build      # static site in dist/ (relative paths, host it anywhere)
 ```
 
-Add a place to the link to start there: `#52.5163,13.3777`.
+Add a place to the link to start there: `#52.5163,13.3777`, or a name: `#Hamburg`, `#Freiburg_im_Breisgau`.
 
 **Publishing.** `.github/workflows/pages.yml` builds the game and publishes `dist/` to GitHub Pages, but only
 when run by hand from the Actions tab: the game is not public yet. One-time setup: **Settings → Pages → Build
@@ -59,7 +65,8 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
   (MIT). Changed here: the tile cache's name only.
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
-Traffic drives on the right everywhere, and there are no traffic lights or one-way streets. Buildings that
+There are no traffic lights or one-way streets, and bus and tram lines are not the real routes: vehicles follow
+the streets and tracks and mostly carry straight on. Buildings that
 stand over a street (gateways, passages) aren't walls.
 
 `game.auto = true` in the browser console makes the game drive the jobs itself: for tests and for filming.

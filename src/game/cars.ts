@@ -7,7 +7,7 @@ import { BoxGeometry, Group, Mesh, MeshStandardMaterial } from 'three';
 import type { PathState } from './roads';
 import type { World } from './world';
 
-export type CarKind = 'sedan' | 'sport' | 'van' | 'police';
+export type CarKind = 'sedan' | 'sport' | 'van' | 'police' | 'bus' | 'tram';
 export type Driver = 'none' | 'ai' | 'cop' | 'player';
 
 interface Spec {
@@ -23,6 +23,8 @@ export const SPECS: Record<CarKind, Spec> = {
   sport: { len: 4.4, wid: 1.85, body: 0.6, top: 38, acc: 12 },
   van: { len: 5.3, wid: 2.05, body: 1.35, top: 22, acc: 6 },
   police: { len: 4.5, wid: 1.85, body: 0.75, top: 35, acc: 11 },
+  bus: { len: 11, wid: 2.5, body: 2.3, top: 16, acc: 4 },
+  tram: { len: 19, wid: 2.4, body: 2.5, top: 14, acc: 3.5 },
 };
 
 const PAINT = ['#c8362e', '#2f6fb5', '#e8e6df', '#2d2f33', '#e0a526', '#3f8f5a', '#8a8f96', '#7a3f8f', '#d9703a', '#5fa8b8'];
@@ -51,6 +53,21 @@ function buildMesh(kind: CarKind, colour: string): { group: Group; lights: Mesh[
   const s = SPECS[kind];
   const g = new Group();
   const lights: Mesh[] = [];
+  if (kind === 'bus' || kind === 'tram') {
+    // a long box with a band of windows and a pale roof; the tram has a joint in the middle
+    const paint = kind === 'bus' ? '#e8b923' : '#e9e6df';
+    const stripe = kind === 'bus' ? '#20242b' : '#c8362e';
+    g.add(part(paint, s.len, s.body, s.wid, 0, 0.35 + s.body / 2, 0));
+    g.add(part('#20242b', s.len - 0.6, 0.7, s.wid + 0.04, 0, 0.35 + s.body * 0.68, 0));
+    g.add(part(stripe, s.len, 0.25, s.wid + 0.05, 0, 0.35 + s.body * 0.25, 0));
+    g.add(part(kind === 'bus' ? '#f4f2ec' : stripe, s.len - 1.2, 0.08, kind === 'bus' ? s.wid - 1.1 : 0.7, 0, 0.35 + s.body + 0.04, 0));
+    if (kind === 'tram') g.add(part('#3a3d44', 0.7, s.body + 0.1, s.wid - 0.2, 0, 0.35 + s.body / 2, 0));
+    for (const z of [-1, 1]) {
+      g.add(part('#fff6c8', 0.08, 0.2, 0.45, s.len / 2, 0.9, z * (s.wid / 2 - 0.35), true));
+      g.add(part('#c01818', 0.08, 0.2, 0.45, -s.len / 2, 0.9, z * (s.wid / 2 - 0.35), true));
+    }
+    return { group: g, lights };
+  }
   const paint = kind === 'police' ? '#f2f2ee' : colour;
   g.add(part(paint, s.len, s.body, s.wid, 0, 0.35 + s.body / 2, 0));
   if (kind === 'van') {
@@ -102,6 +119,12 @@ export class Car {
   /** radius of the two circles the car collides as, and how far each sits from the middle */
   readonly r: number;
   readonly a: number;
+  /** where along the car its collision circles sit, as shares of `a`: more of them on a long vehicle */
+  readonly offs: number[];
+  readonly mass: number;
+  /** seconds left of waiting at a stop, and the stop last served */
+  dwell = 0;
+  lastStop = -1;
   /** seconds the driver has wanted to move without moving, and seconds left of backing out */
   stuck = 0;
   backing = 0;
@@ -120,6 +143,8 @@ export class Car {
     this.lights = m.lights;
     this.r = this.spec.wid / 2 + 0.05;
     this.a = this.spec.len / 2 - this.r;
+    this.mass = this.spec.len * this.spec.wid * (this.spec.len > 7 ? 2 : 1);
+    this.offs = this.spec.len > 7 ? [1, 0.5, 0, -0.5, -1] : [1, -1];
   }
 
   get speed(): number {
@@ -229,8 +254,8 @@ export function collideCars(p: Car, q: Car): number {
   const reach = p.a + p.r + q.a + q.r;
   if (Math.abs(p.x - q.x) > reach || Math.abs(p.y - q.y) > reach) return 0;
   let impact = 0;
-  for (const sp of [1, -1]) {
-    for (const sq of [1, -1]) {
+  for (const sp of p.offs) {
+    for (const sq of q.offs) {
       const pfx = Math.cos(p.th);
       const pfy = Math.sin(p.th);
       const qfx = Math.cos(q.th);
@@ -242,21 +267,23 @@ export function collideCars(p: Car, q: Car): number {
       if (overlap <= 0 || d < 1e-6) continue;
       const nx = dx / d;
       const ny = dy / d;
+      // the heavier one gives way less
+      const share = q.mass / (p.mass + q.mass);
       const h = overlap / 2;
-      p.x -= nx * h;
-      p.y -= ny * h;
-      q.x += nx * h;
-      q.y += ny * h;
+      p.x -= nx * overlap * share;
+      p.y -= ny * overlap * share;
+      q.x += nx * overlap * (1 - share);
+      q.y += ny * overlap * (1 - share);
       // a push at one end turns the car
-      p.th += ((pfx * -ny - pfy * -nx) * h * sp * 0.35) / p.a;
-      q.th += ((qfx * ny - qfy * nx) * h * sq * 0.35) / q.a;
+      p.th += ((pfx * -ny - pfy * -nx) * h * sp * 0.35) / p.a / (p.offs.length > 2 ? 4 : 1);
+      q.th += ((qfx * ny - qfy * nx) * h * sq * 0.35) / q.a / (q.offs.length > 2 ? 4 : 1);
       const rel = (q.vx - p.vx) * nx + (q.vy - p.vy) * ny;
       if (rel < 0) {
-        const j = (-1.2 * rel) / 2;
-        p.vx -= j * nx;
-        p.vy -= j * ny;
-        q.vx += j * nx;
-        q.vy += j * ny;
+        const j = (-1.2 * rel) / (1 / p.mass + 1 / q.mass);
+        p.vx -= (j / p.mass) * nx;
+        p.vy -= (j / p.mass) * ny;
+        q.vx += (j / q.mass) * nx;
+        q.vy += (j / q.mass) * ny;
         impact = Math.max(impact, -rel);
       }
     }

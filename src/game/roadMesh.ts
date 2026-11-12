@@ -109,7 +109,12 @@ export function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) =>
   const fill = new Strip();
   const path = new Strip();
   const paint = new Strip();
+  const rails = new Strip();
   for (const l of net.lines) {
+    if (l.tram) {
+      rails.add(l.pts, 1.5, 0.15, groundY);
+      continue;
+    }
     if (l.kind === 'path') {
       path.add(l.pts, l.w, 0.05, groundY);
       continue;
@@ -119,7 +124,7 @@ export function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) =>
     if (l.traffic && l.w >= 7.5) for (const d of dashes(l, 3, 6)) paint.add(d, 0.28, 0.17, groundY);
   }
   const g = new Group();
-  g.add(path.mesh(PALETTE.path, -1), kerb.mesh(PALETTE.roadCasing, -2), fill.mesh(PALETTE.roadFill, -3), paint.mesh('#e9e6dc', -4));
+  g.add(path.mesh(PALETTE.path, -1), kerb.mesh(PALETTE.roadCasing, -2), fill.mesh(PALETTE.roadFill, -3), paint.mesh('#e9e6dc', -4), rails.mesh('#7d8490', -5));
   return g;
 }
 

@@ -164,6 +164,7 @@ export class Game {
   render = true;
   onToast: (text: string, kind?: 'good' | 'bad' | 'info') => void = () => undefined;
   onFlash: (text: string) => void = () => undefined;
+  onRide: (text: string) => void = () => undefined;
   onSquare: (state: 'loading' | 'ready') => void = () => undefined;
   onSave: () => void = () => undefined;
 
@@ -215,13 +216,17 @@ export class Game {
   /** Start in the square around a place, on foot beside a car. */
   async start(at: LngLat): Promise<void> {
     const world = await World.load(areaCentre(at), this.texturePx);
-    this.clear();
-    this.world = world;
-    this.scene.add(world.model.group);
     const [x, y] = world.proj.toLocal(at.lon, at.lat);
     const spot = world.roads.nearest(x, y, 500, 'traffic') ?? world.roads.nearest(x, y, 900, 'drive');
     const place: PathState | null = spot ? { line: spot.line, s: spot.s, dir: 1 } : world.roads.randomPlace('drive', 0, 0, 0, 2000);
-    if (!place) throw new Error('no roads here');
+    if (!place) {
+      // nowhere to stand: keep whatever was loaded before
+      world.dispose();
+      throw new Error('no roads here');
+    }
+    this.clear();
+    this.world = world;
+    this.scene.add(world.model.group);
     const line = world.roads.lines[place.line];
     const [cx, cy] = world.roads.lanePoint(place, line.w / 2 + 1);
     const [hx, hy] = world.roads.heading(place);
@@ -269,7 +274,10 @@ export class Game {
     this.scene.add(next.model.group);
     this.world = next;
     old.dispose();
-    for (const c of this.cars) if (c.path) c.path = this.attach(c.x, c.y, c.th, 'drive');
+    for (const c of this.cars) {
+      c.lastStop = -1;
+      if (c.path) c.path = this.attach(c.x, c.y, c.th, c.kind === 'tram' ? 'tram' : 'drive');
+    }
     for (const p of this.people) p.path = this.attach(p.x, p.y, p.th, 'walk');
     this.parkCars(this.pos());
     this.routeT = 0;
@@ -296,7 +304,7 @@ export class Game {
   }
 
   /** The place on the network nearest to a point, facing the way `th` points. */
-  private attach(x: number, y: number, th: number, want: 'drive' | 'walk'): PathState | null {
+  private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram'): PathState | null {
     const n = this.world.roads.nearest(x, y, 60, want);
     if (!n) return null;
     const p: PathState = { line: n.line, s: n.s, dir: 1 };
@@ -351,18 +359,27 @@ export class Game {
   private spawnTraffic(kind: CarKind, minD: number, maxD: number): Car | null {
     const w = this.world;
     const [px, py] = this.pos();
-    const p = w.roads.randomPlace('traffic', px, py, minD, maxD);
+    const p = w.roads.randomPlace(kind === 'tram' ? 'tram' : 'traffic', px, py, minD, maxD);
     if (!p) return null;
-    const [x, y] = w.roads.lanePoint(p, laneOffset(w.roads.lines[p.line]));
-    if (this.carNear(x, y, 12) || !w.free(x, y, 1.2)) return null;
+    const line = w.roads.lines[p.line];
+    // buses keep to the bigger streets
+    if (kind === 'bus' && (line.kind === 'minor' || line.kind === 'motorway')) return null;
+    const [x, y] = w.roads.lanePoint(p, this.lane(p, kind));
+    if (this.carNear(x, y, kind === 'bus' || kind === 'tram' ? 24 : 12) || !w.free(x, y, 1.2)) return null;
     const [hx, hy] = w.roads.heading(p);
     const c = this.addCar(kind, x, y, Math.atan2(hy, hx));
     c.driver = kind === 'police' ? 'cop' : 'ai';
     c.path = p;
-    const v = SPEED_LIMIT[w.roads.lines[p.line].kind] * 0.7;
+    const v = kind === 'tram' || kind === 'bus' ? 6 : SPEED_LIMIT[line.kind] * 0.7;
     c.vx = hx * v;
     c.vy = hy * v;
     return c;
+  }
+
+  /** How far to the side of a line a vehicle keeps: its lane, on the side this country drives on. */
+  private lane(p: PathState, kind: CarKind): number {
+    if (kind === 'tram') return 0;
+    return laneOffset(this.world.roads.lines[p.line]) * (this.world.leftHand ? -1 : 1);
   }
 
   private chasing(c: Car): boolean {
@@ -380,6 +397,8 @@ export class Game {
     let ty: number;
     let limit: number;
     const vf = c.forward;
+    const want = c.kind === 'tram' ? 'tram' : 'drive';
+    const transit = c.kind === 'tram' || c.kind === 'bus';
     if (chase && toMe < 110 && !w.solids.blocked(c.x, c.y, px, py)) {
       // in sight: straight at where you'll be
       const [vx, vy] = this.vel();
@@ -389,7 +408,7 @@ export class Game {
       limit = toMe < 14 ? 12 + this.speed() : 33;
       c.path = this.attach(c.x, c.y, c.th, 'drive') ?? c.path;
     } else {
-      if (!c.path) c.path = this.attach(c.x, c.y, c.th, 'drive');
+      if (!c.path) c.path = this.attach(c.x, c.y, c.th, want);
       if (!c.path) {
         c.controls.throttle = 0;
         return;
@@ -408,7 +427,12 @@ export class Game {
             return !from || score(best) > score(from) + 0.3 ? best : null;
           }
         : (options, from) => {
-            if (from && Math.random() > 0.25) return null;
+            // trams and buses mostly carry straight on; cars turn off more often
+            if (from && Math.random() > (transit ? 0.08 : 0.25)) return null;
+            if (c.kind === 'tram') {
+              const dot = (o: PathState) => net.heading(o)[0] * fx + net.heading(o)[1] * fy;
+              return options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
+            }
             const ahead = options.filter((o) => {
               const [hx, hy] = net.heading(o);
               return hx * fx + hy * fy > -0.7;
@@ -418,13 +442,29 @@ export class Game {
             return pool.length ? pickOne(pool) : null;
           };
       const look = 7 + Math.abs(vf) * 0.55;
-      [tx, ty] = net.lanePoint(p, laneOffset(net.lines[p.line]));
+      [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
       for (let k = 0; k < 30 && Math.hypot(tx - c.x, ty - c.y) < look; k++) {
-        net.advance(p, 2, 'drive', pick);
-        [tx, ty] = net.lanePoint(p, laneOffset(net.lines[p.line]));
+        net.advance(p, 2, want, pick);
+        [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
       }
       const base = SPEED_LIMIT[net.lines[p.line].kind] ?? 8;
-      limit = chase ? Math.min(31, base * 2.3) : base;
+      limit = chase ? Math.min(31, base * 2.3) : transit ? Math.min(base, 11) : base;
+      // buses and trams wait a moment at each of their stops
+      if (transit) {
+        if (c.dwell > 0) {
+          c.dwell -= dt;
+          limit = 0;
+        } else {
+          const stops = w.stops;
+          for (let i = 0; i < stops.length; i++) {
+            const st = stops[i];
+            if (st.kind !== c.kind || i === c.lastStop || Math.abs(st.x - c.x) > 11 || Math.abs(st.y - c.y) > 11) continue;
+            c.dwell = 3.5;
+            c.lastStop = i;
+            break;
+          }
+        }
+      }
     }
     this.pilot(c, tx, ty, limit, !chase, chase, dt);
   }
@@ -600,7 +640,7 @@ export class Game {
       const reach = c.a + c.r + 0.5;
       const touch = (o: { x: number; y: number }, r: number): [number, number] | null => {
         if (Math.abs(o.x - c.x) > reach || Math.abs(o.y - c.y) > reach) return null;
-        for (const s of [1, -1]) {
+        for (const s of c.offs) {
           const dx = o.x - (c.x + fx * c.a * s);
           const dy = o.y - (c.y + fy * c.a * s);
           const d = Math.hypot(dx, dy);
@@ -659,7 +699,8 @@ export class Game {
     let best: Car | null = null;
     let bd = Infinity;
     for (const c of this.cars) {
-      if (c.gone) continue;
+      // trams stay on their rails: you can't take one
+      if (c.gone || c.kind === 'tram') continue;
       const d = Math.hypot(c.x - this.me.x, c.y - this.me.y) - c.a - c.r;
       if (d < 2.2 && d < bd && c.speed < 9) {
         bd = d;
@@ -696,19 +737,68 @@ export class Game {
       return;
     }
     const c = this.carInReach();
-    if (!c) return;
+    if (!c) {
+      this.rideSubway();
+      return;
+    }
     if (c.driver !== 'none') {
       // the driver gets out and runs
       const mesh = personMesh(c.driver === 'cop' ? '#1d3f8f' : pickOne(SHIRTS));
       this.scene.add(mesh);
       const side = c.r + 1;
       this.people.push({ x: c.x + Math.sin(c.th) * side, y: c.y - Math.cos(c.th) * side, th: c.th, vx: 0, vy: 0, state: 'flee', t: 6, path: this.attach(c.x, c.y, c.th + Math.PI, 'walk'), side: 3, pace: 1.6, mesh });
-      this.offence(c.driver === 'cop' ? 2 : 1, c.driver === 'cop' ? 'You took a police car' : 'You took someone’s car');
+      this.offence(c.driver === 'cop' ? 2 : 1, c.driver === 'cop' ? 'You took a police car' : c.kind === 'bus' ? 'You took a bus' : 'You took someone’s car');
     }
     c.driver = 'player';
     c.path = null;
     this.car = c;
     this.mine = c;
+  }
+
+  /** The subway entrance you're standing at, if any. */
+  private subwayHere(): number {
+    const stops = this.world.stops;
+    for (let i = 0; i < stops.length; i++) if (stops[i].kind === 'subway' && Math.hypot(stops[i].x - this.me.x, stops[i].y - this.me.y) < 4.5) return i;
+    return -1;
+  }
+
+  /** Down the stairs here, up again at the station nearest to where you're headed. */
+  private rideSubway(): void {
+    const w = this.world;
+    const here = this.subwayHere();
+    if (here < 0) return;
+    const goal = this.goal();
+    const [gx, gy] = goal ? this.local(goal) : [NaN, NaN];
+    let best = -1;
+    let bd = Infinity;
+    w.stops.forEach((st, i) => {
+      if (st.kind !== 'subway' || Math.hypot(st.x - this.me.x, st.y - this.me.y) < 200) return;
+      const d = goal ? Math.hypot(st.x - gx, st.y - gy) : Math.random();
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    });
+    if (best < 0) {
+      this.onToast('No other station near here', 'info');
+      return;
+    }
+    const to = w.stops[best];
+    // riding only pays when it brings you closer
+    if (goal && bd > Math.hypot(this.me.x - gx, this.me.y - gy)) {
+      this.onToast('No station closer to where you’re going', 'info');
+      return;
+    }
+    const spots: Array<[number, number]> = [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]];
+    const s = spots.find(([dx, dy]) => w.free(to.x + dx, to.y + dy, 0.4)) ?? spots[0];
+    this.me.x = to.x + s[0];
+    this.me.y = to.y + s[1];
+    this.me.vx = 0;
+    this.me.vy = 0;
+    this.frozen = 1.3;
+    this.cam.x = this.me.x;
+    this.cam.y = this.me.y;
+    this.onRide(to.name ? `Subway to ${to.name}` : 'Subway');
   }
 
   /** Back onto the nearest road, on foot: for when you're stuck. */
@@ -992,8 +1082,9 @@ export class Game {
         const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
         if (d < 1e-3) continue;
         const t = Math.min(1, left / d);
-        tx = a[0] + (b[0] - a[0]) * t + ((b[1] - a[1]) / d) * 1.7;
-        ty = a[1] + (b[1] - a[1]) * t - ((b[0] - a[0]) / d) * 1.7;
+        const side = w.leftHand ? -1.7 : 1.7;
+        tx = a[0] + (b[0] - a[0]) * t + ((b[1] - a[1]) / d) * side;
+        ty = a[1] + (b[1] - a[1]) * t - ((b[0] - a[0]) / d) * side;
         left -= d;
         if (left <= 0) break;
       }
@@ -1100,8 +1191,10 @@ export class Game {
       const traffic = this.cars.filter((c) => c.driver === 'ai' || c.driver === 'cop').length;
       if (traffic < TRAFFIC) {
         const r = Math.random();
-        this.spawnTraffic(r < 0.07 ? 'police' : r < 0.6 ? 'sedan' : r < 0.8 ? 'van' : 'sport', this.viewR + 20, this.viewR + 150);
+        this.spawnTraffic(r < 0.07 ? 'police' : r < 0.2 ? 'bus' : r < 0.65 ? 'sedan' : r < 0.83 ? 'van' : 'sport', this.viewR + 20, this.viewR + 150);
       }
+      // a few trams wherever the map has tracks
+      if (w.roads.hasTrams && this.cars.filter((c) => c.kind === 'tram').length < 3) this.spawnTraffic('tram', this.viewR + 25, this.viewR + 220);
       if (this.people.length < PEOPLE) this.spawnPerson();
       this.maybeLoadNext();
     }
@@ -1218,7 +1311,8 @@ export class Game {
     let hint = '';
     if (!this.car) {
       const c = this.carInReach();
-      if (c) hint = c.driver === 'none' ? 'get in' : 'take this car';
+      if (c) hint = c.driver === 'none' ? 'get in' : c.kind === 'bus' ? 'take this bus' : 'take this car';
+      else if (this.subwayHere() >= 0) hint = 'take the subway';
     } else if (this.car.hp <= 0) hint = 'wrecked: get out';
     return {
       cash: this.cash,

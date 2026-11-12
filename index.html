@@ -48,6 +48,12 @@
         </form>
         <div class="places" id="places"></div>
         <p class="small" id="where" hidden>This page carries the map of central Berlin, about 3 km across. The full game loads any city.</p>
+        <div id="thin" hidden>
+          <p><b>There isn't much on the map here yet.</b> You can play, but the streets will feel empty. We'd recommend adding to the map first: this game is built from OpenStreetMap, which anyone can edit.</p>
+          <p><a id="thin-map" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">See this place on OpenStreetMap</a> · <a href="https://wiki.openstreetmap.org/wiki/Beginners%27_guide" target="_blank" rel="noopener">How to add buildings and streets</a></p>
+          <p>New map material shows up in the game after some days. Or play one of the recommended cities above.</p>
+          <button id="btn-anyway">Play here anyway</button>
+        </div>
         <button id="btn-resume" hidden>Back to the game</button>
         <p class="status" id="status" role="status" aria-live="polite"></p>
         <dl class="keys">
@@ -57,8 +63,10 @@
           <dd>Drag anywhere on the left to walk or drive that way. Buttons on the right: in / out, brake.</dd>
           <dt>Rings</dt>
           <dd><span class="dot job"></span> pick up a package · <span class="dot drop"></span> deliver it before the time runs out</dd>
+          <dt>Transit</dt>
+          <dd><span class="dot sub"></span> subway entrance: walk in to ride towards your target · buses stop at <span class="dot bus"></span>, trams at <span class="dot tram"></span></dd>
         </dl>
-        <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Search by Photon (komoot). Built on the Your Place 3D engine.</p>
+        <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Stops and stations from OpenStreetMap. Search by Photon (komoot). Built on the Your Place 3D engine.</p>
       </div>
     </section>
     <script type="module" src="/src/main.ts"></script>

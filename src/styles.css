@@ -105,3 +105,11 @@ body.touch #heat i { width: 22px; height: 22px; }
 body.touch .bar { height: 10px; }
 body.touch .speed { font-size: 22px; top: calc(70px + env(safe-area-inset-top)); }
 body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
+
+#flash.ride { color: #6fb1ff; font-size: clamp(24px, 6vw, 48px); }
+#thin { margin: 10px 0; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255, 212, 0, 0.5); background: rgba(255, 212, 0, 0.08); }
+#thin p { font-size: 14px; margin: 0 0 8px; }
+#thin a { color: var(--cyan); }
+.dot.sub { border-color: #1f6fd6; background: #1f6fd6; }
+.dot.bus { border-color: #f2c21a; background: #f2c21a; width: 9px; height: 9px; }
+.dot.tram { border-color: #d8362e; background: #d8362e; width: 9px; height: 9px; }

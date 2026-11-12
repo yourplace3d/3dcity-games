@@ -61,9 +61,10 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info'): void {
   setTimeout(() => el.remove(), 3300);
 }
 
-function flash(text: string): void {
+function flash(text: string, ride = false): void {
   const el = $('flash');
   el.textContent = text;
+  el.classList.toggle('ride', ride);
   el.hidden = true;
   void el.offsetWidth;
   el.hidden = false;
@@ -89,7 +90,8 @@ async function go(at: LngLat, name?: string): Promise<void> {
       game.cash = saved.cash;
       game.delivered = saved.delivered;
       game.onToast = toast;
-      game.onFlash = flash;
+      game.onFlash = (t) => flash(t);
+      game.onRide = (t) => flash(t, true);
       game.onSquare = (s) => ($('next').hidden = s !== 'loading');
       game.onSave = () => save();
       controls.onAction = () => game!.action();
@@ -99,15 +101,33 @@ async function go(at: LngLat, name?: string): Promise<void> {
     await game.start(at);
     save(at);
     if (!BAKED) history.replaceState(null, '', `#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
+    $('btn-menu').blur();
     status.textContent = '';
-    setScreen('play');
-    toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
+    // little on the map here: say so, and let them choose
+    const thin = game.world.thin;
+    $('thin').hidden = !thin;
+    if (thin) {
+      $<HTMLAnchorElement>('thin-map').href = `https://www.openstreetmap.org/#map=16/${at.lat.toFixed(5)}/${at.lon.toFixed(5)}`;
+      $('btn-resume').hidden = true;
+      return;
+    }
+    begin();
   } catch (err) {
     console.warn(err);
     status.className = 'status error';
-    status.textContent = navigator.onLine === false ? 'You seem to be offline.' : 'That place didn’t load. Try another, or try again.';
+    const none = err instanceof Error && err.message === 'no roads here';
+    status.textContent = navigator.onLine === false ? 'You seem to be offline.' : none ? 'There are no streets on the map right here. Try a spot nearby, or one of the cities above.' : 'That place didn’t load. Try another, or try again.';
+    $('thin').hidden = true;
   } finally {
     busy = false;
+  }
+}
+
+function begin(): void {
+  $('thin').hidden = true;
+  setScreen('play');
+  {
+    toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
   }
 }
 
@@ -269,8 +289,14 @@ $('btn-menu').addEventListener('click', () => {
   setScreen('start');
 });
 $('btn-resume').addEventListener('click', () => setScreen('play'));
+$('btn-anyway').addEventListener('click', begin);
 addEventListener('pagehide', () => save());
 
-// a place in the link starts there straight away
-const fromLink = BAKED ? null : parseLatLon(decodeURIComponent(location.hash.slice(1)));
+// a place in the link starts there straight away: coordinates, or a name to look up
+const linked = BAKED ? '' : decodeURIComponent(location.hash.slice(1)).replace(/[_+]/g, ' ').trim();
+const fromLink = parseLatLon(linked);
 if (fromLink) void go(fromLink);
+else if (linked) {
+  $<HTMLInputElement>('q').value = linked;
+  void search(linked);
+}

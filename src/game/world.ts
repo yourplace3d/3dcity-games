@@ -3,11 +3,11 @@
  * walls and the water. Squares sit on a fixed grid; the next one loads as you near the edge.
  */
 
-import { Color, type Group } from 'three';
+import { CircleGeometry, Color, DoubleSide, Group, Mesh, MeshBasicMaterial } from 'three';
 import { pointInRing, ringBounds, type Polygon } from '../geo/polygon';
 import { makeProjector, type LngLat, type Projector } from '../geo/projection';
 import { loadHeightGrid } from '../geo/terrain';
-import { DATA_ZOOM, fetchTiles, parseTiles, tilesForSquare } from '../geo/tiles';
+import { DATA_ZOOM, fetchTiles, parseTiles, tilesForSquare, type LoadedTile } from '../geo/tiles';
 import { CityModel } from '../scene/cityModel';
 import { PALETTE } from '../scene/overlay';
 import { buildRoadMeshes, disposeRoadMeshes } from './roadMesh';
@@ -101,6 +101,72 @@ function buildingsOverRoads(buildings: Array<{ poly: Polygon }>, roads: RoadNet)
   return new Set([...hits].filter(([, n]) => n >= 2).map(([i]) => i));
 }
 
+export interface Stop {
+  kind: 'bus' | 'tram' | 'subway';
+  x: number;
+  y: number;
+  name: string;
+}
+
+/** Rough boxes (south, west, north, east) of the places that drive on the left. */
+const LEFT_HAND: Array<[number, number, number, number]> = [
+  [49.8, -10.8, 60.9, 1.9], // Britain and Ireland
+  [24, 122.9, 45.6, 146], // Japan
+  [-47.5, 112, -10, 179], // Australia and New Zealand
+  [5.5, 60.8, 37, 97.4], // India, Pakistan, Bangladesh, Sri Lanka, Nepal
+  [-11, 95, 20.5, 119.3], // Thailand, Malaysia, Singapore, Indonesia
+  [22.1, 113.8, 22.6, 114.5], // Hong Kong
+  [-35, 11.7, -17, 41], // South Africa, Namibia, Botswana, Zimbabwe, southern Mozambique
+  [-17, 22, -8, 41], // Zambia, Malawi, northern Mozambique
+  [-11.8, 30.9, 4.7, 41.9], // Tanzania, Kenya, Uganda
+];
+
+/** Stops and stations from the map tiles' points of interest. */
+function readStops(tiles: LoadedTile[], proj: Projector, half: number): Stop[] {
+  const out: Stop[] = [];
+  for (const t of tiles) {
+    const layer = t.tile.layers.poi;
+    if (!layer) continue;
+    const n = 2 ** t.z;
+    for (let i = 0; i < layer.length; i++) {
+      const f = layer.feature(i);
+      if (f.type !== 1) continue;
+      const sub = String(f.properties.subclass ?? '');
+      const kind = sub === 'bus_stop' ? 'bus' : sub === 'tram_stop' ? 'tram' : sub === 'subway_entrance' ? 'subway' : null;
+      if (!kind) continue;
+      const pt = f.loadGeometry()[0]?.[0];
+      // points near a tile's edge are repeated in its neighbours
+      if (!pt || pt.x < 0 || pt.y < 0 || pt.x >= layer.extent || pt.y >= layer.extent) continue;
+      const lon = ((t.x + pt.x / layer.extent) / n) * 360 - 180;
+      const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (t.y + pt.y / layer.extent)) / n))) * 180) / Math.PI;
+      const [x, y] = proj.toLocal(lon, lat);
+      if (Math.abs(x) > half || Math.abs(y) > half) continue;
+      out.push({ kind, x, y, name: String(f.properties.name ?? '') });
+    }
+  }
+  return out;
+}
+
+const SIGN = { bus: ['#f2c21a', 1.3], tram: ['#d8362e', 1.3], subway: ['#1f6fd6', 2.6] } as const;
+const signMats = new Map<string, MeshBasicMaterial>();
+
+/** A coloured disc on the ground at every stop, and a bigger one at subway entrances. */
+function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number): Group {
+  const g = new Group();
+  for (const s of stops) {
+    const [colour, r] = SIGN[s.kind];
+    for (const [rad, col, lift] of [[r, '#16181c', 0.5], [r * 0.72, colour, 0.56]] as Array<[number, string, number]>) {
+      let mat = signMats.get(col);
+      if (!mat) signMats.set(col, (mat = new MeshBasicMaterial({ color: col, side: DoubleSide })));
+      const m = new Mesh(new CircleGeometry(rad, 20), mat);
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(s.x, groundY(s.x, s.y) + lift, -s.y);
+      g.add(m);
+    }
+  }
+  return g;
+}
+
 export class World {
   /** the squares there is map for, when the map ships with the page; null: anywhere */
   static allowed: Set<string> | null = null;
@@ -114,15 +180,18 @@ export class World {
     readonly solids: Solids,
     readonly water: WaterMask,
     private readonly ribbons: Group,
+    /** bus stops, tram stops and subway entrances, from the map */
+    readonly stops: Stop[],
+    private readonly signs: Group,
+    readonly buildingCount: number,
   ) {
     this.proj = makeProjector(centre);
   }
 
   static async load(centre: LngLat, texturePx: number): Promise<World> {
-    const [grid, data] = await Promise.all([
-      loadHeightGrid(centre, AREA_SIZE_M, GRID_N),
-      fetchTiles(tilesForSquare(centre, AREA_SIZE_M, DATA_ZOOM)).then((tl) => parseTiles(tl, centre, AREA_SIZE_M)),
-    ]);
+    const [grid, tiles] = await Promise.all([loadHeightGrid(centre, AREA_SIZE_M, GRID_N), fetchTiles(tilesForSquare(centre, AREA_SIZE_M, DATA_ZOOM))]);
+    const data = parseTiles(tiles, centre, AREA_SIZE_M);
+    const stops = readStops(tiles, makeProjector(centre), AREA_SIZE_M / 2 - 8);
     const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true }));
     const model = new CityModel(grid, texturePx, '#ffcc00');
     model.setExaggeration(1);
@@ -138,7 +207,24 @@ export class World {
     model.group.add(ribbons);
     const solids = new Solids(buildings.filter((_, i) => !over.has(i)));
     const water = new WaterMask(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M);
-    return new World(centre, model, roads, solids, water, ribbons);
+    const signs = stopSigns(stops, (x, y) => model.groundY(x, y));
+    model.group.add(signs);
+    return new World(centre, model, roads, solids, water, ribbons, stops, signs, buildings.length);
+  }
+
+  /** Whether cars keep left here (Britain, Japan, Australia, India, southern Africa and so on). */
+  get leftHand(): boolean {
+    const { lat, lon } = this.centre;
+    return LEFT_HAND.some(([s, w, n, e]) => lat >= s && lat <= n && lon >= w && lon <= e);
+  }
+
+  /**
+   * Whether the map has little to show here: few buildings or few streets. The game runs, but
+   * it is an empty place to play in.
+   */
+  get thin(): boolean {
+    // streets with hardly a building along them are a place that is only half on the map
+    return this.buildingCount < 150 || this.roads.streetKm < 6 || this.buildingCount / this.roads.streetKm < 4;
   }
 
   /** Scene height of the ground at a point. */
@@ -169,6 +255,7 @@ export class World {
 
   dispose(): void {
     disposeRoadMeshes(this.ribbons);
+    for (const m of this.signs.children as Mesh[]) m.geometry.dispose();
     this.model.dispose();
   }
 }

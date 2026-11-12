@@ -72,6 +72,15 @@ stand over a street (gateways, passages) aren't walls.
 
 `game.auto = true` in the browser console makes the game drive the jobs itself: for tests and for filming.
 
+## Tools
+
+- `tools/selfdrive-test.mjs`: the game drives itself for eight game-minutes per place and reports deliveries
+  and mishaps. A quick check after changes to roads, traffic or collisions.
+- `tools/film.mjs`: films a scene frame by frame at 1080p for trailers.
+
+Both need Playwright (`npm i -D playwright && npx playwright install chromium`) and a preview server
+(`npm run build && npx vite preview --port 4173`). `HANDOFF.md` has the project's state and history.
+
 ## Brand
 
 `brand/` holds the wordmark, the app icons and the social card as SVG, with the PNGs made from them. The A is a

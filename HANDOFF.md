@@ -8,6 +8,8 @@ lives.
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).
   Any city: search box, city buttons, or a link such as `…/#Hamburg` or `…/#52.5163,13.3777`.
+- **Always ask the owner before deploying.** Push freely; publish to the live site only after the owner has
+  seen what changed and said yes. This is their standing rule (12 November 2026).
 - **Deploys are by hand.** `.github/workflows/pages.yml` runs only from the Actions tab ("Run workflow") or
   through the GitHub API. Pushing to `main` publishes nothing. The owner may want this switched to deploy on
   every push; ask before changing it.

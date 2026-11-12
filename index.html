@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Drive it 3D: borrow a car in any city</title>
+    <meta name="description" content="A small top-down driving game on the real 3D map of any city: borrow cars, run deliveries, lose the police." />
+    <meta name="theme-color" content="#1c1f24" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body data-screen="start">
+    <div id="stage"><canvas id="scene"></canvas></div>
+
+    <div id="hud" aria-live="off">
+      <div class="panel stats">
+        <b id="cash">$0</b>
+        <span id="heat" aria-label="Police heat"><i></i><i></i><i></i><i></i></span>
+        <span class="bar" title="You"><i id="health"></i></span>
+        <span class="bar car" id="carbar" title="Car" hidden><i id="carhp"></i></span>
+      </div>
+      <div class="panel job" id="job" hidden></div>
+      <div class="panel speed" id="speed" hidden></div>
+      <div class="panel hint" id="hint" hidden></div>
+      <div class="panel loading" id="next" hidden>Loading the next streets…</div>
+      <div id="arrow" hidden><svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0,-10 L8,8 L0,3 L-8,8 Z" /></svg><span id="arrow-m"></span></div>
+      <div id="toasts"></div>
+      <button class="panel" id="btn-menu" aria-label="Change city">☰</button>
+    </div>
+
+    <div id="touch">
+      <div id="pad"></div>
+      <div id="stick" hidden><div id="knob"></div></div>
+      <button id="btn-brake">Brake</button>
+      <button id="btn-action">In / out</button>
+    </div>
+
+    <div id="flash" hidden></div>
+
+    <section id="start">
+      <div class="card">
+        <h1>Drive it 3D</h1>
+        <p class="tag">Borrow a car in any city.</p>
+        <p>The real streets and buildings of any place on Earth, seen from above. Walk up to a car and take it, run deliveries against the clock for cash, and shake off the police when you've been careless.</p>
+        <form id="search">
+          <input id="q" type="search" placeholder="City, street or lat, lon" autocomplete="off" enterkeyhint="go" />
+          <button class="primary">Go</button>
+        </form>
+        <div class="places" id="places"></div>
+        <p class="small" id="where" hidden>This page carries the map of central Berlin, about 3 km across. The full game loads any city.</p>
+        <button id="btn-resume" hidden>Back to the game</button>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <dl class="keys">
+          <dt>Keys</dt>
+          <dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk, drive · <kbd>E</kbd> in and out of cars · <kbd>Space</kbd> handbrake · <kbd>R</kbd> unstick</dd>
+          <dt>Touch</dt>
+          <dd>Drag anywhere on the left to walk or drive that way. Buttons on the right: in / out, brake.</dd>
+          <dt>Rings</dt>
+          <dd><span class="dot job"></span> pick up a package · <span class="dot drop"></span> deliver it before the time runs out</dd>
+        </dl>
+        <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Search by Photon (komoot). Built on the Your Place 3D engine.</p>
+      </div>
+    </section>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

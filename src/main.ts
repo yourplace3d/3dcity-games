@@ -1,0 +1,276 @@
+/**
+ * Drive it 3D: the screens around the game. Pick a place, then the loop runs: read the keys or
+ * the touch stick, step the game, draw, and keep the numbers on screen up to date.
+ */
+
+import { Game, type Hud } from './game/game';
+import { Controls } from './game/input';
+import { areaKey, squaresAround, World } from './game/world';
+import { BAKED } from './geo/mapCache';
+import type { LngLat } from './geo/projection';
+
+const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+const PLACES: Array<[string, number, number]> = [
+  ['Berlin', 52.5163, 13.3777],
+  ['Hamburg', 53.5503, 9.992],
+  ['Paris', 48.8738, 2.295],
+  ['London', 51.5079, -0.1281],
+  ['New York', 40.758, -73.9855],
+  ['San Francisco', 37.8024, -122.4058],
+  ['Tokyo', 35.6595, 139.7005],
+  ['Rio', -22.9711, -43.1822],
+];
+const SAVE = 'drive-it-3d';
+
+const canvas = $<HTMLCanvasElement>('scene');
+const status = $('status');
+const small = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900;
+if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e.pointerType === 'touch'), true);
+
+let game: Game | null = null;
+let playing = false;
+let busy = false;
+const controls = new Controls($('pad'), $('knob'), $('btn-action'), $('btn-brake'));
+
+function load(): { cash: number; delivered: number; at?: LngLat } {
+  try {
+    return { cash: 0, delivered: 0, ...(JSON.parse(localStorage.getItem(SAVE) ?? '{}') as object) };
+  } catch {
+    return { cash: 0, delivered: 0 };
+  }
+}
+
+function save(at?: LngLat): void {
+  if (!game) return;
+  try {
+    localStorage.setItem(SAVE, JSON.stringify({ cash: game.cash, delivered: game.delivered, at: at ?? load().at }));
+  } catch {
+    /* private window: play without saving */
+  }
+}
+
+function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info'): void {
+  const el = document.createElement('div');
+  el.className = `toast ${kind}`;
+  el.textContent = text;
+  const box = $('toasts');
+  box.append(el);
+  while (box.children.length > 3) box.firstElementChild!.remove();
+  setTimeout(() => el.remove(), 3300);
+}
+
+function flash(text: string): void {
+  const el = $('flash');
+  el.textContent = text;
+  el.hidden = true;
+  void el.offsetWidth;
+  el.hidden = false;
+  setTimeout(() => (el.hidden = true), 1750);
+}
+
+function setScreen(screen: 'start' | 'play'): void {
+  document.body.dataset.screen = screen;
+  playing = screen === 'play';
+  controls.enabled = playing;
+  $('btn-resume').hidden = !game?.world;
+}
+
+async function go(at: LngLat, name?: string): Promise<void> {
+  if (busy) return;
+  busy = true;
+  status.className = 'status';
+  status.textContent = name ? `Loading ${name}…` : 'Loading the streets…';
+  try {
+    if (!game) {
+      game = new Game(canvas, small);
+      const saved = load();
+      game.cash = saved.cash;
+      game.delivered = saved.delivered;
+      game.onToast = toast;
+      game.onFlash = flash;
+      game.onSquare = (s) => ($('next').hidden = s !== 'loading');
+      game.onSave = () => save();
+      controls.onAction = () => game!.action();
+      controls.onReset = () => game!.reset();
+      (window as unknown as { game: Game }).game = game;
+    }
+    await game.start(at);
+    save(at);
+    if (!BAKED) history.replaceState(null, '', `#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
+    status.textContent = '';
+    setScreen('play');
+    toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
+  } catch (err) {
+    console.warn(err);
+    status.className = 'status error';
+    status.textContent = navigator.onLine === false ? 'You seem to be offline.' : 'That place didn’t load. Try another, or try again.';
+  } finally {
+    busy = false;
+  }
+}
+
+/** "52.5, 13.4" typed straight in. */
+function parseLatLon(q: string): LngLat | null {
+  const m = q.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)$/);
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lon = Number(m[2]);
+  return Math.abs(lat) <= 85 && Math.abs(lon) <= 180 ? { lat, lon } : null;
+}
+
+async function search(q: string): Promise<void> {
+  const typed = parseLatLon(q);
+  if (typed) return go(typed);
+  status.className = 'status';
+  status.textContent = 'Searching…';
+  try {
+    const res = await fetch(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(q)}`);
+    const json = (await res.json()) as { features?: Array<{ geometry: { coordinates: [number, number] }; properties: { name?: string } }> };
+    const f = json.features?.[0];
+    if (!f) {
+      status.className = 'status error';
+      status.textContent = 'Nothing found by that name.';
+      return;
+    }
+    await go({ lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }, f.properties.name);
+  } catch {
+    status.className = 'status error';
+    status.textContent = 'The search didn’t answer. Try a city button, or type lat, lon.';
+  }
+}
+
+// ------------------------------------------------------------------ screen
+
+const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
+const fmtM = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 10) * 10} m`);
+const last: Record<string, string> = {};
+function put(id: string, html: string): void {
+  if (last[id] === html) return;
+  last[id] = html;
+  $(id).innerHTML = html;
+}
+
+function paint(h: Hud): void {
+  put('cash', fmtMoney(h.cash));
+  const heat = $('heat').children;
+  for (let i = 0; i < heat.length; i++) heat[i].classList.toggle('on', i < h.heat);
+  const health = $('health');
+  health.style.width = `${h.health}%`;
+  health.classList.toggle('low', h.health < 35);
+  $('carbar').hidden = h.carHp === null;
+  if (h.carHp !== null) {
+    $('carhp').style.width = `${h.carHp}%`;
+    $('carhp').classList.toggle('low', h.carHp < 35);
+  }
+  $('speed').hidden = h.carHp === null;
+  if (h.carHp !== null) put('speed', `${Math.round(h.kmh)}<small>km/h</small>`);
+  $('job').hidden = !h.job;
+  if (h.job) {
+    $('job').classList.toggle('late', h.job.left < 10);
+    put('job', `Deliver · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+  }
+  $('hint').hidden = !h.hint;
+  if (h.hint) put('hint', `<kbd>E</kbd>${h.hint}`);
+
+  // the arrow: on the ring while it's in view, else at the edge of the screen pointing to it
+  const arrow = $('arrow');
+  arrow.hidden = !h.target;
+  if (h.target) {
+    const w = innerWidth;
+    const hh = innerHeight;
+    const { ndcX, ndcY } = h.target;
+    const off = Math.max(Math.abs(ndcX), Math.abs(ndcY));
+    arrow.className = h.target.kind;
+    const margin = 46;
+    if (off < 0.86) {
+      arrow.style.transform = `translate(${((ndcX + 1) / 2) * w}px, ${((1 - ndcY) / 2) * hh - 46}px)`;
+      arrow.style.setProperty('--rot', '180deg');
+      arrow.style.setProperty('--ly', '-34px');
+      put('arrow-m', '');
+    } else {
+      const k = Math.min((w / 2 - margin) / Math.abs(ndcX * w / 2 || 1e-6), (hh / 2 - margin) / Math.abs(ndcY * hh / 2 || 1e-6));
+      let x = w / 2 + (ndcX * w / 2) * k;
+      const y = hh / 2 - (ndcY * hh / 2) * k;
+      // keep clear of the touch buttons in the bottom right corner
+      if (document.body.classList.contains('touch') && y > hh - 260) x = Math.min(x, w - 150);
+      arrow.style.transform = `translate(${x}px, ${y}px)`;
+      arrow.style.setProperty('--rot', `${(Math.atan2(ndcX * w, ndcY * hh) * 180) / Math.PI}deg`);
+      arrow.style.setProperty('--ly', y > hh / 2 ? '-30px' : '20px');
+      put('arrow-m', fmtM(h.target.metres));
+    }
+  }
+}
+
+let before = 0;
+function frame(now: number): void {
+  requestAnimationFrame(frame);
+  const dt = before ? (now - before) / 1000 : 0;
+  before = now;
+  if (!game?.world || !playing) return;
+  game.update(dt, controls.read());
+  paint(game.hud());
+}
+requestAnimationFrame(frame);
+document.addEventListener('visibilitychange', () => (before = 0));
+
+// ------------------------------------------------------------------ start screen
+
+const places = $('places');
+const baked = parseLatLon(BAKED);
+if (baked) {
+  // the map of one district ships with the page: play there
+  World.allowed = new Set(squaresAround(baked).map(areaKey));
+  (window as unknown as { squares: LngLat[] }).squares = squaresAround(baked);
+  $('search').hidden = true;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'primary';
+  b.textContent = 'Play in Berlin';
+  b.addEventListener('click', () => void go(baked, 'Berlin'));
+  places.append(b);
+  $('where').hidden = false;
+} else {
+  for (const [name, lat, lon] of PLACES) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = name;
+    b.addEventListener('click', () => void go({ lat, lon }, name));
+    places.append(b);
+  }
+  if ('geolocation' in navigator) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'Where I am';
+    b.addEventListener('click', () => {
+      status.className = 'status';
+      status.textContent = 'Finding you…';
+      navigator.geolocation.getCurrentPosition(
+        (p) => void go({ lat: p.coords.latitude, lon: p.coords.longitude }),
+        () => {
+          status.className = 'status error';
+          status.textContent = 'Your location isn’t available. Pick a city instead.';
+        },
+        { timeout: 10000 },
+      );
+    });
+    places.append(b);
+  }
+  $<HTMLFormElement>('search').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = $<HTMLInputElement>('q').value.trim();
+    if (q) void search(q);
+  });
+}
+$('btn-menu').addEventListener('click', () => {
+  save();
+  setScreen('start');
+});
+$('btn-resume').addEventListener('click', () => setScreen('play'));
+addEventListener('pagehide', () => save());
+
+// a place in the link starts there straight away
+const fromLink = BAKED ? null : parseLatLon(decodeURIComponent(location.hash.slice(1)));
+if (fromLink) void go(fromLink);

@@ -1,6 +1,6 @@
-# Drive it 3D
+# 3DA
 
-**Borrow a car in any city.** A small top-down driving game on the real 3D map of any place on Earth:
+**Drive any city.** (Working title was *Drive it 3D*.) A small top-down driving game on the real 3D map of any place on Earth:
 the streets, buildings, water and hills come from the same map squares as
 [Your Place](https://github.com/yourplace3d/3d-city) and [Walk it 3D](https://github.com/yourplace3d/3d-walking-app).
 
@@ -71,6 +71,12 @@ the streets and tracks and mostly carry straight on. Buildings that
 stand over a street (gateways, passages) aren't walls.
 
 `game.auto = true` in the browser console makes the game drive the jobs itself: for tests and for filming.
+
+## Brand
+
+`brand/` holds the wordmark, the app icons and the social card as SVG, with the PNGs made from them. The A is a
+road running to the horizon. Colours: asphalt `#1c1f24` and `#565b63`, road yellow `#ffd400`, paper `#f4f1ea`,
+kerb `#bdb7a8`; in the game, blue `#2bd4e0` is a package and red `#ff5a4d` is the police.
 
 ## Credits
 

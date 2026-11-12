@@ -68,7 +68,7 @@ export function gameHeight(h: number): number {
 }
 
 /**
- * Buildings a street runs through: gateways, passages, stations over the road. The map draws
+ * Buildings a street runs through: gateways, passages, town walls, stations over the road. The map draws
  * them as whole blocks, which would wall the street off, so they don't count as walls.
  */
 function buildingsOverRoads(buildings: Array<{ poly: Polygon }>, roads: RoadNet): Set<number> {
@@ -89,7 +89,7 @@ function buildingsOverRoads(buildings: Array<{ poly: Polygon }>, roads: RoadNet)
   for (let li = 0; li < roads.lines.length; li++) {
     const l = roads.lines[li];
     if (!l.traffic) continue;
-    for (let sv = 1; sv < l.len; sv += 3) {
+    for (let sv = 0.5; sv < l.len; sv += 1.5) {
       const p = roads.point(li, sv);
       for (const i of cells.get(key(Math.floor(p[0] / CELL), Math.floor(p[1] / CELL))) ?? []) {
         const poly = buildings[i].poly;
@@ -97,8 +97,8 @@ function buildingsOverRoads(buildings: Array<{ poly: Polygon }>, roads: RoadNet)
       }
     }
   }
-  // two samples or more: a street that really goes through, not one that grazes a corner
-  return new Set([...hits].filter(([, n]) => n >= 2).map(([i]) => i));
+  // even a thin one counts: a town wall is two metres thick where the street goes through its gate
+  return new Set(hits.keys());
 }
 
 export interface Stop {

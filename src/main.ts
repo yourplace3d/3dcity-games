@@ -93,6 +93,13 @@ function flash(text: string, ride = false): void {
   setTimeout(() => (el.hidden = true), 1750);
 }
 
+/** A sign across the start card while a place is being looked up or loaded: hard to miss. */
+function working(text: string | null): void {
+  $('busy').hidden = text === null;
+  if (text !== null) $('busy-text').textContent = text;
+  for (const b of document.querySelectorAll<HTMLButtonElement>('#start button')) b.disabled = text !== null;
+}
+
 function setScreen(screen: 'start' | 'play'): void {
   document.body.dataset.screen = screen;
   playing = screen === 'play';
@@ -104,7 +111,8 @@ async function go(at: LngLat, name?: string): Promise<void> {
   if (busy) return;
   busy = true;
   status.className = 'status';
-  status.textContent = name ? `Loading ${name}…` : 'Loading the streets…';
+  status.textContent = '';
+  working(name ? `Loading ${name}` : 'Loading the streets');
   try {
     if (!game) {
       game = new Game(canvas, small);
@@ -144,6 +152,7 @@ async function go(at: LngLat, name?: string): Promise<void> {
     $('thin').hidden = true;
   } finally {
     busy = false;
+    working(null);
   }
 }
 
@@ -169,9 +178,11 @@ async function search(q: string): Promise<void> {
   if (typed) return go(typed);
   if (busy) return;
   status.className = 'status';
-  status.textContent = 'Searching…';
+  status.textContent = '';
+  working('Searching');
   const found = await findPlace(q);
   if (found === 'none' || found === 'silent') {
+    working(null);
     status.className = 'status error';
     status.textContent = found === 'none' ? 'Nothing found by that name. Check the spelling, or add the country.' : 'The place search isn’t answering right now. Try a city button, a big city by name, or type lat, lon.';
     return;

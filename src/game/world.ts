@@ -147,7 +147,7 @@ function readStops(tiles: LoadedTile[], proj: Projector, half: number): Stop[] {
   return out;
 }
 
-const SIGN = { bus: ['#f2c21a', 1.3], tram: ['#d8362e', 1.3], subway: ['#1f6fd6', 2.6] } as const;
+const SIGN = { bus: ['#3fae5a', 1.1], tram: ['#d8362e', 1.3], subway: ['#1f6fd6', 2.6] } as const;
 const signMats = new Map<string, MeshBasicMaterial>();
 
 /** A coloured disc on the ground at every stop, and a bigger one at subway entrances. */

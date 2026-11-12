@@ -149,6 +149,8 @@ export class Game {
   private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
   /** drive yourself (for filming and tests), how fast, and whether to brake for what's ahead */
   auto = false;
+  /** draw the way to the next ring as a line on the road; off: the arrow alone shows the direction */
+  showRoute = false;
   /** the car you last drove, ringed while you're on foot so you can find it again */
   private mine: Car | null = null;
   private readonly mineRing = new Mesh(new RingGeometry(3.3, 3.8, 40), new MeshBasicMaterial({ color: '#ffffff', side: DoubleSide, transparent: true, opacity: 0.85, depthWrite: false }));
@@ -1036,6 +1038,10 @@ export class Game {
   }
 
   private drawRoute(to: Marker | null, colour: string): void {
+    if (!this.showRoute) {
+      this.routeLine.visible = false;
+      return;
+    }
     this.routeLine.material.color.set(colour);
     const f = to && this.fieldOf(to);
     const [px, py] = this.pos();

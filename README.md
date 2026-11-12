@@ -14,11 +14,12 @@ the streets, buildings, water and hills come from the same map squares as
 - **Heat.** Knocking people over, taking someone's car and ramming traffic or the police raise it (up to
   four badges). More heat brings more police cars. Stay out of their sight and it cools off; stop next to
   one and you're caught and fined.
-- A line on the road shows the way to the drop-off (yellow), or to the nearest package (blue).
+- An arrow at the edge of the screen points to the drop-off (yellow), or to the nearest package (blue).
+  `game.showRoute = true` in the console also draws the way as a line on the road.
 - Cars dent: below a third they smoke and slow down, at zero they're wrecked. The water's edge stops you.
   The car you left has a white ring around it.
 - **Public transport, from the map.** Trams run on the real tram tracks and buses on the bigger streets, and
-  both wait at the real stops (red and yellow dots). You can take a bus; trams stay on their rails. A blue disc is
+  both wait at the real stops (red dots for trams, green for buses). You can take a bus; trams stay on their rails. A blue disc is
   a subway entrance: walk in on foot and you come up at the station nearest to where you're headed.
 - Where the map says so, traffic keeps left (Britain, Japan, Australia, India, parts of Africa: rough boxes).
 - **Thin places.** Where OpenStreetMap has few buildings or streets, the start screen says so, links to the

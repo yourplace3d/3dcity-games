@@ -29,7 +29,7 @@ import type { Pt } from '../geo/polygon';
 import type { LngLat } from '../geo/projection';
 import { Car, collideCars, type CarKind } from './cars';
 import type { Input } from './input';
-import { Strip } from './roadMesh';
+import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, World } from './world';
 
@@ -212,6 +212,7 @@ export class Game {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.scene.background = new Color('#d8d2c2');
+    drawnOverGround(this.routeLine.material);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.sun.shadow.radius = 2;

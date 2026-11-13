@@ -167,6 +167,31 @@ function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number): Gr
   return g;
 }
 
+/**
+ * Scene height of the ground exactly as it is drawn. The ground is a grid of squares, each drawn
+ * as two flat triangles; the engine's own `groundY` blends a square's four corners smoothly
+ * instead, which on a slope sits up to a few decimetres off the triangles. Streets laid with it
+ * dipped under the ground there, and the ground showed through them in triangular patches.
+ */
+function surfaceY(model: CityModel, e: number, nm: number): number {
+  const g = model.grid;
+  const n = g.n;
+  const step = g.sizeM / (n - 1);
+  const fx = Math.max(0, Math.min(n - 1.000001, (e + g.sizeM / 2) / step));
+  const fy = Math.max(0, Math.min(n - 1.000001, (nm + g.sizeM / 2) / step));
+  const i = Math.floor(fx);
+  const j = Math.floor(fy);
+  const tx = fx - i;
+  const ty = fy - j;
+  const a = g.elev[j * n + i];
+  const b = g.elev[j * n + i + 1];
+  const c = g.elev[(j + 1) * n + i];
+  const d = g.elev[(j + 1) * n + i + 1];
+  // the same two triangles as the terrain mesh: split along the b–c diagonal
+  const elev = tx + ty <= 1 ? a + (b - a) * tx + (c - a) * ty : d + (c - d) * (1 - tx) + (b - d) * (1 - ty);
+  return model.terrain.y(elev);
+}
+
 /** Let the page draw a frame and take input before the next piece of work. */
 const breathe = () => new Promise<void>((r) => setTimeout(r, 0));
 
@@ -213,12 +238,12 @@ export class World {
     const roads = new RoadNet(data.features.lines, AREA_SIZE_M / 2);
     await breathe();
     const over = buildingsOverRoads(buildings, roads);
-    const ribbons = await buildRoadMeshes(roads, (x, y) => model.groundY(x, y), breathe);
+    const ribbons = await buildRoadMeshes(roads, (x, y) => surfaceY(model, x, y), breathe);
     model.group.add(ribbons);
     await breathe();
     const solids = new Solids(buildings.filter((_, i) => !over.has(i)));
     const water = new WaterMask(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M);
-    const signs = stopSigns(stops, (x, y) => model.groundY(x, y));
+    const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y));
     model.group.add(signs);
     return new World(centre, model, roads, solids, water, ribbons, stops, signs, buildings.length);
   }
@@ -240,7 +265,7 @@ export class World {
 
   /** Scene height of the ground at a point. */
   groundY(x: number, y: number): number {
-    return this.model.groundY(x, y);
+    return surfaceY(this.model, x, y);
   }
 
   /** Whether a point is in water with no road or bridge under it. */

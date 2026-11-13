@@ -3,7 +3,7 @@
  * close as the game's camera its pixels show; the ribbons keep kerbs and lane dashes sharp.
  */
 
-import { BufferAttribute, BufferGeometry, DoubleSide, Group, Mesh, MeshStandardMaterial } from 'three';
+import { BufferAttribute, BufferGeometry, DoubleSide, Group, type Material, Mesh, MeshStandardMaterial } from 'three';
 import type { Pt } from '../geo/polygon';
 import { PALETTE } from '../scene/overlay';
 import type { RoadLine, RoadNet } from './roads';
@@ -57,6 +57,24 @@ function upNormals(pos: number[], idx: number[]): Float32Array {
     } else n[i + 1] = 1;
   }
   return n;
+}
+
+/**
+ * Draw a flat thing on the ground as if it were a little nearer the camera than it is, without
+ * moving it. A ribbon bends every few metres and the ground between can rise a touch above it;
+ * this keeps the ground from showing through. Less than the height of anything that stands on a
+ * street, so cars, people and signs still cover the road.
+ */
+export function drawnOverGround(mat: Material, metres = 0.3): void {
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <project_vertex>',
+      `#include <project_vertex>
+vec4 nearer = projectionMatrix * (mvPosition + vec4(0.0, 0.0, ${metres.toFixed(2)}, 0.0));
+gl_Position.z = nearer.z / nearer.w * gl_Position.w;`,
+    );
+  };
+  mat.customProgramCacheKey = () => `over-ground-${metres}`;
 }
 
 export class Strip {
@@ -136,6 +154,7 @@ export class Strip {
     geo.setIndex(new BufferAttribute(Uint32Array.from(this.idx), 1));
     geo.setAttribute('normal', new BufferAttribute(upNormals(this.pos, this.idx), 3));
     const mat = new MeshStandardMaterial({ color: colour, roughness: 0.95, metalness: 0, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, depthWrite: false });
+    drawnOverGround(mat);
     const mesh = new Mesh(geo, mat);
     // ribbons don't hide one another by height: where streets cross on a slope the kerb of one
     // would cut through the surface of the other. They are drawn in a fixed order instead.

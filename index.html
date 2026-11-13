@@ -20,6 +20,23 @@
   <body data-screen="start">
     <div id="stage"><canvas id="scene"></canvas></div>
 
+    <div id="bigmap" hidden>
+      <div class="panel" id="bigmap-card" role="dialog" aria-label="Map">
+        <div id="bigmap-top"><b id="bigmap-place"></b><small>1.5 km across · north is up · the game waits</small></div>
+        <canvas id="bigmap-canvas"></canvas>
+        <div id="bigmap-key">
+          <span><i class="dot me"></i>you</span>
+          <span><i class="dot ring"></i>package</span>
+          <span><i class="dot ring drop"></i>deliver here</span>
+          <span><i class="dot sub"></i>subway</span>
+        </div>
+        <div id="bigmap-buttons">
+          <button id="btn-line" aria-pressed="false">Line on the road: off</button>
+          <button id="btn-map-close">Back to the game</button>
+        </div>
+      </div>
+    </div>
+
     <div id="hud" aria-live="off">
       <div class="panel stats">
         <b id="cash">$0</b>
@@ -34,7 +51,7 @@
       <div class="panel" id="fps" hidden></div>
       <div class="panel loading" id="next" hidden>Loading the next streets…</div>
       <div id="arrow" hidden><svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0,-10 L8,8 L0,3 L-8,8 Z" /></svg><span id="arrow-m"></span></div>
-      <canvas id="minimap" title="Map. Click for a route line on the road."></canvas>
+      <canvas id="minimap" title="Map. Click to open the big map."></canvas>
       <div id="toasts"></div>
       <div class="panel" id="coach" hidden><small id="coach-n"></small><p id="coach-text"></p><button id="coach-skip">Skip the tour</button></div>
       <button class="panel" id="btn-menu" aria-label="Change city">☰</button>
@@ -71,9 +88,9 @@
         <div id="busy" hidden><b id="busy-text">Searching</b><i aria-hidden="true"></i></div>
         <dl class="keys">
           <dt>Keys</dt>
-          <dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk, drive · <kbd>E</kbd> in and out of cars · <kbd>Space</kbd> handbrake · <kbd>G</kbd> route line on the road · <kbd>R</kbd> unstick</dd>
+          <dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk, drive · <kbd>E</kbd> in and out of cars · <kbd>Space</kbd> handbrake · <kbd>M</kbd> big map · <kbd>G</kbd> route line on the road · <kbd>R</kbd> unstick</dd>
           <dt>Touch</dt>
-          <dd>Drag anywhere on the left to walk or drive that way. Buttons on the right: in / out, brake. Tap the little map for a route line on the road.</dd>
+          <dd>Drag anywhere on the left to walk or drive that way. Buttons on the right: in / out, brake. Tap the little map for a big one of the streets around you.</dd>
           <dt>Rings</dt>
           <dd><span class="dot job"></span> pick up a package · <span class="dot drop"></span> deliver it before the time runs out</dd>
           <dt>Transit</dt>

@@ -38,6 +38,9 @@ let busy = false;
 /** what to call the place being played on the scoreboard */
 let placeName = '';
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
+const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
+/** the big map is up and the game waits behind it */
+let mapOpen = false;
 const ROUTE = 'drive-it-3d-route';
 
 /** The line on the road to the next ring: off unless the player turns it on, and remembered. */
@@ -82,7 +85,30 @@ function toggleRoute(): void {
   if (!game || !playing) return;
   game.showRoute = !game.showRoute;
   routeLine(game.showRoute);
-  toast(game.showRoute ? 'Route line on' : 'Route line off', 'info');
+  lineButton();
+  if (!mapOpen) toast(game.showRoute ? 'Route line on' : 'Route line off', 'info');
+}
+
+function lineButton(): void {
+  const b = $('btn-line');
+  b.textContent = `Line on the road: ${game?.showRoute ? 'on' : 'off'}`;
+  b.setAttribute('aria-pressed', String(!!game?.showRoute));
+}
+
+/**
+ * The big map: the whole loaded square with you, the rings and the way to the next one. Players
+ * couldn't tell where they were from the little map alone, least of all on a phone. The game
+ * waits while it is open, so there is time to look.
+ */
+function showMap(open: boolean): void {
+  if (open && (!game?.world || !playing)) return;
+  mapOpen = open;
+  $('bigmap').hidden = !open;
+  controls.enabled = playing && !open;
+  if (open) {
+    $('bigmap-place').textContent = placeName;
+    lineButton();
+  }
 }
 
 const controls = new Controls($('pad'), $('knob'), $('btn-action'), $('btn-brake'));
@@ -135,6 +161,7 @@ function setScreen(screen: 'start' | 'play'): void {
   document.body.dataset.screen = screen;
   playing = screen === 'play';
   controls.enabled = playing;
+  if (!playing) showMap(false);
   $('btn-resume').hidden = !game?.world;
 }
 
@@ -160,6 +187,7 @@ async function go(at: LngLat, name?: string): Promise<void> {
       controls.onAction = () => game!.action();
       controls.onReset = () => game!.reset();
       controls.onRoute = toggleRoute;
+      controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
     }
@@ -223,7 +251,7 @@ const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = 
   },
   {
     keys: 'Now take it to the <b class="y">yellow ring</b> before the clock at the top runs out. Time left over pays a bonus. <kbd>G</kbd> draws the way on the road.',
-    touch: 'Now take it to the <b class="y">yellow ring</b> before the clock at the top runs out. Time left over pays a bonus. Tap the little map to draw the way on the road.',
+    touch: 'Now take it to the <b class="y">yellow ring</b> before the clock at the top runs out. Time left over pays a bonus. Tap the little map for a big one.',
     done: (h) => h.job === null,
   },
   {
@@ -451,6 +479,10 @@ function frame(now: number): void {
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
   if (!game?.world || !playing) return;
+  if (mapOpen) {
+    bigmap.draw(game);
+    return;
+  }
   game.tune(dt);
   game.update(dt, controls.read());
   if (showFps) fpsReadout(dt);
@@ -516,7 +548,19 @@ $('btn-menu').addEventListener('click', () => {
   setScreen('start');
 });
 $('btn-resume').addEventListener('click', () => setScreen('play'));
-$('minimap').addEventListener('click', toggleRoute);
+$('minimap').addEventListener('click', () => showMap(true));
+$('bigmap-canvas').addEventListener('click', () => showMap(false));
+$('btn-map-close').addEventListener('click', () => showMap(false));
+$('btn-line').addEventListener('click', toggleRoute);
+// a tap beside the card closes it too
+$('bigmap').addEventListener('click', (e) => e.target === e.currentTarget && showMap(false));
+addEventListener('keydown', (e) => {
+  // the press that opened the map was handled by the controls already
+  if (!mapOpen || e.defaultPrevented || e.repeat || !['Escape', 'KeyM', 'KeyG'].includes(e.code)) return;
+  e.preventDefault();
+  if (e.code === 'KeyG') toggleRoute();
+  else showMap(false);
+});
 $('btn-anyway').addEventListener('click', begin);
 addEventListener('pagehide', () => save());
 

@@ -17,7 +17,8 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 [hidden] { display: none !important; }
 
 .panel { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; backdrop-filter: blur(6px); font-variant-numeric: tabular-nums; }
-#hud { position: fixed; inset: 0; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+/* above the steering area, which would otherwise swallow taps on the little map */
+#hud { position: fixed; inset: 0; z-index: 1; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 body[data-screen='start'] #hud, body[data-screen='start'] #touch { display: none; }
 .stats { top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); display: grid; gap: 6px; min-width: 132px; }
 #cash { font-size: 22px; color: var(--green); letter-spacing: 0.01em; }
@@ -116,6 +117,34 @@ body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
 .dot.tram { border-color: #d8362e; background: #d8362e; width: 9px; height: 9px; }
 
 #minimap { position: absolute; left: calc(12px + env(safe-area-inset-left)); bottom: calc(12px + env(safe-area-inset-bottom)); width: 176px; height: 176px; border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.28); background: #20242a; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45); pointer-events: auto; cursor: pointer; }
+/* the big map: the whole loaded square, over the game while it waits */
+#bigmap { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgba(10, 12, 15, 0.55); padding: calc(10px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left)); }
+#bigmap-card { position: static; display: grid; gap: 10px; padding: 12px; --side: min(calc(100vw - 48px), calc(100vh - 190px), 720px); width: calc(var(--side) + 26px); box-sizing: border-box; }
+#bigmap-top { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: baseline; justify-content: space-between; }
+#bigmap-top small { color: var(--dim); font-size: 12px; }
+#bigmap-canvas { width: var(--side); height: var(--side); border-radius: 10px; background: #20242a; cursor: pointer; display: block; }
+#bigmap-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--dim); }
+#bigmap-key span { display: inline-flex; align-items: center; gap: 6px; }
+#bigmap-key .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; box-sizing: border-box; }
+#bigmap-key .dot.me { background: #fff; border: 0; }
+#bigmap-key .dot.ring { background: var(--cyan); border: 2px solid #0c2a2e; width: 12px; height: 12px; }
+#bigmap-key .dot.ring.drop { background: var(--yellow); border-color: #2a2400; }
+#bigmap-key .dot.sub { border-radius: 2px; }
+#bigmap-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#bigmap-buttons button { font: inherit; font-weight: 600; font-size: 15px; color: var(--ink); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--line); border-radius: 10px; padding: 11px 8px; min-height: 44px; cursor: pointer; }
+#bigmap-buttons #btn-map-close { background: var(--yellow); color: #1a1a1a; border-color: transparent; }
+#btn-line[aria-pressed='true'] { border-color: var(--cyan); color: var(--cyan); }
+@media (max-width: 420px) {
+  #bigmap-buttons button { font-size: 14px; }
+}
+/* a phone held sideways: the map on the left as tall as the screen, the rest beside it */
+@media (max-height: 520px) and (orientation: landscape) {
+  #bigmap-card { --side: min(calc(100vh - 46px), calc(100vw - 250px)); width: auto; grid-template-columns: var(--side) minmax(150px, 190px); grid-template-rows: auto 1fr auto; grid-template-areas: 'map top' 'map key' 'map buttons'; }
+  #bigmap-canvas { grid-area: map; }
+  #bigmap-top { grid-area: top; display: grid; }
+  #bigmap-key { grid-area: key; display: grid; align-content: start; }
+  #bigmap-buttons { grid-area: buttons; grid-template-columns: 1fr; }
+}
 /* touch: the left of the screen is the stick, so the map sits under the numbers */
 body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto; top: calc(150px + env(safe-area-inset-top)); width: 132px; height: 132px; }
 @media (max-width: 640px) {

@@ -2,6 +2,9 @@
  * The little map in the corner: the streets around you, north up like the game itself, with the
  * way to the next ring drawn in, the rings, the subway entrances, and the police when they're
  * after you. The streets of a square are painted once; each frame only moves that picture.
+ *
+ * The same drawing makes the big map a tap on the little one opens: the whole loaded square,
+ * standing still, with you moving on it.
  */
 
 import type { Game } from './game';
@@ -18,7 +21,8 @@ export class Minimap {
   private base: HTMLCanvasElement | null = null;
   private baseOf: World | null = null;
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  /** `whole`: show the whole loaded square instead of the streets around you. */
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly whole = false) {
     this.ctx = canvas.getContext('2d')!;
   }
 
@@ -66,17 +70,22 @@ export class Minimap {
     const ctx = this.ctx;
     const view = game.mapView();
     const world = game.world;
-    const m = W / (2 * RANGE_M);
+    const m = W / (2 * (this.whole ? world.half : RANGE_M));
+    // the middle of the picture: you, or the middle of the square
+    const cx = this.whole ? 0 : view.x;
+    const cy = this.whole ? 0 : view.y;
+    /** marks are a little bigger on the big map */
+    const big = this.whole ? 1.35 : 1;
     const base = this.streets(world);
     const k = (m * world.half * 2) / BASE_PX;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // outside the loaded square: open ground
     ctx.fillStyle = '#20242a';
     ctx.fillRect(0, 0, W, W);
-    ctx.setTransform(k, 0, 0, k, W / 2 - ((view.x + world.half) / (world.half * 2)) * BASE_PX * k, W / 2 - ((world.half - view.y) / (world.half * 2)) * BASE_PX * k);
+    ctx.setTransform(k, 0, 0, k, W / 2 - ((cx + world.half) / (world.half * 2)) * BASE_PX * k, W / 2 - ((world.half - cy) / (world.half * 2)) * BASE_PX * k);
     ctx.drawImage(base, 0, 0);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    const at = (x: number, y: number): [number, number] => [W / 2 + (x - view.x) * m, W / 2 - (y - view.y) * m];
+    const at = (x: number, y: number): [number, number] => [W / 2 + (x - cx) * m, W / 2 - (y - cy) * m];
     /** A point kept inside the frame: what is further away sits at the edge, in its direction. */
     const pinned = (x: number, y: number): [number, number, boolean] => {
       const [sx, sy] = at(x, y);
@@ -88,7 +97,7 @@ export class Minimap {
     };
     const dot = (x: number, y: number, r: number, fill: string, ring?: string) => {
       ctx.beginPath();
-      ctx.arc(x, y, r * dpr, 0, Math.PI * 2);
+      ctx.arc(x, y, r * dpr * big, 0, Math.PI * 2);
       ctx.fillStyle = fill;
       ctx.fill();
       if (ring) {
@@ -102,7 +111,7 @@ export class Minimap {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       for (const [width, colour] of [[5, 'rgba(0,0,0,0.55)'], [3, view.drop ? '#ffd400' : '#2bd4e0']] as Array<[number, string]>) {
-        ctx.lineWidth = width * dpr;
+        ctx.lineWidth = width * dpr * big;
         ctx.strokeStyle = colour;
         ctx.beginPath();
         view.route.forEach(([x, y], i) => {
@@ -118,7 +127,7 @@ export class Minimap {
       const [sx, sy] = at(s.x, s.y);
       if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
       ctx.fillStyle = '#1f6fd6';
-      ctx.fillRect(sx - 2.5 * dpr, sy - 2.5 * dpr, 5 * dpr, 5 * dpr);
+      ctx.fillRect(sx - 2.5 * dpr * big, sy - 2.5 * dpr * big, 5 * dpr * big, 5 * dpr * big);
     }
     for (const [x, y] of view.pickups) {
       const [sx, sy] = pinned(x, y);
@@ -136,8 +145,9 @@ export class Minimap {
     }
     // you: an arrowhead the way you face
     ctx.save();
-    ctx.translate(W / 2, W / 2);
+    ctx.translate(...at(view.x, view.y));
     ctx.rotate(Math.PI / 2 - view.th);
+    ctx.scale(big, big);
     ctx.beginPath();
     ctx.moveTo(0, -7 * dpr);
     ctx.lineTo(5 * dpr, 6 * dpr);
@@ -150,5 +160,21 @@ export class Minimap {
     ctx.strokeStyle = '#1c1f24';
     ctx.stroke();
     ctx.restore();
+    if (this.whole) return;
+    // a mark in the corner: this map opens
+    const c = W - 13 * dpr;
+    const a = 5 * dpr;
+    ctx.lineWidth = 1.6 * dpr;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.beginPath();
+    for (const sgn of [1, -1]) {
+      ctx.moveTo(c + sgn * a, 13 * dpr - sgn * a + sgn * a * 0.9);
+      ctx.lineTo(c + sgn * a, 13 * dpr - sgn * a);
+      ctx.lineTo(c + sgn * a - sgn * a * 0.9, 13 * dpr - sgn * a);
+    }
+    ctx.moveTo(c - a, 13 * dpr + a);
+    ctx.lineTo(c + a, 13 * dpr - a);
+    ctx.stroke();
   }
 }

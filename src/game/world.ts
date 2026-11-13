@@ -167,6 +167,9 @@ function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number): Gr
   return g;
 }
 
+/** Let the page draw a frame and take input before the next piece of work. */
+const breathe = () => new Promise<void>((r) => setTimeout(r, 0));
+
 export class World {
   /** the squares there is map for, when the map ships with the page; null: anywhere */
   static allowed: Set<string> | null = null;
@@ -190,21 +193,29 @@ export class World {
 
   static async load(centre: LngLat, texturePx: number): Promise<World> {
     const [grid, tiles] = await Promise.all([loadHeightGrid(centre, AREA_SIZE_M, GRID_N), fetchTiles(tilesForSquare(centre, AREA_SIZE_M, DATA_ZOOM))]);
+    // Building a square takes a few hundred milliseconds of work. Done in one go it froze the game
+    // mid-drive each time the next square arrived, so it is done in steps with a frame in between.
     const data = parseTiles(tiles, centre, AREA_SIZE_M);
     const stops = readStops(tiles, makeProjector(centre), AREA_SIZE_M / 2 - 8);
+    await breathe();
     const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true }));
     const model = new CityModel(grid, texturePx, '#ffcc00');
     model.setExaggeration(1);
     model.showPin(false);
     model.terrain.walls.visible = false;
     model.terrain.base.visible = false;
+    await breathe();
     model.setBuildingSpecs(buildings);
+    await breathe();
     model.setFeatures(data.features);
     model.setBuildingTint((e, n) => ROOFS[Math.abs(Math.floor(e * 7.3 + n * 3.1)) % ROOFS.length]);
+    await breathe();
     const roads = new RoadNet(data.features.lines, AREA_SIZE_M / 2);
+    await breathe();
     const over = buildingsOverRoads(buildings, roads);
-    const ribbons = buildRoadMeshes(roads, (x, y) => model.groundY(x, y));
+    const ribbons = await buildRoadMeshes(roads, (x, y) => model.groundY(x, y), breathe);
     model.group.add(ribbons);
+    await breathe();
     const solids = new Solids(buildings.filter((_, i) => !over.has(i)));
     const water = new WaterMask(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M);
     const signs = stopSigns(stops, (x, y) => model.groundY(x, y));

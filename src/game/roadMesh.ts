@@ -13,6 +13,52 @@ const STEP_M = 5;
 /** Wide ribbons bend across their width too, in pieces no wider than this (m). */
 const ACROSS_M = 5;
 
+/**
+ * A normal for every corner, from the triangles around it, always facing up whichever way the
+ * ribbon's line runs. Plain arrays: the library's own routine took a third of the time to lay a
+ * square's streets.
+ */
+function upNormals(pos: number[], idx: number[]): Float32Array {
+  const n = new Float32Array(pos.length);
+  for (let i = 0; i < idx.length; i += 3) {
+    const a = idx[i] * 3;
+    const b = idx[i + 1] * 3;
+    const c = idx[i + 2] * 3;
+    const ux = pos[b] - pos[a];
+    const uy = pos[b + 1] - pos[a + 1];
+    const uz = pos[b + 2] - pos[a + 2];
+    const vx = pos[c] - pos[a];
+    const vy = pos[c + 1] - pos[a + 1];
+    const vz = pos[c + 2] - pos[a + 2];
+    let x = uy * vz - uz * vy;
+    let y = uz * vx - ux * vz;
+    let z = ux * vy - uy * vx;
+    if (y < 0) {
+      x = -x;
+      y = -y;
+      z = -z;
+    }
+    n[a] += x;
+    n[a + 1] += y;
+    n[a + 2] += z;
+    n[b] += x;
+    n[b + 1] += y;
+    n[b + 2] += z;
+    n[c] += x;
+    n[c + 1] += y;
+    n[c + 2] += z;
+  }
+  for (let i = 0; i < n.length; i += 3) {
+    const l = Math.hypot(n[i], n[i + 1], n[i + 2]);
+    if (l > 0) {
+      n[i] /= l;
+      n[i + 1] /= l;
+      n[i + 2] /= l;
+    } else n[i + 1] = 1;
+  }
+  return n;
+}
+
 export class Strip {
   private readonly pos: number[] = [];
   private readonly idx: number[] = [];
@@ -88,10 +134,7 @@ export class Strip {
     const geo = new BufferGeometry();
     geo.setAttribute('position', new BufferAttribute(Float32Array.from(this.pos), 3));
     geo.setIndex(new BufferAttribute(Uint32Array.from(this.idx), 1));
-    geo.computeVertexNormals();
-    // every ribbon faces up, whichever way its line runs
-    const normals = geo.getAttribute('normal');
-    for (let i = 0; i < normals.count; i++) if (normals.getY(i) < 0) normals.setXYZ(i, -normals.getX(i), -normals.getY(i), -normals.getZ(i));
+    geo.setAttribute('normal', new BufferAttribute(upNormals(this.pos, this.idx), 3));
     const mat = new MeshStandardMaterial({ color: colour, roughness: 0.95, metalness: 0, side: DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, depthWrite: false });
     const mesh = new Mesh(geo, mat);
     // ribbons don't hide one another by height: where streets cross on a slope the kerb of one
@@ -115,7 +158,8 @@ function dashes(l: RoadLine, on: number, off: number): Pt[][] {
   return out;
 }
 
-export function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) => number): Group {
+/** `pause` is awaited halfway, so the caller can let a frame through. */
+export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) => number, pause: () => Promise<void>): Promise<Group> {
   const kerb = new Strip();
   const fill = new Strip();
   const path = new Strip();
@@ -134,6 +178,7 @@ export function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) =>
     fill.add(l.pts, l.w, 0.12, groundY);
     if (l.traffic && l.w >= 7.5) for (const d of dashes(l, 3, 6)) paint.add(d, 0.28, 0.17, groundY);
   }
+  await pause();
   const g = new Group();
   g.add(path.mesh(PALETTE.path, 1), kerb.mesh(PALETTE.roadCasing, 2), fill.mesh(PALETTE.roadFill, 3), paint.mesh('#e9e6dc', 4), rails.mesh('#7d8490', 5));
   return g;

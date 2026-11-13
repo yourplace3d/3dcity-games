@@ -321,7 +321,8 @@ export class RoadNet {
    * road under it don't meet.
    */
   private cross(): void {
-    const seen = new Set<string>();
+    const seen = new Set<number>();
+    const n = this.lines.length;
     for (const list of this.cells.values()) {
       for (let a = 0; a < list.length; a++) {
         for (let b = a + 1; b < list.length; b++) {
@@ -344,7 +345,7 @@ export class RoadNet {
           if (t < 0 || t > 1 || u < 0 || u > 1) continue;
           const sa = A.cum[ia] + (A.cum[ia + 1] - A.cum[ia]) * t;
           const sb = B.cum[ib] + (B.cum[ib + 1] - B.cum[ib]) * u;
-          const k = `${la}|${lb}|${Math.round(sa / 2)}`;
+          const k = (la * n + lb) * 4096 + Math.round(sa / 2);
           if (seen.has(k)) continue;
           seen.add(k);
           A.joins.push({ s: sa, line: lb, s2: sb });

@@ -50,6 +50,34 @@ function routeLine(on?: boolean): boolean {
   }
 }
 
+/**
+ * A frame-rate readout for finding out how a device copes: add `?fps` to the link to show it,
+ * `?fps=off` to put it away. Remembered, so it also shows in the game opened from a home screen.
+ */
+const showFps = ((): boolean => {
+  const KEY = 'drive-it-3d-fps';
+  try {
+    const asked = new URLSearchParams(location.search).get('fps');
+    if (asked !== null) localStorage.setItem(KEY, asked === 'off' || asked === '0' ? '0' : '1');
+    return localStorage.getItem(KEY) === '1';
+  } catch {
+    return new URLSearchParams(location.search).has('fps');
+  }
+})();
+const meter = { t: 0, n: 0, worst: 0 };
+
+function fpsReadout(dt: number): void {
+  if (!game || dt <= 0) return;
+  meter.t += dt;
+  meter.n++;
+  meter.worst = Math.max(meter.worst, dt);
+  if (meter.t < 0.5) return;
+  const d = game.drawn();
+  const k = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : `${n}`);
+  $('fps').textContent = `${Math.round(meter.n / meter.t)} fps · slowest frame ${Math.round(meter.worst * 1000)} ms\n${d.width}×${d.height} px · detail ${Math.round((d.ratio / d.fullRatio) * 100)}%\n${k(d.triangles)} triangles · ${d.calls} draws`;
+  meter.t = meter.n = meter.worst = 0;
+}
+
 function toggleRoute(): void {
   if (!game || !playing) return;
   game.showRoute = !game.showRoute;
@@ -423,12 +451,15 @@ function frame(now: number): void {
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
   if (!game?.world || !playing) return;
+  game.tune(dt);
   game.update(dt, controls.read());
+  if (showFps) fpsReadout(dt);
   const h = game.hud();
   paint(h);
   tour(h, dt);
   minimap.draw(game);
 }
+$('fps').hidden = !showFps;
 requestAnimationFrame(frame);
 document.addEventListener('visibilitychange', () => (before = 0));
 

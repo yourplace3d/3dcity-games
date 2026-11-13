@@ -179,6 +179,15 @@ export class Game {
   private smokeT = 0;
   /** off in tests that only step the game */
   render = true;
+  /**
+   * Draw at a lower resolution when frames come slowly, and at full again when there is room. Off
+   * when a script drives the page: filming steps the game at its own pace, which says nothing
+   * about the device.
+   */
+  adaptive = !navigator.webdriver;
+  private fullRatio = 1;
+  private ratio = 1;
+  private readonly pace = { t: 0, n: 0, hold: 0, calm: 0, wait: 9, sinceRaise: 1e9, before: 0, useless: 0 };
   onToast: (text: string, kind?: 'good' | 'bad' | 'info') => void = () => undefined;
   onFlash: (text: string) => void = () => undefined;
   onRide: (text: string) => void = () => undefined;
@@ -196,7 +205,8 @@ export class Game {
 
   constructor(readonly canvas: HTMLCanvasElement, private readonly small: boolean) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, small ? 1.5 : 2));
+    this.fullRatio = this.ratio = Math.min(devicePixelRatio || 1, small ? 1.5 : 2);
+    this.renderer.setPixelRatio(this.ratio);
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = NeutralToneMapping;
     this.renderer.shadowMap.enabled = true;
@@ -237,6 +247,70 @@ export class Game {
     this.camera.updateProjectionMatrix();
   }
 
+  /**
+   * Keep the game smooth on a device that can't draw every pixel in time. Called once per frame
+   * with the real time since the last one. Below 48 frames a second the picture gets coarser a
+   * step at a time; when frames come easily for a while it gets finer again, and each raise
+   * that doesn't hold doubles the wait before the next. If coarser pictures don't come any
+   * faster, resolution isn't what is slow here (a screen held at 30 a second, say) and it goes
+   * back to full for good.
+   */
+  tune(dt: number): void {
+    const p = this.pace;
+    if (!this.adaptive || !this.render || p.useless >= 2 || dt <= 0) return;
+    // a pause, another tab or the next square arriving says nothing about the device
+    if (dt > 0.25 || this.loading) {
+      p.t = p.n = 0;
+      return;
+    }
+    p.sinceRaise += dt;
+    if (p.hold > 0) {
+      p.hold -= dt;
+      return;
+    }
+    p.t += dt;
+    p.n++;
+    if (p.t < 1.5) return;
+    const fps = p.n / p.t;
+    p.t = p.n = 0;
+    const floor = Math.max(0.75, this.fullRatio * 0.5);
+    if (p.before) {
+      // the step down just taken: did it help?
+      if (fps < p.before * 1.08) p.useless++;
+      else p.useless = 0;
+      p.before = 0;
+      if (p.useless >= 2) {
+        this.setRatio(this.fullRatio);
+        return;
+      }
+    }
+    if (fps < 48 && this.ratio > floor + 1e-3) {
+      if (p.sinceRaise < 8) p.wait = Math.min(240, p.wait * 2);
+      p.before = fps;
+      p.calm = 0;
+      this.setRatio(Math.max(floor, this.ratio * 0.85));
+    } else if (fps >= 57 && this.ratio < this.fullRatio - 1e-3) {
+      p.calm += 1.5;
+      if (p.calm >= p.wait) {
+        p.calm = 0;
+        p.sinceRaise = 0;
+        this.setRatio(Math.min(this.fullRatio, this.ratio / 0.85));
+      }
+    } else p.calm = 0;
+  }
+
+  private setRatio(r: number): void {
+    this.ratio = r;
+    this.renderer.setPixelRatio(r);
+    this.pace.hold = 0.5;
+  }
+
+  /** What is being drawn, for the frame-rate readout. */
+  drawn(): { width: number; height: number; ratio: number; fullRatio: number; triangles: number; calls: number } {
+    const { triangles, calls } = this.renderer.info.render;
+    return { width: this.canvas.width, height: this.canvas.height, ratio: this.ratio, fullRatio: this.fullRatio, triangles, calls };
+  }
+
   // ------------------------------------------------------------------ squares
 
   /** Start in the square around a place, on foot beside a car. */
@@ -266,6 +340,7 @@ export class Game {
     this.heat = 0;
     this.cam = { x: px, y: py, h: 90 };
     this.parkCars(null);
+    this.pace.hold = 2;
     this.onSquare('ready');
   }
 
@@ -308,6 +383,8 @@ export class Game {
     this.parkCars(this.pos());
     this.routeT = 0;
     this.routePts = null;
+    // the new square's first frames are slow for reasons of their own
+    this.pace.hold = 2;
   }
 
   private maybeLoadNext(): void {

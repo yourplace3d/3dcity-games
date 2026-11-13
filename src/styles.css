@@ -37,6 +37,7 @@ body[data-screen='start'] #hud, body[data-screen='start'] #touch { display: none
 .hint kbd, .keys kbd { display: inline-block; min-width: 1.5em; padding: 1px 5px; margin-right: 3px; border-radius: 5px; background: #f4f1ea; color: #1c1f24; font: 700 12px/1.5 ui-monospace, monospace; text-align: center; }
 body.touch .hint kbd { display: none; }
 .loading { bottom: calc(70px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); font-size: 13px; color: var(--dim); white-space: nowrap; }
+#fps { top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font: 12px/1.45 ui-monospace, Menlo, monospace; white-space: pre; text-align: center; color: var(--ink); }
 #btn-menu { pointer-events: auto; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); color: var(--ink); font-size: 18px; line-height: 1; padding: 9px 12px; cursor: pointer; }
 
 #arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; }

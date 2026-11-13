@@ -53,6 +53,11 @@ npm run build      # static site in dist/ (relative paths, host it anywhere)
 
 Add a place to the link to start there: `#52.5163,13.3777`, or a name: `#Hamburg`, `#Freiburg_im_Breisgau`.
 
+**How a device copes.** Add `?fps` before the place (`…/?fps#Hamburg`) for a readout at the top: frames a
+second, the slowest frame, the size the picture is drawn at, and how much is drawn. It stays on until
+`?fps=off`. When frames drop below 48 a second the game draws a coarser picture, a step at a time, and goes
+back to the full one when there is room (`Game.tune`).
+
 **Publishing.** `.github/workflows/pages.yml` builds the game and publishes `dist/` to GitHub Pages, but only
 when run by hand from the Actions tab: the game is not public yet. One-time setup: **Settings → Pages → Build
 and deployment → Source: GitHub Actions**.

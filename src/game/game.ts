@@ -17,6 +17,7 @@ import {
   MeshStandardMaterial,
   NeutralToneMapping,
   PCFShadowMap,
+  BasicShadowMap,
   PerspectiveCamera,
   RingGeometry,
   Scene,
@@ -186,6 +187,7 @@ export class Game {
   private readonly smoke: Array<{ mesh: Mesh<SphereGeometry, MeshBasicMaterial>; life: number }> = [];
   private smokeT = 0;
   private sprayT = 0;
+  private noSmoke = false;
   /** off in tests that only step the game */
   render = true;
   /**
@@ -230,8 +232,13 @@ export class Game {
     this.renderer.setPixelRatio(this.ratio);
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = NeutralToneMapping;
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = PCFShadowMap;
+    // for tracking down a fault in the picture on one device: `?try=noshadow`, `hard`, `nosmoke`
+    // or `fullres` in the link (several with commas) each turn one thing off
+    const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
+    this.noSmoke = tries.includes('nosmoke');
+    if (tries.includes('fullres')) this.adaptive = false;
+    this.renderer.shadowMap.enabled = !tries.includes('noshadow');
+    this.renderer.shadowMap.type = tries.includes('hard') ? BasicShadowMap : PCFShadowMap;
     this.scene.background = new Color('#d8d2c2');
     drawnOverGround(this.routeLine.material);
     this.sun.castShadow = true;
@@ -392,7 +399,11 @@ export class Game {
     this.sweep();
     for (let i = this.people.length - 1; i >= 0; i--) if (!near(this.people[i])) this.dropPerson(i);
     for (const o of [this.me, this.cam, ...this.cars, ...this.people]) move(o);
-    for (const s of this.smoke) s.life = 0;
+    // puffs in the air belong to the old square: put them away, or they hang where they were
+    for (const s of this.smoke) {
+      s.life = 0;
+      s.mesh.visible = false;
+    }
     this.scene.remove(old.model.group);
     this.scene.add(next.model.group);
     this.world = next;
@@ -1476,7 +1487,7 @@ export class Game {
 
   /** One puff of smoke or spray that rises and fades; false when all of them are in the air. */
   private cloud(x: number, y: number, up: number, colour: string): boolean {
-    const s = this.smoke.find((o) => o.life <= 0);
+    const s = this.noSmoke ? undefined : this.smoke.find((o) => o.life <= 0);
     if (!s) return false;
     s.life = 1;
     s.mesh.visible = true;

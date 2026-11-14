@@ -15,7 +15,7 @@ import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
 import { sightsIn, type Sight } from '../landmarks';
 import { localColours } from './localColours';
-import { readServices, serviceIcon, type Service, type ServiceKind } from './services';
+import { inventServices, readServices, serviceIcon, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -213,16 +213,17 @@ function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number): Gr
   return g;
 }
 
-const serviceMats = new Map<ServiceKind, MeshBasicMaterial>();
+const serviceMats = new Map<string, MeshBasicMaterial>();
 const serviceDisc = new CircleGeometry(4.6, 28);
 
 /** The symbol of a fuel, fire or police station, flat on the ground where the map has it. */
 function serviceSign(s: Service, groundY: (x: number, y: number) => number): Mesh {
-  let mat = serviceMats.get(s.kind);
+  const key = s.kind + !!s.invented;
+  let mat = serviceMats.get(key);
   if (!mat) {
-    const map = new CanvasTexture(serviceIcon(s.kind));
+    const map = new CanvasTexture(serviceIcon(s.kind, !!s.invented));
     map.colorSpace = SRGBColorSpace;
-    serviceMats.set(s.kind, (mat = new MeshBasicMaterial({ map, transparent: true, side: DoubleSide })));
+    serviceMats.set(key, (mat = new MeshBasicMaterial({ map, transparent: true, side: DoubleSide })));
   }
   // its own copy of the disc, so that taking a square away can dispose of every sign alike
   const m = new Mesh(serviceDisc.clone(), mat);
@@ -325,7 +326,10 @@ export class World {
     const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y));
     model.group.add(signs);
     const world = new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
-    world.services.push(...readServices(tiles, world.proj, AREA_SIZE_M / 2 - 8));
+    // every real one the loaded map holds, to judge by; those in the square and the made-up ones are kept
+    const real = readServices(tiles, world.proj, 1e9);
+    const reach = AREA_SIZE_M / 2 - 8;
+    world.services.push(...real.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(real, world.proj, reach, roads));
     // the map puts such a place on its building: the symbol lies on the roof, where it can be seen
     for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2));
     if (!world.sights.length) world.sights.push(...townSights(tiles, world.proj, AREA_SIZE_M / 2 - 8));

@@ -135,6 +135,8 @@ export class Car {
   stale = 0;
   /** the hardest knock this step (m/s), for sounds, damage and the law */
   knock = 0;
+  /** carrying a heavy load: slower away, slower to stop, and held back more by a hill */
+  heavy = false;
   gone = false;
 
   constructor(readonly kind: CarKind, colour = PAINT[Math.floor(Math.random() * PAINT.length)]) {
@@ -174,11 +176,11 @@ export class Car {
     fy = Math.sin(this.th);
     let vf = this.vx * fx + this.vy * fy;
     let vl = this.vx * fy - this.vy * fx;
-    const top = this.spec.top * (this.hp < 35 ? 0.7 : 1);
+    const top = this.spec.top * (this.hp < 35 ? 0.7 : 1) * (this.heavy ? 0.85 : 1);
     if (c.throttle > 0 && !dead) {
-      if (vf < top) vf += this.spec.acc * c.throttle * dt * (1 - 0.55 * Math.max(0, vf) / top);
+      if (vf < top) vf += this.spec.acc * (this.heavy ? 0.72 : 1) * c.throttle * dt * (1 - 0.55 * Math.max(0, vf) / top);
     } else if (c.throttle < 0) {
-      if (vf > 0.4) vf = Math.max(0, vf + 20 * c.throttle * dt);
+      if (vf > 0.4) vf = Math.max(0, vf + (this.heavy ? 13 : 20) * c.throttle * dt);
       else if (!dead) vf = Math.max(-8, vf + 6 * c.throttle * dt);
     }
     // hills, for the car you drive: uphill holds it back, downhill carries it, never so much that a
@@ -186,7 +188,7 @@ export class Car {
     if (this.driver === 'player' && (Math.abs(vf) > 0.6 || c.throttle !== 0)) {
       const slope = (world.groundY(this.x + fx * 2.5, this.y + fy * 2.5) - world.groundY(this.x - fx * 2.5, this.y - fy * 2.5)) / 5;
       if (Math.abs(slope) > 0.025) {
-        const pull = Math.min(21 * Math.abs(slope), this.spec.acc * 0.62);
+        const pull = Math.min((this.heavy ? 30 : 21) * Math.abs(slope), this.spec.acc * (this.heavy ? 0.6 : 0.62));
         vf -= Math.sign(slope) * pull * dt;
         vf = Math.min(vf, top * 1.3);
       }

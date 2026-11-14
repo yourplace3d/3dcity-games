@@ -15,6 +15,15 @@ the streets, buildings, water and hills come from the same map squares as
 - **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
+- **Three kinds of job**, one at each kind of station. A blue ring waits at the nearest fuel station, fire
+  station and police station:
+  - **Supply run** (fuel station): a heavy load. The car is slower away, slower to stop and slower uphill.
+    It pays a quarter more, and a fifth on top for a car without a new dent.
+  - **Rush job** (fire station): a short clock, and every second left over pays three times.
+  - **Clean run** (police station): pays 70 % more, but any offence on the way and the job is gone.
+  The drop-off is a sight or public place where one lies at a fitting distance, otherwise a street.
+- **Where a part of town has no such station on the map, one is made up**, at a spot worked out from its
+  position on the earth: the same on every visit and for every player. Its symbol has a dashed ring.
 - **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
   the one before. What the three earn, less any fines, is the score; it goes on a scoreboard, with your
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
@@ -39,8 +48,7 @@ the streets, buildings, water and hills come from the same map squares as
   list is kept by hand in `src/landmarks.ts`. Where a square has none of those, public places from the map
   are named instead, one of each kind and six at most: town hall, railway station, museum, theatre, library,
   stadium, bus station, ferry terminal, cinema, marketplace, swimming pool, sports centre.
-- **Fuel, fire and police stations carry a symbol and no name**, on their roof and on both maps. They do
-  nothing yet. Shops, restaurants, hotels, schools, hospitals, places of worship, courts and post offices
+- **Fuel, fire and police stations carry a symbol and no name**, on their roof and on both maps. Shops, restaurants, hotels, schools, hospitals, places of worship, courts and post offices
   are neither named nor marked.
 - **Challenge a friend.** After a run, a button makes a link to it. Whoever opens the link starts where you
   started and plays the same three packages and drop-offs, with your name, score and time to beat, and can

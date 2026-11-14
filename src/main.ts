@@ -554,7 +554,9 @@ function paint(h: Hud): void {
   $('job').hidden = !h.job;
   if (h.job) {
     $('job').classList.toggle('late', h.job.left < 10);
-    put('job', `${h.run ? `Delivery ${h.run.n}/${h.run.of}` : 'Deliver'} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+    const what = { plain: 'Delivery', supply: 'Supply run', rush: 'Rush job', clean: 'Clean run' }[h.job.kind];
+    $('job').dataset.kind = h.job.kind;
+    put('job', `${h.run ? `${what} ${h.run.n}/${h.run.of}` : what} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
   }
   $('hint').hidden = !h.hint;
   if (h.hint) put('hint', `<kbd>E</kbd>${h.hint}`);
@@ -682,7 +684,7 @@ if (baked) {
   });
 }
 // the map's key shows the same symbols the map does
-for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind).toDataURL()})`;
+for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);
   $('btn-sound').setAttribute('aria-label', sound.on ? 'Sound is on: turn it off' : 'Sound is off: turn it on');

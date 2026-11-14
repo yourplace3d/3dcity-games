@@ -4,6 +4,7 @@
  * The score in a link is whatever the sender's browser wrote there.
  */
 import type { Course } from './game/game';
+import type { JobKind } from './game/services';
 
 export interface Challenge {
   name: string;
@@ -22,7 +23,9 @@ export function packChallenge(c: Challenge): string {
   const lon0 = Math.round(start.lon * E5);
   // every place as its distance from the start, which keeps the link short
   const pts = legs.flatMap((l) => [l.from, l.to]).flatMap((p) => [Math.round(p.lat * E5) - lat0, Math.round(p.lon * E5) - lon0]);
-  const json = JSON.stringify([1, c.name.slice(0, 16), Math.round(c.score), Math.round(c.seconds), c.place.slice(0, 40), lat0, lon0, ...pts]);
+  // one letter per delivery for its kind of job: p plain, s supply, r rush, c clean
+  const kinds = legs.map((l) => (l.kind ?? 'plain')[0]).join('');
+  const json = JSON.stringify([2, c.name.slice(0, 16), Math.round(c.score), Math.round(c.seconds), c.place.slice(0, 40), lat0, lon0, ...pts, kinds]);
   let bin = '';
   for (const b of new TextEncoder().encode(json)) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -33,7 +36,10 @@ export function readChallenge(text: string): Challenge | null {
   try {
     const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
     const a = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)))) as unknown;
-    if (!Array.isArray(a) || a[0] !== 1) return null;
+    if (!Array.isArray(a) || (a[0] !== 1 && a[0] !== 2)) return null;
+    // since the kinds of job: a last entry with one letter per delivery
+    const letters = a[0] === 2 ? String(a.pop()) : '';
+    const KINDS: Record<string, JobKind> = { p: 'plain', s: 'supply', r: 'rush', c: 'clean' };
     // a run has had five deliveries, and three since: the link says how many by its length
     const legs = (a.length - 7) / 4;
     if (!Number.isInteger(legs) || legs < 1 || legs > 5) return null;
@@ -49,7 +55,7 @@ export function readChallenge(text: string): Challenge | null {
       score: Math.max(0, Math.min(1e7, Math.round(score as number))),
       seconds: Math.max(0, Math.min(86400, Math.round(seconds as number))),
       place: place.trim().slice(0, 40),
-      course: { start: { lat: la / E5, lon: lo / E5 }, legs: Array.from({ length: legs }, (_, i) => ({ from: at(i * 2), to: at(i * 2 + 1) })) },
+      course: { start: { lat: la / E5, lon: lo / E5 }, legs: Array.from({ length: legs }, (_, i) => ({ from: at(i * 2), to: at(i * 2 + 1), kind: KINDS[letters[i]] ?? 'plain' })) },
     };
   } catch {
     return null;

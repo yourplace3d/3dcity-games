@@ -1,11 +1,17 @@
 /**
  * Fuel stations, fire stations and police stations, from the map's points of interest. They are
- * marked with a symbol and carry no name. They do nothing yet: the marks are there so that later
- * play can build on places the player has already seen.
+ * marked with a symbol and carry no name, and each kind hands out its own kind of job: a supply
+ * run from a fuel station, a rush job from a fire station, a clean run from a police station.
+ *
+ * Where a part of town has none of a kind on the map, one is made up, so that every place has all
+ * three kinds of job. A made-up one stands at a spot worked out from its position on the earth: the
+ * same on every visit and for every player. Its symbol has a dashed ring, so the game never claims
+ * a station stands where the map has none.
  */
 
 import type { Projector } from '../geo/projection';
 import type { LoadedTile } from '../geo/tiles';
+import type { RoadNet } from './roads';
 
 export type ServiceKind = 'fuel' | 'fire' | 'police';
 
@@ -13,7 +19,13 @@ export interface Service {
   kind: ServiceKind;
   x: number;
   y: number;
+  /** not on the map: made up so that this part of town has one */
+  invented?: boolean;
 }
+
+/** The job a kind of place hands out. `plain` is a package from a street corner, where no place is near. */
+export type JobKind = 'plain' | 'supply' | 'rush' | 'clean';
+export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rush', police: 'clean' };
 
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 
@@ -44,11 +56,55 @@ export function readServices(tiles: LoadedTile[], proj: Projector, half: number)
   return out;
 }
 
-const icons = new Map<ServiceKind, HTMLCanvasElement>();
+function hash(a: number, b: number, c: number): number {
+  let h = (Math.imul(a, 0x9e3779b1) ^ Math.imul(b, 0x85ebca6b) ^ Math.imul(c, 0xc2b2ae35)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+  h = Math.imul(h ^ (h >>> 12), 0x297a2d39) >>> 0;
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+}
 
-/** The symbol of a kind of place: a round sign, 128 px, drawn once. */
-export function serviceIcon(kind: ServiceKind): HTMLCanvasElement {
-  const had = icons.get(kind);
+/** A cell of the earth about 1.2 km across holds one made-up place of each kind, unless a real one is near. */
+const CELL_DEG = 0.011;
+/** a real place of the kind this near (m) and none is made up */
+const REAL_NEAR = 450;
+
+/**
+ * The made-up places a square needs. `real` is every real one in the loaded map, also those just
+ * outside the square, so that the answer is the same from whichever square a spot is looked at.
+ */
+export function inventServices(real: Service[], proj: Projector, half: number, roads: RoadNet): Service[] {
+  const out: Service[] = [];
+  const sw = proj.toLngLat(-half, -half);
+  const ne = proj.toLngLat(half, half);
+  const kinds: ServiceKind[] = ['fuel', 'fire', 'police'];
+  for (let row = Math.floor(sw.lat / CELL_DEG); row <= Math.floor(ne.lat / CELL_DEG); row++) {
+    // cells as wide as they are tall, whatever the latitude
+    const lonStep = CELL_DEG / Math.max(0.2, Math.cos((((row + 0.5) * CELL_DEG) * Math.PI) / 180));
+    for (let col = Math.floor(sw.lon / lonStep); col <= Math.floor(ne.lon / lonStep); col++) {
+      kinds.forEach((kind, k) => {
+        const lat = (row + 0.15 + 0.7 * hash(row, col, k * 2 + 1)) * CELL_DEG;
+        const lon = (col + 0.15 + 0.7 * hash(row, col, k * 2 + 2)) * lonStep;
+        const [x, y] = proj.toLocal(lon, lat);
+        if (Math.abs(x) > half - 40 || Math.abs(y) > half - 40) return;
+        if (real.some((r) => r.kind === kind && Math.hypot(r.x - x, r.y - y) < REAL_NEAR)) return;
+        // beside a street a car can reach
+        const n = roads.nearest(x, y, 240, 'traffic');
+        if (!n) return;
+        const [rx, ry] = roads.point(n.line, n.s);
+        const [hx, hy] = roads.heading({ line: n.line, s: n.s, dir: 1 });
+        const side = roads.lines[n.line].w / 2 + 7;
+        out.push({ kind, x: rx + hy * side, y: ry - hx * side, invented: true });
+      });
+    }
+  }
+  return out;
+}
+
+const icons = new Map<string, HTMLCanvasElement>();
+
+/** The symbol of a kind of place: a round sign, 128 px, drawn once. A made-up place has a dashed ring. */
+export function serviceIcon(kind: ServiceKind, invented = false): HTMLCanvasElement {
+  const had = icons.get(kind + invented);
   if (had) return had;
   const c = document.createElement('canvas');
   c.width = c.height = 128;
@@ -122,6 +178,14 @@ export function serviceIcon(kind: ServiceKind): HTMLCanvasElement {
     g.closePath();
     g.fill();
   }
-  icons.set(kind, c);
+  if (invented) {
+    g.setLineDash([15, 11]);
+    g.lineWidth = 9;
+    g.strokeStyle = '#f4f1ea';
+    g.beginPath();
+    g.arc(64, 64, 55, 0, Math.PI * 2);
+    g.stroke();
+  }
+  icons.set(kind + invented, c);
   return c;
 }

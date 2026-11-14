@@ -34,6 +34,7 @@ import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, World } from './world';
 import type { Ears, Sfx } from '../sound';
+import { JOB_OF, type JobKind } from './services';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -70,6 +71,8 @@ interface Person {
 interface Marker {
   at: LngLat;
   mesh: Group;
+  /** for a package: the kind of job it is */
+  kind?: JobKind;
   /** driving distances to it, in the square they were worked out for */
   field?: RouteField | null;
   fieldIn?: World;
@@ -78,7 +81,7 @@ interface Marker {
 /** The places of a run: where it began, and each delivery's package and drop-off. */
 export interface Course {
   start: LngLat;
-  legs: Array<{ from: LngLat; to: LngLat }>;
+  legs: Array<{ from: LngLat; to: LngLat; kind?: JobKind }>;
 }
 
 export interface Job {
@@ -86,6 +89,9 @@ export interface Job {
   left: number;
   pay: number;
   metres: number;
+  kind: JobKind;
+  /** how whole the car was when the load came on board */
+  hp0: number;
 }
 
 export interface Hud {
@@ -94,7 +100,7 @@ export interface Hud {
   health: number;
   carHp: number | null;
   kmh: number;
-  job: { left: number; metres: number; pay: number } | null;
+  job: { left: number; metres: number; pay: number; kind: JobKind } | null;
   hint: string;
   /** where the arrow points: the drop-off, or the nearest job */
   target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' } | null;
@@ -230,6 +236,9 @@ export class Game {
   private set: Course | null = null;
   /** where the package on board was picked up */
   private from: LngLat | null = null;
+  /** where the last job was taken, so that the next comes from somewhere else */
+  private lastFrom: LngLat | null = null;
+  private offerT = 0;
 
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
@@ -1068,6 +1077,11 @@ export class Game {
     const before = Math.ceil(this.heat);
     this.heat = Math.min(MAX_HEAT, this.heat + points);
     if (Math.ceil(this.heat) > before) this.onToast(text, 'bad');
+    if (this.job?.kind === 'clean') {
+      this.onToast('That was a clean run: the job is gone', 'bad');
+      this.onSound('late');
+      this.endJob(false);
+    }
   }
 
   private law(dt: number): void {
@@ -1161,14 +1175,17 @@ export class Game {
       j.left -= dt;
 
       if (j.metres < 6.5) {
-        const bonus = Math.round((j.left * 2) / 10) * 10;
+        // what comes on top: time left over, three times as much on a rush job; on a supply run a
+        // fifth more for a car that took no harm
+        let bonus = Math.round((j.left * (j.kind === 'rush' ? 6 : 2)) / 10) * 10;
+        if (j.kind === 'supply' && this.car && this.car.hp >= j.hp0 - 1) bonus += Math.round((j.pay * 0.2) / 10) * 10;
         this.cash += j.pay + bonus;
         this.delivered++;
         const r = this.run;
         if (!r.over) {
           r.done++;
           r.score += j.pay + bonus;
-          if (this.from) this.course.legs.push({ from: this.from, to: j.to.at });
+          if (this.from) this.course.legs.push({ from: this.from, to: j.to.at, kind: j.kind });
           this.onToast(`Delivery ${r.done} of ${r.of}  +$${j.pay + bonus}`, 'good');
         } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
@@ -1205,9 +1222,17 @@ export class Game {
           const r = inside && f ? w.roads.route(f, px, py) : null;
           metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
         }
+        const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
+        // a sight or public place at a fitting distance makes the drop-off, where there is one
+        const sights = leg ? [] : w.sights.filter((s) => {
+          const d2 = Math.hypot(s.x - px, s.y - py);
+          return d2 > near * 0.8 && d2 < far * 1.5;
+        });
         // otherwise a drop-off on a real street that the roads actually lead to
         for (let k = 0; k < 10 && !marker; k++) {
-          const to = w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
+          const sight = k < 2 && sights.length ? pickOne(sights) : null;
+          const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
+          const to: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
           if (!to) continue;
           const cand = this.newMarker('#ffd400', to);
           const f = this.fieldOf(cand);
@@ -1218,15 +1243,24 @@ export class Game {
           } else this.scene.remove(cand.mesh);
         }
         if (!marker) continue;
-        this.job = { to: marker, metres, left: 25 + metres / pace, pay: Math.max(50, Math.round((metres * (0.5 + (this.run.over ? this.delivered : this.run.done) * 0.03)) / 10) * 10) };
+        const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? this.delivered : this.run.done) * 0.03)) / 10) * 10);
+        // each kind of job has its own clock and its own pay
+        const [clock, pay, say] = {
+          plain: [25 + metres / pace, base, 'Package on board: get it to the yellow ring'],
+          supply: [32 + metres / (pace * 0.8), Math.round((base * 1.25) / 10) * 10, 'Supply run: a heavy load, slow uphill and slow to stop. More pay for a car without a new dent'],
+          rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, 'Rush job: a short clock, and every second left over pays three times'],
+          clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
+        }[kind] as [number, number, string];
+        this.job = { to: marker, metres, left: clock, pay, kind, hp0: this.car ? this.car.hp : 100 };
         this.from = m.at;
+        this.lastFrom = m.at;
         this.routeT = 0;
         for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
-        this.onToast('Package on board: get it to the yellow ring', 'info');
+        this.onToast(say, 'info');
         this.onSound('pickup');
         return;
       }
-      if (d > 900 && !sent) {
+      if (d > 1100 && !sent) {
         this.scene.remove(m.mesh);
         this.pickups.splice(i, 1);
       }
@@ -1235,12 +1269,37 @@ export class Game {
       if (!this.pickups.length) this.pickups.push(this.markerAt('#2bd4e0', sent.from));
       return;
     }
-    if (this.pickups.length < 3) {
-      const p = w.roads.randomPlace('traffic', px, py, 90, 520);
-      if (p) {
-        const [x, y] = w.roads.point(p.line, p.s);
-        if (!this.pickups.some((m) => Math.hypot(this.local(m)[0] - x, this.local(m)[1] - y) < 150)) this.pickups.push(this.newMarker('#2bd4e0', p));
+    // a package waits at the nearest fuel, fire and police station: one of each kind of job
+    this.offerT -= dt;
+    if (this.offerT > 0) return;
+    this.offerT = 0.6;
+    const last = this.lastFrom ? this.local({ at: this.lastFrom } as Marker) : null;
+    for (const kind of ['fuel', 'fire', 'police'] as const) {
+      const job = JOB_OF[kind];
+      if (this.pickups.some((m) => m.kind === job)) continue;
+      let best: PathState | null = null;
+      let bd = 1000;
+      for (const s of w.services) {
+        if (s.kind !== kind) continue;
+        const n = w.roads.nearest(s.x, s.y, 150, 'traffic');
+        if (!n) continue;
+        const [x, y] = w.roads.point(n.line, n.s);
+        const d = Math.hypot(x - px, y - py);
+        // not the one a job was just taken from, and not one you are standing on
+        if (d < 40 || d >= bd || (last && Math.hypot(x - last[0], y - last[1]) < 30)) continue;
+        bd = d;
+        best = { line: n.line, s: n.s, dir: 1 };
       }
+      if (best) {
+        const m = this.newMarker('#2bd4e0', best);
+        m.kind = job;
+        this.pickups.push(m);
+      }
+    }
+    // no station in reach at all: a package from a street corner, as it always was
+    if (!this.pickups.length) {
+      const p = w.roads.randomPlace('traffic', px, py, 90, 520);
+      if (p) this.pickups.push(this.newMarker('#2bd4e0', p));
     }
   }
 
@@ -1368,6 +1427,7 @@ export class Game {
 
     let fastest = 0;
     for (const c of this.cars) {
+      c.heavy = c === this.car && this.job?.kind === 'supply';
       c.knock = 0;
       fastest = Math.max(fastest, c.speed);
     }
@@ -1658,7 +1718,7 @@ export class Game {
       health: Math.max(0, this.me.hp),
       carHp: this.car ? this.car.hp : null,
       kmh: this.speed() * 3.6,
-      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay } : null,
+      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind } : null,
       hint,
       target,
       delivered: this.delivered,

@@ -107,6 +107,20 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   Dropped while building, because of what the map files under them: post offices (parcel shops and other
   businesses) and courts (juvenile and labour courts turned up). The famous cathedrals in the hand-picked
   list stay. Missions between real places are not built; the owner has not asked for them yet.
+- **Missions at the three symbols: the owner's plan (14 November 2026), four steps.**
+  1. Jobs at symbols, with made-up stations where a part of town has none, and three rules: supply run at
+     the pump (heavy load), rush job at the flame (short clock), clean run at the badge (an offence loses it).
+     Built: `services.ts`, `jobs()` in `game.ts`, `heavy` in `cars.ts`. Challenge links carry the kinds
+     (version 2 of the link; version 1 still opens).
+  2. Repair for cash at fuel stations. Not built.
+  3. Buying a fuel station as a garage where a car waits; a car park where a town has no fuel station
+     (parking is in every tile counted). Not built.
+  4. Was "challenge links carry the kinds": done with step 1, because a sent run would otherwise have played
+     by other rules than the sender's.
+  Each step is published only after the owner has seen it. On copyright the owner asked for a check: rules
+  such as buying a garage are free to use, names and looks of other games are not; plain words only
+  ("repair", "your garage"). Not legal advice.
+  Counted in 210 tiles of big-city centres: police in 90 %, fuel in 88 %, fire stations in 76 %.
 - **The "3D view social idea"** is the private repo `yourplace3d/yourplace-live`: friends shown live at their
   building and floor. Agreed with the owner: no live location in the game. The two can share links between
   friends later; a run that starts or ends at a place the player picks was offered and not yet decided.

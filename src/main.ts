@@ -689,7 +689,10 @@ $('btn-sound').addEventListener('click', () => {
   sound.toggle();
   soundButton();
   $('btn-sound').blur();
+  // a note at once, so that the tap itself tells whether sound works on this device
+  if (sound.on) setTimeout(() => sound.play('pickup'), 120);
 });
+(window as unknown as { sound: Sound }).sound = sound;
 $('btn-menu').addEventListener('click', () => {
   save();
   setScreen('start');

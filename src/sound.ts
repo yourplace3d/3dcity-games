@@ -37,15 +37,21 @@ export class Sound {
   private crashAt = -99;
   on = true;
 
+  /** Whether the browser is letting the page be heard right now (for the button, and for tests). */
+  get heard(): boolean {
+    return this.on && this.ctx?.state === 'running';
+  }
+
   constructor() {
     try {
       this.on = localStorage.getItem(KEY) !== '0';
     } catch {
       /* no place to remember it: on */
     }
+    // An iPad counts the lifting of a finger as the player's doing, not the putting down: listening
+    // for the press alone left the game silent there.
     const wake = () => this.wake();
-    addEventListener('pointerdown', wake, true);
-    addEventListener('keydown', wake, true);
+    for (const ev of ['pointerup', 'touchend', 'click', 'keydown', 'pointerdown']) addEventListener(ev, wake, true);
     document.addEventListener('visibilitychange', () => {
       if (!this.ctx) return;
       if (document.hidden) void this.ctx.suspend();
@@ -71,7 +77,11 @@ export class Sound {
     if (!this.on) return;
     try {
       if (!this.ctx) this.build();
-      if (this.ctx && this.ctx.state === 'suspended') void this.ctx.resume();
+      // an iPhone or iPad with its ringer switched to silent mutes a web page's sounds unless the page
+      // says they are what it is for, as a game's are
+      const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+      if (session && session.type !== 'playback') session.type = 'playback';
+      if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume();
       if (this.ctx && this.out) this.out.gain.setTargetAtTime(0.55, this.ctx.currentTime, 0.05);
     } catch (err) {
       // a browser without sound: the game goes on silent

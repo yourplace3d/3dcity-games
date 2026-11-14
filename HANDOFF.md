@@ -67,6 +67,17 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   wanted but left out for now, since it needs a service. Which project holds the "social idea" is still open.
 - **Pay inside a run counts that run's deliveries** (not every delivery ever made on the device), so two
   players are paid alike for the same run. Fines still take a share of the player's cash, which differs.
+- **Decided on 14 November 2026, all live.** A run is three deliveries. The challenge button is the one yellow
+  button on the result card. The place's name is shown across the screen at the start. Trains run on the
+  railway: one coach, no stations, no braking for cars (the owner: "trains don't brake"), turning back at a
+  dead end. Streams slow a car; rivers still stop it. No counter of links for now: the owner will see from
+  friends whether links come back; GoatCounter was suggested over Supabase if one is wanted later.
+- **The smear on the iPad** (a dark streak fixed to the screen) was the ground casting a shadow onto itself.
+  The ground now casts none (`world.ts`), and the owner confirmed on the iPad that it is gone. It never showed
+  in the headless test browser, so shadow changes need a look on a real device.
+- **The "3D view social idea"** is the private repo `yourplace3d/yourplace-live`: friends shown live at their
+  building and floor. Agreed with the owner: no live location in the game. The two can share links between
+  friends later; a run that starts or ends at a place the player picks was offered and not yet decided.
 - **Streets are drawn in a fixed order, not by height** (`roadMesh.ts`). Before, where streets crossed on a
   slope, the pale kerb of one cut through the dark surface of the other ("shards"), seen by the owner in
   Ottawa and clear in Hong Kong.

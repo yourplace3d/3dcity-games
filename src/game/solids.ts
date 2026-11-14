@@ -225,3 +225,45 @@ export class WaterMask {
     return this.data[j * this.px + i] === 1;
   }
 }
+
+/** Streams and ditches: narrow water a car can ford. Their lines, findable by place. */
+export class Streams {
+  private readonly cells = new Map<number, number[]>();
+  private readonly segs: number[] = [];
+  private static readonly CELL = 40;
+
+  constructor(lines: Array<{ kind: string; widthM: number; pts: Array<[number, number]> }>) {
+    for (const l of lines) {
+      if (l.kind !== 'stream') continue;
+      for (let i = 0; i < l.pts.length - 1; i++) {
+        const [ax, ay] = l.pts[i];
+        const [bx, by] = l.pts[i + 1];
+        const id = this.segs.length / 5;
+        this.segs.push(ax, ay, bx, by, l.widthM / 2);
+        const c = Streams.CELL;
+        for (let cy = Math.floor((Math.min(ay, by) - 4) / c); cy <= Math.floor((Math.max(ay, by) + 4) / c); cy++)
+          for (let cx = Math.floor((Math.min(ax, bx) - 4) / c); cx <= Math.floor((Math.max(ax, bx) + 4) / c); cx++) {
+            const k = (cx + 512) * 1024 + cy + 512;
+            const list = this.cells.get(k);
+            if (list) list.push(id);
+            else this.cells.set(k, [id]);
+          }
+      }
+    }
+  }
+
+  /** Whether a point is in a stream's bed (with a little bank either side). */
+  at(x: number, y: number): boolean {
+    const c = Streams.CELL;
+    const list = this.cells.get((Math.floor(x / c) + 512) * 1024 + Math.floor(y / c) + 512);
+    if (!list) return false;
+    for (const id of list) {
+      const [ax, ay, bx, by, hw] = this.segs.slice(id * 5, id * 5 + 5);
+      const dx = bx - ax;
+      const dy = by - ay;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+      if (Math.hypot(x - ax - dx * t, y - ay - dy * t) <= hw + 0.8) return true;
+    }
+    return false;
+  }
+}

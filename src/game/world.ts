@@ -12,7 +12,7 @@ import { CityModel } from '../scene/cityModel';
 import { PALETTE } from '../scene/overlay';
 import { buildRoadMeshes, disposeRoadMeshes } from './roadMesh';
 import { RoadNet } from './roads';
-import { Solids, WaterMask } from './solids';
+import { Solids, Streams, WaterMask } from './solids';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -207,6 +207,7 @@ export class World {
     readonly roads: RoadNet,
     readonly solids: Solids,
     readonly water: WaterMask,
+    private readonly streams: Streams,
     private readonly ribbons: Group,
     /** bus stops, tram stops and subway entrances, from the map */
     readonly stops: Stop[],
@@ -248,7 +249,7 @@ export class World {
     const water = new WaterMask(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M);
     const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y));
     model.group.add(signs);
-    return new World(centre, model, roads, solids, water, ribbons, stops, signs, buildings.length);
+    return new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
   }
 
   /** Whether cars keep left here (Britain, Japan, Australia, India, southern Africa and so on). */
@@ -274,6 +275,11 @@ export class World {
   /** Whether a point is in water with no road or bridge under it. */
   inWater(x: number, y: number): boolean {
     return this.water.at(x, y) && !this.roads.onRoad(x, y);
+  }
+
+  /** Whether a point is in a stream or ditch, with no road or bridge over it. A car gets through, slowly. */
+  inStream(x: number, y: number): boolean {
+    return this.streams.at(x, y) && !this.roads.onRoad(x, y);
   }
 
   /** Whether a circle is clear of buildings and water. */

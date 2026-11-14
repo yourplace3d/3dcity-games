@@ -185,6 +185,7 @@ export class Game {
   private frozen = 0;
   private readonly smoke: Array<{ mesh: Mesh<SphereGeometry, MeshBasicMaterial>; life: number }> = [];
   private smokeT = 0;
+  private sprayT = 0;
   /** off in tests that only step the game */
   render = true;
   /**
@@ -1352,6 +1353,18 @@ export class Game {
           this.toRoad(0, 0);
         }
         this.dropCar(c);
+      } else if (c === this.car && c.speed > 1 && w.inStream(c.x, c.y)) {
+        // fording a stream: the water holds the car back and sprays
+        if (c.speed > 4) {
+          const k = Math.exp(-3.2 * dt);
+          c.vx *= k;
+          c.vy *= k;
+        }
+        this.sprayT -= dt;
+        if (this.sprayT <= 0) {
+          this.sprayT = 0.07;
+          this.cloud(c.x + (Math.random() - 0.5) * 2, c.y + (Math.random() - 0.5) * 2, 0.5, '#bfe0f2');
+        }
       } else if (c.driver === 'ai' || c.driver === 'cop') {
         const limit = this.chasing(c) ? 420 : this.viewR + 190;
         if (far > limit || Math.abs(c.x) > w.half - 8 || Math.abs(c.y) > w.half - 8 || (c.hp <= 0 && far > this.viewR + 20)) this.dropCar(c);
@@ -1450,6 +1463,17 @@ export class Game {
     if (this.render) this.renderer.render(this.scene, this.camera);
   }
 
+  /** One puff of smoke or spray that rises and fades; false when all of them are in the air. */
+  private cloud(x: number, y: number, up: number, colour: string): boolean {
+    const s = this.smoke.find((o) => o.life <= 0);
+    if (!s) return false;
+    s.life = 1;
+    s.mesh.visible = true;
+    s.mesh.material.color.set(colour);
+    s.mesh.position.set(x, this.world.groundY(x, y) + up, -y);
+    return true;
+  }
+
   /** Smoke from cars that have taken a beating. */
   private puff(dt: number): void {
     this.smokeT -= dt;
@@ -1458,12 +1482,7 @@ export class Game {
       const [px, py] = this.pos();
       for (const c of this.cars) {
         if (c.hp >= 35 || Math.hypot(c.x - px, c.y - py) > this.viewR) continue;
-        const s = this.smoke.find((o) => o.life <= 0);
-        if (!s) break;
-        s.life = 1;
-        s.mesh.visible = true;
-        s.mesh.material.color.set(c.hp <= 0 ? '#1c1c1c' : '#6a6a6a');
-        s.mesh.position.set(c.x + Math.cos(c.th) * c.a + (Math.random() - 0.5), this.world.groundY(c.x, c.y) + 1.4, -(c.y + Math.sin(c.th) * c.a) + (Math.random() - 0.5));
+        if (!this.cloud(c.x + Math.cos(c.th) * c.a + (Math.random() - 0.5), c.y + Math.sin(c.th) * c.a + (Math.random() - 0.5), 1.4, c.hp <= 0 ? '#1c1c1c' : '#6a6a6a')) break;
       }
     }
     for (const s of this.smoke) {

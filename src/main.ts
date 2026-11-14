@@ -8,7 +8,7 @@ import { packChallenge, readChallenge, type Challenge } from './challenge';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
-import { findPlace, nearCity } from './places';
+import { findPlace, nearCity, placeAt } from './places';
 import { addScore, lastName, nameScore, scores, type Score } from './scores';
 import { BAKED } from './geo/mapCache';
 import type { LngLat } from './geo/projection';
@@ -40,6 +40,10 @@ let busy = false;
 let placeName = '';
 /** the run someone sent that is being played: its name, score and time are the ones to beat */
 let rival: Challenge | null = null;
+/** the place has a name to announce, not only coordinates */
+let placeKnown = false;
+/** the name has been shown since this place was loaded */
+let arrived = false;
 const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
 /** "three deliveries", for a run of that many */
 const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'delivery' : 'deliveries'}`;
@@ -201,7 +205,20 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
     await game.start(at);
     game.newRun(sent?.course ?? null);
     rival = sent;
-    placeName = name ?? nearCity(at) ?? `${at.lat.toFixed(2)}, ${at.lon.toFixed(2)}`;
+    const known = name ?? nearCity(at);
+    placeName = known ?? `${at.lat.toFixed(2)}, ${at.lon.toFixed(2)}`;
+    placeKnown = !!known;
+    // a link with nothing but coordinates: ask which town this is, for the sign and the board
+    if (!known && !BAKED) {
+      const here = game.world;
+      void placeAt(at).then((town) => {
+        if (!town || game?.world !== here || placeKnown) return;
+        placeName = town;
+        placeKnown = true;
+        if (playing && !arrived) arrive();
+      });
+    }
+    arrived = false;
     save(at);
     if (!BAKED) history.replaceState(null, '', `${sent ? location.search : withoutChallenge()}#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
     $('btn-menu').blur();
@@ -227,6 +244,23 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
   }
 }
 
+/** The name of the place across the screen as the game starts there; with a run someone sent, what there is to beat. */
+function arrive(): void {
+  arrived = true;
+  $('arrive-place').textContent = placeName;
+  $('arrive-line').textContent = rival
+    ? `${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`
+    : `${cap(deliveries(RUN_JOBS))} make a run`;
+  const el = $('arrive');
+  el.classList.toggle('sent', !!rival);
+  el.hidden = true;
+  void el.offsetWidth;
+  el.hidden = false;
+  clearTimeout(arriveT);
+  arriveT = window.setTimeout(() => (el.hidden = true), rival ? 6000 : 3200);
+}
+let arriveT = 0;
+
 /** The link's query without a sent run in it, for when the player goes on to something else. */
 function withoutChallenge(): string {
   const q = new URLSearchParams(location.search);
@@ -238,7 +272,7 @@ function withoutChallenge(): string {
 function begin(): void {
   $('thin').hidden = true;
   setScreen('play');
-  if (rival) toast(`${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`, 'info', 9000);
+  if (placeKnown) arrive();
   if (rival && coached()) return;
   if (coached()) toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
   else if (step < 0) step = 0;

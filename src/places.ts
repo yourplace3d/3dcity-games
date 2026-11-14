@@ -56,6 +56,18 @@ async function ask<T>(url: string, ms: number): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** The town or city a point lies in, asked of the place search; null when it doesn't say in time. */
+export async function placeAt(at: LngLat): Promise<string | null> {
+  try {
+    // to about 100 m: enough for a town's name
+    const json = await ask<{ features?: Array<{ properties: { city?: string; town?: string; village?: string; name?: string } }> }>(`https://photon.komoot.io/reverse?lat=${at.lat.toFixed(3)}&lon=${at.lon.toFixed(3)}`, 4000);
+    const p = json.features?.[0]?.properties;
+    return p?.city ?? p?.town ?? p?.village ?? p?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * A place by name: 'none' when the search servers answered and know no such place, 'silent' when
  * none of them answered at all.

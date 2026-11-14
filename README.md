@@ -16,6 +16,8 @@ the streets, buildings, water and hills come from the same map squares as
 - **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
   the one before. What the three earn, less any fines, is the score; it goes on a scoreboard, with your
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
+- **The place is announced** across the screen as the game starts there; for a link with nothing but
+  coordinates the game asks the place search which town it is (the point rounded to about 100 m).
 - **Challenge a friend.** After a run, a button makes a link to it. Whoever opens the link starts where you
   started and plays the same three packages and drop-offs, with your name, score and time to beat, and can
   send their own run back. Traffic and police are not the same twice. The link holds everything, so

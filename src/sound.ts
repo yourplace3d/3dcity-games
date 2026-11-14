@@ -156,13 +156,16 @@ export class Sound {
     const drive = e?.driving ?? false;
     const speed = e?.speed ?? 0;
     // gears: the note climbs, drops back and climbs again as the car gets faster
-    const gear = Math.min(4, Math.floor(speed / 8.5));
-    const within = Math.min(1.4, (speed - gear * 8.5) / 8.5);
-    const hz = 46 + gear * 9 + within * 62 + (e?.throttle ?? 0) * 8;
+    // a shift every 20 km/h or so: a car in town is heard going up through four or five gears
+    const SHIFT = 5.6;
+    const gear = Math.min(6, Math.floor(speed / SHIFT));
+    const within = Math.min(1.5, (speed - gear * SHIFT) / SHIFT);
+    const hz = 46 + gear * 6 + within * 50 + (e?.throttle ?? 0) * 8;
     this.engine.a.frequency.setTargetAtTime(hz, t, 0.06);
     this.engine.b.frequency.setTargetAtTime(hz / 2, t, 0.06);
-    this.engine.tone.frequency.setTargetAtTime(260 + speed * 38 + (e?.throttle ?? 0) * 500, t, 0.08);
-    this.engine.gain.gain.setTargetAtTime(drive ? 0.07 + 0.11 * (e?.throttle ?? 0) : 0, t, 0.09);
+    this.engine.tone.frequency.setTargetAtTime(240 + speed * 26 + (e?.throttle ?? 0) * 320, t, 0.08);
+    // kept low: it runs the whole time, and the notes and the siren have to stand out over it
+    this.engine.gain.gain.setTargetAtTime(drive ? 0.028 + 0.05 * (e?.throttle ?? 0) : 0, t, 0.09);
     this.skid.gain.setTargetAtTime(e?.skid ? 0.16 : 0, t, 0.05);
     const near = e?.siren ?? 0;
     // a wail, up and down every second and a half

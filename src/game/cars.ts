@@ -7,7 +7,7 @@ import { BoxGeometry, Group, Mesh, MeshStandardMaterial } from 'three';
 import type { PathState } from './roads';
 import type { World } from './world';
 
-export type CarKind = 'sedan' | 'sport' | 'van' | 'police' | 'bus' | 'tram';
+export type CarKind = 'sedan' | 'sport' | 'van' | 'police' | 'bus' | 'tram' | 'train';
 export type Driver = 'none' | 'ai' | 'cop' | 'player';
 
 interface Spec {
@@ -25,6 +25,7 @@ export const SPECS: Record<CarKind, Spec> = {
   police: { len: 4.5, wid: 1.85, body: 0.75, top: 35, acc: 11 },
   bus: { len: 11, wid: 2.5, body: 2.3, top: 16, acc: 4 },
   tram: { len: 19, wid: 2.4, body: 2.5, top: 14, acc: 3.5 },
+  train: { len: 25, wid: 2.9, body: 3, top: 24, acc: 3 },
 };
 
 const PAINT = ['#c8362e', '#2f6fb5', '#e8e6df', '#2d2f33', '#e0a526', '#3f8f5a', '#8a8f96', '#7a3f8f', '#d9703a', '#5fa8b8'];
@@ -53,10 +54,10 @@ function buildMesh(kind: CarKind, colour: string): { group: Group; lights: Mesh[
   const s = SPECS[kind];
   const g = new Group();
   const lights: Mesh[] = [];
-  if (kind === 'bus' || kind === 'tram') {
+  if (kind === 'bus' || kind === 'tram' || kind === 'train') {
     // a long box with a band of windows and a pale roof; the tram has a joint in the middle
-    const paint = kind === 'bus' ? '#e8b923' : '#e9e6df';
-    const stripe = kind === 'bus' ? '#20242b' : '#c8362e';
+    const paint = kind === 'bus' ? '#e8b923' : kind === 'train' ? '#2f5d8a' : '#e9e6df';
+    const stripe = kind === 'bus' ? '#20242b' : kind === 'train' ? '#e9e6df' : '#c8362e';
     g.add(part(paint, s.len, s.body, s.wid, 0, 0.35 + s.body / 2, 0));
     g.add(part('#20242b', s.len - 0.6, 0.7, s.wid + 0.04, 0, 0.35 + s.body * 0.68, 0));
     g.add(part(stripe, s.len, 0.25, s.wid + 0.05, 0, 0.35 + s.body * 0.25, 0));

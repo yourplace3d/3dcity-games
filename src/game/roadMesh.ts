@@ -177,6 +177,16 @@ function dashes(l: RoadLine, on: number, off: number): Pt[][] {
   return out;
 }
 
+/** A line moved `d` metres to its left (negative: right), for one rail of a track. */
+function beside(pts: Pt[], d: number): Pt[] {
+  return pts.map((c, i) => {
+    const a = pts[Math.max(0, i - 1)];
+    const b = pts[Math.min(pts.length - 1, i + 1)];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    return [c[0] - ((b[1] - a[1]) / l) * d, c[1] + ((b[0] - a[0]) / l) * d];
+  });
+}
+
 /** `pause` is awaited halfway, so the caller can let a frame through. */
 export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) => number, pause: () => Promise<void>): Promise<Group> {
   const kerb = new Strip();
@@ -184,9 +194,23 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   const path = new Strip();
   const paint = new Strip();
   const rails = new Strip();
+  // a railway: a bed of gravel, sleepers across it, two rails
+  const bed = new Strip();
+  const sleepers = new Strip();
+  // a tram's track lies in the street: a darker band with two rails
+  const groove = new Strip();
+  // in a big station the sleepers are spaced out, to keep the square quick to build
+  const trackM = net.lines.reduce((a, l) => a + (l.train ? l.len : 0), 0);
+  const gap = trackM > 20000 ? 1.9 : 0.8;
   for (const l of net.lines) {
-    if (l.tram) {
-      rails.add(l.pts, 1.5, 0.15, groundY);
+    if (l.tram || l.train) {
+      const gauge = l.train ? 0.78 : 0.72;
+      if (l.train) {
+        bed.add(l.pts, 3.6, 0.04, groundY);
+        for (const d of dashes(l, 0.34, gap)) sleepers.add(d, 2.7, 0.06, groundY);
+      } else groove.add(l.pts, 2, 0.14, groundY);
+      rails.add(beside(l.pts, gauge), 0.22, 0.18, groundY);
+      rails.add(beside(l.pts, -gauge), 0.22, 0.18, groundY);
       continue;
     }
     if (l.kind === 'path') {
@@ -199,7 +223,8 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   }
   await pause();
   const g = new Group();
-  g.add(path.mesh(PALETTE.path, 1), kerb.mesh(PALETTE.roadCasing, 2), fill.mesh(PALETTE.roadFill, 3), paint.mesh('#e9e6dc', 4), rails.mesh('#7d8490', 5));
+  // drawn in this order: a street lies over the gravel where they cross, and the rails over the street
+  g.add(bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
   return g;
 }
 

@@ -37,6 +37,8 @@ export interface RoadLine {
   walk: boolean;
   traffic: boolean;
   tram: boolean;
+  /** a railway track, for trains */
+  train: boolean;
   /** lines met at the start and at the end */
   ends: [Conn[], Conn[]];
   /** other lines that begin or end somewhere along this one */
@@ -77,6 +79,7 @@ export class RoadNet {
   private readonly walkLines: number[] = [];
   private readonly driveLines: number[] = [];
   private readonly tramLines: number[] = [];
+  private readonly trainLines: number[] = [];
   // the drivable network as a graph, for routes: a node at each line end and junction
   private readonly bps: Float32Array[] = [];
   private readonly nodeAt: Int32Array[] = [];
@@ -88,7 +91,9 @@ export class RoadNet {
     for (const f of features) {
       // tram tracks come as narrow rail lines; trams follow them like cars follow roads
       const tram = f.kind === 'rail' && f.widthM < 2;
-      if (!DRIVE.has(f.kind) && !WALK.has(f.kind) && !tram) continue;
+      // the wider ones are railway tracks, for trains
+      const train = f.kind === 'rail' && !tram;
+      if (!DRIVE.has(f.kind) && !WALK.has(f.kind) && !tram && !train) continue;
       const pts: Pt[] = [];
       for (const p of f.pts) {
         const q = pts[pts.length - 1];
@@ -100,7 +105,7 @@ export class RoadNet {
       const len = cum[pts.length - 1];
       if (len < 2) continue;
       const id = this.lines.length;
-      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, ends: [[], []], joins: [] });
+      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, ends: [[], []], joins: [] });
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = this.segLine.length;
         this.segLine.push(id);
@@ -126,6 +131,7 @@ export class RoadNet {
       if (l.walk) this.walkLines.push(i);
       if (l.drive) this.driveLines.push(i);
       if (l.tram) this.tramLines.push(i);
+      if (l.train) this.trainLines.push(i);
     });
     this.graph();
   }
@@ -381,7 +387,7 @@ export class RoadNet {
   }
 
   /** The nearest point on a line of the wanted sort within `maxD`, or null. */
-  nearest(x: number, y: number, maxD: number, want: 'drive' | 'walk' | 'traffic' | 'tram' | 'any' = 'any'): Near | null {
+  nearest(x: number, y: number, maxD: number, want: 'drive' | 'walk' | 'traffic' | 'tram' | 'train' | 'any' = 'any'): Near | null {
     let best: Near | null = null;
     this.each(x, y, maxD, (line, i) => {
       const l = this.lines[line];
@@ -399,6 +405,11 @@ export class RoadNet {
 
   get hasTrams(): boolean {
     return this.tramLines.length > 0;
+  }
+
+  /** Enough railway for a train to be worth the sight (m of track). */
+  get hasTrains(): boolean {
+    return this.trainLines.reduce((a, i) => a + this.lines[i].len, 0) > 400;
   }
 
   /** Whether a point is on a road or path (bridges count, so they carry you over water). */
@@ -439,7 +450,7 @@ export class RoadNet {
   }
 
   /** Ways on from a meeting point on a line: along it in each direction that has road left. */
-  private optionsAt(c: Conn, want: 'drive' | 'walk' | 'tram'): PathState[] {
+  private optionsAt(c: Conn, want: 'drive' | 'walk' | 'tram' | 'train'): PathState[] {
     const l = this.lines[c.line];
     if (!l[want]) return [];
     const out: PathState[] = [];
@@ -452,7 +463,7 @@ export class RoadNet {
    * Move along the network by `ds` metres. At the end of a line `pick` chooses among the ways
    * on (null: turn round). Passing a junction, `pick` gets the side road and "carry on" (null).
    */
-  advance(p: PathState, ds: number, want: 'drive' | 'walk' | 'tram', pick: Pick): void {
+  advance(p: PathState, ds: number, want: 'drive' | 'walk' | 'tram' | 'train', pick: Pick): void {
     const l = this.lines[p.line];
     const from = p.s;
     const to = p.s + p.dir * ds;
@@ -481,8 +492,8 @@ export class RoadNet {
   }
 
   /** A random place on the network between two distances from a point, inside the square. */
-  randomPlace(want: 'drive' | 'walk' | 'traffic' | 'tram', x: number, y: number, minD: number, maxD: number, rnd: () => number = Math.random): PathState | null {
-    const pool = want === 'traffic' ? this.trafficLines : want === 'walk' ? this.walkLines : want === 'tram' ? this.tramLines : this.driveLines;
+  randomPlace(want: 'drive' | 'walk' | 'traffic' | 'tram' | 'train', x: number, y: number, minD: number, maxD: number, rnd: () => number = Math.random): PathState | null {
+    const pool = want === 'traffic' ? this.trafficLines : want === 'walk' ? this.walkLines : want === 'tram' ? this.tramLines : want === 'train' ? this.trainLines : this.driveLines;
     if (!pool.length) return null;
     const edge = this.half - 25;
     for (let k = 0; k < 60; k++) {

@@ -40,6 +40,8 @@ const PARKED = 70;
 const WALK_SPEED = 6.2;
 const MAX_HEAT = 4;
 
+/** What a vehicle keeps to: its rails, or the streets. */
+const railsOf = (kind: CarKind): 'tram' | 'train' | null => (kind === 'tram' || kind === 'train' ? kind : null);
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const pickOne = <T>(list: T[]): T => list[Math.floor(Math.random() * list.length)];
@@ -396,7 +398,7 @@ export class Game {
     old.dispose();
     for (const c of this.cars) {
       c.lastStop = -1;
-      if (c.path) c.path = this.attach(c.x, c.y, c.th, c.kind === 'tram' ? 'tram' : 'drive');
+      if (c.path) c.path = this.attach(c.x, c.y, c.th, railsOf(c.kind) ?? 'drive');
     }
     for (const p of this.people) p.path = this.attach(p.x, p.y, p.th, 'walk');
     this.parkCars(this.pos());
@@ -427,7 +429,7 @@ export class Game {
   }
 
   /** The place on the network nearest to a point, facing the way `th` points. */
-  private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram'): PathState | null {
+  private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train'): PathState | null {
     const n = this.world.roads.nearest(x, y, 60, want);
     if (!n) return null;
     const p: PathState = { line: n.line, s: n.s, dir: 1 };
@@ -482,18 +484,18 @@ export class Game {
   private spawnTraffic(kind: CarKind, minD: number, maxD: number): Car | null {
     const w = this.world;
     const [px, py] = this.pos();
-    const p = w.roads.randomPlace(kind === 'tram' ? 'tram' : 'traffic', px, py, minD, maxD);
+    const p = w.roads.randomPlace(railsOf(kind) ?? 'traffic', px, py, minD, maxD);
     if (!p) return null;
     const line = w.roads.lines[p.line];
     // buses keep to the bigger streets
     if (kind === 'bus' && (line.kind === 'minor' || line.kind === 'motorway')) return null;
     const [x, y] = w.roads.lanePoint(p, this.lane(p, kind));
-    if (this.carNear(x, y, kind === 'bus' || kind === 'tram' ? 24 : 12) || !w.free(x, y, 1.2)) return null;
+    if (this.carNear(x, y, kind === 'bus' || railsOf(kind) ? 30 : 12) || !w.free(x, y, 1.2)) return null;
     const [hx, hy] = w.roads.heading(p);
     const c = this.addCar(kind, x, y, Math.atan2(hy, hx));
     c.driver = kind === 'police' ? 'cop' : 'ai';
     c.path = p;
-    const v = kind === 'tram' || kind === 'bus' ? 6 : SPEED_LIMIT[line.kind] * 0.7;
+    const v = kind === 'train' ? 14 : kind === 'tram' || kind === 'bus' ? 6 : SPEED_LIMIT[line.kind] * 0.7;
     c.vx = hx * v;
     c.vy = hy * v;
     return c;
@@ -501,7 +503,7 @@ export class Game {
 
   /** How far to the side of a line a vehicle keeps: its lane, on the side this country drives on. */
   private lane(p: PathState, kind: CarKind): number {
-    if (kind === 'tram') return 0;
+    if (railsOf(kind)) return 0;
     return laneOffset(this.world.roads.lines[p.line]) * (this.world.leftHand ? -1 : 1);
   }
 
@@ -520,8 +522,8 @@ export class Game {
     let ty: number;
     let limit: number;
     const vf = c.forward;
-    const want = c.kind === 'tram' ? 'tram' : 'drive';
-    const transit = c.kind === 'tram' || c.kind === 'bus';
+    const want = railsOf(c.kind) ?? 'drive';
+    const transit = want !== 'drive' || c.kind === 'bus';
     if (chase && toMe < 110 && !w.solids.blocked(c.x, c.y, px, py)) {
       // in sight: straight at where you'll be
       const [vx, vy] = this.vel();
@@ -552,7 +554,7 @@ export class Game {
         : (options, from) => {
             // trams and buses mostly carry straight on; cars turn off more often
             if (from && Math.random() > (transit ? 0.08 : 0.25)) return null;
-            if (c.kind === 'tram') {
+            if (want !== 'drive') {
               const dot = (o: PathState) => net.heading(o)[0] * fx + net.heading(o)[1] * fy;
               return options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
             }
@@ -571,7 +573,7 @@ export class Game {
         [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
       }
       const base = SPEED_LIMIT[net.lines[p.line].kind] ?? 8;
-      limit = chase ? Math.min(31, base * 2.3) : transit ? Math.min(base, 11) : base;
+      limit = chase ? Math.min(31, base * 2.3) : c.kind === 'train' ? 19 : transit ? Math.min(base, 11) : base;
       // buses and trams wait a moment at each of their stops
       if (transit) {
         if (c.dwell > 0) {
@@ -822,8 +824,8 @@ export class Game {
     let best: Car | null = null;
     let bd = Infinity;
     for (const c of this.cars) {
-      // trams stay on their rails: you can't take one
-      if (c.gone || c.kind === 'tram') continue;
+      // trams and trains stay on their rails: you can't take one
+      if (c.gone || railsOf(c.kind)) continue;
       const d = Math.hypot(c.x - this.me.x, c.y - this.me.y) - c.a - c.r;
       if (d < 2.2 && d < bd && c.speed < 9) {
         bd = d;
@@ -1373,6 +1375,8 @@ export class Game {
       }
       // a few trams wherever the map has tracks
       if (w.roads.hasTrams && this.cars.filter((c) => c.kind === 'tram').length < 3) this.spawnTraffic('tram', this.viewR + 25, this.viewR + 220);
+      // and a train or two on the railway
+      if (w.roads.hasTrains && this.cars.filter((c) => c.kind === 'train').length < 2) this.spawnTraffic('train', this.viewR + 30, this.viewR + 170);
       if (this.people.length < PEOPLE) this.spawnPerson();
       this.maybeLoadNext();
     }

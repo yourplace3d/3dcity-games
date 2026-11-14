@@ -209,8 +209,10 @@ export class Car {
     // walls: push the two circles out, then stand the car between them again
     const front = { x: this.x + fx * this.a, y: this.y + fy * this.a };
     const rear = { x: this.x - fx * this.a, y: this.y - fy * this.a };
-    const hf = world.solids.push(front, this.r);
-    const hr = world.solids.push(rear, this.r);
+    // a train or tram on its rails goes where they go: into the station hall, under the depot roof
+    const railed = this.driver === 'ai' && (this.kind === 'train' || this.kind === 'tram');
+    const hf = railed ? null : world.solids.push(front, this.r);
+    const hr = railed ? null : world.solids.push(rear, this.r);
     if (hf || hr) {
       this.x = (front.x + rear.x) / 2;
       this.y = (front.y + rear.y) / 2;

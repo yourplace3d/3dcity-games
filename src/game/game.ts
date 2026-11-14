@@ -35,6 +35,11 @@ import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } f
 import { areaCentre, World } from './world';
 
 const FOV = 42;
+/** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
+const ARRIVE_M = 1100;
+/** It holds there a moment, then comes down to you in this many seconds. */
+const ARRIVE_HOLD_S = 0.9;
+const DESCENT_S = 3.4;
 const TRAFFIC = 13;
 const PEOPLE = 26;
 const PARKED = 70;
@@ -165,6 +170,8 @@ export class Game {
   job: Job | null = null;
   private pickups: Marker[] = [];
   private cam = { x: 0, y: 0, h: 90 };
+  /** seconds left of the look from above that a place opens with */
+  private descent = 0;
   private viewR = 100;
   private clock = 0;
   private spawnT = 0;
@@ -369,9 +376,11 @@ export class Game {
     this.me.hp = 100;
     this.car = null;
     this.heat = 0;
-    this.cam = { x: px, y: py, h: 90 };
+    this.cam = { x: px, y: py, h: ARRIVE_M };
+    this.descent = ARRIVE_HOLD_S + DESCENT_S;
     this.parkCars(null);
-    this.pace.hold = 2;
+    // the look from above draws far more than play does: it says nothing about how the device copes
+    this.pace.hold = ARRIVE_HOLD_S + DESCENT_S + 1.5;
     this.onSquare('ready');
   }
 
@@ -1471,7 +1480,13 @@ export class Game {
     const portrait = Math.max(1, 1 / this.camera.aspect) ** 0.8;
     let h = (this.car ? 60 + speed * 2.7 : 40) * portrait;
     h = Math.max(h, w.solids.tallestNear(px, py, 45) + 34);
-    this.cam.h += (h - this.cam.h) * (1 - Math.exp(-1.8 * dt));
+    if (this.descent > 0) {
+      // arriving: a look at the part of town from high up, then down to you
+      this.descent -= dt;
+      const p = clamp(1 - this.descent / DESCENT_S, 0, 1);
+      const eased = p * p * p * (p * (p * 6 - 15) + 10);
+      this.cam.h = Math.exp(Math.log(ARRIVE_M * portrait) + (Math.log(h) - Math.log(ARRIVE_M * portrait)) * eased);
+    } else this.cam.h += (h - this.cam.h) * (1 - Math.exp(-1.8 * dt));
     const gy = w.groundY(this.cam.x, this.cam.y);
     this.camera.position.set(this.cam.x, gy + this.cam.h, -this.cam.y);
     this.camera.lookAt(this.cam.x, gy, -this.cam.y);

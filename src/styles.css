@@ -41,11 +41,14 @@ body.touch .hint kbd { display: none; }
 #fps { top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); font: 12px/1.45 ui-monospace, Menlo, monospace; white-space: pre; text-align: center; color: var(--ink); }
 #btn-menu { pointer-events: auto; top: calc(12px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); color: var(--ink); font-size: 18px; line-height: 1; padding: 9px 12px; cursor: pointer; }
 
-#arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; }
-#arrow svg { position: absolute; width: 48px; height: 48px; left: -24px; top: -24px; transform: rotate(var(--rot, 0deg)); filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6)); }
-#arrow path { fill: var(--cyan); stroke: #10242a; stroke-width: 1.2; stroke-linejoin: round; }
+/* The arrow is a box that holds all it draws, on a layer of its own, and has no shadow filter. As a
+   point with its parts hanging outside it, an iPad left the shadow behind wherever the arrow had been:
+   dark streaks that stayed on the screen. */
+#arrow { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; will-change: transform; pointer-events: none; }
+#arrow svg { position: absolute; width: 48px; height: 48px; left: 36px; top: 36px; transform: rotate(var(--rot, 0deg)); overflow: visible; }
+#arrow path { fill: var(--cyan); stroke: #10242a; stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke; }
 #arrow.drop path { fill: var(--yellow); stroke: #2a2400; }
-#arrow span { position: absolute; left: var(--lx, -24px); top: var(--ly, 20px); width: 60px; margin-left: -6px; white-space: nowrap; text-align: center; font: 700 14px/1 inherit; text-shadow: 0 1px 3px #000, 0 0 2px #000; }
+#arrow span { position: absolute; left: calc(60px + var(--lx, -24px)); top: calc(60px + var(--ly, 20px)); width: 60px; margin-left: -6px; white-space: nowrap; text-align: center; font: 700 14px/1 inherit; text-shadow: 0 1px 3px #000, 0 0 2px #000; }
 
 #toasts { position: absolute; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; }
 .toast { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font-weight: 600; font-size: 14px; white-space: nowrap; animation: toast 3.2s forwards; }

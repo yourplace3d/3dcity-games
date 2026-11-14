@@ -72,14 +72,15 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   railway: one coach, no stations, no braking for cars (the owner: "trains don't brake"), turning back at a
   dead end. Streams slow a car; rivers still stop it. No counter of links for now: the owner will see from
   friends whether links come back; GoatCounter was suggested over Supabase if one is wanted later.
-- **The smear on the iPad** (a dark streak of fine lines near the car that stays put on the screen) is not
-  solved for sure. It never shows in the headless test browser. The owner tries one cure at a time on the live
-  site and says so only if it comes back; silence means the latest try may be the cure. Tries so far:
-  1. The ground casts no shadow (`world.ts`) and a tighter shadow depth: it came back.
-  2. Hard-edged shadows instead of soft ones (`BasicShadowMap` in `game.ts`), and smoke put away when a new
-     square arrives: live since 14 November, outcome open.
-  Next if it returns: `?try=noshadow` as the default for a day, to learn whether shadows are involved at all;
-  then `nosmoke`, then `fullres` (no automatic lowering of resolution). `?try=soft` brings soft shadows back.
+- **The smear on the iPad** (dark streaks of fine lines that stay put on the screen) is most likely the
+  pointing arrow, not the 3D picture. The owner saw it appear right after driving over a package ring, which
+  is when the arrow jumps from the ring to the edge of the screen. The arrow was a zero-size element moved
+  every frame, with an SVG carrying a `drop-shadow` filter hanging outside it; the iPad's browser left the
+  shadow behind along the arrow's path. It is now a 120 px box on its own layer with no filter
+  (`#arrow` in `styles.css`), live since 14 November. It never showed in the headless test browser, so this
+  is not confirmed: the owner says so only if it comes back. Two earlier tries were wrong guesses about
+  shadows: the ground casting none (kept, harmless) and hard-edged shadows (taken back). If it returns:
+  `?try=noshadow`, `hard`, `nosmoke`, `fullres` in the link each turn one suspect off.
 - **The "3D view social idea"** is the private repo `yourplace3d/yourplace-live`: friends shown live at their
   building and floor. Agreed with the owner: no live location in the game. The two can share links between
   friends later; a run that starts or ends at a place the player picks was offered and not yet decided.

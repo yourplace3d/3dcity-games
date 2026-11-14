@@ -8,6 +8,9 @@ the streets, buildings, water and hills come from the same map squares as
 
 ## How it plays
 
+- **Two ways to play, chosen on the start screen** and remembered. *Compare with friends*: a run of three
+  deliveries against the clock, to send to a friend to beat. *Do jobs*: the open jobs from the stations in
+  town, as many as you like. The pause card switches between them. A run a friend sent is always a run.
 - The first time you play, a short tour walks you through it: get in, pick up, deliver, and what the
   police are about. It moves on as you do each thing, and can be skipped.
 - You start on foot beside a parked car. Walk up to any car and get in: parked ones are free, taking one
@@ -15,8 +18,8 @@ the streets, buildings, water and hills come from the same map squares as
 - **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
-- **Open jobs, after a run.** A run stays three plain packages from street corners, so that runs compare.
-  On its result, "Continue with open jobs" leads on, with a short note on how to find them. From then on a
+- **Open jobs.** A run stays three plain packages from street corners, so that runs compare. The open jobs
+  are their own way to play, and a run's result also leads on to them. A short note says how to find them: a
   blue ring waits at the nearest fuel station, fire station and police station, as often as you go there:
   - **Supply run** (fuel station): a heavy load. The car is slower away, slower to stop and slower uphill.
     It pays a quarter more, and a fifth on top for a car without a new dent.
@@ -88,6 +91,7 @@ the streets, buildings, water and hills come from the same map squares as
 | Brake, reverse | `S` | **Brake** |
 | Handbrake | `Space` | |
 | Big map of the loaded streets | `M` | tap the little map |
+| Pause | `P` or `Esc` | **❚❚** at the top |
 | Route line on the road | `G` | the button on the big map |
 | Back onto the road when stuck | `R` | |
 

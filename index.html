@@ -73,6 +73,7 @@
       <div class="panel" id="coach" hidden><small id="coach-n"></small><p id="coach-text"></p><button id="coach-skip">Skip the tour</button></div>
       <button class="panel" id="btn-menu" aria-label="Change city">☰</button>
       <button class="panel" id="btn-sound" aria-label="Sound">♪</button>
+      <button class="panel" id="btn-pause" aria-label="Pause">❚❚</button>
     </div>
 
     <div id="touch">
@@ -90,7 +91,10 @@
         <h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 368 160" class="wordmark" role="img" aria-label="3DA"><g transform="translate(20,20) scale(1)" fill="none" stroke="#f4f1ea" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"><path d="M14,18 H52 a21,21 0 0 1 0,42 H34"/><path d="M52,60 a21,21 0 0 1 0,42 H14"/></g><g transform="translate(134,20) scale(1)" fill="none" stroke="#f4f1ea" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"><path d="M18,18 V102 H44 a42,42 0 0 0 0,-84 Z"/></g><polygon points="288.0,26.0 308.0,26.0 348.0,134.0 248.0,134.0" fill="#ffd400"/><polygon points="292.5,33.0 303.5,33.0 334.0,134.0 262.0,134.0" fill="#565b63"/><polygon points="297.2,42.0 298.8,42.0 299.1,51.0 296.9,51.0" fill="#f4f1ea"/><polygon points="296.6,61.0 299.4,61.0 299.9,75.0 296.1,75.0" fill="#f4f1ea"/><polygon points="295.7,87.0 300.3,87.0 301.0,107.0 295.0,107.0" fill="#f4f1ea"/><polygon points="294.5,120.0 301.5,120.0 302.0,134.0 294.0,134.0" fill="#f4f1ea"/></svg></h1>
         <p class="tag">Drive any city.</p>
         <p>The real streets and buildings of any place on Earth, seen from above. Walk up to a car and take it, run deliveries against the clock for cash (three make a run, for the scoreboard or to send to a friend to beat), and shake off the police when you've been careless.</p>
-        <p class="small">After a run come the open jobs, as many as you like: a heavy supply run from a fuel station, a rush job from a fire station, a clean run from a police station.</p>
+        <div id="modes" role="group" aria-label="What to play">
+          <button type="button" id="mode-run" aria-pressed="true"><b>Compare with friends</b><span>A run of three deliveries against the clock. Send it to a friend to beat.</span></button>
+          <button type="button" id="mode-jobs" aria-pressed="false"><b>Do jobs</b><span>As many as you like: supply runs, rush jobs and clean runs from the stations in town.</span></button>
+        </div>
         <form id="search">
           <input id="q" type="search" placeholder="City, street or lat, lon" autocomplete="off" enterkeyhint="go" />
           <button class="primary">Go</button>
@@ -108,7 +112,7 @@
         <div id="busy" hidden><b id="busy-text">Searching</b><i aria-hidden="true"></i></div>
         <dl class="keys">
           <dt>Keys</dt>
-          <dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk, drive · <kbd>E</kbd> in and out of cars · <kbd>Space</kbd> handbrake · <kbd>M</kbd> big map · <kbd>G</kbd> route line on the road · <kbd>R</kbd> unstick</dd>
+          <dd><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk, drive · <kbd>E</kbd> in and out of cars · <kbd>Space</kbd> handbrake · <kbd>M</kbd> big map · <kbd>P</kbd> pause · <kbd>G</kbd> route line on the road · <kbd>R</kbd> unstick</dd>
           <dt>Touch</dt>
           <dd>Drag anywhere on the left to walk or drive that way. Buttons on the right: in / out, brake. Tap the little map for a big one of the streets around you.</dd>
           <dt>Rings</dt>
@@ -117,6 +121,18 @@
           <dd><span class="dot sub"></span> subway entrance: walk in to ride towards your target · buses stop at <span class="dot bus"></span>, trams at <span class="dot tram"></span></dd>
         </dl>
         <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Stops and stations from OpenStreetMap. Search by Photon (komoot) and Nominatim. Built on the Your Place 3D engine.</p>
+      </div>
+    </section>
+    <section id="pause" hidden>
+      <div class="card">
+        <h2>Paused</h2>
+        <p class="small" id="pause-line"></p>
+        <div class="row">
+          <button class="primary" id="btn-continue">Continue</button>
+          <button id="btn-switch"></button>
+          <button id="btn-city">Change city</button>
+        </div>
+        <p class="small">P or Esc pauses and continues.</p>
       </div>
     </section>
     <section id="result" hidden>

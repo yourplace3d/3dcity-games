@@ -55,6 +55,27 @@ const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 /** the big map is up and the game waits behind it */
 let mapOpen = false;
+/** the game waits behind the pause card */
+let paused = false;
+const MODE = '3da-mode';
+/** what the start screen is set to: a run of three to compare, or open jobs */
+let mode: 'run' | 'jobs' = ((): 'run' | 'jobs' => {
+  try {
+    return localStorage.getItem(MODE) === 'jobs' ? 'jobs' : 'run';
+  } catch {
+    return 'run';
+  }
+})();
+function setMode(m: 'run' | 'jobs'): void {
+  mode = m;
+  try {
+    localStorage.setItem(MODE, m);
+  } catch {
+    /* it lasts as long as the page */
+  }
+  $('mode-run').setAttribute('aria-pressed', String(m === 'run'));
+  $('mode-jobs').setAttribute('aria-pressed', String(m === 'jobs'));
+}
 const ROUTE = 'drive-it-3d-route';
 
 /** The line on the road to the next ring: off unless the player turns it on, and remembered. */
@@ -215,7 +236,9 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       (window as unknown as { game: Game }).game = game;
     }
     await game.start(at);
-    game.newRun(sent?.course ?? null);
+    // a run a friend sent is a run, whatever the start screen is set to
+    if (sent || mode === 'run') game.newRun(sent?.course ?? null);
+    else game.openPlay();
     rival = sent;
     const known = name ?? nearCity(at);
     placeName = known ?? `${at.lat.toFixed(2)}, ${at.lon.toFixed(2)}`;
@@ -262,7 +285,9 @@ function arrive(): void {
   $('arrive-place').textContent = placeName;
   $('arrive-line').textContent = rival
     ? `${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`
-    : `${cap(deliveries(RUN_JOBS))} make a run`;
+    : game?.run.over
+      ? 'Open jobs: look for the pump, the flame and the badge'
+      : `${cap(deliveries(RUN_JOBS))} make a run`;
   const el = $('arrive');
   el.classList.toggle('sent', !!rival);
   el.hidden = true;
@@ -286,6 +311,11 @@ function begin(): void {
   setScreen('play');
   if (placeKnown) arrive();
   if (rival && coached()) return;
+  // open jobs from the start: say where they are, once the place's name has been read
+  if (game?.run.over && coached()) {
+    setTimeout(() => playing && game?.run.over && openJobs(true), 3600);
+    return;
+  }
   if (coached()) toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
   else if (step < 0) step = 0;
 }
@@ -621,7 +651,8 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
-  if (!game?.world || !playing || mapOpen) sound.hear(null);
+  if (!game?.world || !playing || mapOpen || paused) sound.hear(null);
+  if (paused) return;
   if (!game?.world || !playing) {
     // behind the result of a run the camera goes on rising
     if (game?.world && fresh && !$('result').hidden) {
@@ -697,6 +728,59 @@ if (baked) {
 }
 // the map's key shows the same symbols the map does
 for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico, #openjobs .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
+// ------------------------------------------------------------------ pause, and what to play
+
+/** Hold the game, or let it go on. The card also lets the player change what they are playing. */
+function setPause(on: boolean): void {
+  if (on && (!playing || mapOpen || !$('result').hidden)) return;
+  paused = on;
+  $('pause').hidden = !on;
+  controls.enabled = playing && !on;
+  if (!on) return;
+  const jobs = !!game?.run.over;
+  $('pause-line').textContent = jobs ? 'You are doing open jobs.' : rival ? `You are on the run ${rival.name || 'someone'} sent you.` : 'You are on a run of three deliveries.';
+  $('btn-switch').textContent = jobs ? 'Start a run of three' : 'Do open jobs instead';
+}
+$('btn-pause').addEventListener('click', () => {
+  setPause(true);
+  $('btn-pause').blur();
+});
+$('btn-continue').addEventListener('click', () => setPause(false));
+$('pause').addEventListener('click', (e) => e.target === e.currentTarget && setPause(false));
+$('btn-switch').addEventListener('click', () => {
+  if (!game) return;
+  const toJobs = !game.run.over;
+  setPause(false);
+  rival = null;
+  if (!BAKED) history.replaceState(null, '', withoutChallenge() + location.hash);
+  setMode(toJobs ? 'jobs' : 'run');
+  if (toJobs) {
+    game.openPlay();
+    openJobs(true);
+  } else {
+    openJobs(false);
+    game.newRun();
+    toast(`New run: ${deliveries(RUN_JOBS)}`, 'info');
+  }
+});
+$('btn-city').addEventListener('click', () => {
+  setPause(false);
+  save();
+  setScreen('start');
+});
+addEventListener('keydown', (e) => {
+  if (e.repeat || (e.code !== 'KeyP' && e.code !== 'Escape') || (e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
+  // Esc closes the map first; that is handled where the map is
+  if (mapOpen) return;
+  if (paused) setPause(false);
+  else if (playing) setPause(true);
+});
+// the game does not run on while its tab is out of sight
+document.addEventListener('visibilitychange', () => document.hidden && setPause(true));
+setMode(mode);
+$('mode-run').addEventListener('click', () => setMode('run'));
+$('mode-jobs').addEventListener('click', () => setMode('jobs'));
+
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);
   $('btn-sound').setAttribute('aria-label', sound.on ? 'Sound is on: turn it off' : 'Sound is off: turn it on');

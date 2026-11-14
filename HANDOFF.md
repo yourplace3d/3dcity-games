@@ -115,6 +115,9 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
      The owner then set where they belong: a run stays three plain packages, so that runs and challenge
      links compare. The kinds of job open after a run, from "Continue with open jobs" on its result, with
      a short note on how to find them, and can be played as long as one likes.
+     Later the same day the owner asked for the choice up front instead of an explanation: the start
+     screen offers "Compare with friends" (the run of three) or "Do jobs" (open jobs, "story-mode style"
+     in the owner's words), remembered in the browser. A pause card (P, Esc or the button) switches too.
   2. Repair for cash at fuel stations. Not built.
   3. Buying a fuel station as a garage where a car waits; a car park where a town has no fuel station
      (parking is in every tile counted). Not built.

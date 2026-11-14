@@ -248,6 +248,7 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   const sleepers = new Strip();
   // a tram's track lies in the street: a darker band with two rails
   const groove = new Strip();
+  const deck = new Strip();
   const stairs = new Strip();
   const treads = new Strip();
   const arrows = new Strip();
@@ -257,6 +258,8 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   for (const l of net.lines) {
     if (l.tram || l.train) {
       const gauge = l.train ? 0.78 : 0.72;
+      // over water a track lies on a bridge: a deck wide enough to close up with the track beside it
+      if (l.bridge) deck.add(l.pts, l.train ? 13 : 6, 0.02, groundY);
       if (l.train) {
         bed.add(l.pts, 3.6, 0.04, groundY);
         for (const d of dashes(l, 0.34, gap)) sleepers.add(d, 2.7, 0.06, groundY);
@@ -308,7 +311,7 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   await pause();
   const g = new Group();
   // drawn in this order: a street lies over the gravel where they cross, and the rails over the street
-  g.add(stairs.mesh('#d8d0c0', 1), treads.mesh('#8f8676', 2), arrows.mesh('#c9c3b4', 6), bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
+  g.add(deck.mesh('#8b8a86', 0), stairs.mesh('#d8d0c0', 1), treads.mesh('#8f8676', 2), arrows.mesh('#c9c3b4', 6), bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
   return g;
 }
 

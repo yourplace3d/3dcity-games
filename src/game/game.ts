@@ -240,6 +240,18 @@ export class Game {
   private lastFrom: LngLat | null = null;
   private offerT = 0;
 
+  /** No run: the open jobs from the start, as many as one likes. */
+  openPlay(): void {
+    this.comeDown();
+    this.run = { done: 0, score: 0, seconds: 0, over: true, of: RUN_JOBS };
+    this.set = null;
+    this.from = null;
+    this.lastFrom = null;
+    this.offerT = 0;
+    if (this.job) this.endJob(false);
+    for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
+  }
+
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
     this.comeDown();

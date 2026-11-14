@@ -40,8 +40,18 @@ export interface TileBuilding {
   heightKnown: boolean;
 }
 
+/** A building whose colour (or material) a mapper recorded: where it stands, the colour, its height. */
+export interface MappedColour {
+  x: number;
+  y: number;
+  colour: string;
+  height: number;
+}
+
 export interface TileData {
   buildings: TileBuilding[];
+  /** the colours mappers recorded, for the game's local colours */
+  colours: MappedColour[];
   features: FeatureSet;
   settlements: Settlement[];
 }
@@ -228,6 +238,7 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
   const proj = makeProjector(center);
   const h = sizeM / 2;
   const buildings: TileBuilding[] = [];
+  const colours: MappedColour[] = [];
   const areas: AreaFeature[] = [];
   const lines: LineFeature[] = [];
   const sea: Polygon[] = [];
@@ -253,9 +264,11 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         // OpenMapTiles falls back to 5 m without a height or floor count; an exact 5 is nearly always that
         const heightKnown = f.properties.render_height != null && num(f.properties.render_height, 5) !== 5;
         const minHeight = Math.max(0, Math.min(num(f.properties.render_min_height, 0), height - 0.5));
+        const colour = /^#[0-9a-f]{6}$/i.test(str(f.properties.colour)) ? str(f.properties.colour) : '';
         for (const p of polygonsOf(f, toLocal)) {
           for (const c of clipBuildingToRect(p, bw, bs, be, bn, 2)) {
             const [x0, y0, x1, y1] = ringBounds(c.outer);
+            if (colour) colours.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, colour, height });
             const eps = 1e-6;
             const onSeam = (bw > -h && x0 <= bw + eps) || (be < h && x1 >= be - eps) || (bs > -h && y0 <= bs + eps) || (bn < h && y1 >= bn - eps);
             if (!onSeam) {
@@ -334,7 +347,7 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
     for (const poly of joinPieces(pieces)) buildings.push({ poly, height, minHeight, heightKnown: known === 1 });
   }
 
-  return { buildings, features: { areas, lines, coastlines: [], sea }, settlements: [...settlements.values()] };
+  return { buildings, colours, features: { areas, lines, coastlines: [], sea }, settlements: [...settlements.values()] };
 }
 
 function collectPlaces(t: LoadedTile, proj: Projector, into: Map<string, Settlement>): void {

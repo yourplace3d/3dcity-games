@@ -3,7 +3,7 @@
  * walls and the water. Squares sit on a fixed grid; the next one loads as you near the edge.
  */
 
-import { CircleGeometry, Color, DoubleSide, Group, Mesh, MeshBasicMaterial } from 'three';
+import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial } from 'three';
 import { pointInRing, ringBounds, type Polygon } from '../geo/polygon';
 import { makeProjector, type LngLat, type Projector } from '../geo/projection';
 import { loadHeightGrid } from '../geo/terrain';
@@ -14,6 +14,7 @@ import { buildRoadMeshes, disposeRoadMeshes } from './roadMesh';
 import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
 import { sightsIn, type Sight } from '../landmarks';
+import { localColours } from './localColours';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -61,7 +62,6 @@ Object.assign(PALETTE, {
   rail: '#7d766a',
 });
 
-const ROOFS = ['#e9e2d3', '#d9cfc0', '#c9b9a6', '#b9a394', '#cfd3d6', '#b4bcc2', '#d6b9a0', '#c98f78', '#a8b3a0', '#e3d8b8'].map((c) => new Color(c));
 
 /** Towers are squashed so the camera can stay close above the streets. */
 export function gameHeight(h: number): number {
@@ -242,7 +242,9 @@ export class World {
     model.setBuildingSpecs(buildings);
     await breathe();
     model.setFeatures(data.features);
-    model.setBuildingTint((e, n) => ROOFS[Math.abs(Math.floor(e * 7.3 + n * 3.1)) % ROOFS.length]);
+    const colours = localColours(data.colours, makeProjector(centre));
+    model.setBuildingTint((e, n) => colours.at(e, n));
+    (model as unknown as { roofCounts: unknown }).roofCounts = colours.counts;
     await breathe();
     const roads = new RoadNet(data.features.lines, AREA_SIZE_M / 2);
     await breathe();

@@ -20,6 +20,12 @@ the streets, buildings, water and hills come from the same map squares as
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
 - **The place is announced** across the screen as the game starts there; for a link with nothing but
   coordinates the game asks the place search which town it is (the point rounded to about 100 m).
+- **Roofs in the colours of the place.** Where OpenStreetMap records a building's colour or material it gets
+  that colour, toned down. A building with nothing recorded takes the colour of one of its nearest recorded
+  neighbours (at least 6 within 400 m; common colours spread, odd ones barely; recorded greens and blues are
+  shown but never handed on). With too few nearby, the square's own mix is used, and with nothing recorded the
+  plain palette. A building keeps its colour on every visit. Hamburg comes out brick, Freiburg sandstone,
+  Paris pale stone; central Barcelona has almost nothing recorded and stays plain (`src/game/localColours.ts`).
 - **Well-known sights have their names.** About a hundred in the cities the game knows by heart (the Arc de
   Triomphe, the Brandenburg Gate, Tokyo Tower): the name stands over the sight when it is in the picture, at
   the edge of the screen with the distance when it is within 320 m, and beside a gold star on the big map. The
@@ -93,7 +99,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
-  (MIT). Changed here: the tile cache's name only.
+  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings.
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
 There are no traffic lights, level-crossing barriers or one-way streets, and bus and tram lines are not the real routes: vehicles follow

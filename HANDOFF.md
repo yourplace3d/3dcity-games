@@ -81,6 +81,14 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   is not confirmed: the owner says so only if it comes back. Two earlier tries were wrong guesses about
   shadows: the ground casting none (kept, harmless) and hard-edged shadows (taken back). If it returns:
   `?try=noshadow`, `hard`, `nosmoke`, `fullres` in the link each turn one suspect off.
+- **Local colours (14 November 2026).** The owner's "3d data app" session found that open data records a
+  colour for few buildings (43 % in Midtown Manhattan, 16 % central Hamburg, under 1 % central Barcelona) and
+  that unmapped ones can take a neighbour's. Its patch for the 3d-city repo was not reachable from here (it
+  sits in a private scratch repo), so the owner asked for the idea to be built in the game directly:
+  `src/game/localColours.ts`. Decided here: greens and blues are never guessed, and a square with nothing
+  recorded keeps the plain palette instead of turning white. Counted in the game's squares: Hamburg 16 %
+  recorded and 58 % from neighbours or the square's mix; Freiburg 2 % and 78 %; Paris (Louvre) 1 % and 70 %;
+  New York 64 % and 29 %; Barcelona 0 %.
 - **The "3D view social idea"** is the private repo `yourplace3d/yourplace-live`: friends shown live at their
   building and floor. Agreed with the owner: no live location in the game. The two can share links between
   friends later; a run that starts or ends at a place the player picks was offered and not yet decided.

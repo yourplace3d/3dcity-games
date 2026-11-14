@@ -59,6 +59,14 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   The owner asked for simple missions because cities differ, and a board "where one can write their name
   if they want to". The board is kept in the browser only. A board shared between players needs a
   server; that was put to the owner and not yet decided.
+- **Coming back more often (14 November 2026).** The owner asked how to make people return: a comparable
+  scoreboard, a chat, leaving the take-a-car frame, a link to their "3D view social idea". Chosen first: the
+  challenge link (`src/challenge.ts`, `Game.course`, `Game.newRun(course)`), because it needs no server. A
+  shared daily board, home routes with a ghost car, a courier or bus-driver frame without police, and notes
+  left at places were laid out and put off; live chat was advised against. A counter of opened links was
+  wanted but left out for now, since it needs a service. Which project holds the "social idea" is still open.
+- **Pay inside a run counts that run's deliveries** (not every delivery ever made on the device), so two
+  players are paid alike for the same run. Fines still take a share of the player's cash, which differs.
 - **Streets are drawn in a fixed order, not by height** (`roadMesh.ts`). Before, where streets crossed on a
   slope, the pale kerb of one cut through the dark surface of the other ("shards"), seen by the owner in
   Ottawa and clear in Hong Kong.

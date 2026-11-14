@@ -105,10 +105,16 @@
         <div id="result-run" hidden>
           <p class="score" id="result-score"></p>
           <p class="small" id="result-line"></p>
+          <p class="small" id="result-rival" hidden></p>
           <form id="result-form">
             <input id="result-name" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off" enterkeyhint="done" />
             <button class="primary">Put it on the board</button>
           </form>
+          <div id="challenge" hidden>
+            <button id="btn-challenge">Challenge a friend</button>
+            <input id="challenge-link" type="text" readonly hidden aria-label="Link to this run" />
+            <p class="small" id="challenge-note"></p>
+          </div>
         </div>
         <ol id="board"></ol>
         <p class="small" id="board-empty" hidden>No runs yet. Five deliveries make a run; what they earn, less any fines, is the score.</p>

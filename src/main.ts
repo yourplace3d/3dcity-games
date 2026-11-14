@@ -3,7 +3,8 @@
  * the touch stick, step the game, draw, and keep the numbers on screen up to date.
  */
 
-import { Game, type Hud } from './game/game';
+import { Game, RUN_JOBS, type Course, type Hud } from './game/game';
+import { packChallenge, readChallenge, type Challenge } from './challenge';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
@@ -37,6 +38,8 @@ let playing = false;
 let busy = false;
 /** what to call the place being played on the scoreboard */
 let placeName = '';
+/** the run someone sent that is being played: its name, score and time are the ones to beat */
+let rival: Challenge | null = null;
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 /** the big map is up and the game waits behind it */
@@ -130,14 +133,14 @@ function save(at?: LngLat): void {
   }
 }
 
-function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info'): void {
+function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300): void {
   const el = document.createElement('div');
   el.className = `toast ${kind}`;
   el.textContent = text;
   const box = $('toasts');
   box.append(el);
   while (box.children.length > 3) box.firstElementChild!.remove();
-  setTimeout(() => el.remove(), 3300);
+  setTimeout(() => el.remove(), ms);
 }
 
 function flash(text: string, ride = false): void {
@@ -165,7 +168,7 @@ function setScreen(screen: 'start' | 'play'): void {
   $('btn-resume').hidden = !game?.world;
 }
 
-async function go(at: LngLat, name?: string): Promise<void> {
+async function go(at: LngLat, name?: string, sent: Challenge | null = null): Promise<void> {
   if (busy) return;
   busy = true;
   status.className = 'status';
@@ -192,10 +195,11 @@ async function go(at: LngLat, name?: string): Promise<void> {
       (window as unknown as { game: Game }).game = game;
     }
     await game.start(at);
-    game.newRun();
+    game.newRun(sent?.course ?? null);
+    rival = sent;
     placeName = name ?? nearCity(at) ?? `${at.lat.toFixed(2)}, ${at.lon.toFixed(2)}`;
     save(at);
-    if (!BAKED) history.replaceState(null, '', `#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
+    if (!BAKED) history.replaceState(null, '', `${sent ? location.search : withoutChallenge()}#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
     $('btn-menu').blur();
     status.textContent = '';
     // little on the map here: say so, and let them choose
@@ -219,9 +223,19 @@ async function go(at: LngLat, name?: string): Promise<void> {
   }
 }
 
+/** The link's query without a sent run in it, for when the player goes on to something else. */
+function withoutChallenge(): string {
+  const q = new URLSearchParams(location.search);
+  q.delete('c');
+  const text = q.toString().replace(/=(?=&|$)/g, '');
+  return location.pathname + (text ? `?${text}` : '');
+}
+
 function begin(): void {
   $('thin').hidden = true;
   setScreen('play');
+  if (rival) toast(`${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same five deliveries: beat it.`, 'info', 9000);
+  if (rival && coached()) return;
   if (coached()) toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
   else if (step < 0) step = 0;
 }
@@ -338,6 +352,8 @@ async function search(q: string): Promise<void> {
 
 /** the run that has just ended, while its result is on screen */
 let fresh: Score | null = null;
+/** where that run went, to send to someone */
+let freshCourse: Course | null = null;
 
 function drawBoard(): void {
   const list = scores().slice(0, 10);
@@ -362,11 +378,20 @@ function drawBoard(): void {
 /** Show the scoreboard over whatever is on screen; with a run that has just ended, its result too. */
 function showBoard(run: Score | null): void {
   fresh = run;
-  $('result-title').textContent = run ? 'Run complete' : 'Scoreboard';
+  const won = !!run && !!rival && (run.score > rival.score || (run.score === rival.score && run.seconds < rival.seconds));
+  const them = rival?.name || 'The run you were sent';
+  $('result-title').textContent = !run ? 'Scoreboard' : !rival ? 'Run complete' : won ? `You beat ${rival.name || 'the run you were sent'}` : `${them} stays ahead`;
   $('result-run').hidden = !run;
   if (run) {
     $('result-score').textContent = fmtMoney(run.score);
     $('result-line').textContent = `Five deliveries in ${fmtTime(run.seconds)} · ${run.place}`;
+    $('result-rival').hidden = !rival;
+    if (rival) $('result-rival').textContent = `${them}: ${fmtMoney(rival.score)} in ${fmtTime(rival.seconds)}`;
+    const can = !!freshCourse && freshCourse.legs.length === RUN_JOBS && !BAKED;
+    $('challenge').hidden = !can;
+    $('btn-challenge').textContent = rival ? 'Send your run back' : 'Challenge a friend';
+    $('challenge-link').hidden = true;
+    $('challenge-note').textContent = 'Makes a link to this run: the same five deliveries, with your score to beat.';
     $('result-form').hidden = false;
     $<HTMLInputElement>('result-name').value = lastName();
   }
@@ -386,6 +411,7 @@ function closeBoard(): void {
 
 function runEnded(score: number, seconds: number): void {
   const run: Score = { name: '', score, seconds, place: placeName, at: Date.now() };
+  freshCourse = game ? { start: game.course.start, legs: [...game.course.legs] } : null;
   addScore(run);
   showBoard(run);
 }
@@ -398,7 +424,43 @@ $<HTMLFormElement>('result-form').addEventListener('submit', (e) => {
   $('result-form').hidden = true;
   drawBoard();
 });
+$('btn-challenge').addEventListener('click', async () => {
+  if (!fresh || !freshCourse) return;
+  const typed = $<HTMLInputElement>('result-name').value.trim().slice(0, 16);
+  // a name written for the link goes on the board as well
+  if (typed && !$('result-form').hidden) {
+    nameScore(fresh.at, typed);
+    fresh.name = typed;
+    $('result-form').hidden = true;
+    drawBoard();
+  }
+  const name = typed || fresh.name || lastName();
+  const code = packChallenge({ name, score: fresh.score, seconds: fresh.seconds, place: fresh.place, course: freshCourse });
+  const { start } = freshCourse;
+  const url = `${location.origin}${location.pathname}?c=${code}#${start.lat.toFixed(5)},${start.lon.toFixed(5)}`;
+  const text = `Beat my run in ${fresh.place}: ${fmtMoney(fresh.score)} in ${fmtTime(fresh.seconds)}, five deliveries.`;
+  const box = $<HTMLInputElement>('challenge-link');
+  box.value = url;
+  box.hidden = false;
+  const note = $('challenge-note');
+  try {
+    // a phone offers its own list of apps to send with
+    if (document.body.classList.contains('touch') && navigator.share) {
+      await navigator.share({ text, url });
+      note.textContent = 'Whoever opens the link plays your five deliveries.';
+      return;
+    }
+    await navigator.clipboard.writeText(`${text} ${url}`);
+    note.textContent = 'Link copied. Whoever opens it plays your five deliveries.';
+  } catch {
+    box.select();
+    note.textContent = 'Copy this link and send it. Whoever opens it plays your five deliveries.';
+  }
+});
+$('challenge-link').addEventListener('focus', (e) => (e.target as HTMLInputElement).select());
 $('btn-newrun').addEventListener('click', () => {
+  rival = null;
+  if (!BAKED) history.replaceState(null, '', withoutChallenge() + location.hash);
   game?.newRun();
   $('result').hidden = true;
   fresh = null;
@@ -435,7 +497,7 @@ function paint(h: Hud): void {
   $('speed').hidden = h.carHp === null;
   if (h.carHp !== null) put('speed', `${Math.round(h.kmh)}<small>km/h</small>`);
   $('run').hidden = !h.run;
-  if (h.run) put('run', `Run ${Math.min(h.run.n, h.run.of)}/${h.run.of} · ${fmtMoney(h.run.score)}`);
+  if (h.run) put('run', `Run ${Math.min(h.run.n, h.run.of)}/${h.run.of} · ${fmtMoney(h.run.score)}${rival ? ` <small>to beat ${fmtMoney(rival.score)}</small>` : ''}`);
   $('job').hidden = !h.job;
   if (h.job) {
     $('job').classList.toggle('late', h.job.left < 10);
@@ -567,7 +629,10 @@ addEventListener('pagehide', () => save());
 // a place in the link starts there straight away: coordinates, or a name to look up
 const linked = BAKED ? '' : decodeURIComponent(location.hash.slice(1)).replace(/[_+]/g, ' ').trim();
 const fromLink = parseLatLon(linked);
-if (fromLink) void go(fromLink);
+const code = BAKED ? null : new URLSearchParams(location.search).get('c');
+const sentRun = code ? readChallenge(code, RUN_JOBS) : null;
+if (sentRun) void go(sentRun.course.start, sentRun.place || undefined, sentRun);
+else if (fromLink) void go(fromLink);
 else if (linked) {
   $<HTMLInputElement>('q').value = linked;
   void search(linked);

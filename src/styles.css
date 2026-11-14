@@ -211,3 +211,9 @@ body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto
 #coach button { grid-row: 1; grid-column: 2; pointer-events: auto; background: none; border: 0; padding: 4px 0; color: var(--dim); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 body.touch #coach { left: calc(12px + env(safe-area-inset-left)); transform: none; width: min(460px, calc(100vw - 150px)); }
 body.touch #coach p { font-size: 14px; }
+#challenge { margin: 10px 0 4px; padding-top: 10px; border-top: 1px solid var(--line); }
+#challenge-link { display: block; width: 100%; margin-top: 8px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: #181b20; color: var(--ink); font: inherit; font-size: 13px; }
+#challenge-link[hidden] { display: none; }
+#challenge .small { margin: 6px 0 0; }
+#result-rival { margin-top: 2px; }
+#run small { opacity: 0.75; font-weight: 600; }

@@ -16,6 +16,10 @@ the streets, buildings, water and hills come from the same map squares as
 - **Five deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
   the one before. What the five earn, less any fines, is the score; it goes on a scoreboard, with your
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
+- **Challenge a friend.** After a run, a button makes a link to it. Whoever opens the link starts where you
+  started and plays the same five packages and drop-offs, with your name, score and time to beat, and can
+  send their own run back. Traffic and police are not the same twice. The link holds everything, so
+  there is no server; it also means the score in a link is only as honest as its sender.
 - **Heat.** Knocking people over, taking someone's car and ramming traffic or the police raise it (up to
   four badges). More heat brings more police cars. Stay out of their sight and it cools off; stop next to
   one and you're caught and fined.
@@ -76,6 +80,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/game/roadMesh.ts`: roads as ribbons on the terrain, sharp from close up.
 - `src/game/cars.ts`: the car: how it looks, moves and collides.
 - `src/game/game.ts`: you, traffic, people, police, jobs, camera.
+- `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
   (MIT). Changed here: the tile cache's name only.

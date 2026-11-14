@@ -52,6 +52,11 @@ the streets, buildings, water and hills come from the same map squares as
   both wait at the real stops (red dots for trams, green for buses). Trains run on the railway tracks and
   brake for nothing but another train: keep off the track. At the end of a track a train or tram waits a moment and goes back the way it came. Trains have no stations yet. You can take a bus; trams stay on their rails. A blue disc is
   a subway entrance: walk in on foot and you come up at the station nearest to where you're headed.
+- **Hills show and are felt.** The light treats every slope as about three times steeper than it is, so the
+  side of a hill away from the sun is clearly darker. Streets that climb more than 1 in 10 carry arrowheads
+  pointing uphill. The car you drive is held back uphill and carried downhill (never so much that a hill
+  can't be climbed), and stays put when it stands with your foot off. Stairways are striped strips, and a
+  street that stops at one has a round end.
 - Where the map says so, traffic keeps left (Britain, Japan, Australia, India, parts of Africa: rough boxes).
 - **Thin places.** Where OpenStreetMap has few buildings or streets, the start screen says so, links to the
   place on OpenStreetMap and to how to add to it, and lets you play anyway.
@@ -102,7 +107,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
-  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings.
+  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings. It also marks which footpaths are stairways.
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
 There are no traffic lights, level-crossing barriers or one-way streets, and bus and tram lines are not the real routes: vehicles follow

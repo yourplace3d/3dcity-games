@@ -79,6 +79,8 @@ export interface LineFeature {
   pts: Pt[];
   widthM: number;
   bridge: boolean;
+  /** a stairway: a footpath no car is meant to take */
+  steps?: boolean;
 }
 
 export interface FeatureSet {

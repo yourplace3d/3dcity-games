@@ -328,7 +328,7 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         const road = ROAD_KIND[cls];
         if (!road && !isRail) return;
         const [kind, width] = isRail ? (['rail', str(f.properties.subclass) === 'tram' ? 1.6 : 3] as [LineKind, number]) : road;
-        for (const pts of linesOf(f, toLocal)) if (pts.length >= 2) lines.push({ kind, widthM: width, pts, bridge: brunnel === 'bridge' });
+        for (const pts of linesOf(f, toLocal)) if (pts.length >= 2) lines.push({ kind, widthM: width, pts, bridge: brunnel === 'bridge', steps: cls === 'path' && str(f.properties.subclass) === 'steps' });
       });
     }
     {

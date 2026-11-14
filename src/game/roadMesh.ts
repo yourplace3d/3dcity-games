@@ -8,6 +8,28 @@ import type { Pt } from '../geo/polygon';
 import { PALETTE } from '../scene/overlay';
 import type { RoadLine, RoadNet } from './roads';
 
+/**
+ * Seen from straight above a hill looks flat. The light is made to treat every slope as this many
+ * times steeper than it is, so the side of a hill away from the sun is clearly darker.
+ */
+export const RELIEF = 3.2;
+
+/** Give a mesh's surface the leaning normals that make its slopes show (y is up). */
+export function showRelief(geo: BufferGeometry): void {
+  const nor = geo.getAttribute('normal') as BufferAttribute | undefined;
+  if (!nor) return;
+  const a = nor.array as Float32Array;
+  for (let i = 0; i < a.length; i += 3) {
+    const x = a[i] * RELIEF;
+    const z = a[i + 2] * RELIEF;
+    const l = Math.hypot(x, a[i + 1], z) || 1;
+    a[i] = x / l;
+    a[i + 1] /= l;
+    a[i + 2] = z / l;
+  }
+  nor.needsUpdate = true;
+}
+
 /** Ribbons bend with the ground at least this often (m). */
 const STEP_M = 5;
 /** Wide ribbons bend across their width too, in pieces no wider than this (m). */
@@ -49,6 +71,11 @@ function upNormals(pos: number[], idx: number[]): Float32Array {
     n[c + 2] += z;
   }
   for (let i = 0; i < n.length; i += 3) {
+    // lean further than the ground does, as the ground's own shading is made to (see `showRelief`)
+    const flat = Math.hypot(n[i], n[i + 1], n[i + 2]) || 1;
+    n[i] *= RELIEF;
+    n[i + 2] *= RELIEF;
+    n[i + 1] = Math.max(n[i + 1], flat * 0.05);
     const l = Math.hypot(n[i], n[i + 1], n[i + 2]);
     if (l > 0) {
       n[i] /= l;
@@ -139,6 +166,20 @@ export class Strip {
     }
   }
 
+  /** A flat round patch on the ground: the end of a street that leads nowhere further. */
+  disc(x: number, y: number, r: number, lift: number, groundY: (x: number, y: number) => number): void {
+    const base = this.pos.length / 3;
+    this.pos.push(x, groundY(x, y) + lift, -y);
+    const N = 10;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      const px = x + Math.cos(a) * r;
+      const py = y + Math.sin(a) * r;
+      this.pos.push(px, groundY(px, py) + lift, -py);
+    }
+    for (let i = 0; i < N; i++) this.idx.push(base, base + 1 + i, base + 1 + ((i + 1) % N));
+  }
+
   /** The ribbon as plain geometry, for a caller with its own material. */
   geometry(): BufferGeometry {
     const geo = new BufferGeometry();
@@ -162,6 +203,14 @@ export class Strip {
     mesh.receiveShadow = true;
     return mesh;
   }
+}
+
+/** The point `s` metres along a line. */
+function at(l: RoadLine, s: number): Pt {
+  let i = 0;
+  while (i < l.pts.length - 2 && l.cum[i + 1] < s) i++;
+  const t = (s - l.cum[i]) / Math.max(1e-6, l.cum[i + 1] - l.cum[i]);
+  return [l.pts[i][0] + (l.pts[i + 1][0] - l.pts[i][0]) * t, l.pts[i][1] + (l.pts[i + 1][1] - l.pts[i][1]) * t];
 }
 
 /** Pieces of a line: `on` metres drawn, `off` metres left out. */
@@ -199,6 +248,9 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   const sleepers = new Strip();
   // a tram's track lies in the street: a darker band with two rails
   const groove = new Strip();
+  const stairs = new Strip();
+  const treads = new Strip();
+  const arrows = new Strip();
   // in a big station the sleepers are spaced out, to keep the square quick to build
   const trackM = net.lines.reduce((a, l) => a + (l.train ? l.len : 0), 0);
   const gap = trackM > 20000 ? 1.9 : 0.8;
@@ -213,18 +265,50 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
       rails.add(beside(l.pts, -gauge), 0.22, 0.18, groundY);
       continue;
     }
+    if (l.steps) {
+      // a stairway: a pale strip with a tread every step, plainly not for cars
+      stairs.add(l.pts, 3, 0.05, groundY);
+      for (const d of dashes(l, 0.3, 0.55)) treads.add(d, 3, 0.07, groundY);
+      continue;
+    }
     if (l.kind === 'path') {
       path.add(l.pts, l.w, 0.05, groundY);
       continue;
     }
     kerb.add(l.pts, l.w + 4, 0.07, groundY);
     fill.add(l.pts, l.w, 0.12, groundY);
+    // where a street stops with no street to go on to, a round end: the ground picture draws one,
+    // and showed as a dark blob past the street's square end
+    for (const e of [0, 1]) {
+      if (l.ends[e].some((c) => net.lines[c.line].drive)) continue;
+      const [x, y] = l.pts[e ? l.pts.length - 1 : 0];
+      kerb.disc(x, y, l.w / 2 + 2, 0.07, groundY);
+      fill.disc(x, y, l.w / 2, 0.12, groundY);
+    }
     if (l.traffic && l.w >= 7.5) for (const d of dashes(l, 3, 6)) paint.add(d, 0.28, 0.17, groundY);
+    // steep streets carry arrowheads pointing uphill, every 22 m where the street climbs more than 1 in 10
+    if (l.traffic) {
+      for (let s0 = 11; s0 + 6 < l.len; s0 += 22) {
+        const a = at(l, s0);
+        const b = at(l, s0 + 6);
+        const rise = groundY(b[0], b[1]) - groundY(a[0], a[1]);
+        if (Math.abs(rise) < 0.6) continue;
+        // from the low end to the high end
+        const [lo, hi] = rise > 0 ? [a, b] : [b, a];
+        const ux = (hi[0] - lo[0]) / 6;
+        const uy = (hi[1] - lo[1]) / 6;
+        const mx = (a[0] + b[0]) / 2;
+        const my = (a[1] + b[1]) / 2;
+        const arm = Math.min(1.5, l.w / 2 - 0.7);
+        const tip: Pt = [mx + ux * 0.9, my + uy * 0.9];
+        for (const side of [-1, 1]) arrows.add([[mx - ux * 0.9 - uy * arm * side, my - uy * 0.9 + ux * arm * side], tip], 0.34, 0.17, groundY);
+      }
+    }
   }
   await pause();
   const g = new Group();
   // drawn in this order: a street lies over the gravel where they cross, and the rails over the street
-  g.add(bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
+  g.add(stairs.mesh('#d8d0c0', 1), treads.mesh('#8f8676', 2), arrows.mesh('#c9c3b4', 6), bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
   return g;
 }
 

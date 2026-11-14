@@ -181,6 +181,16 @@ export class Car {
       if (vf > 0.4) vf = Math.max(0, vf + 20 * c.throttle * dt);
       else if (!dead) vf = Math.max(-8, vf + 6 * c.throttle * dt);
     }
+    // hills, for the car you drive: uphill holds it back, downhill carries it, never so much that a
+    // hill can't be climbed. Standing still with your foot off, it stays where it is.
+    if (this.driver === 'player' && (Math.abs(vf) > 0.6 || c.throttle !== 0)) {
+      const slope = (world.groundY(this.x + fx * 2.5, this.y + fy * 2.5) - world.groundY(this.x - fx * 2.5, this.y - fy * 2.5)) / 5;
+      if (Math.abs(slope) > 0.025) {
+        const pull = Math.min(21 * Math.abs(slope), this.spec.acc * 0.62);
+        vf -= Math.sign(slope) * pull * dt;
+        vf = Math.min(vf, top * 1.3);
+      }
+    }
     const roll = (c.throttle === 0 || dead ? 2.2 : 0.4) + (c.handbrake ? 9 : 0);
     vf -= vf * 0.12 * dt;
     vf -= Math.sign(vf) * Math.min(Math.abs(vf), roll * dt);

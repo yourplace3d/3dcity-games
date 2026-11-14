@@ -89,6 +89,12 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   recorded keeps the plain palette instead of turning white. Counted in the game's squares: Hamburg 16 %
   recorded and 58 % from neighbours or the square's mix; Freiburg 2 % and 78 %; Paris (Louvre) 1 % and 70 %;
   New York 64 % and 29 %; Barcelona 0 %.
+- **Hills (14 November 2026).** In San Francisco the owner took streets that stop on Telegraph Hill for a fault.
+  The map is right: 16 streets stop within 450 m of Coit Tower, half of them at a stairway. The answer was to
+  make it readable: stairs drawn as stairs, round street ends, slopes shaded (`RELIEF` in `roadMesh.ts`),
+  arrowheads on steep streets, and hills in the driving of the player's car (`cars.ts`). Cost measured before
+  and after in three cities: about 5 % more triangles, no measurable change in the time to build a square.
+  A tilted camera was advised against. Still open: letting a car bump down a stairway.
 - **The "3D view social idea"** is the private repo `yourplace3d/yourplace-live`: friends shown live at their
   building and floor. Agreed with the owner: no live location in the game. The two can share links between
   friends later; a run that starts or ends at a place the player picks was offered and not yet decided.

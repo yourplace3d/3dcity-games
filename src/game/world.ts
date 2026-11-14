@@ -10,7 +10,7 @@ import { loadHeightGrid } from '../geo/terrain';
 import { DATA_ZOOM, fetchTiles, parseTiles, tilesForSquare, type LoadedTile } from '../geo/tiles';
 import { CityModel } from '../scene/cityModel';
 import { PALETTE } from '../scene/overlay';
-import { buildRoadMeshes, disposeRoadMeshes } from './roadMesh';
+import { buildRoadMeshes, disposeRoadMeshes, showRelief } from './roadMesh';
 import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
 import { sightsIn, type Sight } from '../landmarks';
@@ -254,6 +254,8 @@ export class World {
     await breathe();
     const solids = new Solids(buildings.filter((_, i) => !over.has(i)));
     const water = new WaterMask(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M);
+    // last, when nothing works the ground's surface over again
+    showRelief(model.terrain.surface.geometry);
     const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y));
     model.group.add(signs);
     return new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);

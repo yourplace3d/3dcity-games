@@ -112,6 +112,9 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
      the pump (heavy load), rush job at the flame (short clock), clean run at the badge (an offence loses it).
      Built: `services.ts`, `jobs()` in `game.ts`, `heavy` in `cars.ts`. Challenge links carry the kinds
      (version 2 of the link; version 1 still opens).
+     The owner then set where they belong: a run stays three plain packages, so that runs and challenge
+     links compare. The kinds of job open after a run, from "Continue with open jobs" on its result, with
+     a short note on how to find them, and can be played as long as one likes.
   2. Repair for cash at fuel stations. Not built.
   3. Buying a fuel station as a garage where a car waits; a car park where a town has no fuel station
      (parking is in every tile counted). Not built.

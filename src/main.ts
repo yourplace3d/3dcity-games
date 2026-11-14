@@ -447,15 +447,26 @@ function showBoard(run: Score | null): void {
     $<HTMLInputElement>('result-name').value = lastName();
   }
   $('btn-newrun').hidden = !game?.world;
-  $('btn-close').textContent = document.body.dataset.screen === 'play' ? 'Keep driving' : 'Close';
+  $('btn-close').textContent = document.body.dataset.screen !== 'play' ? 'Close' : run ? 'Continue with open jobs' : 'Keep driving';
   drawBoard();
   $('result').hidden = false;
   playing = false;
   controls.enabled = false;
 }
 
+/** How to find the open jobs: shown as a run's result is left behind, until it is tapped away or a while has passed. */
+let openJobsT = 0;
+function openJobs(show: boolean): void {
+  clearTimeout(openJobsT);
+  $('openjobs').hidden = !show;
+  if (show) openJobsT = window.setTimeout(() => openJobs(false), 16000);
+}
+$('btn-openjobs').addEventListener('click', () => openJobs(false));
+
 function closeBoard(): void {
   game?.comeDown();
+  // from a run's result on into the open jobs: say where they are
+  if (fresh && document.body.dataset.screen === 'play') openJobs(true);
   $('result').hidden = true;
   fresh = null;
   setScreen(document.body.dataset.screen === 'play' ? 'play' : 'start');
@@ -512,6 +523,7 @@ $('btn-challenge').addEventListener('click', async () => {
 });
 $('challenge-link').addEventListener('focus', (e) => (e.target as HTMLInputElement).select());
 $('btn-newrun').addEventListener('click', () => {
+  openJobs(false);
   rival = null;
   if (!BAKED) history.replaceState(null, '', withoutChallenge() + location.hash);
   game?.newRun();
@@ -684,7 +696,7 @@ if (baked) {
   });
 }
 // the map's key shows the same symbols the map does
-for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
+for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico, #openjobs .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);
   $('btn-sound').setAttribute('aria-label', sound.on ? 'Sound is on: turn it off' : 'Sound is off: turn it on');

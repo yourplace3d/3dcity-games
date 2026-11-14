@@ -58,6 +58,17 @@
       <div id="arrow" hidden><svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0,-10 L8,8 L0,3 L-8,8 Z" /></svg><span id="arrow-m"></span></div>
       <canvas id="minimap" title="Map. Click to open the big map."></canvas>
       <div id="sights"></div>
+      <div class="panel" id="openjobs" hidden>
+        <b>Open jobs</b>
+        <p>Drive to one of these signs. Each gives its own kind of job, as often as you like.</p>
+        <ul>
+          <li><i class="ico" data-kind="fuel"></i><span><b>Supply run:</b> a heavy load, slow uphill. More pay for a car without a new dent.</span></li>
+          <li><i class="ico" data-kind="fire"></i><span><b>Rush job:</b> a short clock. Every second left over pays three times.</span></li>
+          <li><i class="ico" data-kind="police"></i><span><b>Clean run:</b> pays well. Break the law on the way and the job is gone.</span></li>
+        </ul>
+        <small>The arrow points to the nearest. All of them are on the map: tap the little map.</small>
+        <button id="btn-openjobs">Got it</button>
+      </div>
       <div id="toasts"></div>
       <div class="panel" id="coach" hidden><small id="coach-n"></small><p id="coach-text"></p><button id="coach-skip">Skip the tour</button></div>
       <button class="panel" id="btn-menu" aria-label="Change city">☰</button>

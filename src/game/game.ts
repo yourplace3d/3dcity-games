@@ -243,6 +243,7 @@ export class Game {
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
     this.comeDown();
+    this.lastFrom = null;
     this.set = course && course.legs.length >= 1 && course.legs.length <= RUN_STEPS.length ? course : null;
     this.run = { done: 0, score: 0, seconds: 0, over: false, of: this.set?.legs.length ?? RUN_JOBS };
     const [x, y] = this.pos();
@@ -1269,7 +1270,20 @@ export class Game {
       if (!this.pickups.length) this.pickups.push(this.markerAt('#2bd4e0', sent.from));
       return;
     }
-    // a package waits at the nearest fuel, fire and police station: one of each kind of job
+    // a run is three plain packages from street corners near you, the same game for everyone, so
+    // that runs compare
+    if (!this.run.over) {
+      if (this.pickups.length < 3) {
+        const p = w.roads.randomPlace('traffic', px, py, 90, 520);
+        if (p) {
+          const [x, y] = w.roads.point(p.line, p.s);
+          if (!this.pickups.some((m) => Math.hypot(this.local(m)[0] - x, this.local(m)[1] - y) < 150)) this.pickups.push(this.newMarker('#2bd4e0', p));
+        }
+      }
+      return;
+    }
+    // after it, the open jobs: a package waits at the nearest fuel, fire and police station, one of
+    // each kind, as often as you go there
     this.offerT -= dt;
     if (this.offerT > 0) return;
     this.offerT = 0.6;

@@ -237,3 +237,12 @@ body.touch #coach p { font-size: 14px; }
 #btn-sound.off { color: var(--dim); text-decoration: line-through; }
 body.touch #btn-sound { font-size: 22px; padding: 12px 15px; right: calc(72px + env(safe-area-inset-right)); }
 #bigmap-key .ico { display: inline-block; width: 16px; height: 16px; background-size: contain; }
+#openjobs { pointer-events: auto; position: absolute; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(460px, calc(100vw - 32px)); padding: 14px 16px; display: grid; gap: 8px; font-size: 14px; line-height: 1.35; }
+#openjobs[hidden] { display: none; }
+#openjobs > b { font-size: 17px; }
+#openjobs p { margin: 0; }
+#openjobs ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+#openjobs li { display: grid; grid-template-columns: 26px 1fr; gap: 9px; align-items: start; }
+#openjobs .ico { width: 26px; height: 26px; background-size: contain; }
+#openjobs small { color: var(--dim); }
+#openjobs button { justify-self: end; font: inherit; font-weight: 700; padding: 8px 14px; border-radius: 10px; border: 0; background: var(--yellow); color: #1a1a1a; cursor: pointer; }

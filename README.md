@@ -15,8 +15,9 @@ the streets, buildings, water and hills come from the same map squares as
 - **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
-- **Three kinds of job**, one at each kind of station. A blue ring waits at the nearest fuel station, fire
-  station and police station:
+- **Open jobs, after a run.** A run stays three plain packages from street corners, so that runs compare.
+  On its result, "Continue with open jobs" leads on, with a short note on how to find them. From then on a
+  blue ring waits at the nearest fuel station, fire station and police station, as often as you go there:
   - **Supply run** (fuel station): a heavy load. The car is slower away, slower to stop and slower uphill.
     It pays a quarter more, and a fifth on top for a car without a new dent.
   - **Rush job** (fire station): a short clock, and every second left over pays three times.

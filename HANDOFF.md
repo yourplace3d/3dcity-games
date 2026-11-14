@@ -72,9 +72,14 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   railway: one coach, no stations, no braking for cars (the owner: "trains don't brake"), turning back at a
   dead end. Streams slow a car; rivers still stop it. No counter of links for now: the owner will see from
   friends whether links come back; GoatCounter was suggested over Supabase if one is wanted later.
-- **The smear on the iPad** (a dark streak fixed to the screen) was the ground casting a shadow onto itself.
-  The ground now casts none (`world.ts`), and the owner confirmed on the iPad that it is gone. It never showed
-  in the headless test browser, so shadow changes need a look on a real device.
+- **The smear on the iPad** (a dark streak of fine lines near the car that stays put on the screen) is not
+  solved for sure. It never shows in the headless test browser. The owner tries one cure at a time on the live
+  site and says so only if it comes back; silence means the latest try may be the cure. Tries so far:
+  1. The ground casts no shadow (`world.ts`) and a tighter shadow depth: it came back.
+  2. Hard-edged shadows instead of soft ones (`BasicShadowMap` in `game.ts`), and smoke put away when a new
+     square arrives: live since 14 November, outcome open.
+  Next if it returns: `?try=noshadow` as the default for a day, to learn whether shadows are involved at all;
+  then `nosmoke`, then `fullres` (no automatic lowering of resolution). `?try=soft` brings soft shadows back.
 - **The "3D view social idea"** is the private repo `yourplace3d/yourplace-live`: friends shown live at their
   building and floor. Agreed with the owner: no live location in the game. The two can share links between
   friends later; a run that starts or ends at a place the player picks was offered and not yet decided.

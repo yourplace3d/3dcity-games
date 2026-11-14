@@ -5,6 +5,7 @@
 
 import { Game, RUN_JOBS, type Course, type Hud } from './game/game';
 import { packChallenge, readChallenge, type Challenge } from './challenge';
+import { Sound } from './sound';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
@@ -34,6 +35,7 @@ if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch'
 addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e.pointerType === 'touch'), true);
 
 let game: Game | null = null;
+const sound = new Sound();
 let playing = false;
 let busy = false;
 /** what to call the place being played on the scoreboard */
@@ -193,13 +195,18 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       game.onRide = (t) => flash(t, true);
       game.onSquare = (s) => ($('next').hidden = s !== 'loading');
       game.onSave = () => save();
+      game.onSound = (what, strength) => sound.play(what, strength);
       // let the last delivery's message be read before the result covers it
       game.onRunEnd = (score, seconds) => {
         // up over the town while the result is read
         game!.overview();
         setTimeout(() => runEnded(score, seconds), 1400);
       };
-      controls.onAction = () => game!.action();
+      controls.onAction = () => {
+        const before = game!.car;
+        game!.action();
+        if (game!.car !== before) sound.play('door');
+      };
       controls.onReset = () => game!.reset();
       controls.onRoute = toggleRoute;
       controls.onMap = () => showMap(true);
@@ -599,6 +606,7 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
+  if (!game?.world || !playing || mapOpen) sound.hear(null);
   if (!game?.world || !playing) {
     // behind the result of a run the camera goes on rising
     if (game?.world && fresh && !$('result').hidden) {
@@ -613,6 +621,7 @@ function frame(now: number): void {
   }
   game.tune(dt);
   game.update(dt, controls.read());
+  sound.hear(game.ears());
   if (showFps) fpsReadout(dt);
   const h = game.hud();
   paint(h);
@@ -671,6 +680,16 @@ if (baked) {
     if (q) void search(q);
   });
 }
+const soundButton = (): void => {
+  $('btn-sound').classList.toggle('off', !sound.on);
+  $('btn-sound').setAttribute('aria-label', sound.on ? 'Sound is on: turn it off' : 'Sound is off: turn it on');
+};
+soundButton();
+$('btn-sound').addEventListener('click', () => {
+  sound.toggle();
+  soundButton();
+  $('btn-sound').blur();
+});
 $('btn-menu').addEventListener('click', () => {
   save();
   setScreen('start');

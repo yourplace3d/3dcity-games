@@ -148,6 +148,53 @@ function readStops(tiles: LoadedTile[], proj: Projector, half: number): Stop[] {
   return out;
 }
 
+/**
+ * Where no well-known sight lies in a square: the places any town has and its people know, from the
+ * map's points of interest. One of each kind at most: the town hall, the main station, a castle,
+ * a stadium, a cathedral.
+ */
+function townSights(tiles: LoadedTile[], proj: Projector, half: number): Sight[] {
+  // the map files a community centre or a court under "town hall" and any ruin under "castle": only the real thing
+  const KINDS: Array<[string, (cls: string, sub: string, name: string) => boolean]> = [
+    ['hall', (cls, sub) => cls === 'town_hall' && sub === 'townhall'],
+    ['station', (cls, sub) => cls === 'railway' && sub === 'station'],
+    ['castle', (cls, sub, name) => cls === 'castle' && sub === 'castle' && /castle|schloss|burg\b|château|chateau|castello|castillo|castelo|kasteel|slott?\b|zamek|hrad\b|palace|palais|palazzo|palacio/i.test(name)],
+    ['stadium', (cls, sub) => cls === 'stadium' && sub === 'stadium'],
+    ['church', (cls, _sub, name) => cls === 'place_of_worship' && /cathedral|cathédrale|catedral|cattedrale|duomo|kathedrale|münster|minster|\bdom\b/i.test(name)],
+    ['basilica', (cls, _sub, name) => cls === 'place_of_worship' && /basilica|basilika|basilique/i.test(name)],
+  ];
+  const best = new Map<string, Sight & { rank: number }>();
+  for (const t of tiles) {
+    const layer = t.tile.layers.poi;
+    if (!layer) continue;
+    const n = 2 ** t.z;
+    for (let i = 0; i < layer.length; i++) {
+      const f = layer.feature(i);
+      const name = String(f.properties.name ?? '').trim();
+      if (f.type !== 1 || !name || name.length > 40) continue;
+      const cls = String(f.properties.class ?? '');
+      const sub = String(f.properties.subclass ?? '');
+      const kind = KINDS.find(([, is]) => is(cls, sub, name))?.[0];
+      if (!kind) continue;
+      const pt = f.loadGeometry()[0]?.[0];
+      if (!pt || pt.x < 0 || pt.y < 0 || pt.x >= layer.extent || pt.y >= layer.extent) continue;
+      const lon = ((t.x + pt.x / layer.extent) / n) * 360 - 180;
+      const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (t.y + pt.y / layer.extent)) / n))) * 180) / Math.PI;
+      const [x, y] = proj.toLocal(lon, lat);
+      if (Math.abs(x) > half || Math.abs(y) > half) continue;
+      // the map ranks what it shows first; among equals, the one nearer the middle of the square
+      const rank = Number(f.properties.rank ?? 99) + Math.hypot(x, y) / 1e5;
+      const was = best.get(kind);
+      if (!was || rank < was.rank) best.set(kind, { name, x, y, rank });
+    }
+  }
+  // a basilica stands in only where no cathedral is
+  if (best.has('church')) best.delete('basilica');
+  // one building can be town hall and palace at once: name it once
+  const seen = new Set<string>();
+  return [...best.values()].filter((b) => !seen.has(b.name) && !!seen.add(b.name)).map(({ name, x, y }) => ({ name, x, y }));
+}
+
 const SIGN = { bus: ['#3fae5a', 1.1], tram: ['#d8362e', 1.3], subway: ['#1f6fd6', 2.6] } as const;
 const signMats = new Map<string, MeshBasicMaterial>();
 
@@ -258,7 +305,9 @@ export class World {
     showRelief(model.terrain.surface.geometry);
     const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y));
     model.group.add(signs);
-    return new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
+    const world = new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
+    if (!world.sights.length) world.sights.push(...townSights(tiles, world.proj, AREA_SIZE_M / 2 - 8));
+    return world;
   }
 
   /** Whether cars keep left here (Britain, Japan, Australia, India, southern Africa and so on). */

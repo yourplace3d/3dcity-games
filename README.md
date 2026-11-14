@@ -29,10 +29,15 @@ the streets, buildings, water and hills come from the same map squares as
   shown but never handed on). With too few nearby, the square's own mix is used, and with nothing recorded the
   plain palette. A building keeps its colour on every visit. Hamburg comes out brick, Freiburg sandstone,
   Paris pale stone; central Barcelona has almost nothing recorded and stays plain (`src/game/localColours.ts`).
+- **Sound**, made in the browser with no sound files: an engine that rises with the speed and drops back as it
+  shifts up, tyres on a handbrake turn, the siren of police on your tail, a train's horn as one comes near,
+  and short notes for a package, a delivery, a finished run, a crash, a fine and a splash. The ♪ button turns
+  it off; the choice is remembered (`src/sound.ts`).
 - **Well-known sights have their names.** About a hundred in the cities the game knows by heart (the Arc de
   Triomphe, the Brandenburg Gate, Tokyo Tower): the name stands over the sight when it is in the picture, at
   the edge of the screen with the distance when it is within 320 m, and beside a gold star on the big map. The
-  list is kept by hand in `src/landmarks.ts`.
+  list is kept by hand in `src/landmarks.ts`. Where a square has none of those, the map's own town hall,
+  main station, castle, stadium and cathedral are named instead, one of each at most.
 - **Challenge a friend.** After a run, a button makes a link to it. Whoever opens the link starts where you
   started and plays the same three packages and drop-offs, with your name, score and time to beat, and can
   send their own run back. Traffic and police are not the same twice. The link holds everything, so

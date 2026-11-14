@@ -233,3 +233,6 @@ body.touch #coach p { font-size: 14px; }
 #sights div[hidden] { display: none; }
 #bigmap-key .star { color: var(--yellow); font-size: 15px; line-height: 1; }
 #sights div.far { font-size: 13px; opacity: 0.9; }
+#btn-sound { pointer-events: auto; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(62px + env(safe-area-inset-right)); color: var(--ink); font-size: 18px; line-height: 1; padding: 9px 12px; cursor: pointer; }
+#btn-sound.off { color: var(--dim); text-decoration: line-through; }
+body.touch #btn-sound { font-size: 22px; padding: 12px 15px; right: calc(72px + env(safe-area-inset-right)); }

@@ -33,6 +33,7 @@ import type { Input } from './input';
 import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, World } from './world';
+import type { Ears, Sfx } from '../sound';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -217,6 +218,8 @@ export class Game {
   onRide: (text: string) => void = () => undefined;
   onSquare: (state: 'loading' | 'ready') => void = () => undefined;
   onSave: () => void = () => undefined;
+  /** Something that makes a noise has happened; `strength` from 0 to 1 where it varies. */
+  onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
   /** The run being scored: deliveries done, what they earned less fines, and the time played. */
@@ -976,6 +979,7 @@ export class Game {
     this.cam.x = this.me.x;
     this.cam.y = this.me.y;
     this.onRide(to.name ? `Subway to ${to.name}` : 'Subway');
+    this.onSound('subway');
   }
 
   /** Back onto the nearest road, on foot: for when you're stuck. */
@@ -1113,6 +1117,7 @@ export class Game {
     this.me.hp = 100;
     this.frozen = 1.6;
     this.onFlash(cost > 0 ? `${title}  −$${cost}` : title);
+    this.onSound('fine');
     if (this.job) this.endJob(false);
     // start again as the game began: on foot, with a parked car to take right beside you
     const p = this.toRoad(120, 320);
@@ -1166,6 +1171,7 @@ export class Game {
           if (this.from) this.course.legs.push({ from: this.from, to: j.to.at });
           this.onToast(`Delivery ${r.done} of ${r.of}  +$${j.pay + bonus}`, 'good');
         } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
+        this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
         this.onSave();
         if (!r.over && r.done >= r.of) {
@@ -1174,6 +1180,7 @@ export class Game {
         }
       } else if (j.left <= 0) {
         this.onToast('Too late: the job is gone', 'bad');
+        this.onSound('late');
         this.endJob(false);
       }
       return;
@@ -1216,6 +1223,7 @@ export class Game {
         this.routeT = 0;
         for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
         this.onToast('Package on board: get it to the yellow ring', 'info');
+        this.onSound('pickup');
         return;
       }
       if (d > 900 && !sent) {
@@ -1390,6 +1398,7 @@ export class Game {
         }
       }
     }
+    if (this.car && this.car.knock > 2.5) this.onSound('crash', Math.min(1, this.car.knock / 16));
     this.stepPeople(dt);
     this.bumps();
 
@@ -1401,6 +1410,7 @@ export class Game {
       if (w.inWater(c.x, c.y)) {
         if (c === this.car) {
           this.onToast('Splash! That car is gone', 'bad');
+          this.onSound('splash');
           this.toRoad(0, 0);
         }
         this.dropCar(c);
@@ -1425,6 +1435,7 @@ export class Game {
     this.sweep();
     if (!this.car && live && w.inWater(this.me.x, this.me.y)) {
       this.onToast('Splash!', 'bad');
+      this.onSound('splash');
       this.toRoad(0, 0);
     }
     if (this.me.hp <= 0) this.fine('Knocked out!', 0.15);
@@ -1476,6 +1487,28 @@ export class Game {
     this.placeMarkers();
     this.puff(dt);
     this.view(dt);
+  }
+
+  /** What can be heard around the player, for the sounds. */
+  ears(): Ears {
+    const c = this.car;
+    const [px, py] = this.pos();
+    let siren = 0;
+    let train = 0;
+    for (const o of this.cars) {
+      if (o.gone) continue;
+      const d = Math.hypot(o.x - px, o.y - py);
+      if (o.driver === 'cop' && this.heat > 0 && o.hp > 0) siren = Math.max(siren, 1 - d / 190);
+      else if (o.kind === 'train' && o.speed > 3) train = Math.max(train, 1 - d / 150);
+    }
+    return {
+      driving: !!c && c.hp > 0,
+      speed: c ? Math.abs(c.forward) : 0,
+      throttle: c ? Math.min(1, Math.abs(c.controls.throttle)) : 0,
+      skid: !!c && c.controls.handbrake && c.speed > 7,
+      siren: Math.max(0, siren),
+      train: Math.max(0, train),
+    };
   }
 
   /** Only the camera moves and the picture is drawn: for behind the result of a run, while the game waits. */

@@ -145,7 +145,8 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
 - Traffic can queue behind a pedestrian walking in the road, and behind a stopped car; cars hesitate at some
   corners.
 - Left-hand traffic uses rough boxes of latitude and longitude; border regions can be wrong.
-- No traffic lights, no one-way streets, no sound.
+- No traffic lights, no one-way streets. Sound exists since 14 November 2026 and has only been checked for
+  which sounds fire when: nobody has listened to it in the test browser. Volumes and tones need the owner's ear.
 - Subway rides stay within the loaded square.
 - The thin-place rule counts streets across the loaded tiles, not only the square, so its numbers are loose.
 - `streetKm` and the building count are the only measures of "well mapped"; a real village with complete data

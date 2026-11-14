@@ -4,6 +4,8 @@
 the streets, buildings, water and hills come from the same map squares as
 [Your Place](https://github.com/yourplace3d/3d-city).
 
+**[Play 3DA →](https://yourplace3d.github.io/3dcity-games/)** · start in a city straight away: [Berlin](https://yourplace3d.github.io/3dcity-games/#Berlin) · [Hamburg](https://yourplace3d.github.io/3dcity-games/#Hamburg) · [New York](https://yourplace3d.github.io/3dcity-games/#New_York) · [Tokyo](https://yourplace3d.github.io/3dcity-games/#Tokyo)
+
 ## How it plays
 
 - The first time you play, a short tour walks you through it: get in, pick up, deliver, and what the
@@ -69,7 +71,7 @@ second, the slowest frame, the size the picture is drawn at, and how much is dra
 back to the full one when there is room (`Game.tune`).
 
 **Publishing.** `.github/workflows/pages.yml` builds the game and publishes `dist/` to GitHub Pages, but only
-when run by hand from the Actions tab: the game is not public yet. One-time setup: **Settings → Pages → Build
+when run by hand from the Actions tab, so that nothing goes live before it has been looked at. One-time setup: **Settings → Pages → Build
 and deployment → Source: GitHub Actions**.
 
 **Without outside requests.** `VITE_BAKED_AT="52.5170,13.3889" npx vite build` makes a build that plays in the

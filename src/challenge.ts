@@ -1,5 +1,5 @@
 /**
- * A run to send to someone: the places of its five deliveries, and the name, score and time to
+ * A run to send to someone: the places of its deliveries, and the name, score and time to
  * beat. All of it travels in the link, so there is no server and nobody is asked who they are.
  * The score in a link is whatever the sender's browser wrote there.
  */
@@ -29,11 +29,14 @@ export function packChallenge(c: Challenge): string {
 }
 
 /** A challenge from a link, or null when the text is not one. */
-export function readChallenge(text: string, legs: number): Challenge | null {
+export function readChallenge(text: string): Challenge | null {
   try {
     const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
     const a = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)))) as unknown;
-    if (!Array.isArray(a) || a[0] !== 1 || a.length !== 7 + legs * 4) return null;
+    if (!Array.isArray(a) || a[0] !== 1) return null;
+    // a run has had five deliveries, and three since: the link says how many by its length
+    const legs = (a.length - 7) / 4;
+    if (!Number.isInteger(legs) || legs < 1 || legs > 5) return null;
     const [, name, score, seconds, place, lat0, lon0, ...pts] = a as [number, unknown, unknown, unknown, unknown, ...unknown[]];
     const nums = [score, seconds, lat0, lon0, ...pts];
     if (typeof name !== 'string' || typeof place !== 'string' || !nums.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;

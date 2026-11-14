@@ -94,8 +94,8 @@ export interface Hud {
   run: { n: number; of: number; score: number } | null;
 }
 
-/** A run is this many deliveries; each asks a little more than the one before. */
-export const RUN_JOBS = 5;
+/** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
+export const RUN_JOBS = 3;
 /** Per delivery of a run: how far the drop-off is (m, from, to) and the speed the clock assumes (m/s). */
 const RUN_STEPS: Array<[number, number, number]> = [
   [250, 550, 7],
@@ -202,7 +202,7 @@ export class Game {
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
   /** The run being scored: deliveries done, what they earned less fines, and the time played. */
-  run = { done: 0, score: 0, seconds: 0, over: false };
+  run = { done: 0, score: 0, seconds: 0, over: false, of: RUN_JOBS };
   /** Where the run being scored has led so far, so that someone else can be sent the same run. */
   course: Course = { start: { lon: 0, lat: 0 }, legs: [] };
   /** A run someone sent: its packages and drop-offs are used instead of new ones. */
@@ -212,8 +212,8 @@ export class Game {
 
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
-    this.run = { done: 0, score: 0, seconds: 0, over: false };
-    this.set = course && course.legs.length >= RUN_JOBS ? course : null;
+    this.set = course && course.legs.length >= 1 && course.legs.length <= RUN_STEPS.length ? course : null;
+    this.run = { done: 0, score: 0, seconds: 0, over: false, of: this.set?.legs.length ?? RUN_JOBS };
     const [x, y] = this.pos();
     this.course = { start: this.set?.start ?? this.world.proj.toLngLat(x, y), legs: [] };
     this.from = null;
@@ -1110,11 +1110,11 @@ export class Game {
           r.done++;
           r.score += j.pay + bonus;
           if (this.from) this.course.legs.push({ from: this.from, to: j.to.at });
-          this.onToast(`Delivery ${r.done} of ${RUN_JOBS}  +$${j.pay + bonus}`, 'good');
+          this.onToast(`Delivery ${r.done} of ${r.of}  +$${j.pay + bonus}`, 'good');
         } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
         this.endJob(true);
         this.onSave();
-        if (!r.over && r.done >= RUN_JOBS) {
+        if (!r.over && r.done >= r.of) {
           r.over = true;
           this.onRunEnd(r.score, r.seconds);
         }
@@ -1517,7 +1517,7 @@ export class Game {
       hint,
       target,
       delivered: this.delivered,
-      run: this.run.over ? null : { n: this.run.done + 1, of: RUN_JOBS, score: this.run.score },
+      run: this.run.over ? null : { n: this.run.done + 1, of: this.run.of, score: this.run.score },
     };
   }
 }

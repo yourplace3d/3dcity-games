@@ -1,5 +1,5 @@
 /**
- * The scoreboard: finished runs of five deliveries, best first. Kept in this browser only, so
+ * The scoreboard: finished runs, best first. Kept in this browser only, so
  * it is the board of whoever plays on this device.
  */
 
@@ -9,6 +9,8 @@ export interface Score {
   score: number;
   seconds: number;
   place: string;
+  /** how many deliveries the run had; runs from before this was written down had five */
+  jobs?: number;
   /** when the run ended (ms since 1970); also tells entries apart */
   at: number;
 }

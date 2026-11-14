@@ -13,11 +13,11 @@ the streets, buildings, water and hills come from the same map squares as
 - **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
-- **Five deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
-  the one before. What the five earn, less any fines, is the score; it goes on a scoreboard, with your
+- **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
+  the one before. What the three earn, less any fines, is the score; it goes on a scoreboard, with your
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
 - **Challenge a friend.** After a run, a button makes a link to it. Whoever opens the link starts where you
-  started and plays the same five packages and drop-offs, with your name, score and time to beat, and can
+  started and plays the same three packages and drop-offs, with your name, score and time to beat, and can
   send their own run back. Traffic and police are not the same twice. The link holds everything, so
   there is no server; it also means the score in a link is only as honest as its sender.
 - **Heat.** Knocking people over, taking someone's car and ramming traffic or the police raise it (up to

@@ -40,6 +40,10 @@ let busy = false;
 let placeName = '';
 /** the run someone sent that is being played: its name, score and time are the ones to beat */
 let rival: Challenge | null = null;
+const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
+/** "three deliveries", for a run of that many */
+const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'delivery' : 'deliveries'}`;
+const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 /** the big map is up and the game waits behind it */
@@ -234,7 +238,7 @@ function withoutChallenge(): string {
 function begin(): void {
   $('thin').hidden = true;
   setScreen('play');
-  if (rival) toast(`${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same five deliveries: beat it.`, 'info', 9000);
+  if (rival) toast(`${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`, 'info', 9000);
   if (rival && coached()) return;
   if (coached()) toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
   else if (step < 0) step = 0;
@@ -269,8 +273,8 @@ const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = 
     done: (h) => h.job === null,
   },
   {
-    keys: 'Five deliveries make a run for the scoreboard. Mind the police: knocking people over, ramming and taking cars light up the badges and bring patrol cars. Stay out of their sight to cool off; stop next to one and you pay a fine.',
-    touch: 'Five deliveries make a run for the scoreboard. Mind the police: knocking people over, ramming and taking cars light up the badges and bring patrol cars. Stay out of their sight to cool off; stop next to one and you pay a fine.',
+    keys: `${cap(deliveries(RUN_JOBS))} make a run for the scoreboard, and a run can be sent to a friend to beat. Mind the police: knocking people over, ramming and taking cars light up the badges and bring patrol cars. Stay out of their sight to cool off; stop next to one and you pay a fine.`,
+    touch: `${cap(deliveries(RUN_JOBS))} make a run for the scoreboard, and a run can be sent to a friend to beat. Mind the police: knocking people over, ramming and taking cars light up the badges and bring patrol cars. Stay out of their sight to cool off; stop next to one and you pay a fine.`,
     done: () => false,
   },
 ];
@@ -356,7 +360,8 @@ let fresh: Score | null = null;
 let freshCourse: Course | null = null;
 
 function drawBoard(): void {
-  const list = scores().slice(0, 10);
+  // runs of another length (five, before runs were three) don't compare
+  const list = scores().filter((s) => (s.jobs ?? 5) === RUN_JOBS || s.at === fresh?.at).slice(0, 10);
   const board = $('board');
   board.replaceChildren();
   $('board-empty').hidden = list.length > 0;
@@ -384,14 +389,14 @@ function showBoard(run: Score | null): void {
   $('result-run').hidden = !run;
   if (run) {
     $('result-score').textContent = fmtMoney(run.score);
-    $('result-line').textContent = `Five deliveries in ${fmtTime(run.seconds)} · ${run.place}`;
+    $('result-line').textContent = `${cap(deliveries(run.jobs ?? RUN_JOBS))} in ${fmtTime(run.seconds)} · ${run.place}`;
     $('result-rival').hidden = !rival;
     if (rival) $('result-rival').textContent = `${them}: ${fmtMoney(rival.score)} in ${fmtTime(rival.seconds)}`;
-    const can = !!freshCourse && freshCourse.legs.length === RUN_JOBS && !BAKED;
+    const can = !!freshCourse && freshCourse.legs.length === (run.jobs ?? RUN_JOBS) && !BAKED;
     $('challenge').hidden = !can;
-    $('btn-challenge').textContent = rival ? 'Send your run back' : 'Challenge a friend';
+    $('btn-challenge').textContent = rival ? `Send your run back to ${rival.name || 'them'}` : 'Challenge a friend to beat this';
     $('challenge-link').hidden = true;
-    $('challenge-note').textContent = 'Makes a link to this run: the same five deliveries, with your score to beat.';
+    $('challenge-note').textContent = `Makes a link to send: the same ${deliveries(run.jobs ?? RUN_JOBS)}, with your score to beat.`;
     $('result-form').hidden = false;
     $<HTMLInputElement>('result-name').value = lastName();
   }
@@ -410,7 +415,7 @@ function closeBoard(): void {
 }
 
 function runEnded(score: number, seconds: number): void {
-  const run: Score = { name: '', score, seconds, place: placeName, at: Date.now() };
+  const run: Score = { name: '', score, seconds, place: placeName, at: Date.now(), jobs: game?.run.of ?? RUN_JOBS };
   freshCourse = game ? { start: game.course.start, legs: [...game.course.legs] } : null;
   addScore(run);
   showBoard(run);
@@ -438,7 +443,8 @@ $('btn-challenge').addEventListener('click', async () => {
   const code = packChallenge({ name, score: fresh.score, seconds: fresh.seconds, place: fresh.place, course: freshCourse });
   const { start } = freshCourse;
   const url = `${location.origin}${location.pathname}?c=${code}#${start.lat.toFixed(5)},${start.lon.toFixed(5)}`;
-  const text = `Beat my run in ${fresh.place}: ${fmtMoney(fresh.score)} in ${fmtTime(fresh.seconds)}, five deliveries.`;
+  const text = `Beat my run in ${fresh.place}: ${fmtMoney(fresh.score)} in ${fmtTime(fresh.seconds)}, ${deliveries(freshCourse.legs.length)}.`;
+  const theirs = `Whoever opens it plays your ${deliveries(freshCourse.legs.length)}.`;
   const box = $<HTMLInputElement>('challenge-link');
   box.value = url;
   box.hidden = false;
@@ -447,14 +453,14 @@ $('btn-challenge').addEventListener('click', async () => {
     // a phone offers its own list of apps to send with
     if (document.body.classList.contains('touch') && navigator.share) {
       await navigator.share({ text, url });
-      note.textContent = 'Whoever opens the link plays your five deliveries.';
+      note.textContent = theirs;
       return;
     }
     await navigator.clipboard.writeText(`${text} ${url}`);
-    note.textContent = 'Link copied. Whoever opens it plays your five deliveries.';
+    note.textContent = `Link copied. ${theirs}`;
   } catch {
     box.select();
-    note.textContent = 'Copy this link and send it. Whoever opens it plays your five deliveries.';
+    note.textContent = `Copy this link and send it. ${theirs}`;
   }
 });
 $('challenge-link').addEventListener('focus', (e) => (e.target as HTMLInputElement).select());
@@ -465,7 +471,7 @@ $('btn-newrun').addEventListener('click', () => {
   $('result').hidden = true;
   fresh = null;
   setScreen('play');
-  toast('New run: five deliveries', 'info');
+  toast(`New run: ${deliveries(RUN_JOBS)}`, 'info');
 });
 $('btn-close').addEventListener('click', closeBoard);
 $('btn-scores').addEventListener('click', () => showBoard(null));
@@ -630,7 +636,7 @@ addEventListener('pagehide', () => save());
 const linked = BAKED ? '' : decodeURIComponent(location.hash.slice(1)).replace(/[_+]/g, ' ').trim();
 const fromLink = parseLatLon(linked);
 const code = BAKED ? null : new URLSearchParams(location.search).get('c');
-const sentRun = code ? readChallenge(code, RUN_JOBS) : null;
+const sentRun = code ? readChallenge(code) : null;
 if (sentRun) void go(sentRun.course.start, sentRun.place || undefined, sentRun);
 else if (fromLink) void go(fromLink);
 else if (linked) {

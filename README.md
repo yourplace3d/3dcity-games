@@ -20,6 +20,10 @@ the streets, buildings, water and hills come from the same map squares as
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
 - **The place is announced** across the screen as the game starts there; for a link with nothing but
   coordinates the game asks the place search which town it is (the point rounded to about 100 m).
+- **Well-known sights have their names.** About a hundred in the cities the game knows by heart (the Arc de
+  Triomphe, the Brandenburg Gate, Tokyo Tower): the name stands over the sight when it is in the picture, at
+  the edge of the screen with the distance when it is within 320 m, and beside a gold star on the big map. The
+  list is kept by hand in `src/landmarks.ts`.
 - **Challenge a friend.** After a run, a button makes a link to it. Whoever opens the link starts where you
   started and plays the same three packages and drop-offs, with your name, score and time to beat, and can
   send their own run back. Traffic and police are not the same twice. The link holds everything, so

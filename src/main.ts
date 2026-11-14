@@ -546,6 +546,20 @@ function paint(h: Hud): void {
   $('hint').hidden = !h.hint;
   if (h.hint) put('hint', `<kbd>E</kbd>${h.hint}`);
 
+  // names over the well-known sights in the picture
+  const box = $('sights');
+  while (box.children.length < h.sights.length) box.append(document.createElement('div'));
+  for (let i = 0; i < box.children.length; i++) {
+    const el = box.children[i] as HTMLElement;
+    const s = h.sights[i];
+    el.hidden = !s;
+    if (!s) continue;
+    const text = s.metres === null ? s.name : `${s.name} · ${fmtM(s.metres)}`;
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.toggle('far', s.metres !== null);
+    el.style.transform = `translate(${((s.ndcX + 1) / 2) * innerWidth}px, ${((1 - s.ndcY) / 2) * innerHeight}px) translate(-50%, ${s.metres === null ? -100 : -50}%)`;
+  }
+
   // the arrow: on the ring while it's in view, else at the edge of the screen pointing to it
   const arrow = $('arrow');
   arrow.hidden = !h.target;

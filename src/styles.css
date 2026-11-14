@@ -227,3 +227,9 @@ body.touch #coach p { font-size: 14px; }
 #arrive b { font-size: clamp(34px, 9vw, 76px); font-weight: 800; line-height: 1.05; letter-spacing: 0.01em; color: var(--yellow); }
 #arrive span { max-width: 34em; font-size: clamp(15px, 2.6vw, 20px); font-weight: 600; color: var(--ink); }
 @keyframes arrive { 0% { opacity: 0; } 8%, 85% { opacity: 1; } 100% { opacity: 0; } }
+/* a name over a well-known sight; each on its own layer, with nothing drawn outside its box */
+#sights div { position: absolute; left: 0; top: 0; padding: 5px 10px 6px; border-radius: 9px; background: rgba(20, 22, 27, 0.86); border: 1.5px solid var(--yellow); color: var(--yellow); font: 700 15px/1.1 inherit; white-space: nowrap; pointer-events: none; will-change: transform; }
+#sights div::before { content: '★ '; }
+#sights div[hidden] { display: none; }
+#bigmap-key .star { color: var(--yellow); font-size: 15px; line-height: 1; }
+#sights div.far { font-size: 13px; opacity: 0.9; }

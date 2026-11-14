@@ -93,6 +93,8 @@ export interface Hud {
   /** where the arrow points: the drop-off, or the nearest job */
   target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' } | null;
   delivered: number;
+  /** well-known sights in the picture, to write their names over them */
+  sights: Array<{ name: string; ndcX: number; ndcY: number; metres: number | null }>;
   /** the run of deliveries being scored: which one is next, and the score so far */
   run: { n: number; of: number; score: number } | null;
 }
@@ -1577,6 +1579,16 @@ export class Game {
       hint,
       target,
       delivered: this.delivered,
+      sights: this.world.sights.flatMap((s): Hud['sights'] => {
+        const v = new Vector3(s.x, this.world.groundY(s.x, s.y) + 12, -s.y).project(this.camera);
+        if (Math.abs(v.x) < 0.9 && Math.abs(v.y) < 0.82) return [{ name: s.name, ndcX: v.x, ndcY: v.y, metres: null }];
+        // close by but out of the picture: its name at the edge, on the side it lies
+        const [mx, my] = this.pos();
+        const d = Math.hypot(s.x - mx, s.y - my);
+        if (d > 320) return [];
+        const over = Math.max(Math.abs(v.x) / 0.8, Math.abs(v.y) / 0.72);
+        return [{ name: s.name, ndcX: v.x / over, ndcY: v.y / over, metres: d }];
+      }),
       run: this.run.over ? null : { n: this.run.done + 1, of: this.run.of, score: this.run.score },
     };
   }

@@ -13,6 +13,7 @@ import { PALETTE } from '../scene/overlay';
 import { buildRoadMeshes, disposeRoadMeshes } from './roadMesh';
 import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
+import { sightsIn, type Sight } from '../landmarks';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -215,7 +216,11 @@ export class World {
     readonly buildingCount: number,
   ) {
     this.proj = makeProjector(centre);
+    this.sights = sightsIn(this.proj, AREA_SIZE_M / 2);
   }
+
+  /** well-known sights in this square, to be named for the player */
+  readonly sights: Sight[];
 
   static async load(centre: LngLat, texturePx: number): Promise<World> {
     const [grid, tiles] = await Promise.all([loadHeightGrid(centre, AREA_SIZE_M, GRID_N), fetchTiles(tilesForSquare(centre, AREA_SIZE_M, DATA_ZOOM))]);

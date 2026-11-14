@@ -129,6 +129,36 @@ export class Minimap {
       ctx.fillStyle = '#1f6fd6';
       ctx.fillRect(sx - 2.5 * dpr * big, sy - 2.5 * dpr * big, 5 * dpr * big, 5 * dpr * big);
     }
+    // well-known sights: a gold star, and on the big map the name beside it
+    for (const s of world.sights) {
+      const [sx, sy] = at(s.x, s.y);
+      if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
+      const r = 6.5 * dpr * big;
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5;
+        const q = i % 2 ? r * 0.45 : r;
+        ctx.lineTo(sx + Math.cos(a) * q, sy + Math.sin(a) * q);
+      }
+      ctx.closePath();
+      ctx.fillStyle = '#ffd400';
+      ctx.fill();
+      ctx.lineWidth = 1.2 * dpr;
+      ctx.strokeStyle = '#2a2400';
+      ctx.stroke();
+      if (this.whole) {
+        ctx.font = `600 ${12 * dpr}px system-ui, sans-serif`;
+        ctx.textBaseline = 'middle';
+        const left = sx > W * 0.7;
+        ctx.textAlign = left ? 'right' : 'left';
+        const tx = sx + (left ? -1 : 1) * (r + 4 * dpr);
+        ctx.lineWidth = 3 * dpr;
+        ctx.strokeStyle = 'rgba(16,18,22,0.9)';
+        ctx.strokeText(s.name, tx, sy);
+        ctx.fillStyle = '#ffe680';
+        ctx.fillText(s.name, tx, sy);
+      }
+    }
     for (const [x, y] of view.pickups) {
       const [sx, sy] = pinned(x, y);
       dot(sx, sy, 4.5, '#2bd4e0', '#0c2a2e');

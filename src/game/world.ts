@@ -228,6 +228,9 @@ export class World {
     model.setExaggeration(1);
     model.showPin(false);
     model.terrain.walls.visible = false;
+    // the ground takes shadows but throws none: seen from above its own shadow adds nothing, and
+    // on some graphics chips it drew dark streaks that stayed put on the screen
+    model.terrain.surface.castShadow = false;
     model.terrain.base.visible = false;
     await breathe();
     model.setBuildingSpecs(buildings);

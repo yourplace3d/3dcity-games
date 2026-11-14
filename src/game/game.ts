@@ -1435,8 +1435,12 @@ export class Game {
       sc.right = reach;
       sc.top = reach;
       sc.bottom = -reach;
-      sc.near = 50;
-      sc.far = 1200;
+      // only as deep as what is in view, so the depths are told apart more finely
+      const sunAt = 500 * Math.hypot(0.55, 0.78, 0.55);
+      sc.near = Math.max(10, sunAt - reach - 160);
+      sc.far = sunAt + reach + 120;
+      // the same slack in metres whatever the depth
+      this.sun.shadow.bias = -0.46 / (sc.far - sc.near);
       sc.updateProjectionMatrix();
     }
     if (this.render) this.renderer.render(this.scene, this.camera);

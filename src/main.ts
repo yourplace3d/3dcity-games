@@ -6,6 +6,7 @@
 import { Game, RUN_JOBS, type Course, type Hud } from './game/game';
 import { packChallenge, readChallenge, type Challenge } from './challenge';
 import { Sound } from './sound';
+import { serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
@@ -680,6 +681,8 @@ if (baked) {
     if (q) void search(q);
   });
 }
+// the map's key shows the same symbols the map does
+for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind).toDataURL()})`;
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);
   $('btn-sound').setAttribute('aria-label', sound.on ? 'Sound is on: turn it off' : 'Sound is off: turn it on');

@@ -36,8 +36,12 @@ the streets, buildings, water and hills come from the same map squares as
 - **Well-known sights have their names.** About a hundred in the cities the game knows by heart (the Arc de
   Triomphe, the Brandenburg Gate, Tokyo Tower): the name stands over the sight when it is in the picture, at
   the edge of the screen with the distance when it is within 320 m, and beside a gold star on the big map. The
-  list is kept by hand in `src/landmarks.ts`. Where a square has none of those, the map's own town hall,
-  main station, castle, stadium and cathedral are named instead, one of each at most.
+  list is kept by hand in `src/landmarks.ts`. Where a square has none of those, public places from the map
+  are named instead, one of each kind and six at most: town hall, railway station, museum, theatre, library,
+  stadium, bus station, ferry terminal, cinema, marketplace, swimming pool, sports centre.
+- **Fuel, fire and police stations carry a symbol and no name**, on their roof and on both maps. They do
+  nothing yet. Shops, restaurants, hotels, schools, hospitals, places of worship, courts and post offices
+  are neither named nor marked.
 - **Challenge a friend.** After a run, a button makes a link to it. Whoever opens the link starts where you
   started and plays the same three packages and drop-offs, with your name, score and time to beat, and can
   send their own run back. Traffic and police are not the same twice. The link holds everything, so

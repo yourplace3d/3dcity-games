@@ -236,3 +236,4 @@ body.touch #coach p { font-size: 14px; }
 #btn-sound { pointer-events: auto; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(62px + env(safe-area-inset-right)); color: var(--ink); font-size: 18px; line-height: 1; padding: 9px 12px; cursor: pointer; }
 #btn-sound.off { color: var(--dim); text-decoration: line-through; }
 body.touch #btn-sound { font-size: 22px; padding: 12px 15px; right: calc(72px + env(safe-area-inset-right)); }
+#bigmap-key .ico { display: inline-block; width: 16px; height: 16px; background-size: contain; }

@@ -9,6 +9,7 @@
 
 import type { Game } from './game';
 import type { World } from './world';
+import { serviceIcon } from './services';
 
 /** How far the map shows in each direction from you (m). */
 const RANGE_M = 260;
@@ -128,6 +129,13 @@ export class Minimap {
       if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
       ctx.fillStyle = '#1f6fd6';
       ctx.fillRect(sx - 2.5 * dpr * big, sy - 2.5 * dpr * big, 5 * dpr * big, 5 * dpr * big);
+    }
+    // fuel, fire and police stations: their symbol
+    for (const s of world.services) {
+      const [sx, sy] = at(s.x, s.y);
+      if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
+      const r = (this.whole ? 9 : 7) * dpr;
+      ctx.drawImage(serviceIcon(s.kind), sx - r, sy - r, r * 2, r * 2);
     }
     // well-known sights: a gold star, and on the big map the name beside it
     for (const s of world.sights) {

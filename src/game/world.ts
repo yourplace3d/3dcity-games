@@ -3,7 +3,7 @@
  * walls and the water. Squares sit on a fixed grid; the next one loads as you near the edge.
  */
 
-import { CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial } from 'three';
+import { CanvasTexture, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three';
 import { pointInRing, ringBounds, type Polygon } from '../geo/polygon';
 import { makeProjector, type LngLat, type Projector } from '../geo/projection';
 import { loadHeightGrid } from '../geo/terrain';
@@ -15,6 +15,7 @@ import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
 import { sightsIn, type Sight } from '../landmarks';
 import { localColours } from './localColours';
+import { readServices, serviceIcon, type Service, type ServiceKind } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -149,20 +150,16 @@ function readStops(tiles: LoadedTile[], proj: Projector, half: number): Stop[] {
 }
 
 /**
- * Where no well-known sight lies in a square: the places any town has and its people know, from the
- * map's points of interest. One of each kind at most: the town hall, the main station, a castle,
- * a stadium, a cathedral.
+ * Where no well-known sight lies in a square: the public places any town has and its people know,
+ * from the map's points of interest. One of each kind at most, and no more than six, the most
+ * telling kinds first. Only public places: no shops, no schools, no hospitals, no churches.
  */
 function townSights(tiles: LoadedTile[], proj: Projector, half: number): Sight[] {
-  // the map files a community centre or a court under "town hall" and any ruin under "castle": only the real thing
-  const KINDS: Array<[string, (cls: string, sub: string, name: string) => boolean]> = [
-    ['hall', (cls, sub) => cls === 'town_hall' && sub === 'townhall'],
-    ['station', (cls, sub) => cls === 'railway' && sub === 'station'],
-    ['castle', (cls, sub, name) => cls === 'castle' && sub === 'castle' && /castle|schloss|burg\b|château|chateau|castello|castillo|castelo|kasteel|slott?\b|zamek|hrad\b|palace|palais|palazzo|palacio/i.test(name)],
-    ['stadium', (cls, sub) => cls === 'stadium' && sub === 'stadium'],
-    ['church', (cls, _sub, name) => cls === 'place_of_worship' && /cathedral|cathédrale|catedral|cattedrale|duomo|kathedrale|münster|minster|\bdom\b/i.test(name)],
-    ['basilica', (cls, _sub, name) => cls === 'place_of_worship' && /basilica|basilika|basilique/i.test(name)],
-  ];
+  // by the map's own sub-kind: it files community centres under "town hall" too, which are not meant.
+  // Post offices are left out: the map files parcel shops and other businesses under them. Courts too:
+  // the one that turns up is as likely a juvenile or labour court.
+  const ORDER = ['townhall', 'station', 'museum', 'theatre', 'library', 'stadium', 'bus_station', 'ferry_terminal', 'cinema', 'marketplace', 'swimming_pool', 'sports_centre'];
+  const KINDS: Array<[string, (cls: string, sub: string, name: string) => boolean]> = ORDER.map((k) => [k, (cls: string, sub: string) => sub === k && (k !== 'station' || cls === 'railway')]);
   const best = new Map<string, Sight & { rank: number }>();
   for (const t of tiles) {
     const layer = t.tile.layers.poi;
@@ -188,11 +185,12 @@ function townSights(tiles: LoadedTile[], proj: Projector, half: number): Sight[]
       if (!was || rank < was.rank) best.set(kind, { name, x, y, rank });
     }
   }
-  // a basilica stands in only where no cathedral is
-  if (best.has('church')) best.delete('basilica');
-  // one building can be town hall and palace at once: name it once
+  // one building mapped as two things is named once
   const seen = new Set<string>();
-  return [...best.values()].filter((b) => !seen.has(b.name) && !!seen.add(b.name)).map(({ name, x, y }) => ({ name, x, y }));
+  return ORDER.flatMap((k) => best.get(k) ?? [])
+    .filter((b) => !seen.has(b.name) && !!seen.add(b.name))
+    .slice(0, 6)
+    .map(({ name, x, y }) => ({ name, x, y }));
 }
 
 const SIGN = { bus: ['#3fae5a', 1.1], tram: ['#d8362e', 1.3], subway: ['#1f6fd6', 2.6] } as const;
@@ -213,6 +211,24 @@ function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number): Gr
     }
   }
   return g;
+}
+
+const serviceMats = new Map<ServiceKind, MeshBasicMaterial>();
+const serviceDisc = new CircleGeometry(4.6, 28);
+
+/** The symbol of a fuel, fire or police station, flat on the ground where the map has it. */
+function serviceSign(s: Service, groundY: (x: number, y: number) => number): Mesh {
+  let mat = serviceMats.get(s.kind);
+  if (!mat) {
+    const map = new CanvasTexture(serviceIcon(s.kind));
+    map.colorSpace = SRGBColorSpace;
+    serviceMats.set(s.kind, (mat = new MeshBasicMaterial({ map, transparent: true, side: DoubleSide })));
+  }
+  // its own copy of the disc, so that taking a square away can dispose of every sign alike
+  const m = new Mesh(serviceDisc.clone(), mat);
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(s.x, groundY(s.x, s.y) + 0.6, -s.y);
+  return m;
 }
 
 /**
@@ -266,6 +282,9 @@ export class World {
     this.sights = sightsIn(this.proj, AREA_SIZE_M / 2);
   }
 
+  /** fuel, fire and police stations, marked with a symbol and not named */
+  readonly services: Service[] = [];
+
   /** well-known sights in this square, to be named for the player */
   readonly sights: Sight[];
 
@@ -306,6 +325,9 @@ export class World {
     const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y));
     model.group.add(signs);
     const world = new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
+    world.services.push(...readServices(tiles, world.proj, AREA_SIZE_M / 2 - 8));
+    // the map puts such a place on its building: the symbol lies on the roof, where it can be seen
+    for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2));
     if (!world.sights.length) world.sights.push(...townSights(tiles, world.proj, AREA_SIZE_M / 2 - 8));
     return world;
   }

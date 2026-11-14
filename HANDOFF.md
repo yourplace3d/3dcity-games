@@ -95,6 +95,18 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   arrowheads on steep streets, and hills in the driving of the player's car (`cars.ts`). Cost measured before
   and after in three cities: about 5 % more triangles, no measurable change in the time to build a square.
   A tilted camera was advised against. Still open: letting a car bump down a stairway.
+- **Which real places the game shows (decided by the owner, 14 November 2026).**
+  Named, and only where a square has no well-known sight: public places (town hall, station, museum, theatre,
+  library, stadium, bus station, ferry terminal, cinema, marketplace, pool, sports centre).
+  A symbol and no name: fuel stations (may become part of play later), fire stations, police stations.
+  Allowed later but unnamed and not shown yet, pending research into whether they fit the play: colleges,
+  universities, hospitals and big clinics (only big ones).
+  Left out for now, though they could serve as mission places later without names: restaurants, cafés,
+  hotels, supermarkets, banks, pharmacies, repair shops.
+  Never: schools and kindergartens (the owner's rule), places of worship, cemeteries, prisons, embassies.
+  Dropped while building, because of what the map files under them: post offices (parcel shops and other
+  businesses) and courts (juvenile and labour courts turned up). The famous cathedrals in the hand-picked
+  list stay. Missions between real places are not built; the owner has not asked for them yet.
 - **The "3D view social idea"** is the private repo `yourplace3d/yourplace-live`: friends shown live at their
   building and floor. Agreed with the owner: no live location in the game. The two can share links between
   friends later; a run that starts or ends at a place the player picks was offered and not yet decided.

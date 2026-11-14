@@ -172,6 +172,10 @@ export class Game {
   private cam = { x: 0, y: 0, h: 90 };
   /** seconds left of the look from above that a place opens with */
   private descent = 0;
+  /** the height it comes down from; 0 for the full look from above */
+  private descentFrom = 0;
+  /** the camera is on its way up over the town, after a run */
+  private rising = false;
   private viewR = 100;
   private clock = 0;
   private spawnT = 0;
@@ -226,6 +230,7 @@ export class Game {
 
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
+    this.comeDown();
     this.set = course && course.legs.length >= 1 && course.legs.length <= RUN_STEPS.length ? course : null;
     this.run = { done: 0, score: 0, seconds: 0, over: false, of: this.set?.legs.length ?? RUN_JOBS };
     const [x, y] = this.pos();
@@ -378,6 +383,8 @@ export class Game {
     this.heat = 0;
     this.cam = { x: px, y: py, h: ARRIVE_M };
     this.descent = ARRIVE_HOLD_S + DESCENT_S;
+    this.descentFrom = 0;
+    this.rising = false;
     this.parkCars(null);
     // the look from above draws far more than play does: it says nothing about how the device copes
     this.pace.hold = ARRIVE_HOLD_S + DESCENT_S + 1.5;
@@ -1453,9 +1460,6 @@ export class Game {
 
   private draw(dt: number): void {
     const w = this.world;
-    const [px, py] = this.pos();
-    const [vx, vy] = this.vel();
-    const speed = Math.hypot(vx, vy);
     for (const c of this.cars) {
       c.place(w);
       if (c.lights.length) {
@@ -1471,7 +1475,34 @@ export class Game {
     this.me.mesh.rotation.y = this.me.th;
     this.placeMarkers();
     this.puff(dt);
+    this.view(dt);
+  }
 
+  /** Only the camera moves and the picture is drawn: for behind the result of a run, while the game waits. */
+  watch(dt: number): void {
+    this.view(Math.max(0, Math.min(dt, 0.05)));
+  }
+
+  /** Rise over the part of town, as a run ends. */
+  overview(): void {
+    this.rising = true;
+    this.descent = 0;
+  }
+
+  /** Back down to the player from wherever the camera is. */
+  comeDown(): void {
+    if (!this.rising) return;
+    this.rising = false;
+    this.descentFrom = this.cam.h;
+    this.descent = DESCENT_S;
+    this.pace.hold = DESCENT_S + 1.5;
+  }
+
+  private view(dt: number): void {
+    const w = this.world;
+    const [px, py] = this.pos();
+    const [vx, vy] = this.vel();
+    const speed = Math.hypot(vx, vy);
     // the camera: straight down, north up, higher the faster you go, and above the roofs
     const k = 1 - Math.exp(-4 * dt);
     const lead = this.car ? 0.5 : 0;
@@ -1480,12 +1511,16 @@ export class Game {
     const portrait = Math.max(1, 1 / this.camera.aspect) ** 0.8;
     let h = (this.car ? 60 + speed * 2.7 : 40) * portrait;
     h = Math.max(h, w.solids.tallestNear(px, py, 45) + 34);
-    if (this.descent > 0) {
+    if (this.rising) {
+      // a run has ended: up and away, to see where it led
+      this.cam.h += (ARRIVE_M * portrait - this.cam.h) * (1 - Math.exp(-0.8 * dt));
+    } else if (this.descent > 0) {
       // arriving: a look at the part of town from high up, then down to you
       this.descent -= dt;
       const p = clamp(1 - this.descent / DESCENT_S, 0, 1);
       const eased = p * p * p * (p * (p * 6 - 15) + 10);
-      this.cam.h = Math.exp(Math.log(ARRIVE_M * portrait) + (Math.log(h) - Math.log(ARRIVE_M * portrait)) * eased);
+      const from = this.descentFrom || ARRIVE_M * portrait;
+      this.cam.h = Math.exp(Math.log(from) + (Math.log(h) - Math.log(from)) * eased);
     } else this.cam.h += (h - this.cam.h) * (1 - Math.exp(-1.8 * dt));
     const gy = w.groundY(this.cam.x, this.cam.y);
     this.camera.position.set(this.cam.x, gy + this.cam.h, -this.cam.y);

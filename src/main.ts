@@ -194,7 +194,11 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       game.onSquare = (s) => ($('next').hidden = s !== 'loading');
       game.onSave = () => save();
       // let the last delivery's message be read before the result covers it
-      game.onRunEnd = (score, seconds) => setTimeout(() => runEnded(score, seconds), 1400);
+      game.onRunEnd = (score, seconds) => {
+        // up over the town while the result is read
+        game!.overview();
+        setTimeout(() => runEnded(score, seconds), 1400);
+      };
       controls.onAction = () => game!.action();
       controls.onReset = () => game!.reset();
       controls.onRoute = toggleRoute;
@@ -443,6 +447,7 @@ function showBoard(run: Score | null): void {
 }
 
 function closeBoard(): void {
+  game?.comeDown();
   $('result').hidden = true;
   fresh = null;
   setScreen(document.body.dataset.screen === 'play' ? 'play' : 'start');
@@ -594,7 +599,14 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
-  if (!game?.world || !playing) return;
+  if (!game?.world || !playing) {
+    // behind the result of a run the camera goes on rising
+    if (game?.world && fresh && !$('result').hidden) {
+      game.watch(dt);
+      paint(game.hud());
+    }
+    return;
+  }
   if (mapOpen) {
     bigmap.draw(game);
     return;

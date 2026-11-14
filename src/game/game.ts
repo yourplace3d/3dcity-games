@@ -624,14 +624,15 @@ export class Game {
     if (avoid && c.pushy <= 0) {
       const fx = Math.cos(c.th);
       const fy = Math.sin(c.th);
-      const look = 9 + Math.max(0, vf) * 1.3;
+      // a train needs longer to stop, and the one coming the other way is closing too
+      const look = c.kind === 'train' ? 30 + Math.max(0, vf) * 4 : 9 + Math.max(0, vf) * 1.3;
       const gapTo = (ox: number, oy: number, r: number, wide: number) => {
         const dx = ox - c.x;
         const dy = oy - c.y;
         const ahead = dx * fx + dy * fy;
         if (ahead <= 0 || ahead > look + r || Math.abs(dx * fy - dy * fx) > wide) return;
         const gap = ahead - r - c.a - c.r;
-        const cap = Math.max(0, gap - 2.5) * 1.1;
+        const cap = c.kind === 'train' ? Math.max(0, gap - 8) * 0.3 : Math.max(0, gap - 2.5) * 1.1;
         if (cap < want) {
           want = cap;
           blocked = cap < 1;
@@ -639,7 +640,7 @@ export class Game {
       };
       // a train brakes for another train and for nothing else: keeping off the track is up to you
       const train = c.kind === 'train';
-      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 60 && Math.abs(o.y - c.y) < 60) gapTo(o.x, o.y, o.a + o.r, 1.5);
+      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 110 && Math.abs(o.y - c.y) < 110) gapTo(o.x, o.y, o.a + o.r, 1.5);
       if (!train) {
         for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
         if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);
@@ -658,6 +659,16 @@ export class Game {
     if (want < 0.3 && vf < 0.3) c.controls.throttle = vf > 0.05 ? -1 : 0;
     if (c.speed < 0.5 && (want > 1 || blocked)) {
       c.stuck += dt;
+      // a train that can't get on (another one coming the other way, something it can't
+      // shove aside) goes back the way it came
+      if (c.kind === 'train' && c.stuck > 2.5 && c.path) {
+        c.th = wrap(c.th + Math.PI);
+        // from where it stands, not from the point ahead it was steering for
+        c.path = this.attach(c.x, c.y, c.th, 'train') ?? c.path;
+        c.dwell = 1;
+        c.stuck = 0;
+        return;
+      }
       if (blocked && c.stuck > 5) {
         c.pushy = 3;
         c.stuck = 0;

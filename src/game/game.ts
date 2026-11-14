@@ -573,6 +573,13 @@ export class Game {
         net.advance(p, 2, want, pick);
         [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
       }
+      // at the end of a track a tram or train stops, waits a moment and sets off the other way
+      if (want !== 'drive' && (tx - c.x) * fx + (ty - c.y) * fy < -2) {
+        c.th = wrap(c.th + Math.PI);
+        c.vx = 0;
+        c.vy = 0;
+        c.dwell = 2.5;
+      }
       const base = SPEED_LIMIT[net.lines[p.line].kind] ?? 8;
       limit = chase ? Math.min(31, base * 2.3) : c.kind === 'train' ? 19 : transit ? Math.min(base, 11) : base;
       // buses and trams wait a moment at each of their stops
@@ -619,9 +626,13 @@ export class Game {
           blocked = cap < 1;
         }
       };
-      for (const o of this.cars) if (o !== c && !o.gone && Math.abs(o.x - c.x) < 40 && Math.abs(o.y - c.y) < 40) gapTo(o.x, o.y, o.a + o.r, 1.5);
-      for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
-      if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);
+      // a train brakes for another train and for nothing else: keeping off the track is up to you
+      const train = c.kind === 'train';
+      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 60 && Math.abs(o.y - c.y) < 60) gapTo(o.x, o.y, o.a + o.r, 1.5);
+      if (!train) {
+        for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
+        if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);
+      }
     }
     c.pushy = Math.max(0, c.pushy - dt);
 
@@ -639,7 +650,7 @@ export class Game {
       if (blocked && c.stuck > 5) {
         c.pushy = 3;
         c.stuck = 0;
-      } else if (!blocked && c.stuck > (chase ? 0.8 : 2.2)) {
+      } else if (!blocked && !railsOf(c.kind) && c.stuck > (chase ? 0.8 : 2.2)) {
         c.backing = 1.1;
         c.stuck = 0;
       }

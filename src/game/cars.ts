@@ -144,7 +144,7 @@ export class Car {
     this.lights = m.lights;
     this.r = this.spec.wid / 2 + 0.05;
     this.a = this.spec.len / 2 - this.r;
-    this.mass = this.spec.len * this.spec.wid * (this.spec.len > 7 ? 2 : 1);
+    this.mass = this.spec.len * this.spec.wid * (kind === 'train' ? 12 : this.spec.len > 7 ? 2 : 1);
     this.offs = this.spec.len > 7 ? [1, 0.5, 0, -0.5, -1] : [1, -1];
   }
 
@@ -241,7 +241,8 @@ export class Car {
   /** A knock of `dv` m/s: dents above a hard bump. */
   hit(dv: number): void {
     this.knock = Math.max(this.knock, dv);
-    if (dv > 8) this.hp = Math.max(0, this.hp - (dv - 8) * 2);
+    // a train takes no harm from what it runs into
+    if (dv > 8 && this.kind !== 'train') this.hp = Math.max(0, this.hp - (dv - 8) * 2);
   }
 
   place(world: World): void {

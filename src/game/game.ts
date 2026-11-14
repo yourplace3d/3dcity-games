@@ -232,13 +232,15 @@ export class Game {
     this.renderer.setPixelRatio(this.ratio);
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = NeutralToneMapping;
-    // for tracking down a fault in the picture on one device: `?try=noshadow`, `hard`, `nosmoke`
-    // or `fullres` in the link (several with commas) each turn one thing off
+    // Shadows have hard edges. The soft kind spreads each edge with a pattern that is fixed to
+    // the screen, and a dark smear of fine lines that stayed put on an iPad's screen is suspected
+    // to be that pattern. For tracking it down on the device: `?try=soft`, `noshadow`, `nosmoke`
+    // or `fullres` in the link (several with commas).
     const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
     this.noSmoke = tries.includes('nosmoke');
     if (tries.includes('fullres')) this.adaptive = false;
     this.renderer.shadowMap.enabled = !tries.includes('noshadow');
-    this.renderer.shadowMap.type = tries.includes('hard') ? BasicShadowMap : PCFShadowMap;
+    this.renderer.shadowMap.type = tries.includes('soft') ? PCFShadowMap : BasicShadowMap;
     this.scene.background = new Color('#d8d2c2');
     drawnOverGround(this.routeLine.material);
     this.sun.castShadow = true;

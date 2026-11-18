@@ -86,23 +86,41 @@ export const fitsOnline = (): boolean => JSON.stringify(gather()).length <= LIMI
 
 // What was last sent, or found here at the start of the visit: an unchanged game is never sent again.
 let last = get(CODE) && !get(DIRTY) ? JSON.stringify(gather()) : '';
+let uploading: Promise<boolean> | null = null;
+let stopping = false;
 
 /** Send the game as it is now. Does nothing when saving is off or nothing changed. */
 export async function push(leaving = false): Promise<boolean> {
+  if (stopping) return false;
+  // A slow older request must never overwrite a newer snapshot on the server.
+  if (uploading) {
+    await uploading;
+    return push(leaving);
+  }
+  const sent = send(leaving);
+  uploading = sent;
+  try {
+    return await sent;
+  } finally {
+    uploading = null;
+  }
+}
+
+async function send(leaving: boolean): Promise<boolean> {
   const code = get(CODE);
   const name = get(NAME);
   if (!code || !name) return false;
   const data = gather();
   const text = JSON.stringify(data);
   if (text === last) return true;
+  set(DIRTY, '1');
   if (text.length > LIMIT) return false;
   try {
-    set(DIRTY, '1');
     const at = await call<string>('save_put', { code, name, data }, leaving);
     // on a page that is going away the answer may never be read: the mark then stays for the next visit
     last = text;
     if (at) set(STAMP, at);
-    set(DIRTY, null);
+    set(DIRTY, JSON.stringify(gather()) === text ? null : '1');
     return true;
   } catch {
     return false;
@@ -115,12 +133,14 @@ export function changed(): void {
   if (!savingOn()) return;
   if (JSON.stringify(gather()) === last) return;
   set(DIRTY, '1');
+  if (stopping) return;
   clearTimeout(timer);
   timer = window.setTimeout(() => void push(), 5000);
 }
 
 /** Turn saving on under this name. Resolves to whether the first save went through. */
 export async function startSaving(name: string): Promise<boolean> {
+  if (stopping) return false;
   const clean = cleanName(name);
   if (!clean) return false;
   if (!get(CODE)) set(CODE, newCode());
@@ -147,21 +167,38 @@ const sameAsHere = (got: Saved): boolean => {
   return [...keys].every((k) => here[k] === there[k]);
 };
 
-/** Put a saved game in place of this browser's. */
-function apply(got: Saved): void {
+/** Put a saved game in place of this browser's, restoring it if the new copy does not fit. */
+function apply(got: Saved, code: string): boolean {
+  const ours = (k: string): boolean => (k.startsWith('3da-') || k === 'drive-it-3d') && k !== '3da-full-key';
+  const before: Record<string, string> = {};
   try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
+    for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)!;
-      if ((k.startsWith('3da-') || k === 'drive-it-3d') && !PRIVATE.has(k)) localStorage.removeItem(k);
+      if (ours(k)) before[k] = localStorage.getItem(k)!;
     }
   } catch {
-    /* nothing to clear */
+    return false;
   }
-  for (const [k, v] of Object.entries(got.data ?? {})) if ((k.startsWith('3da-') || k === 'drive-it-3d') && !PRIVATE.has(k) && typeof v === 'string') set(k, v);
-  set(NAME, got.name);
-  set(STAMP, got.updated_at);
-  set(DIRTY, null);
+  const replace = (data: Record<string, string>): void => {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i)!;
+      if (ours(k)) localStorage.removeItem(k);
+    }
+    for (const [k, v] of Object.entries(data)) localStorage.setItem(k, v);
+  };
+  const incoming = Object.fromEntries(Object.entries(got.data ?? {}).filter(([k, v]) => ours(k) && !PRIVATE.has(k) && typeof v === 'string'));
+  try {
+    replace({ ...incoming, [CODE]: code, [NAME]: got.name, [STAMP]: got.updated_at });
+  } catch {
+    try {
+      replace(before);
+    } catch {
+      /* Storage may have become unavailable altogether. Never report a completed import. */
+    }
+    return false;
+  }
   last = JSON.stringify(gather());
+  return true;
 }
 
 /** Whether this browser holds a game of its own that a saved one would replace. */
@@ -176,18 +213,28 @@ export function deviceLink(home: string): string {
 
 /** Stop saving and take the saved game off the server. */
 export async function stopSaving(): Promise<boolean> {
+  if (stopping) return false;
   const code = get(CODE);
   if (!code) return true;
+  stopping = true;
+  clearTimeout(timer);
   try {
+    // Otherwise an upload still in flight can recreate the just-deleted save.
+    if (uploading) await uploading;
     await call('save_delete', { code });
+    set(CODE, null);
+    set(NAME, null);
+    set(STAMP, null);
+    set(DIRTY, null);
+    last = '';
+    return true;
   } catch {
     return false;
+  } finally {
+    stopping = false;
+    // A failed delete leaves saving enabled, including changes made while it was pending.
+    if (savingOn()) changed();
   }
-  set(CODE, null);
-  set(NAME, null);
-  set(STAMP, null);
-  set(DIRTY, null);
-  return true;
 }
 
 /**
@@ -208,9 +255,7 @@ export async function arrive(ask: (name: string) => boolean): Promise<'reload' |
       try {
         const got = await fetchSave(given);
         if (got && (!hasGame() || ask(got.name))) {
-          set(CODE, given);
-          apply(got);
-          return 'reload';
+          return apply(got, given) ? 'reload' : 'ok';
         }
       } catch {
         /* the game here stays as it is */
@@ -235,8 +280,7 @@ export async function arrive(ask: (name: string) => boolean): Promise<'reload' |
       if (Date.parse(got.updated_at) > Date.parse(get(STAMP) ?? '1970-01-01')) {
         // another device has played since: its game is the newer one and is taken, also over
         // changes here that were sent while leaving and that it was built on
-        apply(got);
-        return 'reload';
+        return apply(got, code) ? 'reload' : 'ok';
       }
     }
     // nobody else has written: what was played here and not yet confirmed is sent now

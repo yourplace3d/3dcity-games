@@ -98,6 +98,7 @@ export function fillHoles(data: Float32Array, w: number, h: number): number {
     if (seen[start] || !(data[start] < HOLE_BELOW_M)) continue;
     members.length = 0;
     ring.length = 0;
+    let touchesEdge = false;
     stack.push(start);
     seen[start] = 1;
     while (stack.length) {
@@ -105,6 +106,7 @@ export function fillHoles(data: Float32Array, w: number, h: number): number {
       members.push(i);
       const x = i % w;
       const y = (i - x) / w;
+      if (x === 0 || y === 0 || x === w - 1 || y === h - 1) touchesEdge = true;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           const nx = x + dx;
@@ -122,7 +124,9 @@ export function fillHoles(data: Float32Array, w: number, h: number): number {
         }
       }
     }
-    if (members.length > HOLE_MAX_PX || !ring.length) continue;
+    // An edge patch may continue into a large body of water outside the mosaic;
+    // only enclosed patches have a complete ring proving they are data holes.
+    if (touchesEdge || members.length > HOLE_MAX_PX || !ring.length) continue;
     ring.sort((a, b) => a - b);
     const level = ring[ring.length >> 1];
     if (level < HOLE_BELOW_M / 2) continue; // ringed by deep water: real bathymetry

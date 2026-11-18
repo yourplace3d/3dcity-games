@@ -56,6 +56,26 @@ describe('homes', () => {
     expect(h.paidDay).toBe('2026-11-16');
   });
 
+  it('keeps valid old homes when other saved entries are corrupt', () => {
+    const valid = { id: '7', lat: 49, lon: 11, kind: 'flat', paid: 700, street: '', place: '', at: 0 };
+    const h = readHomes(JSON.stringify({ v: 1, homes: [null, {}, valid, { ...valid, paid: '700' }, { ...valid, lat: null }, { ...valid, kind: 'shed' }], paidDay: '2026-11-16' }));
+    expect(h.homes).toEqual([{ ...valid, rent: 168 }]);
+    expect(rentDue(h, new Date(2026, 10, 17).getTime())).toBe(168);
+  });
+
+  it('skips corrupt packed homes without discarding the rest or accepting non-numeric rent', () => {
+    const valid = ['7', 49, 11, 'f', 700, 0, 0, 20000];
+    const h = readHomes(JSON.stringify({ v: 2, h: [null, [], valid, ['8', 49, 11, 'f', 'bad', 0, 0, 20000], ['9', 49, 11, 'invalid', 700, 0, 0, 20000]], s: ['Street'], p: ['City'], d: '2026-11-16' }));
+    expect(h.homes).toHaveLength(1);
+    expect(h.homes[0]).toMatchObject({ id: '7', rent: 168, street: 'Street', place: 'City' });
+  });
+
+  it('retains a packed home if the optional street and place dictionaries are missing', () => {
+    const h = readHomes(JSON.stringify({ v: 2, h: [['7', 49, 11, 'f', 700, 0, 0, 20000]], d: '2026-11-16' }));
+    expect(h.homes).toHaveLength(1);
+    expect(h.homes[0]).toMatchObject({ id: '7', street: '', place: '' });
+  });
+
   it('finds each home as one building: its map number nearby, or where it stood when the map has redrawn it', () => {
     const h = readHomes(JSON.stringify({ v: 1, homes: [{ id: '7', lat: 0, lon: 0, kind: 'house', paid: 1, rent: 1, street: '', place: '', at: 0 }], paidDay: '2026-11-16' }));
     const local = (lon: number, lat: number): [number, number] => [lon, lat]; // the home stands at 0,0

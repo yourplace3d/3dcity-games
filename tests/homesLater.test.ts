@@ -20,5 +20,7 @@ describe('homes, step by step', () => {
     expect(back.homes[0].colour).toBe('#c9714a');
     expect(back.homes[1].colour).toBeUndefined();
     expect(readHomes(packHomes({ ...h, homes: [{ ...flat(3), colour: 'red; x' }] })).homes[0].colour).toBeUndefined();
+    // the older way of keeping homes carries the colour too
+    expect(readHomes(JSON.stringify({ v: 1, homes: [flat(4, '#c9714a')], paidDay: '2026-11-17' })).homes[0].colour).toBe('#c9714a');
   });
 });

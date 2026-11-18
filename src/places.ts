@@ -48,6 +48,14 @@ export interface Found {
   name?: string;
 }
 
+/** A malformed percent escape in a copied link must not stop the start screen. */
+export function placeFromHash(hash: string): string {
+  const raw = hash.replace(/^#/, '');
+  let decoded = raw;
+  try { decoded = decodeURIComponent(raw); } catch { /* keep the literal place name */ }
+  return decoded.replace(/[_+]/g, ' ').trim();
+}
+
 /** A city we know without asking anyone. */
 export function knownCity(q: string): Found | null {
   return KNOWN.get(plain(q)) ?? null;

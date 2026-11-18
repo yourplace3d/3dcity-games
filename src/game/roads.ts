@@ -268,19 +268,20 @@ export class RoadNet {
   route(f: RouteField, x: number, y: number, maxM = Infinity): { pts: Pt[]; metres: number } | null {
     const n = this.nearest(x, y, 120, 'drive');
     if (!n) return null;
-    if (n.line === f.line) {
-      const [[a], [b]] = this.around(n.line, n.s);
-      const [[c], [d]] = this.around(f.line, f.s);
-      if (a === c && b === d) return { pts: this.slice(n.line, n.s, f.s), metres: Math.abs(n.s - f.s) };
-    }
     const [p, q] = this.around(n.line, n.s);
     const first = f.dist[p[0]] + p[1] <= f.dist[q[0]] + q[1] ? p : q;
     const metres = f.dist[first[0]] + first[1];
+    // Even two points on one stretch may have a shorter way around its ends.
+    const direct = n.line === f.line ? Math.abs(n.s - f.s) : Infinity;
+    if (Number.isFinite(direct) && direct <= metres) return { pts: this.slice(n.line, n.s, f.s), metres: direct };
     if (!Number.isFinite(metres)) return null;
     const pts = this.slice(n.line, n.s, this.nodeS[first[0]]);
     let u = first[0];
     let run = first[1];
     for (let guard = 0; guard < 5000 && run < maxM; guard++) {
+      // The goal lies between graph nodes. Once its direct approach is the shortest way,
+      // finish there rather than following a lower-distance node beyond it and doubling back.
+      if (this.nodeLine[u] === f.line && Math.abs(this.nodeS[u] - f.s) <= f.dist[u] + 1e-6) break;
       let next = -1;
       let cost = 0;
       for (const [v, c] of this.adj[u]) {

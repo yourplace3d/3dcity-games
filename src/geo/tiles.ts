@@ -111,7 +111,11 @@ export async function fetchTiles(refs: TileRef[], signal?: AbortSignal): Promise
   const template = await tileTemplate(signal);
   return Promise.all(
     refs.map(async (r) => {
-      const url = template.replace('{z}', String(r.z)).replace('{x}', String(r.x)).replace('{y}', String(r.y));
+      // Keep the unwrapped column in LoadedTile for continuous local geometry,
+      // but the server's columns wrap at the international date line.
+      const n = 2 ** r.z;
+      const x = ((r.x % n) + n) % n;
+      const url = template.replace('{z}', String(r.z)).replace('{x}', String(x)).replace('{y}', String(r.y));
       let lastErr: unknown;
       for (let attempt = 0; attempt < 2; attempt++) {
         try {

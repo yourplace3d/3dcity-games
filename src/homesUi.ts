@@ -144,8 +144,11 @@ export class HomesUi {
   private noted = new Set<string>();
   /** where the mission leads: a part of town with worn-down flats, in the square being played */
   private area: { x: number; y: number; rx: number; ry: number; lots: Lot[]; marks: Array<{ remove: () => void }>; here: boolean } | null = null;
-  /** the arrow points at the player's building until they get there (to buy the rest, or to paint it) */
-  private toBuilding = false;
+  /**
+   * The home the arrow points at until the player gets there: the building being repaired (to buy
+   * the rest of it, or to paint it), or a home picked from the list of homes.
+   */
+  private wayTo: Home | null = null;
 
   constructor(private readonly host: HomesHost) {
     host.game.ticks.push((dt) => this.tick(dt));
@@ -201,12 +204,35 @@ export class HomesUi {
     this.host.game.special = r && first && wantsJob(r) ? { at: { lat: first.lat, lon: first.lon }, say: jobLines(r) } : null;
   }
 
+  /** A home's building in the square being played, if it is in it. */
+  private lotOf(home: Home | undefined): Lot | null {
+    if (!home) return null;
+    for (const [lot, h] of this.owned) if (h === home) return lot;
+    return null;
+  }
+
   /** The first home, the building being repaired: its lot in the square being played, if it is in it. */
   private renoLot(): Lot | null {
-    const first = this.homes.homes[0];
-    if (!first) return null;
-    for (const [lot, home] of this.owned) if (home === first) return lot;
-    return null;
+    return this.lotOf(this.homes.homes[0]);
+  }
+
+  /** What the player owns, for the list of homes: the homes, the repairs under way, the savings. */
+  mine(): { homes: Home[]; reno: Reno | null; saved: number } {
+    return { homes: this.homes.homes, reno: this.reno, saved: this.saved };
+  }
+
+  /** Whether a home stands in the square being played. */
+  isHere(home: Home): boolean {
+    return !!this.lotOf(home);
+  }
+
+  /** The arrow points the way to a home in the square being played, until the player gets there. */
+  showWay(home: Home): boolean {
+    if (!this.lotOf(home)) return false;
+    this.wayTo = home;
+    // point at once, not at the next look around
+    this.lookT = 0;
+    return true;
   }
 
   /** What a home pays on a day one comes back: the first home only the share that is repaired. */
@@ -260,16 +286,16 @@ export class HomesUi {
       const lot = this.renoLot();
       if (lot && !this.noted.has('rest') && this.budget() >= Math.max(0, lot.whole - first.paid)) {
         this.noted.add('rest');
-        this.toBuilding = true;
+        this.wayTo = first;
         this.host.toast(`You have enough for the rest of your building: ${money(Math.max(0, lot.whole - first.paid))}. Follow the arrow and stop beside it.`, 'good', 9000);
       }
     }
-    if (this.toBuilding) {
-      const lot = this.renoLot();
+    if (this.wayTo) {
+      const lot = this.lotOf(this.wayTo);
       const n = lot && world.roads.nearest(lot.x, lot.y, 200, 'traffic');
       const [px, py] = game.pos();
       if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job) {
-        if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.toBuilding = false;
+        if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.wayTo = null;
         if (game.guide && !game.job) game.guide = null;
       } else {
         const [rx, ry] = world.roads.point(n.line, n.s);
@@ -389,7 +415,7 @@ export class HomesUi {
       this.setReno({ stage: 'done' });
       const lot = this.renoLot();
       if (lot) this.world?.model.paintBuilding(lot.poly, first.colour ?? null);
-      this.toBuilding = true;
+      this.wayTo = first;
       this.host.card?.(
         'Your building is done',
         `All ${units} flats are repaired, and the building pays ${money(first.rent)} each day you come back. The paint is there: follow the arrow, stop beside your building, and choose its colour.`,
@@ -413,6 +439,11 @@ export class HomesUi {
     // the mission's area is picked again in the new square
     this.area = null;
     this.host.game.guide = null;
+    // the way to a home is not kept when the game goes on to another town
+    if (this.wayTo) {
+      const [x, y] = world.proj.toLocal(this.wayTo.lon, this.wayTo.lat);
+      if (Math.hypot(x, y) > 5000) this.wayTo = null;
+    }
     // painted homes; the building being repaired still has its worn-down walls
     const first = this.homes.homes[0];
     const worn = this.reno && this.reno.stage !== 'done';
@@ -535,7 +566,7 @@ export class HomesUi {
     const mine = this.homeOf(lot)!;
     if (restOfReno) {
       this.setReno({ ...this.reno!, stage: 'rest', fixed: 0 });
-      this.toBuilding = false;
+      this.wayTo = null;
       const others = lot.units - 1;
       this.host.toast(`The whole building is yours.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the station symbols blink again, and each repaired flat adds rent.`, 'good', 10000);
     } else if (first && this.host.firstHome) this.host.firstHome(describe(lot, what), money(mine.rent), worn);

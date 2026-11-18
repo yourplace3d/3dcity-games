@@ -15,8 +15,8 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-    <script type="module" crossorigin src="./assets/index-D8ze8k4a.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-C7zZXTcS.css">
+    <script type="module" crossorigin src="./assets/index-CakI9u-6.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Gsk0Z2c7.css">
   </head>
   <body data-screen="start">
     <div id="stage"><canvas id="scene"></canvas></div>
@@ -35,6 +35,7 @@
           <span><i class="ico" data-kind="fuel"></i>fuel</span>
           <span><i class="ico" data-kind="fire"></i>fire station</span>
           <span><i class="ico" data-kind="police"></i>police</span>
+          <span><i class="ico" data-kind="bank"></i>bank, in your home town</span>
           <span><i class="ico" data-kind="fuel" data-invented="1"></i>dashed ring: not on the map</span>
         </div>
         <div id="bigmap-buttons">
@@ -47,6 +48,7 @@
     <div id="hud" aria-live="off">
       <div class="panel stats">
         <b id="cash">$0</b>
+        <small id="saved" title="Money in the bank: safe from fines" hidden></small>
         <span id="heat" aria-label="Police heat"><i></i><i></i><i></i><i></i></span>
         <span class="bar" title="You"><i id="health"></i></span>
         <span class="bar car" id="carbar" title="Car" hidden><i id="carhp"></i></span>
@@ -149,8 +151,17 @@
       <div class="card">
         <h2>Your first home</h2>
         <p id="firsthome-what"></p>
+        <p>This town is now your home plate. Its banks are on the map: stop at one to pay in your cash, and fines can't touch it. Money in the bank pays for homes here.</p>
         <p id="firsthome-save"></p>
         <div class="row"><button class="primary" id="btn-firsthome-save">Save my game online</button><button id="btn-firsthome-go">Keep driving</button></div>
+      </div>
+    </section>
+    <section id="mission" class="over" hidden>
+      <div class="card">
+        <small class="kicker">Private mission open now</small>
+        <h2 id="mission-title"></h2>
+        <p id="mission-text"></p>
+        <div class="row"><button class="primary" id="btn-mission-yes"></button><button id="btn-mission-no"></button></div>
       </div>
     </section>
     <section id="guess" class="over" hidden>

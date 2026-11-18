@@ -237,6 +237,14 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   arrow at one in the town being played (`src/homesList.ts`). Offered, not built: a "Show me flats nearby"
   button on a house that is still locked, since a player with one or two homes in a street of houses finds
   nothing to buy there and nothing says where the flats are.
+- **Measured building heights: not now (owner, 18 November 2026).** The owner asked whether OpenHaystack
+  (home-made tags found through Apple's Find My network) could serve as a design tool: positions clustered
+  into walls and heights. No: a report is the passing phone's own position, with no height, usually 5 to
+  50 m off (worst beside tall buildings), and only for one's own tags. Measured outlines, heights and roof
+  shapes do exist free as official 3D building models (LoD2): all of Lower Saxony, Bavaria since 2023, and
+  other German states. But they come state by state, and the game has to work anywhere in the world, so
+  the owner judged it too complicated for now. Heights stay from OpenStreetMap, guessed where it has none
+  (the engine counts the guessed share of each square, `estimatedShare`).
 - **Supabase's GitHub link: not now (owner, 17 November 2026).** The dashboard shows "No repository
   connected"; that is Supabase's optional GitHub link (changes in `supabase/migrations/` on main go live by
   themselves, and test copies of the database per pull request on a paid plan). Not set up: the Supabase

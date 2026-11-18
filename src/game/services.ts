@@ -56,6 +56,31 @@ export function readServices(tiles: LoadedTile[], proj: Projector, half: number)
   return out;
 }
 
+/** Kinds of place the game leaves alone: never named, and for an add-on never for sale. */
+const RESERVED = new Set(['school', 'kindergarten', 'college', 'university', 'place_of_worship', 'hospital', 'clinic', 'cemetery', 'grave_yard', 'prison', 'embassy', 'diplomatic']);
+
+/** Where such places lie in a square, by the map. The game itself draws nothing for them. */
+export function readReserved(tiles: LoadedTile[], proj: Projector, half: number): Array<{ x: number; y: number }> {
+  const out: Array<{ x: number; y: number }> = [];
+  for (const t of tiles) {
+    const layer = t.tile.layers.poi;
+    if (!layer) continue;
+    const n = 2 ** t.z;
+    for (let i = 0; i < layer.length; i++) {
+      const f = layer.feature(i);
+      if (f.type !== 1) continue;
+      if (!RESERVED.has(String(f.properties.subclass ?? '')) && !RESERVED.has(String(f.properties.class ?? ''))) continue;
+      const pt = f.loadGeometry()[0]?.[0];
+      if (!pt || pt.x < 0 || pt.y < 0 || pt.x >= layer.extent || pt.y >= layer.extent) continue;
+      const lon = ((t.x + pt.x / layer.extent) / n) * 360 - 180;
+      const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (t.y + pt.y / layer.extent)) / n))) * 180) / Math.PI;
+      const [x, y] = proj.toLocal(lon, lat);
+      if (Math.abs(x) <= half && Math.abs(y) <= half) out.push({ x, y });
+    }
+  }
+  return out;
+}
+
 function hash(a: number, b: number, c: number): number {
   let h = (Math.imul(a, 0x9e3779b1) ^ Math.imul(b, 0x85ebca6b) ^ Math.imul(c, 0xc2b2ae35)) >>> 0;
   h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;

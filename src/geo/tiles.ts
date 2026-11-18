@@ -38,6 +38,8 @@ export interface TileBuilding {
   minHeight: number;
   /** false where OpenStreetMap has no height or floor count: the tiles then say 5 m */
   heightKnown: boolean;
+  /** the map's own number for the building (OpenStreetMap's, as the tiles give it): the same in every tile and on every visit */
+  id?: string;
 }
 
 /** A building whose colour (or material) a mapper recorded: where it stands, the colour, its height. */
@@ -208,6 +210,8 @@ const ROAD_KIND: Record<string, [LineKind, number]> = {
   track: ['service', 3],
   raceway: ['service', 6],
   path: ['path', 1.8],
+  // a pier drawn as a line: a narrow jetty, boards over the water
+  pier: ['path', 2.4],
 };
 
 const WATERWAY_KIND: Record<string, [LineKind, number]> = {
@@ -265,6 +269,7 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         const heightKnown = f.properties.render_height != null && num(f.properties.render_height, 5) !== 5;
         const minHeight = Math.max(0, Math.min(num(f.properties.render_min_height, 0), height - 0.5));
         const colour = /^#[0-9a-f]{6}$/i.test(str(f.properties.colour)) ? str(f.properties.colour) : '';
+        const id = f.id != null ? String(f.id) : '';
         for (const p of polygonsOf(f, toLocal)) {
           for (const c of clipBuildingToRect(p, bw, bs, be, bn, 2)) {
             const [x0, y0, x1, y1] = ringBounds(c.outer);
@@ -272,10 +277,11 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
             const eps = 1e-6;
             const onSeam = (bw > -h && x0 <= bw + eps) || (be < h && x1 >= be - eps) || (bs > -h && y0 <= bs + eps) || (bn < h && y1 >= bn - eps);
             if (!onSeam) {
-              buildings.push({ poly: c, height, minHeight, heightKnown });
+              buildings.push({ poly: c, height, minHeight, heightKnown, id });
               continue;
             }
-            const key = `${height}|${minHeight}|${heightKnown ? 1 : 0}`;
+            // the pieces of one building are joined again, and only with each other
+            const key = `${height}|${minHeight}|${heightKnown ? 1 : 0}|${id}`;
             const list = seamPieces.get(key);
             if (list) list.push(c);
             else seamPieces.set(key, [c]);
@@ -294,7 +300,10 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
       const toLocal = tileProjector(t, extentOf('water'), proj);
       eachFeature(layers.water, (f) => {
         if (f.type !== 3 || str(f.properties.brunnel) === 'tunnel') return;
+        const before = areas.length;
         const clipped = clipArea('water', polygonsOf(f, toLocal));
+        // what kind of water the map calls it (pond, lake, river, swimming_pool, ocean)
+        if (areas.length > before) areas[before].cls = str(f.properties.class);
         if (str(f.properties.class) === 'ocean') sea.push(...clipped);
       });
     }
@@ -309,7 +318,11 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
       const toLocal = tileProjector(t, extentOf('landuse'), proj);
       eachFeature(layers.landuse, (f) => {
         const kind = LANDUSE_KIND[str(f.properties.class)];
-        if (kind && f.type === 3) clipArea(kind, polygonsOf(f, toLocal));
+        if (!kind || f.type !== 3) return;
+        const before = areas.length;
+        clipArea(kind, polygonsOf(f, toLocal));
+        // a sports ground is drawn apart from the rest of the green
+        if (areas.length > before) areas[before].cls = str(f.properties.class);
       });
     }
     {
@@ -321,6 +334,12 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         if (f.type === 3) {
           // pedestrian squares and platforms come as areas
           if (cls === 'path' && str(f.properties.subclass) === 'pedestrian') clipArea('plaza', polygonsOf(f, toLocal));
+          // a pier or wharf over the water; the game draws it as a deck of its own
+          if (cls === 'pier') {
+            const before = areas.length;
+            clipArea('plaza', polygonsOf(f, toLocal));
+            if (areas.length > before) areas[before].cls = 'pier';
+          }
           return;
         }
         if (f.type !== 2) return;
@@ -343,8 +362,9 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
     collectPlaces(t, proj, settlements);
   }
   for (const [key, pieces] of seamPieces) {
-    const [height, minHeight, known] = key.split('|').map(Number);
-    for (const poly of joinPieces(pieces)) buildings.push({ poly, height, minHeight, heightKnown: known === 1 });
+    const [h0, m0, k0, id] = key.split('|');
+    const [height, minHeight, known] = [h0, m0, k0].map(Number);
+    for (const poly of joinPieces(pieces)) buildings.push({ poly, height, minHeight, heightKnown: known === 1, id });
   }
 
   return { buildings, colours, features: { areas, lines, coastlines: [], sea }, settlements: [...settlements.values()] };

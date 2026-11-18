@@ -10,6 +10,7 @@
 import type { Game } from './game';
 import type { World } from './world';
 import { serviceIcon } from './services';
+import { subwayIcon, subwayLetter } from './subwaySign';
 
 /** How far the map shows in each direction from you (m). */
 const RANGE_M = 260;
@@ -21,6 +22,8 @@ export class Minimap {
   private readonly ctx: CanvasRenderingContext2D;
   private base: HTMLCanvasElement | null = null;
   private baseOf: World | null = null;
+  /** the place is being guessed: sights keep their star and lose their name */
+  secret = false;
 
   /** `whole`: show the whole loaded square instead of the streets around you. */
   constructor(private readonly canvas: HTMLCanvasElement, private readonly whole = false) {
@@ -127,8 +130,37 @@ export class Minimap {
       if (s.kind !== 'subway') continue;
       const [sx, sy] = at(s.x, s.y);
       if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
-      ctx.fillStyle = '#1f6fd6';
-      ctx.fillRect(sx - 2.5 * dpr * big, sy - 2.5 * dpr * big, 5 * dpr * big, 5 * dpr * big);
+      const r = (this.whole ? 8 : 5.5) * dpr;
+      ctx.drawImage(subwayIcon(subwayLetter(world.centre.lat, world.centre.lon)), sx - r, sy - r, r * 2, r * 2);
+    }
+    // the big map names the main streets: along the street, and never upside down
+    if (this.whole) {
+      ctx.font = `600 ${Math.round(10.5 * dpr)}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      for (const l of world.streetNames) {
+        const w = ctx.measureText(l.name).width;
+        // a name longer than its street's piece on the map is left out
+        if (w > l.room * m * 1.15) continue;
+        const [sx, sy] = at(l.x, l.y);
+        let turn = -l.angle;
+        // none cut off by the map's edge
+        const reachX = (Math.abs(Math.cos(turn)) * w) / 2 + 6 * dpr;
+        const reachY = (Math.abs(Math.sin(turn)) * w) / 2 + 6 * dpr;
+        if (sx < reachX || sx > W - reachX || sy < reachY || sy > W - reachY) continue;
+        if (turn > Math.PI / 2) turn -= Math.PI;
+        if (turn < -Math.PI / 2) turn += Math.PI;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(turn);
+        ctx.lineWidth = 3 * dpr;
+        ctx.strokeStyle = 'rgba(22, 24, 28, 0.9)';
+        ctx.strokeText(l.name, 0, 0);
+        ctx.fillStyle = l.rank <= 1 ? '#f4f1ea' : '#c9c4b8';
+        ctx.fillText(l.name, 0, 0);
+        ctx.restore();
+      }
     }
     // fuel, fire and police stations: their symbol
     for (const s of world.services) {
@@ -136,6 +168,13 @@ export class Minimap {
       if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
       const r = (this.whole ? 9 : 7) * dpr;
       ctx.drawImage(serviceIcon(s.kind, !!s.invented), sx - r, sy - r, r * 2, r * 2);
+    }
+    // what an add-on has marked
+    for (const s of world.marks) {
+      const [sx, sy] = at(s.x, s.y);
+      if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
+      const r = (this.whole ? 9 : 7) * dpr;
+      ctx.drawImage(s.icon, sx - r, sy - r, r * 2, r * 2);
     }
     // well-known sights: a gold star, and on the big map the name beside it
     for (const s of world.sights) {
@@ -154,7 +193,7 @@ export class Minimap {
       ctx.lineWidth = 1.2 * dpr;
       ctx.strokeStyle = '#2a2400';
       ctx.stroke();
-      if (this.whole) {
+      if (this.whole && !this.secret) {
         ctx.font = `600 ${12 * dpr}px system-ui, sans-serif`;
         ctx.textBaseline = 'middle';
         const left = sx > W * 0.7;

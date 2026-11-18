@@ -182,7 +182,8 @@ export class WaterMask {
   private readonly data: Uint8Array;
   private readonly px = 1024;
 
-  constructor(areas: AreaFeature[], lines: LineFeature[], sea: Polygon[], private readonly sizeM: number) {
+  /** `dry`: decks over the water (piers, wharves), which are walked and driven on */
+  constructor(areas: AreaFeature[], lines: LineFeature[], sea: Polygon[], private readonly sizeM: number, dry: Polygon[] = []) {
     const c = document.createElement('canvas');
     c.width = this.px;
     c.height = this.px;
@@ -211,6 +212,18 @@ export class WaterMask {
       ctx.moveTo(l.pts[0][0], l.pts[0][1]);
       for (let k = 1; k < l.pts.length; k++) ctx.lineTo(l.pts[k][0], l.pts[k][1]);
       ctx.stroke();
+    }
+    if (dry.length) {
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      for (const p of dry) {
+        const ring = p.outer;
+        if (ring.length < 3) continue;
+        ctx.moveTo(ring[0][0], ring[0][1]);
+        for (let k = 1; k < ring.length; k++) ctx.lineTo(ring[k][0], ring[k][1]);
+        ctx.closePath();
+      }
+      ctx.fill('nonzero');
     }
     const img = ctx.getImageData(0, 0, this.px, this.px).data;
     this.data = new Uint8Array(this.px * this.px);

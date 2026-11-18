@@ -14,7 +14,6 @@ import { makeProjector, round, type BBox, type LngLat, type Projector } from './
 export const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
 // ---------------------------------------------------------------- raw types
@@ -59,6 +58,8 @@ export type AreaKind = 'water' | 'green' | 'forest' | 'farmland' | 'sand' | 'pla
 export interface AreaFeature {
   kind: AreaKind;
   polys: Polygon[];
+  /** from the map tiles: the map's own word for it (water: pond, lake, river, swimming_pool, ocean; land: pitch, stadium, playground, cemetery) */
+  cls?: string;
 }
 
 export type LineKind =

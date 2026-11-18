@@ -214,6 +214,17 @@ function at(l: RoadLine, s: number): Pt {
 }
 
 /** Pieces of a line: `on` metres drawn, `off` metres left out. */
+/** Whether most of a line lies over open water. */
+function overWater(l: RoadLine, wet: (x: number, y: number) => boolean): boolean {
+  let n = 0;
+  let w = 0;
+  for (let i = 0; i + 1 < l.pts.length; i++) {
+    n++;
+    if (wet((l.pts[i][0] + l.pts[i + 1][0]) / 2, (l.pts[i][1] + l.pts[i + 1][1]) / 2)) w++;
+  }
+  return n > 0 && w / n > 0.5;
+}
+
 function dashes(l: RoadLine, on: number, off: number): Pt[][] {
   const out: Pt[][] = [];
   const at = (s: number): Pt => {
@@ -237,7 +248,11 @@ function beside(pts: Pt[], d: number): Pt[] {
 }
 
 /** `pause` is awaited halfway, so the caller can let a frame through. */
-export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) => number, pause: () => Promise<void>): Promise<Group> {
+/**
+ * `wet` says whether a spot is open water: a footpath across it is a jetty or a floating dock, drawn
+ * as boards on the water instead of a path on the ground.
+ */
+export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) => number, pause: () => Promise<void>, wet: (x: number, y: number) => boolean = () => false): Promise<Group> {
   const kerb = new Strip();
   const fill = new Strip();
   const path = new Strip();
@@ -252,6 +267,9 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   const stairs = new Strip();
   const treads = new Strip();
   const arrows = new Strip();
+  // jetties and floating docks: boards, with a seam between them every metre
+  const boards = new Strip();
+  const seams = new Strip();
   // in a big station the sleepers are spaced out, to keep the square quick to build
   const trackM = net.lines.reduce((a, l) => a + (l.train ? l.len : 0), 0);
   const gap = trackM > 20000 ? 1.9 : 0.8;
@@ -272,6 +290,11 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
       // a stairway: a pale strip with a tread every step, plainly not for cars
       stairs.add(l.pts, 3, 0.05, groundY);
       for (const d of dashes(l, 0.3, 0.55)) treads.add(d, 3, 0.07, groundY);
+      continue;
+    }
+    if (l.kind === 'path' && !l.bridge && overWater(l, wet)) {
+      boards.add(l.pts, 2.4, 0.06, groundY);
+      for (const d of dashes(l, 0.07, 0.9)) seams.add(d, 2.4, 0.08, groundY);
       continue;
     }
     if (l.kind === 'path') {
@@ -311,7 +334,7 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   await pause();
   const g = new Group();
   // drawn in this order: a street lies over the gravel where they cross, and the rails over the street
-  g.add(deck.mesh('#8b8a86', 0), stairs.mesh('#d8d0c0', 1), treads.mesh('#8f8676', 2), arrows.mesh('#c9c3b4', 6), bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
+  g.add(deck.mesh('#8b8a86', 0), stairs.mesh('#d8d0c0', 1), treads.mesh('#8f8676', 2), arrows.mesh('#c9c3b4', 6), bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), boards.mesh('#b08a5e', 3), seams.mesh('#7d5f3e', 4), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
   return g;
 }
 

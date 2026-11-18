@@ -137,6 +137,87 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   Ottawa and clear in Hong Kong.
 - **Keep it its own thing.** The name nods at a famous game; the look, the mark and the wording must not
   imitate that game or any other. No references to it in the product or its publicity.
+- **Homes to buy, so players come back (owner, 16 November 2026).** Chosen over a visitor counter as the
+  first thing to do: "make them come back by implementing a reason". Decided: houses before cars, because
+  they are tied to the map ("cars belong to individuals, later"); personal ownership (each player their own
+  copy of the city), not shared, because cash lives in the browser and could be faked, real people's homes
+  would carry player names, and newcomers would find streets taken; rent by the real hour, offered right
+  after the run of three, with an affordable flat near the end "but just enough", and bigger houses shown at
+  higher prices. Prices from the map alone for now (works in every village); real rent or land-value data,
+  where a city publishes it, is a later step and is to touch prices only. Numbers to tune after the owner
+  plays: `FLAT_BASE` 900 and the rent (see below). Built on branch
+  `claude/homes`, merged to main and live since 17 November 2026 (owner: "just put it live"). Checked in Nuremberg, Manhattan, Berlin and two
+  Black Forest / Franconian places: cheapest flat $640–700 everywhere, 40–60 ms to price an area.
+  The owner then set a ceiling on cash: $1,000,000 for now (`MAX_CASH`), so rent can't pile up without end.
+  Then the numbers were checked: rent of 3.5 % an hour made money nearly double each day (the ceiling in 12
+  daily visits), and open jobs paid more with every delivery ever made, without end ($18,000 a job after
+  1,000). The owner chose rent "only paid per visit": once per calendar day on the device, 24 % of the price
+  (`RENT_PER_VISIT`), none while playing, a missed day not made up; about 36 visit days from one run to the
+  ceiling by rent alone. Open-jobs pay now stops growing at the 50th delivery (`OPEN_JOBS_GROW`).
+  **Next time the owner is back: ask whether to start the test build again** so they can try homes. It was
+  run in the cloud session (`VITE_TESTING=rich npx vite build --outDir <somewhere>`, then `vite preview` on a
+  port reported to the app), starting with $1,000,000 on every load; the owner stopped it on 16 November
+  before trying it. If the app shows no preview, offer a hidden test folder on mindmacher.com instead.
+- **Counting play in Supabase, not GoatCounter (owner, 16 November 2026).** Asked what GoatCounter changes
+  for privacy, the owner set one rule: no tick box, no banner; someone who opens an invite lands straight in
+  the game. Both options passed that; the owner chose Supabase only, because it can count game events as
+  well as visits. Table `play_counts` (day, kind, detail, n), written only by `count_play()`
+  (`docs/supabase/play_counts.sql`): `new`/`back` visits once a day per browser with a one-word source,
+  `start` (a run begun, first package on board), `run` (finished), `home` (flat/house/building), `rent`, `guess` (a Where am I? round) and `time` (time played per visit: under1/1to5/5to20/over20 minutes, sent once when the page is hidden or closed; the last three added 17 November). The owner reads it in the SQL Editor:
+  `select day, kind, detail, n from play_counts order by day desc, kind, detail;`. The table is live in the
+  project; the game code that writes to it went live on 17 November 2026. The table was empty
+  on 16 November (the owner deleted three test rows). Deletes through the Supabase tool ask the owner to
+  confirm and that answer did not arrive in time, twice; for a delete, give the owner the SQL to run instead.
+- **Saving online for everyone, with homes (owner, 16 November 2026).** The owner's worry was space and
+  traffic, not names: a save belongs to its secret code, so two players may share a name (a number as a
+  suggestion is for later, if names are ever shown publicly). Done: the box shows on every start screen
+  (`?try=nosaving` hides it in a browser); homes are kept short (`packHomes`, about 45 characters a home, a
+  thousand fit); the game stops at 120,000 characters a save and says so on the card; on the server
+  (`docs/supabase/saves_limits.sql`, live in the project, which the live game also uses) up to 20,000 saves,
+  150,000 characters each, and saves unchanged for six months are deleted when new ones are made (a visit
+  changes the save). Found while testing: the map gives one number to a group of buildings mapped as one
+  thing (87 in a Nuremberg square), so a home is matched to the nearest building with its number
+  (`homesIn`), never by the number alone.
+  Changed on 17 November (owner): saving online opens with the first home bought ("the first building
+  bought is the one that starts allowing you to save"). The box shows once the browser owns a home or is
+  already saving; a card "Your first home" says so (with a button to the name field, or "saved online as
+  …" for a player already saving) and the game waits behind it; a link to a saved game works for everyone.
+  Left out on purpose for now (owner, 17 November): showing players which buildings are for sale and
+  where. Next is what happens after the first flat is bought.
+  Ideas to brainstorm with the owner (17 November, nothing decided): tie homes to the shops, restaurants and
+  cafés found earlier (left out of the map for now, see above); and building something on top of a bought
+  building, so players slowly change their city.
+- **Supabase's GitHub link: not now (owner, 17 November 2026).** The dashboard shows "No repository
+  connected"; that is Supabase's optional GitHub link (changes in `supabase/migrations/` on main go live by
+  themselves, and test copies of the database per pull request on a paid plan). Not set up: the Supabase
+  tool already reaches the project (MindMacher / 3da-waitlist), a merge going live by itself would skip
+  asking the owner, and the history in `docs/supabase/` is not in its format. Worth it later, with more
+  people working on the database or real players and Pro, e.g. alongside the mindmacher.com move.
+- **The older link counter was broken from 15 Nov 23:46 UTC to 17 Nov ~21:25 UTC** (found 17 November):
+  `count_link_at` refused every call ("kind" ambiguous), so no challenge links made/opened and no
+  `?ref=youtube` arrivals were counted in that time; `play_counts` was fine. Fixed and tested
+  (`docs/supabase/link_counts_fix.sql`). After any change to a counting function, call it once inside
+  `begin; … rollback;` to see it works.
+- **Discord: not yet (owner, 17 November 2026).** An empty server puts the first people off and needs
+  looking after. The owner reserves a server and its name now, with no link in the game. Open it, and add
+  an invite button to the menu (a plain link, nothing counted), once a handful of players come back daily
+  (`back` in `play_counts`), or to ask players about an idea (such as building on top of a building), or
+  once the YouTube channel has commenting viewers.
+- **Planned: move the game's home to https://mindmacher.com/3da/ (owner, 16 November 2026), then SEO.**
+  Today that address is only a forwarder to github.io, tagged `?ref=youtube`, with `noindex`
+  (`docs/mindmacher/3da/index.html`; the site is Hostinger shared hosting). Checked: the build uses a
+  relative base, the map, search, radio and Supabase services take any origin, and only `index.html`
+  (og:image) and `WEB_HOME` in `src/challenge.ts` name github.io. Plan, not started:
+  1. Build for mindmacher.com/3da/: canonical, og:url, og:image and the sitemap all on that address.
+  2. The github.io copy becomes a forwarder that carries the browser's saves across once: it gathers the
+     `3da-*` keys (as `gather()` in `cloud.ts` does, plus `3da-full-key`) into the link's `#`, and the new
+     site writes them only where that browser has nothing yet. Old links and challenges keep working.
+  3. YouTube visits get their own link (`…/3da/?ref=youtube`), as search visitors will arrive at the plain one.
+  4. SEO: canonical, JSON-LD (VideoGame), robots.txt, sitemap, a short readable text, and a static page
+     per built-in city (`/3da/hamburg/`) with its own title, description and card.
+  5. The owner adds mindmacher.com to Google Search Console and submits the sitemap.
+  Open question for the owner: deploy to Hostinger by FTP from the workflow (FTP login as a repo secret,
+  still started by hand) or by uploading a built folder in the file manager.
 
 ## How the game is built, in the parts that surprised
 

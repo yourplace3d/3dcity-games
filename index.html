@@ -28,7 +28,8 @@
           <span><i class="dot me"></i>you</span>
           <span><i class="dot ring"></i>package</span>
           <span><i class="dot ring drop"></i>deliver here</span>
-          <span><i class="dot sub"></i>subway</span>
+          <span><i class="dot sub"></i>subway entrance</span>
+          <span>main streets are named</span>
           <span><b class="star">★</b>a well-known sight</span>
           <span><i class="ico" data-kind="fuel"></i>fuel</span>
           <span><i class="ico" data-kind="fire"></i>fire station</span>
@@ -56,7 +57,7 @@
       <div class="panel" id="fps" hidden></div>
       <div class="panel loading" id="next" hidden>Loading the next streets…</div>
       <div id="arrow" hidden><svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0,-10 L8,8 L0,3 L-8,8 Z" /></svg><span id="arrow-m"></span></div>
-      <canvas id="minimap" title="Map. Click to open the big map."></canvas>
+      <canvas id="minimap" title="Map. Click to open the big map. Drag it to another corner."></canvas>
       <div id="sights"></div>
       <div class="panel" id="openjobs" hidden>
         <b>Open jobs</b>
@@ -69,11 +70,15 @@
         <small>The arrow points to the nearest. All of them are on the map: tap the little map.</small>
         <button id="btn-openjobs">Got it</button>
       </div>
+      <div class="panel" id="forsale" hidden></div>
+      <button class="panel" id="btn-guess" hidden></button>
       <div id="toasts"></div>
       <div class="panel" id="coach" hidden><small id="coach-n"></small><p id="coach-text"></p><button id="coach-skip">Skip the tour</button></div>
-      <button class="panel" id="btn-menu" aria-label="Change city">☰</button>
+      <button class="panel" id="btn-menu" aria-label="Main menu">☰</button>
       <button class="panel" id="btn-sound" aria-label="Sound">♪</button>
       <button class="panel" id="btn-pause" aria-label="Pause">❚❚</button>
+      <button class="panel" id="btn-radio" aria-label="Radio" hidden>FM</button>
+      <div class="panel" id="radio-bar" hidden><span class="name"></span><button class="next" aria-label="Next station">next ›</button></div>
     </div>
 
     <div id="touch">
@@ -94,12 +99,16 @@
         <div id="modes" role="group" aria-label="What to play">
           <button type="button" id="mode-run" aria-pressed="true"><b>Compare with friends</b><span>A run of three deliveries against the clock. Send it to a friend to beat.</span></button>
           <button type="button" id="mode-jobs" aria-pressed="false"><b>Do jobs</b><span>As many as you like: supply runs, rush jobs and clean runs from the stations in town.</span></button>
+          <button type="button" id="mode-guess" aria-pressed="false"><b>Where am I?</b><span>You are put down in a city without its name. Drive around and pick it from four.</span></button>
         </div>
+        <button type="button" class="primary" id="btn-drop" hidden>Put me down somewhere</button>
         <form id="search">
           <input id="q" type="search" placeholder="City, street or lat, lon" autocomplete="off" enterkeyhint="go" />
           <button class="primary">Go</button>
         </form>
         <div class="places" id="places"></div>
+        <!-- saving the game online under a name: optional, filled in by cloudUi.ts -->
+        <div id="account" hidden></div>
         <p class="small" id="where" hidden>This page carries the map of central Berlin, about 3 km across. The full game loads any city.</p>
         <div id="thin" hidden>
           <p><b>There isn't much on the map here yet.</b> You can play, but the streets will feel empty. We'd recommend adding to the map first: this game is built from OpenStreetMap, which anyone can edit.</p>
@@ -118,7 +127,7 @@
           <dt>Rings</dt>
           <dd><span class="dot job"></span> pick up a package · <span class="dot drop"></span> deliver it before the time runs out</dd>
           <dt>Transit</dt>
-          <dd><span class="dot sub"></span> subway entrance: walk in to ride towards your target · buses stop at <span class="dot bus"></span>, trams at <span class="dot tram"></span></dd>
+          <dd><span class="dot sub"></span> subway entrance (no rides for now) · buses stop at <span class="dot bus"></span>, trams at <span class="dot tram"></span></dd>
         </dl>
         <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Stops and stations from OpenStreetMap. Search by Photon (komoot) and Nominatim. Built on the Your Place 3D engine.</p>
       </div>
@@ -130,9 +139,35 @@
         <div class="row">
           <button class="primary" id="btn-continue">Continue</button>
           <button id="btn-switch"></button>
-          <button id="btn-city">Change city</button>
+          <button id="btn-city">Main menu</button>
         </div>
         <p class="small">P or Esc pauses and continues.</p>
+      </div>
+    </section>
+    <section id="firsthome" class="over" hidden>
+      <div class="card">
+        <h2>Your first home</h2>
+        <p id="firsthome-what"></p>
+        <p id="firsthome-save"></p>
+        <div class="row"><button class="primary" id="btn-firsthome-save">Save my game online</button><button id="btn-firsthome-go">Keep driving</button></div>
+      </div>
+    </section>
+    <section id="guess" class="over" hidden>
+      <div class="card">
+        <h2 id="guess-title"></h2>
+        <p class="score" id="guess-score"></p>
+        <p class="small" id="guess-line"></p>
+        <div id="guess-options"></div>
+        <div id="guess-after" hidden>
+          <p class="small" id="guess-rival" hidden></p>
+          <input id="guess-name" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off" enterkeyhint="done" />
+          <button class="primary" id="btn-guess-send">Send it to a friend to guess</button>
+          <p class="small" id="guess-note"></p>
+          <input id="guess-link" type="text" readonly hidden aria-label="Link to this city" />
+          <div class="row"><button id="btn-guess-next">Next city</button><button id="btn-guess-stay">Keep driving here</button></div>
+        </div>
+        <div class="row" id="guess-before"><button id="btn-guess-back">Look around some more</button></div>
+        <p class="small" id="guess-tally"></p>
       </div>
     </section>
     <section id="result" hidden>
@@ -142,6 +177,7 @@
           <p class="score" id="result-score"></p>
           <p class="small" id="result-line"></p>
           <p class="small" id="result-rival" hidden></p>
+          <div id="result-home" hidden></div>
           <form id="result-form">
             <input id="result-name" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off" enterkeyhint="done" />
             <button>Put it on the board</button>
@@ -149,6 +185,7 @@
           <div id="challenge" hidden>
             <button class="primary" id="btn-challenge">Challenge a friend to beat this</button>
             <p class="small" id="challenge-note"></p>
+            <p class="small" id="challenge-tally">Links are counted: one when made, one when opened, with the region of the map the run is in. Nothing about you or your friend is kept.</p>
             <input id="challenge-link" type="text" readonly hidden aria-label="Link to this run" />
           </div>
         </div>

@@ -13,9 +13,20 @@ import { PALETTE } from '../scene/overlay';
 import { buildRoadMeshes, disposeRoadMeshes, showRelief } from './roadMesh';
 import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
+import { basinMesh, takeBasins } from './basins';
+import { pitchMesh, takePitches } from './pitches';
+import { deckMesh, takeDecks } from './docks';
+import type { AreaFeature } from '../geo/osm';
 import { sightsIn, type Sight } from '../landmarks';
 import { localColours } from './localColours';
-import { inventServices, readServices, serviceIcon, type Service } from './services';
+import { localHeights } from './localHeights';
+import { calmGround } from './ground';
+import { readNamedStreets, readStreetNames, type StreetLabel } from './streetNames';
+import { findLots, type Lot } from './homes';
+import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
+import { stopShapes, type StopSign, type StopSpot } from './stopShapes';
+import { addWindows, styleWindows, windowsOn } from './windows';
+import { inventServices, readReserved, readServices, serviceIcon, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -65,6 +76,12 @@ Object.assign(PALETTE, {
 
 
 /** Towers are squashed so the camera can stay close above the streets. */
+/**
+ * Whether a subway entrance can be walked into for a ride. Off for now (owner, 16 November 2026):
+ * on the iPad the ride did not start. The entrances, their signs and stairwells stay.
+ */
+export const SUBWAY_RIDES = false;
+
 export function gameHeight(h: number): number {
   return h <= 18 ? h : 18 + (h - 18) * 0.3;
 }
@@ -193,31 +210,44 @@ function townSights(tiles: LoadedTile[], proj: Projector, half: number): Sight[]
     .map(({ name, x, y }) => ({ name, x, y }));
 }
 
-const SIGN = { bus: ['#3fae5a', 1.1], tram: ['#d8362e', 1.3], subway: ['#1f6fd6', 2.6] } as const;
-const signMats = new Map<string, MeshBasicMaterial>();
 
-/** A coloured disc on the ground at every stop, and a bigger one at subway entrances. */
-function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number): Group {
+/** What stands at every stop: a shelter, a platform, or a stairwell, each with its sign. */
+function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number, roads: RoadNet, letter: 'U' | 'M', sign: StopSign): Group {
   const g = new Group();
+  const spots: StopSpot[] = [];
+  const entrances: EntranceSpot[] = [];
   for (const s of stops) {
-    const [colour, r] = SIGN[s.kind];
-    for (const [rad, col, lift] of [[r, '#16181c', 0.5], [r * 0.72, colour, 0.56]] as Array<[number, string, number]>) {
-      let mat = signMats.get(col);
-      if (!mat) signMats.set(col, (mat = new MeshBasicMaterial({ color: col, side: DoubleSide })));
-      const m = new Mesh(new CircleGeometry(rad, 20), mat);
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(s.x, groundY(s.x, s.y) + lift, -s.y);
-      g.add(m);
+    if (s.kind === 'subway') {
+      // a stairwell with its sign, lying along the street beside it
+      const near = roads.nearest(s.x, s.y, 60, 'any');
+      const [hx, hy] = near ? roads.heading({ line: near.line, s: near.s, dir: 1 }) : [1, 0];
+      entrances.push({ x: s.x, y: s.y, ground: groundY(s.x, s.y) + riseUnder(groundY, s.x, s.y, 4), heading: Math.atan2(hy, hx) });
+      continue;
     }
+    // a bus stop or a tram stop: beside its street or track, on the side it lies on
+    const near = roads.nearest(s.x, s.y, 40, s.kind === 'tram' ? 'tram' : 'drive') ?? roads.nearest(s.x, s.y, 40, 'any');
+    let heading = 0;
+    let side: 1 | -1 = 1;
+    if (near) {
+      const [hx, hy] = roads.heading({ line: near.line, s: near.s, dir: 1 });
+      const [rx, ry] = roads.point(near.line, near.s);
+      heading = Math.atan2(hy, hx);
+      // left of the heading is (-hy, hx)
+      side = (s.x - rx) * -hy + (s.y - ry) * hx >= 0 ? 1 : -1;
+    }
+    spots.push({ kind: s.kind, x: s.x, y: s.y, ground: groundY(s.x, s.y) + riseUnder(groundY, s.x, s.y, 3), heading, side });
   }
+  g.add(stopShapes(spots, sign));
+  g.add(subwayEntrances(entrances, letter));
   return g;
 }
 
 const serviceMats = new Map<string, MeshBasicMaterial>();
-const serviceDisc = new CircleGeometry(4.6, 28);
+const serviceDisc = new CircleGeometry(4.6, 28); // SIGN_R
+const markMats = new WeakMap<HTMLCanvasElement, MeshBasicMaterial>();
 
 /** The symbol of a fuel, fire or police station, flat on the ground where the map has it. */
-function serviceSign(s: Service, groundY: (x: number, y: number) => number): Mesh {
+function serviceSign(s: Service, groundY: (x: number, y: number) => number, surface: (x: number, y: number) => number): Mesh {
   const key = s.kind + !!s.invented;
   let mat = serviceMats.get(key);
   if (!mat) {
@@ -228,8 +258,22 @@ function serviceSign(s: Service, groundY: (x: number, y: number) => number): Mes
   // its own copy of the disc, so that taking a square away can dispose of every sign alike
   const m = new Mesh(serviceDisc.clone(), mat);
   m.rotation.x = -Math.PI / 2;
-  m.position.set(s.x, groundY(s.x, s.y) + 0.6, -s.y);
+  // on a slope the ground under the disc rises past its middle and hides part of it: lift it by that much
+  m.position.set(s.x, groundY(s.x, s.y) + riseUnder(surface, s.x, s.y, SIGN_R) + 0.6, -s.y);
   return m;
+}
+
+const SIGN_R = 4.6;
+
+/** How far the ground rises above its height at (x, y) within r metres of it: what a flat disc laid there must clear. */
+export function riseUnder(surface: (x: number, y: number) => number, x: number, y: number, r: number): number {
+  const mid = surface(x, y);
+  let rise = 0;
+  for (let k = 0; k < 16; k++) {
+    const a = (k / 16) * Math.PI * 2;
+    for (const f of [0.5, 1]) rise = Math.max(rise, surface(x + r * f * Math.cos(a), y + r * f * Math.sin(a)) - mid);
+  }
+  return rise;
 }
 
 /**
@@ -286,6 +330,45 @@ export class World {
   /** fuel, fire and police stations, marked with a symbol and not named */
   readonly services: Service[] = [];
 
+  /** the buildings that are walls here: outline in metres from the middle of the square, and height */
+  buildings: Array<{ poly: Polygon; height: number; id?: string }> = [];
+
+  /** the buildings that are for sale, with their prices (`homes.ts`) */
+  lots: Lot[] = [];
+
+  /** schools, places of worship, hospitals and the like: where they lie, so an add-on can leave them alone */
+  reserved: Array<{ x: number; y: number }> = [];
+
+  /** the names of the main streets, for the big map */
+  streetNames: StreetLabel[] = [];
+
+  /** symbols an add-on has put on this square, for the maps */
+  readonly marks: Array<{ x: number; y: number; icon: HTMLCanvasElement }> = [];
+
+  /** For add-ons: a symbol flat on the roof at a spot (on the ground where there is none), and on the maps. */
+  mark(icon: HTMLCanvasElement, x: number, y: number): { remove: () => void } {
+    let mat = markMats.get(icon);
+    if (!mat) {
+      const map = new CanvasTexture(icon);
+      map.colorSpace = SRGBColorSpace;
+      markMats.set(icon, (mat = new MeshBasicMaterial({ map, transparent: true, side: DoubleSide })));
+    }
+    const m = new Mesh(serviceDisc.clone(), mat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, this.groundY(x, y) + riseUnder((gx, gy) => this.groundY(gx, gy), x, y, SIGN_R) + this.solids.tallestNear(x, y, 5) + 0.8, -y);
+    const entry = { x, y, icon };
+    this.signs.add(m);
+    this.marks.push(entry);
+    return {
+      remove: () => {
+        this.signs.remove(m);
+        m.geometry.dispose();
+        const i = this.marks.indexOf(entry);
+        if (i >= 0) this.marks.splice(i, 1);
+      },
+    };
+  }
+
   /** well-known sights in this square, to be named for the player */
   readonly sights: Sight[];
 
@@ -294,9 +377,18 @@ export class World {
     // Building a square takes a few hundred milliseconds of work. Done in one go it froze the game
     // mid-drive each time the next square arrived, so it is done in steps with a frame in between.
     const data = parseTiles(tiles, centre, AREA_SIZE_M);
-    const stops = readStops(tiles, makeProjector(centre), AREA_SIZE_M / 2 - 8);
+    // subway entrances that would stand on top of each other count as one
+    const stops: Stop[] = [];
+    for (const st of readStops(tiles, makeProjector(centre), AREA_SIZE_M / 2 - 8)) {
+      if (st.kind === 'subway' && stops.some((o) => o.kind === 'subway' && Math.hypot(o.x - st.x, o.y - st.y) < 14)) continue;
+      stops.push(st);
+    }
     await breathe();
-    const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true }));
+    // a building with no recorded height takes its neighbours', before tall ones are squashed
+    const heightCounts = localHeights(data.buildings);
+    const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true, id: b.id, realHeight: b.height }));
+    // roofs out of the ground and the sea to sea level, before anything is built on it
+    calmGround(grid, buildings, data.features.sea);
     const model = new CityModel(grid, texturePx, '#ffcc00');
     model.setExaggeration(1);
     model.showPin(false);
@@ -306,33 +398,79 @@ export class World {
     model.terrain.surface.castShadow = false;
     model.terrain.base.visible = false;
     await breathe();
+    // a trial: windows and doors on the walls
+    if (windowsOn()) {
+      // a building at a well-known sight stays bare
+      const famous = sightsIn(makeProjector(centre), AREA_SIZE_M / 2);
+      model.onBuildings = (mesh) => {
+        styleWindows(mesh.geometry, famous, centre.lat, centre.lon);
+        addWindows(mesh.material);
+      };
+    }
     model.setBuildingSpecs(buildings);
     await breathe();
+    // small water becomes basins with a rim, taken out of what is painted on the ground
+    const basins = takeBasins(data.features.areas, AREA_SIZE_M / 2);
+    // sports grounds too: turf with sharp edges and white lines
+    const pitches = takePitches(data.features.areas, AREA_SIZE_M / 2);
+    // piers and wharves: decks on the water, walked and driven on
+    const decks = takeDecks(data.features.areas);
     model.setFeatures(data.features);
     const colours = localColours(data.colours, makeProjector(centre));
     model.setBuildingTint((e, n) => colours.at(e, n));
     (model as unknown as { roofCounts: unknown }).roofCounts = colours.counts;
+    (model as unknown as { heightCounts: unknown }).heightCounts = heightCounts;
     await breathe();
     const roads = new RoadNet(data.features.lines, AREA_SIZE_M / 2);
     await breathe();
     const over = buildingsOverRoads(buildings, roads);
-    const ribbons = await buildRoadMeshes(roads, (x, y) => surfaceY(model, x, y), breathe);
+    // a basin stops a car as water does; a deck carries it
+    const wet: AreaFeature[] = [...data.features.areas, { kind: 'water', polys: basins.map((b) => b.poly) }];
+    const water = new WaterMask(wet, data.features.lines, data.features.sea ?? [], AREA_SIZE_M, decks.map((d) => d.poly));
+    const ribbons = await buildRoadMeshes(roads, (x, y) => surfaceY(model, x, y), breathe, (x, y) => water.at(x, y));
     model.group.add(ribbons);
     await breathe();
-    const solids = new Solids(buildings.filter((_, i) => !over.has(i)));
-    const water = new WaterMask(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M);
+    const walls = buildings.filter((_, i) => !over.has(i));
+    const solids = new Solids(walls);
     // last, when nothing works the ground's surface over again
     showRelief(model.terrain.surface.geometry);
-    const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y));
+    const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y), roads, subwayLetter(centre.lat, centre.lon), 'picture');
     model.group.add(signs);
+    const basinShape = basinMesh(basins, (x, y) => surfaceY(model, x, y));
+    if (basinShape) signs.add(basinShape);
+    const pitchShape = pitchMesh(pitches, (x, y) => surfaceY(model, x, y));
+    if (pitchShape) signs.add(pitchShape);
+    const deckShape = deckMesh(decks, (x, y) => surfaceY(model, x, y));
+    if (deckShape) signs.add(deckShape);
     const world = new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
+    world.buildings = walls;
+    world.streetNames = readStreetNames(tiles, world.proj, AREA_SIZE_M / 2);
+    world.reserved = readReserved(tiles, world.proj, AREA_SIZE_M / 2);
     // every real one the loaded map holds, to judge by; those in the square and the made-up ones are kept
     const real = readServices(tiles, world.proj, 1e9);
     const reach = AREA_SIZE_M / 2 - 8;
-    world.services.push(...real.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(real, world.proj, reach, roads));
+    // Stations stand apart: of several of one kind within 250 m only the first is kept (three fuel
+    // stations in a row are real in places, and too much of one thing in a game), and no symbol
+    // lies within 70 m of another. The real ones come first, so a made-up one gives way.
+    for (const sv of [...real.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(real, world.proj, reach, roads)]) {
+      if (!world.services.some((o) => Math.hypot(o.x - sv.x, o.y - sv.y) < (o.kind === sv.kind ? 250 : 70))) world.services.push(sv);
+    }
     // the map puts such a place on its building: the symbol lies on the roof, where it can be seen
-    for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2));
+    for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2, (x, y) => surfaceY(model, x, y)));
     if (!world.sights.length) world.sights.push(...townSights(tiles, world.proj, AREA_SIZE_M / 2 - 8));
+    await breathe();
+    const sightPts = world.sights.map((s): [number, number] => [s.x, s.y]);
+    world.lots = findLots(
+      walls.filter((b) => b.minHeight < 1).map((b) => ({ poly: b.poly, height: b.realHeight, id: b.id })),
+      {
+        areas: data.features.areas,
+        lines: data.features.lines,
+        keepClear: [...sightPts, ...world.services.map((s): [number, number] => [s.x, s.y]), ...world.reserved.map((r): [number, number] => [r.x, r.y])],
+        sights: sightPts,
+        streets: readNamedStreets(tiles, world.proj, AREA_SIZE_M / 2),
+        half: AREA_SIZE_M / 2,
+      },
+    );
     return world;
   }
 
@@ -384,7 +522,7 @@ export class World {
 
   dispose(): void {
     disposeRoadMeshes(this.ribbons);
-    for (const m of this.signs.children as Mesh[]) m.geometry.dispose();
+    this.signs.traverse((o) => (o as Mesh).geometry?.dispose());
     this.model.dispose();
   }
 }

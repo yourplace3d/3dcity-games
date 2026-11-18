@@ -23,6 +23,9 @@ const CITIES: Array<[number, number, ...string[]]> = [
   [25.2048, 55.2708, 'Dubai'], [30.0444, 31.2357, 'Cairo', 'Kairo'], [-33.9249, 18.4241, 'Cape Town', 'Kapstadt'], [-1.2864, 36.8172, 'Nairobi'], [-33.8688, 151.2093, 'Sydney'], [-37.8136, 144.9631, 'Melbourne'],
 ];
 
+/** The same cities by the name they are shown under. */
+export const CITY_LIST: Array<{ name: string; at: LngLat }> = CITIES.map(([lat, lon, name]) => ({ name, at: { lat, lon } }));
+
 /** Lower case, no accents, letters and digits only: "São Paulo" and "sao-paulo" are the same place. */
 const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 

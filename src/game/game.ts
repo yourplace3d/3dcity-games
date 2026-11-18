@@ -32,7 +32,7 @@ import { Car, collideCars, type CarKind } from './cars';
 import type { Input } from './input';
 import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
-import { areaCentre, World } from './world';
+import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
 import { JOB_OF, type JobKind } from './services';
 
@@ -113,6 +113,10 @@ export interface Hud {
 
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
+/** The most cash a player can hold, for now: above it, pay and rent are not added. */
+export const MAX_CASH = 1_000_000;
+/** open jobs pay more with each delivery made, up to this many */
+const OPEN_JOBS_GROW = 50;
 /** Per delivery of a run: how far the drop-off is (m, from, to) and the speed the clock assumes (m/s). */
 const RUN_STEPS: Array<[number, number, number]> = [
   [250, 550, 7],
@@ -147,6 +151,9 @@ function personMesh(colour: string, you = false): Group {
   return g;
 }
 
+/** the colours of a car blowing up */
+const BLAST = ['#ff8a2a', '#ffd400', '#ff5a4d', '#2a2a2a', '#1c1c1c'];
+
 function markerMesh(colour: string): Group {
   const g = new Group();
   const flat = (geo: RingGeometry | CircleGeometry, opacity: number) => {
@@ -171,7 +178,16 @@ export class Game {
   readonly me = { x: 0, y: 0, th: 0, vx: 0, vy: 0, hp: 100, mesh: personMesh('#ffd400', true) };
   /** the car you are driving, or null on foot */
   car: Car | null = null;
-  cash = 0;
+  private money = 0;
+  /** Cash, never more than `MAX_CASH`: whatever adds to it (pay, rent, an add-on, a loaded save) stops there. */
+  get cash(): number {
+    return this.money;
+  }
+  set cash(v: number) {
+    const was = this.money;
+    this.money = Math.min(MAX_CASH, Math.max(0, Number.isFinite(v) ? v : 0));
+    if (this.money === MAX_CASH && was < MAX_CASH && was > 0) this.onToast('$1,000,000: the most cash you can hold for now. Spend some on homes.', 'good');
+  }
   delivered = 0;
   heat = 0;
   job: Job | null = null;
@@ -188,6 +204,11 @@ export class Game {
   private spawnT = 0;
   private copT = 0;
   private caughtT = 0;
+  /** how many places for a package in a row had no road leading to them */
+  private noWay = 0;
+  /** seconds left of the car you sat in blowing up, and that car */
+  private blowT = 0;
+  private blown: Car | null = null;
   private routeT = 0;
   private routePts: Pt[] | null = null;
   private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
@@ -207,6 +228,10 @@ export class Game {
   private readonly smoke: Array<{ mesh: Mesh<SphereGeometry, MeshBasicMaterial>; life: number }> = [];
   private smokeT = 0;
   private sprayT = 0;
+  /** the player's car is going down in water: where the shore was, and for how long it has sunk */
+  private sinking: { car: Car; t: number; shore: [number, number] } | null = null;
+  /** where the player's car last stood on dry ground */
+  private dry: [number, number] = [0, 0];
   private noSmoke = false;
   /** off in tests that only step the game */
   render = true;
@@ -224,6 +249,17 @@ export class Game {
   onRide: (text: string) => void = () => undefined;
   onSquare: (state: 'loading' | 'ready') => void = () => undefined;
   onSave: () => void = () => undefined;
+  /**
+   * Openings for add-ons (see `src/addon.ts`). `actions`: asked in turn when the in/out key or
+   * button is pressed; the first to return true has used the press. `hints`: asked in turn for the
+   * line beside that key; the first to give one is shown.
+   */
+  readonly actions: Array<() => boolean> = [];
+  readonly hints: Array<() => string | null> = [];
+  /** asked every step of the game, with the seconds it covers */
+  readonly ticks: Array<(dt: number) => void> = [];
+  /** while true the game stands still (an add-on has a menu open); the picture is still drawn */
+  held = false;
   /** Something that makes a noise has happened; `strength` from 0 to 1 where it varies. */
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
@@ -405,6 +441,7 @@ export class Game {
     this.me.y = py;
     this.me.hp = 100;
     this.car = null;
+    this.sinking = null;
     this.heat = 0;
     this.cam = { x: px, y: py, h: ARRIVE_M };
     this.descent = ARRIVE_HOLD_S + DESCENT_S;
@@ -495,6 +532,50 @@ export class Game {
 
   // ------------------------------------------------------------------ cars
 
+  /**
+   * For add-ons: stand a car in the world, with nobody in it. `make` gives it a colour, a top
+   * speed (m/s), a pull (m/s²) and how much of a knock becomes damage.
+   */
+  place(kind: 'sedan' | 'sport' | 'van', x: number, y: number, th: number, make: { colour?: string; top?: number; acc?: number; dent?: number } = {}): Car {
+    const c = new Car(kind, make.colour, make.top || make.acc ? { ...(make.top ? { top: make.top } : {}), ...(make.acc ? { acc: make.acc } : {}) } : undefined);
+    if (make.dent) c.dent = make.dent;
+    c.x = x;
+    c.y = y;
+    c.th = th;
+    this.cars.push(c);
+    this.scene.add(c.mesh);
+    return c;
+  }
+
+  /** For add-ons: take a car out of the world. If you sit in it, you stand where it stood. */
+  remove(c: Car): void {
+    if (this.car === c) {
+      this.me.x = c.x;
+      this.me.y = c.y;
+      this.me.vx = 0;
+      this.me.vy = 0;
+      this.car = null;
+    }
+    c.driver = 'none';
+    this.dropCar(c);
+  }
+
+  /** For add-ons: sit in a car that stands in the world. */
+  seat(c: Car): void {
+    if (this.car && this.car !== c) this.car.driver = 'none';
+    c.driver = 'player';
+    this.car = c;
+  }
+
+  /** For add-ons: a ring on the ground of the loaded square, like the ring of a package. It goes when the square goes. */
+  ring(colour: string, x: number, y: number): { remove: () => void } {
+    const group = this.world.model.group;
+    const mesh = markerMesh(colour);
+    mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5), -y);
+    group.add(mesh);
+    return { remove: () => void group.remove(mesh) };
+  }
+
   private addCar(kind: CarKind, x: number, y: number, th: number): Car {
     const c = new Car(kind);
     c.x = x;
@@ -503,6 +584,58 @@ export class Game {
     this.cars.push(c);
     this.scene.add(c.mesh);
     return c;
+  }
+
+  /** Fording a stream: the water holds the car back and sprays. */
+  private ford(c: Car, dt: number): void {
+    if (c.speed > 4) {
+      const k = Math.exp(-3.2 * dt);
+      c.vx *= k;
+      c.vy *= k;
+    }
+    this.sprayT -= dt;
+    if (this.sprayT <= 0) {
+      this.sprayT = 0.07;
+      this.cloud(c.x + (Math.random() - 0.5) * 2, c.y + (Math.random() - 0.5) * 2, 0.5, '#bfe0f2');
+    }
+  }
+
+  /** The player's car going down. After a moment it is gone, and the player stands where it left the shore. */
+  private sink(dt: number): void {
+    const s = this.sinking!;
+    const c = s.car;
+    s.t += dt;
+    const k = Math.exp(-2.5 * dt);
+    c.vx *= k;
+    c.vy *= k;
+    c.sink = Math.min(2.6, s.t * s.t * 1.8);
+    this.sprayT -= dt;
+    if (s.t < 0.8 && this.sprayT <= 0) {
+      this.sprayT = 0.05;
+      this.cloud(c.x + (Math.random() - 0.5) * 4, c.y + (Math.random() - 0.5) * 4, 0.4 + Math.random(), pickOne(['#bfe0f2', '#e6f3fa', '#9ccbe6']));
+    }
+    if (s.t < 1.3 && this.car === c) return;
+    this.sinking = null;
+    c.sink = 0;
+    if (this.car === c) {
+      c.driver = 'none';
+      c.controls.throttle = 0;
+      this.car = null;
+      // out a step further on dry ground, away from the water
+      const [sx, sy] = s.shore;
+      const dx = sx - c.x;
+      const dy = sy - c.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const out: [number, number] = [sx + (dx / d) * 1.5, sy + (dy / d) * 1.5];
+      const [x, y] = this.world.inWater(out[0], out[1]) ? [sx, sy] : out;
+      this.me.x = x;
+      this.me.y = y;
+      this.me.vx = 0;
+      this.me.vy = 0;
+      this.frozen = 0.5;
+      this.onToast('The car sank. You swam back to the shore', 'bad');
+    }
+    this.dropCar(c);
   }
 
   private dropCar(c: Car): void {
@@ -891,7 +1024,7 @@ export class Game {
     return this.car ? [this.car.vx, this.car.vy] : [this.me.vx, this.me.vy];
   }
 
-  private speed(): number {
+  speed(): number {
     const [vx, vy] = this.vel();
     return Math.hypot(vx, vy);
   }
@@ -915,6 +1048,8 @@ export class Game {
   /** Get into the car beside you, or out of the one you're in. */
   action(): void {
     if (this.frozen > 0) return;
+    // an add-on may take the press for something of its own
+    for (const take of this.actions) if (take()) return;
     const w = this.world;
     if (this.car) {
       const c = this.car;
@@ -959,6 +1094,7 @@ export class Game {
 
   /** The subway entrance you're standing at, if any. */
   private subwayHere(): number {
+    if (!SUBWAY_RIDES) return -1;
     const stops = this.world.stops;
     for (let i = 0; i < stops.length; i++) if (stops[i].kind === 'subway' && Math.hypot(stops[i].x - this.me.x, stops[i].y - this.me.y) < 4.5) return i;
     return -1;
@@ -1165,6 +1301,25 @@ export class Game {
     return this.world.proj.toLocal(m.at.lon, m.at.lat);
   }
 
+  /**
+   * A package to pick up at a place on a street, or null if no road leads there from where you
+   * are: a street cut off from the rest (by the edge of the loaded square, a river, a gap in the
+   * map) would be a ring you can see and never reach. If place after place fails, you yourself
+   * stand on such a cut-off street, and a ring is laid anyway, so the game never runs dry.
+   */
+  private pickupAt(p: PathState): Marker | null {
+    const m = this.newMarker('#2bd4e0', p);
+    const [px, py] = this.pos();
+    const f = this.fieldOf(m);
+    if ((f && this.world.roads.route(f, px, py)) || this.noWay >= 40) {
+      this.noWay = 0;
+      return m;
+    }
+    this.noWay++;
+    this.scene.remove(m.mesh);
+    return null;
+  }
+
   private newMarker(colour: string, p: PathState): Marker {
     const [x, y] = this.world.roads.point(p.line, p.s);
     const mesh = markerMesh(colour);
@@ -1256,7 +1411,8 @@ export class Game {
           } else this.scene.remove(cand.mesh);
         }
         if (!marker) continue;
-        const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? this.delivered : this.run.done) * 0.03)) / 10) * 10);
+        // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows
+        const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? Math.min(this.delivered, OPEN_JOBS_GROW) : this.run.done) * 0.03)) / 10) * 10);
         // each kind of job has its own clock and its own pay
         const [clock, pay, say] = {
           plain: [25 + metres / pace, base, 'Package on board: get it to the yellow ring'],
@@ -1289,7 +1445,10 @@ export class Game {
         const p = w.roads.randomPlace('traffic', px, py, 90, 520);
         if (p) {
           const [x, y] = w.roads.point(p.line, p.s);
-          if (!this.pickups.some((m) => Math.hypot(this.local(m)[0] - x, this.local(m)[1] - y) < 150)) this.pickups.push(this.newMarker('#2bd4e0', p));
+          if (!this.pickups.some((m) => Math.hypot(this.local(m)[0] - x, this.local(m)[1] - y) < 150)) {
+            const m = this.pickupAt(p);
+            if (m) this.pickups.push(m);
+          }
         }
       }
       return;
@@ -1303,8 +1462,8 @@ export class Game {
     for (const kind of ['fuel', 'fire', 'police'] as const) {
       const job = JOB_OF[kind];
       if (this.pickups.some((m) => m.kind === job)) continue;
-      let best: PathState | null = null;
-      let bd = 1000;
+      // the nearest station of the kind that a road leads to
+      const near: Array<{ d: number; p: PathState }> = [];
       for (const s of w.services) {
         if (s.kind !== kind) continue;
         const n = w.roads.nearest(s.x, s.y, 150, 'traffic');
@@ -1312,12 +1471,13 @@ export class Game {
         const [x, y] = w.roads.point(n.line, n.s);
         const d = Math.hypot(x - px, y - py);
         // not the one a job was just taken from, and not one you are standing on
-        if (d < 40 || d >= bd || (last && Math.hypot(x - last[0], y - last[1]) < 30)) continue;
-        bd = d;
-        best = { line: n.line, s: n.s, dir: 1 };
+        if (d < 40 || d >= 1000 || (last && Math.hypot(x - last[0], y - last[1]) < 30)) continue;
+        near.push({ d, p: { line: n.line, s: n.s, dir: 1 } });
       }
-      if (best) {
-        const m = this.newMarker('#2bd4e0', best);
+      near.sort((a, b) => a.d - b.d);
+      let m: Marker | null = null;
+      for (const c of near.slice(0, 4)) if ((m = this.pickupAt(c.p))) break;
+      if (m) {
         m.kind = job;
         this.pickups.push(m);
       }
@@ -1325,7 +1485,8 @@ export class Game {
     // no station in reach at all: a package from a street corner, as it always was
     if (!this.pickups.length) {
       const p = w.roads.randomPlace('traffic', px, py, 90, 520);
-      if (p) this.pickups.push(this.newMarker('#2bd4e0', p));
+      const m = p && this.pickupAt(p);
+      if (m) this.pickups.push(m);
     }
   }
 
@@ -1432,7 +1593,8 @@ export class Game {
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
       m.mesh.visible = inside;
       if (!inside) continue;
-      m.mesh.position.set(x, this.world.groundY(x, y), -y);
+      // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
+      m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
       m.mesh.scale.set(pulse, 1, pulse);
     }
   }
@@ -1441,13 +1603,19 @@ export class Game {
 
   update(dtRaw: number, input: Input): void {
     const dt = Math.max(0, Math.min(dtRaw, 0.05));
+    if (this.held) {
+      if (this.render) this.renderer.render(this.scene, this.camera);
+      return;
+    }
+    for (const tick of this.ticks) tick(dt);
     const w = this.world;
     this.clock += dt;
     if (this.frozen > 0) this.frozen -= dt;
     const live = this.frozen <= 0;
 
     if (this.auto && live) this.autopilot(dt);
-    else if (this.car) this.steerMine(this.car, input, dt);
+    else if (this.car && !this.sinking) this.steerMine(this.car, input, dt);
+    else if (this.car) Object.assign(this.car.controls, { throttle: 0, steer: 0, handbrake: false });
     else if (live) this.walk(input, dt);
     for (const c of this.cars) if (!c.gone && (c.driver === 'ai' || c.driver === 'cop')) this.drive(c, dt);
 
@@ -1494,30 +1662,26 @@ export class Game {
       if (c.gone) continue;
       const far = Math.hypot(c.x - px, c.y - py);
       if (w.inWater(c.x, c.y)) {
+        // your own car goes down slowly, with you in it, and you come up on the shore
         if (c === this.car) {
-          this.onToast('Splash! That car is gone', 'bad');
-          this.onSound('splash');
-          this.toRoad(0, 0);
+          if (!this.sinking) {
+            this.sinking = { car: c, t: 0, shore: this.dry };
+            this.onToast('Splash!', 'bad');
+            this.onSound('splash');
+          }
+          continue;
         }
         this.dropCar(c);
-      } else if (c === this.car && c.speed > 1 && w.inStream(c.x, c.y)) {
-        // fording a stream: the water holds the car back and sprays
-        if (c.speed > 4) {
-          const k = Math.exp(-3.2 * dt);
-          c.vx *= k;
-          c.vy *= k;
-        }
-        this.sprayT -= dt;
-        if (this.sprayT <= 0) {
-          this.sprayT = 0.07;
-          this.cloud(c.x + (Math.random() - 0.5) * 2, c.y + (Math.random() - 0.5) * 2, 0.5, '#bfe0f2');
-        }
+      } else if (c === this.car) {
+        this.dry = [c.x, c.y];
+        if (c.speed > 1 && w.inStream(c.x, c.y)) this.ford(c, dt);
       } else if (c.driver === 'ai' || c.driver === 'cop') {
         const limit = this.chasing(c) ? 420 : this.viewR + 190;
         if (far > limit || Math.abs(c.x) > w.half - 8 || Math.abs(c.y) > w.half - 8 || (c.hp <= 0 && far > this.viewR + 20)) this.dropCar(c);
         else if (c.hp <= 0) c.driver = 'none';
       }
     }
+    if (this.sinking) this.sink(dt);
     this.sweep();
     if (!this.car && live && w.inWater(this.me.x, this.me.y)) {
       this.onToast('Splash!', 'bad');
@@ -1525,6 +1689,24 @@ export class Game {
       this.toRoad(0, 0);
     }
     if (this.me.hp <= 0) this.fine('Knocked out!', 0.15);
+    // the car you sit in is wrecked: it blows up, and a moment later you start again as when caught
+    if (this.blowT > 0) {
+      this.blowT -= dt;
+      const c = this.blown;
+      if (c) for (let i = 0; i < 2; i++) this.cloud(c.x + (Math.random() - 0.5) * 5, c.y + (Math.random() - 0.5) * 5, 0.8 + Math.random() * 2.5, pickOne(BLAST));
+      if (this.blowT <= 0) {
+        this.blown = null;
+        this.fine('Wrecked!', 0.15);
+      }
+    } else if (this.car && this.car.hp <= 0 && live) {
+      this.blown = this.car;
+      this.blowT = 0.9;
+      this.frozen = 1;
+      this.car.controls.throttle = 0;
+      this.car.vx *= 0.3;
+      this.car.vy *= 0.3;
+      this.onSound('crash', 1);
+    }
 
     this.spawnT -= dt;
     if (this.spawnT <= 0) {
@@ -1738,7 +1920,15 @@ export class Game {
       const c = this.carInReach();
       if (c) hint = c.driver === 'none' ? 'get in' : c.kind === 'bus' ? 'take this bus' : 'take this car';
       else if (this.subwayHere() >= 0) hint = 'take the subway';
-    } else if (this.car.hp <= 0) hint = 'wrecked: get out';
+    } else if (this.car.hp <= 0) hint = 'wrecked';
+    // an add-on's hint for what the press would do here comes before the game's own
+    for (const say of this.hints) {
+      const t = say();
+      if (t) {
+        hint = t;
+        break;
+      }
+    }
     return {
       cash: this.cash,
       heat: Math.ceil(this.heat),

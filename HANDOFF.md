@@ -4,6 +4,61 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
+## Right now (18 November 2026, evening)
+
+The newest state. The sections below are older and kept for their decisions.
+
+**Live** at https://yourplace3d.github.io/3dcity-games/: `main` at `8d4844f` (PR #4 merged by the owner at
+16:24, deployed at 16:24 and again at 16:39, Pages run 55, success; the served script was checked to carry
+the new code). In it:
+- Hennes's bug fixes (PR #3): `npm test`, and a checks workflow on every push and pull request.
+- Banks in the home plate (the town of the first home): cash paid in is safe from fines and pays for homes there.
+- Flats first: houses open with the 3rd home, whole buildings with the 6th.
+- Painting a house or whole building one owns, eight colours.
+- The new-player arc (`src/game/renovation.ts`): after two deliveries a card shows worn-down flats nearby,
+  one sells for what the player has; packages from the blinking fuel, fire and police stations repair it,
+  then the rest of the building (3–5 flats) is bought and repaired flat by flat, and painted at the end.
+
+**Built, not merged, not live:** branch `claude/tenants` (`d5f187f`, one commit on top of `main`, merges
+cleanly, 76 tests pass, build OK, played through in Chromium on the Nuremberg map). No pull request yet;
+the owner was asked whether to open one. See "Tenants, rent at the building, upgrades" below. In short:
+rent waits at each building (up to 3 days) until collected; tenants have 1–3 stars and ask for things,
+answered by a package from the matching kind of station (only that kind blinks); a new home starts with
+moving day; upgrades (kitchen, bathroom, balcony, lift) raise the rent, each by less.
+
+**Decided today by the owner**
+- The repo stays public, so Hennes (a friend fixing bugs) can see it. Do not merge
+  `claude/project-thread-p95w9m` ("source moved to a private repo"); no licence change for now.
+- Build tenants, rent at the building and upgrades first. Upkeep and giving back to the city come
+  later, once real numbers show how fast money grows (`rent` in `play_counts`).
+- Balance making money with spending it ("otherwise we'll have only oligarchs around").
+
+**Other work going on**
+- Session "3DA: connecting and getting online (Supabase, waiting list)" (`session_01SDAhzGaCW8qR45aAFdkhtu`)
+  wrote PR #4 and is debugging now (city-guess checks, mission helpers). Nothing of that is pushed yet.
+  When it is, merge `main` into `claude/tenants` again (a force-push was refused; merge, don't rebase).
+
+**Next steps, in order**
+1. Pull request for `claude/tenants`; the owner merges it; deploy only after the owner says yes
+   (Actions → "Deploy to GitHub Pages", or `pages.yml` through the API on `main`).
+2. The owner plays it; then tune: `HOLD_DAYS` 3, `ASK_CHANCE` 0.5, the tip (a quarter of a day's rent),
+   the upgrade prices in `UPGRADES`, the unlocks `HOUSES_AFTER` 3 and `BUILDINGS_AFTER` 6.
+3. Endless jobs, from the brainstorm (nothing built): three offers at any time (a regular station job,
+   a special of the day, a job from one's own homes). Specials: a race, find this car, find this place
+   (from a description or a picture the game takes itself), a hot listing (a home cheap for 3 minutes),
+   a cash run between banks. The race is the cheapest to build next.
+4. Spending, later: upkeep per home, paying for a park or fountain in the home town, cars and a garage,
+   repairs at fuel stations, floors on top, a shop downstairs, and starting over in a new city at the cap.
+
+**Known rough edges:** on the iPad the building panel sits over the minimap (top right); in an old town
+the drop-off ring can be about 100 m from the building (nearest main road).
+
+**Testing tips:** `VITE_TESTING=rich npx vite build --outDir <dir>` then `npx vite preview --outDir <dir>`
+starts every load with $1,000,000. In headless Chromium (swiftshader) the game runs at about 6 frames a
+second: wait real seconds, don't fake the clock. To move the player, move `game.car ?? game.me`. Keep test
+buildings away from the square's edge (|x|, |y| < 350 m), or the next square loads and old `Lot` objects
+no longer match. `window.game` and `window.homes` are open to scripts.
+
 ## Where things stand
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).

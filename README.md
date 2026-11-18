@@ -39,6 +39,10 @@ the streets, buildings, water and hills come from the same map squares as
 - **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
   the one before. What the three earn, less any fines, is the score; it goes on a scoreboard, with your
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
+- **Tenants.** Rent waits at each building, up to three days of it, until you stop beside it and
+  collect it. Tenants have one to three stars (full rent to half) and ask for things: a package from the
+  matching station (fuel, fire or police) answers them. A new home starts with moving day. Upgrades
+  (kitchen, bathroom, balcony, lift) raise the rent, each less than the last (`src/game/tenants.ts`).
 - **Homes.** Cash buys flats and houses. Each pays rent once for every day you come back: on the first visit
   of a calendar day you get a day's rent ("Welcome back. Today your homes paid you…"), the same however long
   you were away, about a quarter of what the home cost. Nothing comes in while playing. Right after a run of three, the result card offers the dearest flat or house near where

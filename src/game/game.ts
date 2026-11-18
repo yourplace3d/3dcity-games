@@ -270,7 +270,7 @@ export class Game {
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
    * stations blink in open play, and whichever is taken goes there, with the line for its kind.
    */
-  special: { at: LngLat; say: Record<JobKind, string> } | null = null;
+  special: { at: LngLat; say: Record<JobKind, string>; kinds?: JobKind[] } | null = null;
   /** A package for `special` has been picked up (its kind). */
   onSpecialTaken: (kind: JobKind) => void = () => undefined;
   /** A package for `special` has been delivered. */
@@ -1446,7 +1446,7 @@ export class Game {
         }
         const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
         // a mission's package from a station: it goes to the mission's place, where a road leads there
-        const special = !leg && this.run.over && m.kind ? this.special : null;
+        const special = !leg && this.run.over && m.kind && this.claims(m.kind) ? this.special : null;
         if (special) {
           const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
           // the street at the door where a car may go (an old town's lanes too), else the nearest main road
@@ -1659,6 +1659,11 @@ export class Game {
     this.job = null;
   }
 
+  /** Whether a station's package of this kind goes to the mission's drop-off (all kinds, unless it names some). */
+  private claims(kind: JobKind): boolean {
+    return !!this.special && (!this.special.kinds || this.special.kinds.includes(kind));
+  }
+
   /** Whether the mission's drop-off is in the square being played, where a package can be taken to it. */
   specialHere(): boolean {
     if (!this.special) return false;
@@ -1673,7 +1678,7 @@ export class Game {
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : [])]) {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
-      m.mesh.visible = inside && !(blink && m.kind);
+      m.mesh.visible = inside && !(blink && m.kind && this.claims(m.kind));
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);

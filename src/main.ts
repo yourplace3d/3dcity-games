@@ -406,6 +406,8 @@ function missionCard(title: string, text: string, yes: string, no: string, answe
   // the game waits while the card is read: a package's clock too
   if (game) game.held = true;
   $('mission-title').textContent = title;
+  // only a mission's offer says that one is open
+  $('mission-kicker').hidden = !title.startsWith('Private mission');
   $('mission-text').textContent = text;
   $('btn-mission-yes').textContent = yes;
   $('btn-mission-no').textContent = no;

@@ -355,3 +355,4 @@ body.secret #toasts { top: calc(80px + env(safe-area-inset-top)); }
 @keyframes nudge { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.09); box-shadow: 0 0 0 6px rgba(255, 212, 0, 0.35); } }
 @media (max-width: 720px) { body.secret #toasts { top: calc(130px + env(safe-area-inset-top)); } }
 .over .kicker { display: block; color: #5fd08a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; margin-bottom: 4px; }
+.over .kicker[hidden] { display: none; }

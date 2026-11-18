@@ -217,6 +217,28 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
     points there (`Game.guide`); on arrival it says from what price. Done with the first home, however
     bought. "Later" asks again on the next visit. Kept in `3da-mission`.
   Built on branch `claude/bank`, with the banks; not deployed.
+- **Tenants, rent at the building, upgrades (owner, 18 November 2026).** After the first-home arc, so
+  that play never runs dry and money is spent as well as made ("otherwise we'll have only oligarchs
+  around"). Chosen from a brainstorm: build these three first; upkeep and giving back to the city later,
+  once real numbers show how fast money grows (`rent` in play_counts). `src/game/tenants.ts`:
+  - Rent no longer lands in the pocket: each day the player comes back, each home's rent goes to wait
+    at its building, up to `HOLD_DAYS` (3) days of it; stop beside it to collect (B). Collected cash
+    can be fined, so the bank matters.
+  - Tenants have 1–3 stars: full rent at 3, three quarters at 2, half at 1, never less. On a day the
+    player comes back, each home's tenants may ask for something (`ASK_CHANCE` 0.5, the same for every
+    player on a day): a heating part (fuel symbol, heavy), a burst pipe (fire, rush), new locks (police,
+    clean). Only that kind of station blinks (`Game.special.kinds`), so the other stations keep regular
+    jobs and many homes don't swallow all the play. Answered: a star back and a tip (a quarter of a
+    day's rent); still open on the next day back: a star less.
+  - Moving day: every home bought (not the worn-down first flat, which is repaired instead) starts
+    with furniture from a fuel station; its rent starts once the tenant has moved in. Homes from
+    before have tenants already.
+  - Upgrades per home, each worth less than the last: a kitchen (2 days' rent, +10 %), bathroom (3,
+    +8 %), balcony (5, +6 %), lift (8, +5 %): paid back in about 20, 37, 83 and 160 days.
+  - The roof mark gets a green $ where rent waits, an orange ! where tenants ask. A card explains it
+    all the first time a tenant's package is taken. Kept as `3da-tenants` (one entry per home, in the
+    order bought), so saving online carries it.
+  Built on branch `claude/tenants`, from PR #4's branch (`claude/project-thread-sa8i1n`), not deployed.
 - **Supabase's GitHub link: not now (owner, 17 November 2026).** The dashboard shows "No repository
   connected"; that is Supabase's optional GitHub link (changes in `supabase/migrations/` on main go live by
   themselves, and test copies of the database per pull request on a paid plan). Not set up: the Supabase

@@ -157,3 +157,40 @@ describe('leaving a car', () => {
     expect(car.driver).toBe('none');
   });
 });
+
+describe('a mission package', () => {
+  it('goes to the street when the lane at the building is a yard no road leads to', async () => {
+    const w = world();
+    // the street, and beside the building a yard's lane that joins nothing (Mühlendamm, Berlin)
+    Object.assign(w, {
+      roads: new RoadNet([
+        { kind: 'minor', pts: [[-300, 0], [300, 0]], widthM: 6, bridge: false },
+        { kind: 'service', pts: [[90, 40], [110, 40]], widthM: 3, bridge: false },
+      ], 750),
+      sights: [],
+      services: [],
+    });
+    vi.spyOn(World, 'load').mockResolvedValue(w);
+    const g = game();
+    await g.start({ lon: 0, lat: 0 });
+    g.openPlay();
+    g.car = null;
+    g.me.x = 0;
+    g.me.y = 0;
+    const say = { plain: 'to your building', supply: 'to your building', rush: 'to your building', clean: 'to your building' };
+    g.special = { at: { lon: 100, lat: 45 }, say };
+    const taken = vi.fn();
+    g.onSpecialTaken = taken;
+    // a fuel station's package, where the player stands
+    const { pickups, jobs } = g as unknown as { pickups: Array<{ at: { lon: number; lat: number }; mesh: Group; kind?: string }>; jobs: (dt: number) => void };
+    pickups.push({ at: { lon: 0, lat: 0 }, mesh: new Group(), kind: 'supply' });
+
+    jobs.call(g, 0.016);
+
+    expect(g.job?.special).toBe(true);
+    expect(taken).toHaveBeenCalledWith('supply');
+    // dropped on the street in front of the building, not somewhere at random
+    const [x, y] = w.proj.toLocal(g.job!.to.at.lon, g.job!.to.at.lat);
+    expect(Math.hypot(x - 100, y)).toBeLessThan(2);
+  });
+});

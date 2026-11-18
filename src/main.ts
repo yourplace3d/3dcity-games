@@ -382,11 +382,14 @@ let guessing = false;
 
 /** The first home is bought: a card says what it brings, and that the game can now be saved online. The game waits. */
 let welcoming = false;
-function welcomeHome(what: string, rent: string): void {
+function welcomeHome(what: string, rent: string, worn: boolean): void {
   openSaving();
   welcoming = true;
   controls.enabled = false;
-  $('firsthome-what').textContent = `It's yours: ${what}. It pays ${rent} rent each day you come back to the game.`;
+  if (game) game.held = true;
+  $('firsthome-what').textContent = worn
+    ? `It's yours: ${what}. But the colours on its walls are worn down, and it pays no rent until it is repaired: then ${rent} each day you come back to the game. Look out for the fuel, fire and police symbols: they are blinking now, and any of their jobs starts the repairs.`
+    : `It's yours: ${what}. It pays ${rent} rent each day you come back to the game.`;
   const saving = savingOn();
   $('firsthome-save').textContent = saving
     ? `Your game is saved online as ${savedName()}, and your home with it.`
@@ -400,16 +403,20 @@ let missionAnswer: ((yes: boolean) => void) | null = null;
 function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void): void {
   welcoming = true;
   controls.enabled = false;
+  // the game waits while the card is read: a package's clock too
+  if (game) game.held = true;
   $('mission-title').textContent = title;
   $('mission-text').textContent = text;
   $('btn-mission-yes').textContent = yes;
   $('btn-mission-no').textContent = no;
+  $('btn-mission-no').hidden = !no;
   missionAnswer = answer;
   $('mission').hidden = false;
 }
 function closeMission(yes: boolean): void {
   $('mission').hidden = true;
   welcoming = false;
+  if (game) game.held = false;
   controls.enabled = playing && !paused;
   before = 0;
   const answer = missionAnswer;
@@ -421,6 +428,7 @@ $('btn-mission-no').addEventListener('click', () => closeMission(false));
 function closeWelcome(): void {
   $('firsthome').hidden = true;
   welcoming = false;
+  if (game) game.held = false;
   controls.enabled = playing && !paused;
   before = 0;
 }

@@ -6,7 +6,8 @@
 
 import type { Game } from './game/game';
 import type { World } from './game/world';
-import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentDue, rentFor, rentPerVisit, saveHomes, type Home, type Homes, type Lot } from './game/homes';
+import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHomes, type Home, type Homes, type Lot } from './game/homes';
+import { FIXER_AFTER, FIXER_MIN, jobLines, loadReno, rentShare, storeReno, UNITS_MAX, UNITS_MIN, wantsJob, WORN, type Reno } from './game/renovation';
 import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from './game/bank';
 import { MAX_CASH } from './game/game';
 import { serviceIcon } from './game/services';
@@ -78,23 +79,6 @@ function forSaleIcon(): HTMLCanvasElement {
   return (saleIcon = c);
 }
 
-const MISSION = '3da-mission';
-function loadMission(): 'none' | 'on' | 'done' {
-  try {
-    const v = localStorage.getItem(MISSION);
-    return v === 'on' || v === 'done' ? v : 'none';
-  } catch {
-    return 'none';
-  }
-}
-function storeMission(v: 'on' | 'done'): void {
-  try {
-    localStorage.setItem(MISSION, v);
-  } catch {
-    /* private window */
-  }
-}
-
 function distanceTo(lot: Lot, x: number, y: number): number {
   const r = lot.poly.outer;
   if (pointInRing([x, y], r)) return 0;
@@ -128,9 +112,9 @@ export interface HomesHost {
   save: () => void;
   /** the name of the place being played */
   place: () => string;
-  /** the first home was just bought (what it is, its rent each day): saving online opens */
-  firstHome?: (what: string, rent: string) => void;
-  /** a card over the game that waits for an answer: the mission's offer */
+  /** the first home was just bought (what it is, its rent each day; worn down: no rent until repaired): saving online opens */
+  firstHome?: (what: string, rent: string, worn: boolean) => void;
+  /** a card over the game that waits for an answer (the mission's); with no `no`, a single button */
   card?: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void) => void;
 }
 
@@ -152,15 +136,21 @@ export class HomesUi {
   private banks: Array<{ x: number; y: number; rx: number; ry: number; mark: { remove: () => void } }> = [];
   /** what the panel shows, so it is drawn again only when that changes */
   private shown = '';
-  /** the first-home mission: offered once enough cash is made, done with the first home */
-  private mission = loadMission();
+  /** the new player's way to a first home and its building (`game/renovation.ts`); null: not begun */
+  private reno: Reno | null = loadReno(this.homes.homes.length > 0);
   /** offered on this visit already (and put off) */
   private offered = false;
-  /** where the mission leads: a part of town with cheap flats, in the square being played */
-  private area: { x: number; y: number; rx: number; ry: number; from: number; marks: Array<{ remove: () => void }>; here: boolean } | null = null;
+  /** the notes after the first deliveries, said on this visit */
+  private noted = new Set<string>();
+  /** where the mission leads: a part of town with worn-down flats, in the square being played */
+  private area: { x: number; y: number; rx: number; ry: number; lots: Lot[]; marks: Array<{ remove: () => void }>; here: boolean } | null = null;
+  /** the arrow points at the player's building until they get there (to buy the rest, or to paint it) */
+  private toBuilding = false;
 
   constructor(private readonly host: HomesHost) {
     host.game.ticks.push((dt) => this.tick(dt));
+    host.game.onSpecialTaken = () => this.specialTaken();
+    host.game.onSpecialDone = () => this.specialDone();
     addEventListener('keydown', (e) => {
       if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden) return;
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
@@ -195,62 +185,144 @@ export class HomesUi {
     this.missionTick();
   }
 
-  // ------------------------------------------------------------ the first-home mission
+  // ------------------------------------------------------------ the first home and its building
+
+  private setReno(r: Reno): void {
+    this.reno = r;
+    storeReno(r);
+    this.host.save();
+    this.syncSpecial();
+  }
+
+  /** A package from any station goes to the building, while it waits for one. */
+  private syncSpecial(): void {
+    const r = this.reno;
+    const first = this.homes.homes[0];
+    this.host.game.special = r && first && wantsJob(r) ? { at: { lat: first.lat, lon: first.lon }, say: jobLines(r) } : null;
+  }
+
+  /** The first home, the building being repaired: its lot in the square being played, if it is in it. */
+  private renoLot(): Lot | null {
+    const first = this.homes.homes[0];
+    if (!first) return null;
+    for (const [lot, home] of this.owned) if (home === first) return lot;
+    return null;
+  }
+
+  /** What a home pays on a day one comes back: the first home only the share that is repaired. */
+  private rentOf(home: Home): number {
+    return home === this.homes.homes[0] ? Math.round(home.rent * rentShare(this.reno)) : home.rent;
+  }
+
+  private rentPerVisit(): number {
+    return this.homes.homes.reduce((s, h) => s + this.rentOf(h), 0);
+  }
+
+  /** What a worn-down flat sells for: what the player had when it was offered, never more than the flat. */
+  private fixerPrice(lot: Lot): number {
+    const offered = this.reno?.price ?? Math.floor(this.host.game.cash / 10) * 10;
+    return Math.max(10, Math.min(lot.price, offered));
+  }
+
+  private say(text: string, kind: 'good' | 'info' = 'info', ms = 9000): void {
+    // after the line a delivery itself brings
+    setTimeout(() => this.host.toast(text, kind, ms), 2600);
+  }
 
   private missionTick(): void {
     const { game } = this.host;
     const world = this.world;
     if (!world) return;
-    if (this.homes.homes.length) {
-      if (this.mission !== 'done') this.endMission();
-      return;
-    }
-    if (this.mission === 'on') {
+    const r = this.reno;
+    const first = this.homes.homes[0];
+    this.syncSpecial();
+    if (r?.stage === 'find') {
+      if (this.homes.homes.length) {
+        // a home was bought some other way: nothing to repair
+        this.dropArea();
+        this.setReno({ stage: 'done' });
+        return;
+      }
       if (!this.area) this.area = this.pickArea();
       const a = this.area;
-      game.guide = a ? { x: a.rx, y: a.ry } : null;
+      game.guide = a && !a.here ? { x: a.rx, y: a.ry } : null;
       if (!a) return;
       const [px, py] = game.pos();
       if (!a.here && Math.hypot(a.x - px, a.y - py) < 110) {
         a.here = true;
         game.guide = null;
-        this.host.toast(`Here: flats from ${money(a.from)}. Stop beside a building with a green $ sign to buy one.`, 'info', 9000);
+        this.host.toast(`Here: worn-down flats for ${money(this.fixerPrice(a.lots[0]))}. Stop beside a building with a green $ sign to buy one.`, 'info', 9000);
       }
-      if (a.here) game.guide = null;
       return;
     }
-    if (this.mission !== 'none' || this.offered || !this.host.card) return;
-    // between runs, with no package on board, and with the cash for the cheapest flat here
-    if (!game.run.over || game.job) return;
-    const cheapest = Math.min(...world.lots.filter((l) => l.kind === 'flats').map((l) => l.price));
-    if (!Number.isFinite(cheapest) || game.cash < cheapest) return;
+    if (r?.stage === 'buy' && first) {
+      // enough for the rest of the building: say so once, and point the way
+      const lot = this.renoLot();
+      if (lot && !this.noted.has('rest') && this.budget() >= Math.max(0, lot.whole - first.paid)) {
+        this.noted.add('rest');
+        this.toBuilding = true;
+        this.host.toast(`You have enough for the rest of your building: ${money(Math.max(0, lot.whole - first.paid))}. Follow the arrow and stop beside it.`, 'good', 9000);
+      }
+    }
+    if (this.toBuilding) {
+      const lot = this.renoLot();
+      const n = lot && world.roads.nearest(lot.x, lot.y, 200, 'traffic');
+      const [px, py] = game.pos();
+      if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job) {
+        if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.toBuilding = false;
+        if (game.guide && !game.job) game.guide = null;
+      } else {
+        const [rx, ry] = world.roads.point(n.line, n.s);
+        game.guide = { x: rx, y: ry };
+      }
+    }
+    if (r) return;
+    if (this.homes.homes.length) {
+      this.setReno({ stage: 'done' });
+      return;
+    }
+    // no home yet: a word after the first delivery, and the offer after the second
+    const d = game.delivered;
+    if (d === 1 && !this.noted.has('one')) {
+      this.noted.add('one');
+      this.say('One more delivery, and you can buy yourself some property: your first flat.');
+    }
+    if (d < FIXER_AFTER || game.cash < FIXER_MIN || this.offered || !this.host.card) return;
+    if (!game.run.over) {
+      if (!this.noted.has('run')) {
+        this.noted.add('run');
+        this.say('Enough for a first flat. Finish the run, and you will be shown where.');
+      }
+      return;
+    }
+    if (game.job) return;
     this.offered = true;
+    const price = Math.floor(game.cash / 10) * 10;
     this.host.card(
       'Private mission: your first home',
-      `You have ${money(game.cash)}: enough for a flat. Not far from here is a part of town where flats are cheap. Drive there, stop beside a building with a green $ sign, and buy your first flat. A home pays you rent each day you come back to the game.`,
+      `You have ${money(game.cash)}. Not far from here, a few buildings have flats with worn-down walls, and they sell cheap: one is yours for ${money(price)}. Drive there, stop beside a building with a green $ sign, and buy it.`,
       'Show me the place',
       'Later',
       (yes) => {
         if (!yes) return;
-        this.mission = 'on';
-        storeMission('on');
+        this.setReno({ stage: 'find', price });
         this.missionTick();
       },
     );
   }
 
-  /** A part of town near the player where flats are cheap: up to six of them marked, and a spot on the street to drive to. */
+  /** A part of town near the player with cheap flats in buildings of a few flats: up to six marked, and a spot on the street to drive to. */
   private pickArea(): HomesUi['area'] {
     const { game } = this.host;
     const world = this.world!;
     const [px, py] = game.pos();
     // within reach, and not at the square's very edge, where the next square takes over
-    const flats = world.lots
-      .filter((l) => l.kind === 'flats' && !this.owned.has(l) && Math.hypot(l.x - px, l.y - py) < 800 && Math.max(Math.abs(l.x), Math.abs(l.y)) < world.half - 120)
-      .sort((a, b) => a.price - b.price);
+    const all = world.lots.filter((l) => l.kind === 'flats' && !this.owned.has(l) && Math.hypot(l.x - px, l.y - py) < 800 && Math.max(Math.abs(l.x), Math.abs(l.y)) < world.half - 120);
+    // a building of 3 to 5 flats, so that repairing it is a few jobs; else the smallest there are
+    const fit = all.filter((l) => l.units >= UNITS_MIN && l.units <= UNITS_MAX);
+    const flats = (fit.length >= 2 ? fit : [...all].sort((a, b) => a.units - b.units).slice(0, 12)).sort((a, b) => a.price - b.price);
     if (!flats.length) return null;
-    const affordable = flats.filter((l) => l.price <= game.cash);
-    const cheap = affordable.length >= 3 ? affordable.slice(0, Math.max(5, Math.ceil(flats.length * 0.3))) : flats.slice(0, 5);
+    const cheap = flats.slice(0, Math.max(5, Math.ceil(flats.length * 0.3)));
     let best = cheap[0];
     let score = -Infinity;
     for (const c of cheap) {
@@ -266,19 +338,67 @@ export class HomesUi {
     const y = group.reduce((s, l) => s + l.y, 0) / group.length;
     const n = world.roads.nearest(x, y, 200, 'traffic');
     const [rx, ry] = n ? world.roads.point(n.line, n.s) : [x, y];
-    return { x, y, rx, ry, from: group[0].price, marks: group.map((l) => world.mark(forSaleIcon(), l.x, l.y)), here: false };
+    // their walls look it
+    for (const l of group) world.model.paintBuilding(l.poly, WORN);
+    return { x, y, rx, ry, lots: group, marks: group.map((l) => world.mark(forSaleIcon(), l.x, l.y)), here: false };
   }
 
-  private dropArea(): void {
+  private dropArea(keep?: Lot): void {
     for (const m of this.area?.marks ?? []) m.remove();
+    for (const l of this.area?.lots ?? []) if (l !== keep) this.world?.model.paintBuilding(l.poly, null);
     this.area = null;
     this.host.game.guide = null;
   }
 
-  private endMission(): void {
-    this.dropArea();
-    this.mission = 'done';
-    storeMission('done');
+  /** A package for the building is on board: the first time, the whole plan. */
+  private specialTaken(): void {
+    const r = this.reno;
+    if (!r || r.told || !this.host.card) return;
+    this.setReno({ ...r, told: true });
+    const others = Math.max(1, (r.units ?? 2) - 1);
+    this.host.card(
+      'Mission: repair your building',
+      `This package goes to your building. ${r.stage === 'flat' ? 'Your flat’s walls are worn down, and it pays no rent until it is repaired: deliver this, and it is. ' : ''}Then the rest of the building is yours to buy: ${others} more ${others === 1 ? 'flat' : 'flats'}. Each package from a fuel, fire or police station repairs one flat, and each repaired flat adds rent. When every flat is done, the outside gets a fresh coat in the colour you choose. Between them, any other job pays as always.`,
+      'Let’s go',
+      '',
+      () => undefined,
+    );
+  }
+
+  /** A package reached the building: the next step. */
+  private specialDone(): void {
+    const r = this.reno;
+    const first = this.homes.homes[0];
+    if (!r || !first) return;
+    const units = r.units ?? 2;
+    if (r.stage === 'flat') {
+      this.setReno({ ...r, stage: 'buy' });
+      const lot = this.renoLot();
+      const rest = lot ? ` Next, the rest of the building: ${units - 1} ${units - 1 === 1 ? 'flat' : 'flats'} for ${money(Math.max(0, lot.whole - first.paid))}. Stop beside it to buy.` : '';
+      this.say(`Your flat is repaired: from tomorrow it pays ${money(first.rent)} each day you come back.${rest}`, 'good', 10000);
+    } else if (r.stage === 'rest') {
+      const fixed = (r.fixed ?? 0) + 1;
+      if (fixed >= units - 1) {
+        this.setReno({ ...r, stage: 'paint', fixed });
+        this.say('Every flat is repaired. One more package from a station: paint for the outside.', 'good', 10000);
+      } else {
+        this.setReno({ ...r, fixed });
+        this.say(`Flat ${fixed + 1} of ${units} is repaired: it adds ${money(first.rent / units)} rent from tomorrow. The station symbols blink for the next.`, 'good', 9000);
+      }
+    } else if (r.stage === 'paint') {
+      this.setReno({ stage: 'done' });
+      const lot = this.renoLot();
+      if (lot) this.world?.model.paintBuilding(lot.poly, first.colour ?? null);
+      this.toBuilding = true;
+      this.host.card?.(
+        'Your building is done',
+        `All ${units} flats are repaired, and the building pays ${money(first.rent)} each day you come back. The paint is there: follow the arrow, stop beside your building, and choose its colour.`,
+        'Go on',
+        '',
+        () => undefined,
+      );
+    }
+    this.shown = '';
   }
 
   /** A new square: mark the homes in it. */
@@ -293,8 +413,13 @@ export class HomesUi {
     // the mission's area is picked again in the new square
     this.area = null;
     this.host.game.guide = null;
-    // painted homes
-    for (const [lot, home] of this.owned) if (home.colour) world.model.paintBuilding(lot.poly, home.colour);
+    // painted homes; the building being repaired still has its worn-down walls
+    const first = this.homes.homes[0];
+    const worn = this.reno && this.reno.stage !== 'done';
+    for (const [lot, home] of this.owned) {
+      if (worn && home === first) world.model.paintBuilding(lot.poly, WORN);
+      else if (home.colour) world.model.paintBuilding(lot.poly, home.colour);
+    }
   }
 
   /** In the home plate, the banks' symbols: on the roof (or by the street, where one is made up) and on the maps. */
@@ -334,7 +459,7 @@ export class HomesUi {
   /** Pay the rent of a new day, once. On arrival, say so. */
   payRent(arriving = false): number {
     if (!this.homes.homes.length) return 0;
-    const due = rentDue(this.homes, Date.now());
+    const due = dayOf(Date.now()) === this.homes.paidDay ? 0 : this.rentPerVisit();
     if (due < 1) return 0;
     this.homes.paidDay = dayOf(Date.now());
     saveHomes(this.homes);
@@ -351,14 +476,27 @@ export class HomesUi {
   }
 
   /** Buy a lot of the square being played. */
+  /** Whether a kind of home can be bought at a lot: the rest of the building being repaired opens early. */
+  private open(lot: Lot, what: 'flat' | 'house' | 'building'): boolean {
+    if (canBuy(this.homes, what)) return true;
+    return what === 'building' && this.reno?.stage === 'buy' && this.homeOf(lot) === this.homes.homes[0];
+  }
+
+  /** A worn-down flat of the mission, sold for less. */
+  private worn(lot: Lot): boolean {
+    return this.reno?.stage === 'find' && !this.homes.homes.length && !!this.area?.lots.includes(lot);
+  }
+
   buy(lot: Lot, what: 'flat' | 'house' | 'building'): boolean {
     const { game } = this.host;
     const had = this.homeOf(lot);
+    const worn = what === 'flat' && this.worn(lot);
     // Prices are ranked within each loaded square, so a later square can value the same
     // building below what the flat cost. Credit that payment, but never refund cash on a buy.
-    const price = what === 'building' ? Math.max(0, lot.whole - (had?.paid ?? 0)) : lot.price;
+    const price = what === 'building' ? Math.max(0, lot.whole - (had?.paid ?? 0)) : worn ? this.fixerPrice(lot) : lot.price;
     const pay = payFrom(price, game.cash, this.saved, this.atPlate);
-    if (!pay || !canBuy(this.homes, what) || (had && what !== 'building') || had?.kind === 'building') return false;
+    if (!pay || !this.open(lot, what) || (had && what !== 'building') || had?.kind === 'building') return false;
+    const restOfReno = !!had && had === this.homes.homes[0] && this.reno?.stage === 'buy';
     // the rent so far goes out first, so the new home's rent starts now
     this.payRent();
     // a first home starts paying tomorrow
@@ -384,13 +522,21 @@ export class HomesUi {
     this.host.save();
     countPlay('home', what);
     if (first) {
-      this.endMission();
+      this.dropArea(worn ? lot : undefined);
+      // a worn-down flat is repaired, building and all; any other first home has nothing to repair
+      this.setReno(worn ? { stage: 'flat', units: lot.units } : { stage: 'done' });
+      if (worn) this.world!.model.paintBuilding(lot.poly, WORN);
       // this town is now the home plate: its banks show
       this.plate = homePlate(this.homes);
       this.showBanks();
     }
     const mine = this.homeOf(lot)!;
-    if (first && this.host.firstHome) this.host.firstHome(describe(lot, what), money(mine.rent));
+    if (restOfReno) {
+      this.setReno({ ...this.reno!, stage: 'rest', fixed: 0 });
+      this.toBuilding = false;
+      const others = lot.units - 1;
+      this.host.toast(`The whole building is yours.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the station symbols blink again, and each repaired flat adds rent.`, 'good', 10000);
+    } else if (first && this.host.firstHome) this.host.firstHome(describe(lot, what), money(mine.rent), worn);
     else this.host.toast(`It's yours: ${describe(lot, what)}.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} It pays ${money(mine.rent)} rent each day you come back.`, 'good', 6000);
     this.shown = '';
     this.look();
@@ -417,7 +563,7 @@ export class HomesUi {
       }
     }
     if (bank) found = null;
-    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''}` : '';
+    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
     this.panel.hidden = !shown;
@@ -445,7 +591,7 @@ export class HomesUi {
     };
     const button = (text: string, price: number, what: 'flat' | 'house' | 'building') => {
       const b = document.createElement('button');
-      const open = canBuy(this.homes, what);
+      const open = this.open(found!, what);
       b.textContent = open ? `${text}  ${money(price)}` : `${text}: opens ${opensAfter(what)}`;
       b.disabled = !open || this.budget() < price;
       b.addEventListener('click', () => this.buy(found!, what));
@@ -455,6 +601,17 @@ export class HomesUi {
     if (had) {
       title.textContent = had.kind === 'building' ? 'Your building' : had.kind === 'house' ? 'Your house' : 'Your flat';
       this.panel.append(title);
+      const r = this.reno;
+      if (had === this.homes.homes[0] && r && r.stage !== 'done' && r.stage !== 'find') {
+        const units = r.units ?? found.units;
+        if (r.stage === 'flat') line('The walls are worn down: it pays no rent until it is repaired. Take a package from a blinking fuel, fire or police station.');
+        else if (r.stage === 'buy') {
+          line(`Repaired: pays ${money(had.rent)} rent each day you come back. The other ${units - 1} flats are for sale.`);
+          button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
+        } else if (r.stage === 'rest') line(`${1 + (r.fixed ?? 0)} of ${units} flats repaired: pays ${money(this.rentOf(had))} rent each day you come back. A package from a blinking station repairs the next.`);
+        else line(`Every flat is repaired: pays ${money(had.rent)} rent each day you come back. One more package from a station brings the paint for the outside.`);
+        return;
+      }
       line(`Pays ${money(had.rent)} rent each day you come back.`);
       if (had.kind === 'flat') button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
       else this.paints(found, had);
@@ -462,6 +619,14 @@ export class HomesUi {
     }
     title.textContent = 'For sale';
     this.panel.append(title);
+    if (this.worn(found)) {
+      const price = this.fixerPrice(found);
+      title.textContent = 'For sale, worn down';
+      line(`A flat in ${floorsA(found.floors)} building${on(found.street)}, ${found.units} flats. The walls are worn down: it pays rent once it is repaired. ${money(price)}, not ${money(found.price)}.`);
+      button('Buy the worn-down flat', price, 'flat');
+      if (this.budget() < price) line(`You have ${money(game.cash)}: a delivery or two more.`);
+      return;
+    }
     if (found.kind === 'house') {
       line(`A house${on(found.street)}. Pays ${money(rentFor(found.price))} rent each day you come back.`);
       button('Buy the house', found.price, 'house');
@@ -528,7 +693,7 @@ export class HomesUi {
       return el;
     };
     const owned = this.homes.homes.length;
-    if (owned) p(`Your ${owned === 1 ? 'home pays' : `${owned} homes pay`} ${money(rentPerVisit(this.homes))} rent each day you come back${rent ? `. Paid today: ${money(rent)}` : ''}.`, 'small');
+    if (owned) p(`Your ${owned === 1 ? 'home pays' : `${owned} homes pay`} ${money(this.rentPerVisit())} rent each day you come back${rent ? `. Paid today: ${money(rent)}` : ''}.`, 'small');
     if (!free.length) {
       box.hidden = !owned;
       return;

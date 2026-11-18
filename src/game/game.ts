@@ -92,6 +92,8 @@ export interface Job {
   kind: JobKind;
   /** how whole the car was when the load came on board */
   hp0: number;
+  /** a mission's package, going to `Game.special` */
+  special?: boolean;
 }
 
 export interface Hud {
@@ -264,6 +266,15 @@ export class Game {
   held = false;
   /** A spot an add-on sends the player to (a mission's): the arrow points there, unless a package is on board. */
   guide: { x: number; y: number } | null = null;
+  /**
+   * A mission's drop-off, such as the player's own building. While it is set, the packages at the
+   * stations blink in open play, and whichever is taken goes there, with the line for its kind.
+   */
+  special: { at: LngLat; say: Record<JobKind, string> } | null = null;
+  /** A package for `special` has been picked up (its kind). */
+  onSpecialTaken: (kind: JobKind) => void = () => undefined;
+  /** A package for `special` has been delivered. */
+  onSpecialDone: () => void = () => undefined;
   /** Something that makes a noise has happened; `strength` from 0 to 1 where it varies. */
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
@@ -1400,6 +1411,7 @@ export class Game {
         } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
+        if (j.special) this.onSpecialDone();
         this.onSave();
         if (!r.over && r.done >= r.of) {
           r.over = true;
@@ -1433,8 +1445,25 @@ export class Game {
           metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
         }
         const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
+        // a mission's package from a station: it goes to the mission's place, where a road leads there
+        const special = !leg && this.run.over && m.kind ? this.special : null;
+        if (special) {
+          const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
+          // the street at the door where a car may go (an old town's lanes too), else the nearest main road
+          const n = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10 ? w.roads.nearest(sx, sy, 60, 'drive') ?? w.roads.nearest(sx, sy, 200, 'traffic') : null;
+          if (n) {
+            const cand = this.newMarker('#ffd400', { line: n.line, s: n.s, dir: 1 });
+            const f = this.fieldOf(cand);
+            const r = f && w.roads.route(f, px, py);
+            if (r) {
+              marker = cand;
+              metres = r.metres;
+            } else this.scene.remove(cand.mesh);
+          }
+        }
+        const isSpecial = !!(special && marker);
         // a sight or public place at a fitting distance makes the drop-off, where there is one
-        const sights = leg ? [] : w.sights.filter((s) => {
+        const sights = leg || marker ? [] : w.sights.filter((s) => {
           const d2 = Math.hypot(s.x - px, s.y - py);
           return d2 > near * 0.8 && d2 < far * 1.5;
         });
@@ -1462,13 +1491,15 @@ export class Game {
           rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, 'Rush job: a short clock, and every second left over pays three times'],
           clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
         }[kind] as [number, number, string];
-        this.job = { to: marker, metres, left: clock, pay, kind, hp0: this.car ? this.car.hp : 100 };
+        // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
+        this.job = { to: marker, metres, left: isSpecial ? clock + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}) };
         this.from = m.at;
         this.lastFrom = m.at;
         this.routeT = 0;
         for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
-        this.onToast(say, 'info');
+        this.onToast(isSpecial ? special!.say[kind] : say, 'info');
         this.onSound('pickup');
+        if (isSpecial) this.onSpecialTaken(kind);
         return;
       }
       if (d > 1100 && !sent) {
@@ -1628,12 +1659,21 @@ export class Game {
     this.job = null;
   }
 
+  /** Whether the mission's drop-off is in the square being played, where a package can be taken to it. */
+  specialHere(): boolean {
+    if (!this.special) return false;
+    const [x, y] = this.world.proj.toLocal(this.special.at.lon, this.special.at.lat);
+    return Math.abs(x) < this.world.half - 10 && Math.abs(y) < this.world.half - 10;
+  }
+
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
+    // a mission waits for a package from a station: those blink
+    const blink = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35;
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : [])]) {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
-      m.mesh.visible = inside;
+      m.mesh.visible = inside && !(blink && m.kind);
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);

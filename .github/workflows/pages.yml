@@ -1,9 +1,7 @@
 name: Deploy to GitHub Pages
 
-# Builds and publishes the game. Run it by hand from the Actions tab: the game is not public
-# yet, so nothing is published on a push.
-# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
-# To publish on every push to main later, add `push: { branches: [main] }` under `on`.
+# Publishes the built game in game/ as it is. Nothing is built here: the source is private.
+# Run it by hand from the Actions tab after new game files land on main.
 
 on:
   workflow_dispatch:
@@ -16,33 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type-check and build
-        run: npm run build
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: dist
-
   deploy:
     name: Deploy
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -51,6 +24,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v6
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: game
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

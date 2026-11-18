@@ -49,7 +49,10 @@ the streets, buildings, water and hills come from the same map squares as
   cheap and dear streets: a dense part of town, a park, water or a sight close by raise it; a big road or
   railway outside and a district of halls lower it. The cheapest flats cost about one run's pay. Where a
   place has hardly any blocks of flats, its bigger houses hold flats. Owned buildings carry a yellow house on
-  the roof and on both maps. Each player owns their own copy of the city. What you own is kept in the browser
+  the roof and on both maps. **Your homes**, on the start screen and the pause card once you own one, lists
+  them by town with what each pays: *Go there* starts beside one, and in the town you are in, *Show the way*
+  points the arrow at it. Cash and homes come along to every place you play: a new place is not a new game.
+  Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
 - **Flats first.** A first home is a flat; houses open with your 3rd home, whole buildings with your 6th.
   A house or whole building you own can be painted, from the panel beside it. A player with no home who
@@ -209,6 +212,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/game/game.ts`: you, traffic, people, police, jobs, camera.
 - `src/game/homes.ts`: which buildings are for sale and their prices, what the player owns, and the rent.
   `src/homesUi.ts`: the offer after a run, the panel beside a building, the roof marks and the rent on return.
+  `src/homesList.ts`: the list of homes by town, from the start screen and the pause card.
 - `src/addon.ts`: where an extra feature plugs in. The game loads an add-on only when it is handed its
   address (`loadAddon(address)`); on its own it loads none.
   For such a file the game can stand a car in the world, take one out, lay a ring, put a symbol on a

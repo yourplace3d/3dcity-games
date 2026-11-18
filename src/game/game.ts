@@ -1449,9 +1449,11 @@ export class Game {
         const special = !leg && this.run.over && m.kind ? this.special : null;
         if (special) {
           const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
-          // the street at the door where a car may go (an old town's lanes too), else the nearest main road
-          const n = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10 ? w.roads.nearest(sx, sy, 60, 'drive') ?? w.roads.nearest(sx, sy, 200, 'traffic') : null;
-          if (n) {
+          // the street at the door where a car may go (an old town's lanes too), else the nearest main
+          // road: the lane at the door can be a yard's driveway that no road leads to
+          const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
+          for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
+            if (!n || marker) continue;
             const cand = this.newMarker('#ffd400', { line: n.line, s: n.s, dir: 1 });
             const f = this.fieldOf(cand);
             const r = f && w.roads.route(f, px, py);

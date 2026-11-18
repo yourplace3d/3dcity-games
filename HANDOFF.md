@@ -197,7 +197,7 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   made-up one (dashed ring) where a part of town has none, by the same rule as the fuel, fire and police
   stations; a symbol, never a name. They show only in the home plate, from the first home on; the HUD
   shows "Bank $…" under the cash. Kept in `3da-bank`, so saving online carries it. No taking money out.
-  Built on branch `claude/bank`, not deployed. Raised by the owner for later, not built: cash not paid in
+  Built on branch `claude/bank`; live since 18 November 2026. Raised by the owner for later, not built: cash not paid in
   could be lost between visits ("you got to take it there or you will start with zero when you come back").
   Also seen on the owner's iPad: the panel beside a building sits over the minimap and under the radio
   hint, top right; not changed yet.
@@ -216,7 +216,27 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
     150 m of each other, within 800 m), marks up to six of them with a green $ sign, and the arrow (green)
     points there (`Game.guide`); on arrival it says from what price. Done with the first home, however
     bought. "Later" asks again on the next visit. Kept in `3da-mission`.
-  Built on branch `claude/bank`, with the banks; not deployed.
+  Built on branch `claude/bank`, with the banks; live since 18 November 2026, with the mission rebuilt as below.
+- **The first home as a worn-down flat, and a list of homes (18 November 2026).** The private mission became
+  the worn-down flat (`src/game/renovation.ts`, kept in `3da-reno`): after two deliveries, flats in buildings
+  of 3 to 5 flats sell for what the player has; packages from the stations repair the flat, then the rest of
+  the building flat by flat, and a last one brings the paint. A player who owns a home already skips it.
+  Live since 18 November (deployed 16:24 and 16:39 UTC, main at 8d4844f).
+  A debugging check the same day played the whole mission through in a browser on real Berlin tiles and
+  found: a building whose nearest lane is a yard's driveway (Mühlendamm, the first one the mission picked)
+  never got a package, so its flat could never be repaired; rent came in on the day of the repair, though
+  the game says "from tomorrow"; two wording slips. Fixed on branch `claude/project-thread-sa8i1n`, not live
+  yet. Left for the owner: the offer card says "one is yours for $<all your cash>" even where the flats cost
+  far less ($50,000 against $1,400 for a player from before homes).
+  The owner then played the live game on the iPad in a place never played before and found $10,998 and no
+  guide to a first flat: the browser carried their earlier game (cash, deliveries and a home; the "Bank"
+  line under the cash shows only with a home), and the mission is for players without one. Asked for "a
+  menu to show where homes are owned already": "Your homes (n)" on the start screen and the pause card, once
+  a home is owned, lists the homes by town (within 15 km of the town's first one), the home plate first,
+  with what each pays and how far the repairs are. "Go there" starts beside one; "Show the way" points the
+  arrow at one in the town being played (`src/homesList.ts`). Offered, not built: a "Show me flats nearby"
+  button on a house that is still locked, since a player with one or two homes in a street of houses finds
+  nothing to buy there and nothing says where the flats are.
 - **Supabase's GitHub link: not now (owner, 17 November 2026).** The dashboard shows "No repository
   connected"; that is Supabase's optional GitHub link (changes in `supabase/migrations/` on main go live by
   themselves, and test copies of the database per pull request on a paid plan). Not set up: the Supabase

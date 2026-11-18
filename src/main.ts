@@ -7,7 +7,10 @@ import { Game, MAX_CASH, RUN_JOBS, type Course, type Hud } from './game/game';
 import { linkHome, packChallenge, readChallenge, type Challenge } from './challenge';
 import { cameByVideo, countMade, countOpened, countPlay, countTime, countVisit, playingAt } from './linkCount';
 import { arrive as cloudArrive, changed, savedName, savingOn } from './cloud';
-import { loadHomes } from './game/homes';
+import { loadHomes, type Home } from './game/homes';
+import { loadReno, type Reno } from './game/renovation';
+import { loadSaved } from './game/bank';
+import { drawHomes, homeTowns, isCoords } from './homesList';
 import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
 import { addonHost } from './addon';
@@ -218,6 +221,7 @@ function setScreen(screen: 'start' | 'play'): void {
   controls.enabled = playing;
   if (!playing) showMap(false);
   $('btn-resume').hidden = !game?.world;
+  homesButtons();
 }
 
 async function go(at: LngLat, name?: string, sent: Challenge | null = null): Promise<void> {
@@ -1079,6 +1083,7 @@ function setPause(on: boolean): void {
   $('pause').hidden = !on;
   controls.enabled = playing && !on;
   if (!on) return;
+  homesButtons();
   const jobs = !!game?.run.over;
   $('btn-switch').hidden = !!secret;
   if (secret) {
@@ -1119,6 +1124,11 @@ addEventListener('keydown', (e) => {
   if (e.repeat || (e.code !== 'KeyP' && e.code !== 'Escape') || (e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
   // Esc closes the map first; that is handled where the map is
   if (mapOpen) return;
+  // and the list of homes before the pause card under it
+  if (!$('homes').hidden) {
+    showHomes(false);
+    return;
+  }
   if (paused) setPause(false);
   else if (playing) setPause(true);
 });
@@ -1129,6 +1139,61 @@ $('mode-run').addEventListener('click', () => setMode('run'));
 $('mode-jobs').addEventListener('click', () => setMode('jobs'));
 $('mode-guess').addEventListener('click', () => setMode('guess'));
 $('btn-drop').addEventListener('click', () => void drop());
+
+// ------------------------------------------------------------------ the player's homes, wherever they are
+
+/** What the player owns: the game's own while it runs, else what the browser keeps. */
+function owned(): { homes: Home[]; reno: Reno | null; saved: number } {
+  if (homes) return homes.mine();
+  const h = loadHomes();
+  return { homes: h.homes, reno: loadReno(h.homes.length > 0), saved: loadSaved() };
+}
+
+/** The buttons to the list of homes: once the browser owns one, and never while a city is guessed. */
+function homesButtons(): void {
+  const n = owned().homes.length;
+  for (const id of ['btn-homes', 'btn-pause-homes']) {
+    $(id).hidden = !n || !!secret;
+    $(id).textContent = `Your homes (${n})`;
+  }
+}
+
+/**
+ * The card with the player's homes, by town: a new place is not a new game, so this says what the
+ * player owns and where, and leads there. A home in the town being played gets the arrow instead.
+ */
+function showHomes(open: boolean): void {
+  $('homes').hidden = !open;
+  if (!open) return;
+  const mine = owned();
+  const towns = homeTowns(mine.homes, mine.reno);
+  const n = mine.homes.length;
+  const rent = towns.reduce((s, t) => s + t.rent, 0);
+  const plate = towns.find((t) => t.plate)?.place ?? 'your home town';
+  const who = n === 1 ? 'Your home pays' : `Your ${n} homes${towns.length > 1 ? `, in ${towns.length} towns,` : ''} pay`;
+  const bank = mine.saved ? `, and ${fmtMoney(mine.saved)} in the bank in ${plate}` : '';
+  $('homes-line').textContent = `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.`;
+  drawHomes($('homes-list'), towns, {
+    here: (h) => !secret && !!homes?.isHere(h),
+    show: (h) => {
+      showHomes(false);
+      if (paused) setPause(false);
+      setScreen('play');
+      homes?.showWay(h);
+    },
+    go: (t, h) => {
+      showHomes(false);
+      if (paused) setPause(false);
+      save();
+      setScreen('start');
+      void go({ lat: h.lat, lon: h.lon }, isCoords(t.place) ? undefined : t.place);
+    },
+  });
+}
+$('btn-homes').addEventListener('click', () => showHomes(true));
+$('btn-pause-homes').addEventListener('click', () => showHomes(true));
+$('btn-homes-close').addEventListener('click', () => showHomes(false));
+$('homes').addEventListener('click', (e) => e.target === e.currentTarget && showHomes(false));
 
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);
@@ -1250,6 +1315,8 @@ if (!BAKED && savingTrial) {
   if ((await cloudArrive((name) => confirm(`Replace the game on this device with ${name}'s saved game? The game and scoreboard here would be lost.`))) === 'reload') location.reload();
   if (savingOn() || loadHomes().homes.length) openSaving();
 }
+// a player who owns homes sees so on the start screen
+homesButtons();
 
 // a place in the link starts there straight away: coordinates, or a name to look up
 const linked = BAKED ? '' : placeFromHash(location.hash);

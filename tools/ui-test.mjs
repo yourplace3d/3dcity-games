@@ -96,7 +96,8 @@ try {
   const { packGuess } = await server.ssrLoadModule('/src/guess.ts');
   const code = packGuess({ name: 'Test', points: 900, seconds: 25, wrong: 0,
     round: { city: 'Berlin', at: { lat: 52.52, lon: 13.405 }, options: ['Berlin', 'Hamburg', 'Paris', 'London'] } });
-  await page.goto(base + '?g=' + code);
+  // leaving a loaded city takes a while where the browser draws without a graphics card (about 14 s)
+  await page.goto(base + '?g=' + code, { timeout: 60000 });
   await playing();
   await page.locator('#btn-guess').click();
   await page.getByRole('button', { name: 'Hamburg', exact: true }).click();

@@ -3,16 +3,14 @@
  * a name, carry it to another device, or stop.
  */
 
+import { shareLink } from './native';
 import { cleanName, deviceLink, fitsOnline, savedName, savingOn, startSaving, stopSaving } from './cloud';
 
 const esc = (s: string): string => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 
 async function hand(text: string, url: string): Promise<'shared' | 'copied' | 'shown'> {
   try {
-    if (document.body.classList.contains('touch') && navigator.share) {
-      await navigator.share({ text, url });
-      return 'shared';
-    }
+    if (await shareLink(text, url)) return 'shared';
     await navigator.clipboard.writeText(url);
     return 'copied';
   } catch {

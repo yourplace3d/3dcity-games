@@ -10,6 +10,7 @@ import { arrive as cloudArrive, changed, savedName, savingOn } from './cloud';
 import { loadHomes } from './game/homes';
 import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
+import { onBackButton, shareLink } from './native';
 import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
 import { fullNote } from './full';
@@ -573,8 +574,7 @@ $('btn-guess-send').addEventListener('click', async () => {
   const note = $('guess-note');
   try {
     // a phone offers its own list of apps to send with
-    if (document.body.classList.contains('touch') && navigator.share) {
-      await navigator.share({ text, url });
+    if (await shareLink(text, url)) {
       note.textContent = theirs;
       return;
     }
@@ -822,8 +822,7 @@ $('btn-challenge').addEventListener('click', async () => {
   const note = $('challenge-note');
   try {
     // a phone offers its own list of apps to send with
-    if (document.body.classList.contains('touch') && navigator.share) {
-      await navigator.share({ text, url });
+    if (await shareLink(text, url)) {
       note.textContent = theirs;
       return;
     }
@@ -1071,6 +1070,17 @@ addEventListener('keydown', (e) => {
   if (mapOpen) return;
   if (paused) setPause(false);
   else if (playing) setPause(true);
+});
+// Android's back button: closes the big map, else pauses or resumes, as Esc does
+onBackButton(() => {
+  if (mapOpen) {
+    showMap(false);
+    return true;
+  }
+  if (paused) setPause(false);
+  else if (playing) setPause(true);
+  else return false;
+  return true;
 });
 // the game does not run on while its tab is out of sight
 document.addEventListener('visibilitychange', () => document.hidden && setPause(true));

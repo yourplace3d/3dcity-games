@@ -146,3 +146,36 @@ A short report for the owner, in plain words:
 5. Anything the owner must decide.
 
 Commit the shell on `ios-shell` and push the branch. Leave `main` alone.
+
+## Android (added 18 November 2026)
+
+The same Capacitor project now has an Android app in `android/`, made with `npx cap add android`
+(Capacitor 8.6.2). It has not been built yet: the cloud session that made it has no Android SDK.
+
+On the Mac:
+
+```bash
+git checkout ios-shell && npm ci
+npm run build && npx cap sync      # copies the game into both apps
+npx cap open android               # opens Android Studio; let Gradle sync, then Run
+```
+
+Android Studio installs the SDK and an emulator on first start. A real phone needs USB debugging
+switched on (Settings → About phone → tap the build number seven times), no Google account.
+
+What the app does differently from the browser (`src/native.ts`; nothing of it loads on the web):
+- **Share:** "Challenge a friend", "Send this city on" and the saved-game link use the phone's share
+  sheet through `@capacitor/share`. Android's in-app browser has no `navigator.share`.
+- **Back button:** closes the big map, otherwise pauses or resumes like Esc. On the start screen it
+  sends the app to the background instead of closing it.
+- **Play counts:** a visit from the app is counted with the source `app`. The server takes that word
+  only once `docs/supabase/play_counts.sql` is run again; until then it is counted as `other`.
+- **Location:** Where I am asks Android for the location (permissions in `AndroidManifest.xml`).
+  No location plugin, so nothing from Google Play services is added.
+
+Symbol and splash: the road symbol on yellow (adaptive icon on Android), and the game's dark
+background with the symbol while it opens, on both phones. Signing keys (`*.jks`, `*.keystore`,
+`keystore.properties`) are kept out of git.
+
+The app id is still the placeholder `net.yourplace3d.threeda`, in `capacitor.config.ts`,
+`android/app/build.gradle` and the Xcode project. It can't change after the first store upload.

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">3DA</string>
+    <string name="title_activity_main">3DA</string>
+    <string name="package_name">net.yourplace3d.threeda</string>
+    <string name="custom_url_scheme">net.yourplace3d.threeda</string>
+</resources>

@@ -17,6 +17,8 @@
  * not keep. Where the visitor is plays no part: the square is the place on the map being played.
  */
 
+import { inApp } from './native';
+
 const TALLY = 'https://lecaoamodyjubwuvhpcq.supabase.co/rest/v1/rpc/count_link_at';
 const PLAY = 'https://lecaoamodyjubwuvhpcq.supabase.co/rest/v1/rpc/count_play';
 
@@ -143,7 +145,8 @@ function today(): string {
  * browser was here on an earlier day (or has a game saved from before visits were counted).
  */
 export function countVisit(query: URLSearchParams): void {
-  const from = visitSource(query, document.referrer, location.hostname);
+  // the phone app has no address or referrer of its own to tell where a player came from
+  const from = inApp() ? 'app' : visitSource(query, document.referrer, location.hostname);
   // read as the page opens: the game saves its first state right after, which would look like an earlier visit
   let last: string | null = null;
   let before = false;

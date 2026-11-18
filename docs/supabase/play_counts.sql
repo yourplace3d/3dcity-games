@@ -15,7 +15,7 @@ create table public.play_counts (
   primary key (day, kind, detail)
 );
 comment on table public.play_counts is
-  'Per day (UTC): visits (new: a browser seen for the first time; back: the first visit of a day by a browser seen before; detail: where it came from) and play (start: a run begun, its first package on board; run: a run of three finished; home: a home bought, detail flat/house/building; rent: rent collected on a return; guess: a round of Where am I? begun; time: how long a visit played, detail under1/1to5/5to20/over20 minutes). Counts only. Written through count_play().';
+  'Per day (UTC): visits (new: a browser seen for the first time; back: the first visit of a day by a browser seen before; detail: where it came from, app for the phone app) and play (start: a run begun, its first package on board; run: a run of three finished; home: a home bought, detail flat/house/building; rent: rent collected on a return; guess: a round of Where am I? begun; time: how long a visit played, detail under1/1to5/5to20/over20 minutes). Counts only. Written through count_play().';
 
 alter table public.play_counts enable row level security;
 -- no policies: browsers cannot read or write the table, only call count_play()
@@ -30,7 +30,7 @@ declare d text := coalesce(count_play.detail, '');
 begin
   -- only the words the game sends; anything else is dropped
   if count_play.kind not in ('new', 'back', 'start', 'run', 'home', 'rent', 'guess', 'time') then return; end if;
-  if count_play.kind in ('new', 'back') and d not in ('direct', 'youtube', 'search', 'challenge', 'link') then d := 'other'; end if;
+  if count_play.kind in ('new', 'back') and d not in ('direct', 'youtube', 'search', 'challenge', 'link', 'app') then d := 'other'; end if;
   if count_play.kind = 'home' and d not in ('flat', 'house', 'building') then d := ''; end if;
   if count_play.kind = 'time' and d not in ('under1', '1to5', '5to20', 'over20') then return; end if;
   if count_play.kind in ('start', 'run', 'rent', 'guess') then d := ''; end if;

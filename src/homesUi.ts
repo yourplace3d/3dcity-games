@@ -458,11 +458,13 @@ export class HomesUi {
 
   /** Pay the rent of a new day, once. On arrival, say so. */
   payRent(arriving = false): number {
-    if (!this.homes.homes.length) return 0;
-    const due = dayOf(Date.now()) === this.homes.paidDay ? 0 : this.rentPerVisit();
-    if (due < 1) return 0;
-    this.homes.paidDay = dayOf(Date.now());
+    const today = dayOf(Date.now());
+    if (!this.homes.homes.length || today === this.homes.paidDay) return 0;
+    // the day counts as paid even when nothing was due (a worn-down flat), so a repair pays from tomorrow
+    this.homes.paidDay = today;
     saveHomes(this.homes);
+    const due = this.rentPerVisit();
+    if (due < 1) return 0;
     const before = this.host.game.cash;
     this.host.game.cash += due;
     this.host.save();
@@ -606,7 +608,7 @@ export class HomesUi {
         const units = r.units ?? found.units;
         if (r.stage === 'flat') line('The walls are worn down: it pays no rent until it is repaired. Take a package from a blinking fuel, fire or police station.');
         else if (r.stage === 'buy') {
-          line(`Repaired: pays ${money(had.rent)} rent each day you come back. The other ${units - 1} flats are for sale.`);
+          line(`Repaired: pays ${money(had.rent)} rent each day you come back. The other ${units - 1 === 1 ? 'flat is' : `${units - 1} flats are`} for sale.`);
           button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
         } else if (r.stage === 'rest') line(`${1 + (r.fixed ?? 0)} of ${units} flats repaired: pays ${money(this.rentOf(had))} rent each day you come back. A package from a blinking station repairs the next.`);
         else line(`Every flat is repaired: pays ${money(had.rent)} rent each day you come back. One more package from a station brings the paint for the outside.`);
@@ -622,7 +624,7 @@ export class HomesUi {
     if (this.worn(found)) {
       const price = this.fixerPrice(found);
       title.textContent = 'For sale, worn down';
-      line(`A flat in ${floorsA(found.floors)} building${on(found.street)}, ${found.units} flats. The walls are worn down: it pays rent once it is repaired. ${money(price)}, not ${money(found.price)}.`);
+      line(`A flat in ${floorsA(found.floors)} building${on(found.street)}, ${found.units} flats. The walls are worn down: it pays rent once it is repaired. ${money(price)}${price < found.price ? `, not ${money(found.price)}` : ''}.`);
       button('Buy the worn-down flat', price, 'flat');
       if (this.budget() < price) line(`You have ${money(game.cash)}: a delivery or two more.`);
       return;

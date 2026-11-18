@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jobLines, readReno, rentShare, wantsJob } from '../src/game/renovation';
+import { HomesUi } from '../src/homesUi';
+import type { Home } from '../src/game/homes';
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('the way to a first home and its building', () => {
   it('starts with nothing for a new player, and with nothing to repair for one who has a home', () => {
@@ -38,5 +42,24 @@ describe('the way to a first home and its building', () => {
     expect(lines.rush).toContain('flat 3 of 5');
     expect(jobLines({ stage: 'flat', units: 3 }).clean).toContain('your flat');
     expect(jobLines({ stage: 'paint', units: 3 }).plain).toContain('Paint for the outside');
+  });
+
+  it('counts a day with only a worn-down flat as paid, so the repair pays from the next day', () => {
+    vi.stubGlobal('navigator', { webdriver: true });
+    const home: Home = { id: '1', lat: 52.5, lon: 13.4, kind: 'flat', paid: 600, rent: 144, street: '', place: '', at: 0 };
+    const game = { cash: 0 };
+    const toast = vi.fn();
+    const ui: HomesUi = Object.assign(Object.create(HomesUi.prototype), {
+      host: { game, save: vi.fn(), toast },
+      homes: { v: 1, homes: [home], paidDay: '2000-01-01' },
+      reno: { stage: 'flat', units: 4 },
+    });
+    // back on a new day: nothing due while it is worn down
+    expect(ui.payRent(true)).toBe(0);
+    // repaired later that day: its rent starts tomorrow, as the game says
+    Object.assign(ui, { reno: { stage: 'buy', units: 4, told: true } });
+    expect(ui.payRent()).toBe(0);
+    expect(game.cash).toBe(0);
+    expect(toast).not.toHaveBeenCalled();
   });
 });

@@ -551,3 +551,78 @@ Files (all under /tmp/claude-0/-home-user/19d968bc-3916-40c7-b8c9-654318434293/s
 - `final-run.mjs grid | money | fines | edge | hires`, `final-year.mjs 360`, `final-pilot.mjs`.
 - Outputs: `final-grid.md`, `final-money.md`, `final-fines.md`, `final-edge.md`, `final-hires.txt`,
   `final-year.md`.
+
+---
+
+## 11. Changes after review (18 November 2026, late)
+
+Re-running the merged rules showed two problems, and both fixes below were then tested in the simulator
+(Nuremberg, Pottenstein, Manhattan; half and cheapest buyers; casual, regular and heavy players; 180 visit
+days; 3 seeds; the headline case re-run separately and matching).
+
+### Problem 1: playing more made players poorer
+
+Each plate holds only as many homes as its team covers, and homes could never be sold. Heavy players found
+each plate 17-57 visit days earlier than regular ones, while still poor, filled its places with homes 3 to 13
+times cheaper, and were stuck with them. Started in Nuremberg, half buyer, the regular player paid $269k on
+average for a Manhattan home, the heavy player $20k. On visit day 180 the heavy player earned $388k rent a day,
+the regular one $2.71M. Once all plates ran, heavy players had nothing left to buy but more housekeepers in
+their last, cheapest plate ($19-23M spent in Titisee for $11k a day of rent).
+
+**Fix: trade up.** In a plate that already runs, a home can be sold back for **80% of what was paid** and a
+**dearer** lot in the same plate bought in the same action. Rules that keep it from becoming a money pump:
+- a sale pays a share of the price paid, never today's price;
+- selling and buying are one action, and only to a dearer lot (no selling before a hire, which is priced in
+  days of rent, and buying back after);
+- no sale of shop buildings, the first home or single flats;
+- the trade-up button works only with money above the price of the next hire (or the pilot), so trading does
+  not push the ladder back. Without this, plate 1 ran about twice as late (regular visit day 63-75 instead of
+  33-35) and plate 2 slipped by 17-22 days;
+- the new lot should cost at least twice the old one, which halves the number of trades for similar rent.
+
+80% rather than 100% or 50%: all three give the same rent within about 3%. At 100%, heavy players trade
+1,300-2,000 times in 180 days, because picking again costs nothing. At 50%, they lose $10-24M to sales.
+
+### Problem 2: driving stopped paying
+
+From the third month, open jobs brought under 1% of a regular player's income.
+
+**Fix: a pay floor.** Every delivery (open jobs, renovation and shop packages, ride-alongs, shop orders)
+pays at least **2% of what all the player's homes earn in a visit day**, or today's formula if that pays more.
+Runs of 3 stay as they are, so challenge links still compare.
+
+Jobs then bring 5-6% of a regular player's income from visit day 90 (0.4-0.6% before) and 26% of a heavy
+player's. Casual players get only 1.7-1.8%, because they play few jobs. A 1% floor gives regular players
+about 3%. A 5% floor let heavy plates run in 14 days (12 for a cheapest buyer in Manhattan), which is too fast.
+Jobs get large in dollars: from visit day 120 a regular player's delivery pays $21-68k (about $1.5-2.8k before).
+So the cash warning matters more, and fines rise to 0.2-0.9% of income for regular players and about 1% for
+heavy ones (0.1-0.5% before).
+
+### Both together (half buyer; Nuremberg / Pottenstein / Manhattan)
+
+| | player | plate 1 runs | plate 2 runs | fastest plate | rent a day, visit day 120 | rent a day, visit day 180 | jobs, share of income, days 90-180 |
+|---|---|---|---|---|---|---|---|
+| before | regular | 33 / 38 / 35 | 65 / 66 / 77 | 29 / 28 / 29 | $2.69M / $0.93M / $2.25M | $2.76M / $5.41M / $2.31M | 0.4-0.6% |
+| before | heavy | 16 / 15 / 17 | 35 / 32 / 45 | 16 / 15 / 17 | $0.38M / $0.94M / $0.73M | $0.39M / $1.42M / $0.75M | 3.5-9.9% |
+| after | regular | 33 / 38 / 35 | 65 / 66 / 76 | 28 | $3.41M / $1.06M / $2.07M | $7.49M / $6.68M / $7.79M | 5.1-6.2% |
+| after | heavy | 16 / 15 / 17 | 35 / 32 / 41 | 16 / 15 / 17 | $3.86M / $4.96M / $5.54M | $7.38M / $12.4M / $7.65M | 26% |
+
+Pacing is unchanged. Tenant chores stay at 7.5 minutes on 9 visits in 10 and 10 at worst. Trading adds up to
+24 minutes on a heavy player's busiest visit, but it is a choice, not a chore. Casual players hardly trade
+(0-1 trades in 180 days). Cheapest-buying regular players gain little.
+
+### Added to the build order
+
+- After step 7 (when plates can run on their own): **trade up**, in `src/game/homes.ts` (sale price, rules) and
+  `src/homesUi.ts` (the panel of an owned home in a plate that runs). About 1 day.
+- In step 1 or with step 5: **the pay floor**, in `src/game/game.ts` where open-job pay is set (`const base =`),
+  given the day's rent from `homesUi`. About 2 hours.
+
+### Two more open questions for the owner
+
+7. **Trade up at 80%, only in plates that run, only to a lot at least twice as dear, and only with money above
+   the next hire?** *Recommendation: yes. Without it, the players who play most end up with the poorest plates.*
+8. **Plate size in big cities.** With 25 km, all of Berlin, or Manhattan with Brooklyn and Queens, is one plate
+   of about 30 homes. A big city could instead be split into district plates, so "conquering Berlin" means
+   running several. Not simulated. *Recommendation: keep 25 km for the first release, as `bank.ts` already has
+   it, and decide after the owner has played a plate.*

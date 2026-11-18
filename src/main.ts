@@ -5,7 +5,7 @@
 
 import { Game, MAX_CASH, RUN_JOBS, type Course, type Hud } from './game/game';
 import { linkHome, packChallenge, readChallenge, type Challenge } from './challenge';
-import { cameByVideo, countMade, countOpened, countPlay, countVisit, playingAt } from './linkCount';
+import { cameByVideo, countMade, countOpened, countPlay, countTime, countVisit, playingAt } from './linkCount';
 import { arrive as cloudArrive, changed, savedName, savingOn } from './cloud';
 import { loadHomes } from './game/homes';
 import { wireCloud } from './cloudUi';
@@ -243,6 +243,16 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       game.onSave = () => save();
       game.onSound = (what, strength) => sound.play(what, strength);
       // let the last delivery's message be read before the result covers it
+      // a run is counted as started when its first package is on board
+      {
+        const g = game;
+        let counted: unknown = null;
+        g.ticks.push(() => {
+          if (BAKED || g.run.over || !g.job || counted === g.run) return;
+          counted = g.run;
+          countPlay('start');
+        });
+      }
       game.onRunEnd = (score, seconds) => {
         // up over the town while the result is read
         game!.overview();
@@ -461,6 +471,7 @@ async function drop(sent: SentGuess | null = null): Promise<void> {
     }
     if (playing && game?.world && (sent || !game.world.thin)) {
       played(round.city);
+      if (!BAKED) countPlay('guess');
       minimap.secret = bigmap.secret = true;
       document.body.classList.add('secret');
       $('btn-guess').hidden = false;
@@ -943,12 +954,15 @@ function paint(h: Hud): void {
 }
 
 let before = 0;
+/** time spent playing in this visit (driving or walking, not paused, not on a card), for the counter */
+let playedS = 0;
 function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
   if (!game?.world || !playing || mapOpen || paused || guessing || welcoming) sound.hear(null);
   if (paused || guessing || welcoming) return;
+  if (game?.world && playing && !mapOpen) playedS += Math.min(dt, 1);
   if (!game?.world || !playing) {
     // behind the result of a run the camera goes on rising
     if (game?.world && fresh && !$('result').hidden) {
@@ -1217,6 +1231,7 @@ const code = BAKED ? null : new URLSearchParams(location.search).get('c');
 const sentRun = code ? readChallenge(code) : null;
 if (!BAKED) cameByVideo(new URLSearchParams(location.search));
 if (!BAKED) countVisit(new URLSearchParams(location.search));
+if (!BAKED) countTime(() => playedS);
 if (sentRun) countOpened(sentRun.course.start);
 const sentGuess = BAKED || sentRun ? null : readGuess(new URLSearchParams(location.search).get('g') ?? '');
 if (sentGuess) countOpened(sentGuess.round.at);

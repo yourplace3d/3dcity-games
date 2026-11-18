@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { visitSource } from '../src/linkCount';
+import { timeSpan, visitSource } from '../src/linkCount';
 
 const q = (s: string) => new URLSearchParams(s);
 
@@ -16,5 +16,11 @@ describe('where a visit came from', () => {
     expect(visitSource(q(''), 'https://m.youtube.com/watch', 'x.io')).toBe('youtube');
     expect(visitSource(q(''), 'https://www.reddit.com/r/x', 'x.io')).toBe('link');
     expect(visitSource(q(''), 'not an address', 'x.io')).toBe('direct');
+  });
+});
+
+describe('time played', () => {
+  it('is sent as one of four spans', () => {
+    expect([0, 59, 60, 299, 300, 1199, 1200, 9000].map(timeSpan)).toEqual(['under1', 'under1', '1to5', '1to5', '5to20', '5to20', 'over20', 'over20']);
   });
 });

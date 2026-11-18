@@ -165,7 +165,34 @@ export function countVisit(query: URLSearchParams): void {
   });
 }
 
-/** Something in play: a run of three finished, a home bought, rent collected on a return. */
-export function countPlay(kind: 'run' | 'home' | 'rent', detail = ''): void {
+/**
+ * Something in play: a run started (its first package on board) or finished, a home bought, rent
+ * collected on a return, a round of Where am I? begun.
+ */
+export function countPlay(kind: 'start' | 'run' | 'home' | 'rent' | 'guess', detail = ''): void {
   send(kind, detail);
+}
+
+/** How long a visit played, as one of four spans: what is sent is the span, not the time. */
+export function timeSpan(seconds: number): string {
+  return seconds < 60 ? 'under1' : seconds < 300 ? '1to5' : seconds < 1200 ? '5to20' : 'over20';
+}
+
+/**
+ * The time played in this visit, counted once when the page is first hidden or closed (a later
+ * return to the same page is not counted again). `seconds` gives the time spent driving or walking.
+ */
+export function countTime(seconds: () => number): void {
+  let touched = false;
+  let sent = false;
+  void person.then(() => (touched = true));
+  const leave = (): void => {
+    if (sent || !touched) return;
+    sent = true;
+    send('time', timeSpan(seconds()));
+  };
+  if (typeof addEventListener === 'function') {
+    addEventListener('pagehide', leave);
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && leave());
+  }
 }

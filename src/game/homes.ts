@@ -326,7 +326,40 @@ export interface Home {
   place: string;
   /** when it was bought (ms) */
   at: number;
+  /** the colour it is painted (#rrggbb), for a house or a whole building; none: the map's own */
+  colour?: string;
 }
+
+// ---------------------------------------------------------------- what can be bought when
+
+/** A first home is a flat: houses open once this many homes are owned */
+export const HOUSES_AFTER = 3;
+/** and whole buildings of flats once this many */
+export const BUILDINGS_AFTER = 6;
+
+/** Whether a kind of home can be bought yet: flats first, then houses, then whole buildings. */
+export function canBuy(h: Homes, what: Home['kind']): boolean {
+  if (what === 'flat') return true;
+  return h.homes.length >= (what === 'house' ? HOUSES_AFTER : BUILDINGS_AFTER);
+}
+
+/** "after your 3rd home": what opens a kind of home */
+export function opensAfter(what: Home['kind']): string {
+  const n: number = what === 'house' ? HOUSES_AFTER : BUILDINGS_AFTER;
+  return `after your ${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'} ${what === 'house' ? 'flat' : 'home'}`;
+}
+
+/** Colours a whole house or building can be painted. */
+export const PAINTS: Array<{ name: string; hex: string }> = [
+  { name: 'white', hex: '#f2efe8' },
+  { name: 'cream', hex: '#efe2bd' },
+  { name: 'yellow', hex: '#e8c35a' },
+  { name: 'terracotta', hex: '#c9714a' },
+  { name: 'red', hex: '#a8423a' },
+  { name: 'green', hex: '#8fae86' },
+  { name: 'blue', hex: '#7ea3c4' },
+  { name: 'grey', hex: '#8a8f96' },
+];
 
 export interface Homes {
   v: 1;
@@ -346,7 +379,7 @@ export function dayOf(ms: number): string {
  * streets and places once each, a home as [map number, lat, lon, kind letter, paid, street, place, day
  * bought]. The rent is not kept: it follows from the price paid.
  */
-type Kept = { v: 2; d: string; s: string[]; p: string[]; h: Array<[string, number, number, string, number, number, number, number]> };
+type Kept = { v: 2; d: string; s: string[]; p: string[]; h: Array<[string, number, number, string, number, number, number, number, string?]> };
 const KINDS = { flat: 'f', house: 'h', building: 'b' } as const;
 const DAY_MS = 86400000;
 
@@ -362,7 +395,7 @@ export function packHomes(h: Homes): string {
     d: h.paidDay,
     s: streets,
     p: places,
-    h: h.homes.map((x) => [x.id, Math.round(x.lat * 1e5) / 1e5, Math.round(x.lon * 1e5) / 1e5, KINDS[x.kind], x.paid, index(streets, x.street), index(places, x.place), Math.floor(x.at / DAY_MS)]),
+    h: h.homes.map((x) => [x.id, Math.round(x.lat * 1e5) / 1e5, Math.round(x.lon * 1e5) / 1e5, KINDS[x.kind], x.paid, index(streets, x.street), index(places, x.place), Math.floor(x.at / DAY_MS), ...(x.colour ? [x.colour] : [])] as Kept['h'][number]),
   };
   return JSON.stringify(kept);
 }
@@ -374,7 +407,7 @@ export function readHomes(raw: string | null, now = Date.now()): Homes {
     if (typeof x.id !== 'string' || !['flat', 'house', 'building'].includes(x.kind ?? '')) return null;
     if (typeof x.lat !== 'number' || !Number.isFinite(x.lat) || Math.abs(x.lat) > 90 || typeof x.lon !== 'number' || !Number.isFinite(x.lon) || Math.abs(x.lon) > 180) return null;
     if (typeof x.paid !== 'number' || !Number.isSafeInteger(x.paid) || x.paid < 0 || typeof x.at !== 'number' || !Number.isFinite(x.at) || !Number.isFinite(new Date(x.at).getTime())) return null;
-    return { id: x.id, lat: x.lat, lon: x.lon, kind: x.kind as Home['kind'], paid: x.paid, rent: rentFor(x.paid), street: typeof x.street === 'string' ? x.street : '', place: typeof x.place === 'string' ? x.place : '', at: x.at };
+    return { id: x.id, lat: x.lat, lon: x.lon, kind: x.kind as Home['kind'], paid: x.paid, rent: rentFor(x.paid), street: typeof x.street === 'string' ? x.street : '', place: typeof x.place === 'string' ? x.place : '', at: x.at, ...(typeof x.colour === 'string' && /^#[0-9a-f]{6}$/i.test(x.colour) ? { colour: x.colour } : {}) };
   };
   try {
     const h = JSON.parse(raw ?? '') as (Homes & { paidUntil?: number }) | Kept;
@@ -382,8 +415,8 @@ export function readHomes(raw: string | null, now = Date.now()): Homes {
       const kinds: Record<string, Home['kind']> = { b: 'building', h: 'house', f: 'flat' };
       const homes = h.h.flatMap((row) => {
         if (!Array.isArray(row)) return [];
-        const [id, lat, lon, k, paid, si, pi, day] = row;
-        const x = home({ id, lat, lon, kind: kinds[k], paid, street: Array.isArray(h.s) ? h.s[si] : '', place: Array.isArray(h.p) ? h.p[pi] : '', at: typeof day === 'number' ? day * DAY_MS : NaN });
+        const [id, lat, lon, k, paid, si, pi, day, colour] = row;
+        const x = home({ id, lat, lon, kind: kinds[k], paid, colour, street: Array.isArray(h.s) ? h.s[si] : '', place: Array.isArray(h.p) ? h.p[pi] : '', at: typeof day === 'number' ? day * DAY_MS : NaN });
         return x ? [x] : [];
       });
       return { v: 1, homes, paidDay: typeof h.d === 'string' ? h.d : dayOf(now) };

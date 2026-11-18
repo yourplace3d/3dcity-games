@@ -288,7 +288,21 @@ export class CityModel implements ModelSurface {
     if (!this.buildings) return;
     applyBuildingStyle(this.buildings.build, this.style);
     if (this.tint) tintBuildings(this.buildings.build, this.tint);
+    if (this.painted.size) this.specs.forEach((spec, i) => {
+      const c = this.painted.get(spec.poly);
+      if (c) paintBuildings(this.buildings!.build, [i], c);
+    });
     if (this.markPinned && this.pinned.length) paintBuildings(this.buildings.build, this.pinned, this.accent);
+  }
+
+  /** buildings painted a colour of their own (a player's house), by their outline */
+  private painted = new Map<Polygon, Color>();
+
+  /** Paint one building, found by its outline as it was handed in; null gives it back its own colour. */
+  paintBuilding(poly: Polygon, colour: string | null): void {
+    if (colour) this.painted.set(poly, new Color(colour));
+    else this.painted.delete(poly);
+    this.paint();
   }
 
   setFeatures(features: FeatureSet): void {

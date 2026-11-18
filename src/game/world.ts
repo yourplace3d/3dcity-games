@@ -26,7 +26,7 @@ import { findLots, type Lot } from './homes';
 import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
 import { stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
-import { inventServices, readReserved, readServices, serviceIcon, type Service } from './services';
+import { inventServices, readBanks, readReserved, readServices, serviceIcon, type Bank, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -330,6 +330,9 @@ export class World {
   /** fuel, fire and police stations, marked with a symbol and not named */
   readonly services: Service[] = [];
 
+  /** banks, real and made up: not drawn here; the homes put their symbol up in the player's home town */
+  readonly banks: Bank[] = [];
+
   /** the buildings that are walls here: outline in metres from the middle of the square, and height */
   buildings: Array<{ poly: Polygon; height: number; id?: string }> = [];
 
@@ -455,6 +458,11 @@ export class World {
     for (const sv of [...real.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(real, world.proj, reach, roads)]) {
       if (!world.services.some((o) => Math.hypot(o.x - sv.x, o.y - sv.y) < (o.kind === sv.kind ? 250 : 70))) world.services.push(sv);
     }
+    // banks alike, one within 250 m, and none on top of a station's symbol
+    const realBanks = readBanks(tiles, world.proj, 1e9);
+    for (const b of [...realBanks.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(realBanks, world.proj, reach, roads, ['bank'])]) {
+      if (!world.banks.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 250) && !world.services.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 70)) world.banks.push(b);
+    }
     // the map puts such a place on its building: the symbol lies on the roof, where it can be seen
     for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2, (x, y) => surfaceY(model, x, y)));
     if (!world.sights.length) world.sights.push(...townSights(tiles, world.proj, AREA_SIZE_M / 2 - 8));
@@ -465,7 +473,7 @@ export class World {
       {
         areas: data.features.areas,
         lines: data.features.lines,
-        keepClear: [...sightPts, ...world.services.map((s): [number, number] => [s.x, s.y]), ...world.reserved.map((r): [number, number] => [r.x, r.y])],
+        keepClear: [...sightPts, ...world.services.map((s): [number, number] => [s.x, s.y]), ...world.banks.map((b): [number, number] => [b.x, b.y]), ...world.reserved.map((r): [number, number] => [r.x, r.y])],
         sights: sightPts,
         streets: readNamedStreets(tiles, world.proj, AREA_SIZE_M / 2),
         half: AREA_SIZE_M / 2,

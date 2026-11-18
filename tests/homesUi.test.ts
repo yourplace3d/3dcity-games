@@ -11,7 +11,8 @@ it('does not pay the player to upgrade a flat when the newly loaded square price
   const game = { cash: 100 };
   const ui: HomesUi = Object.assign(Object.create(HomesUi.prototype), {
     host: { game, save: vi.fn(), toast: vi.fn() },
-    homes: { v: 1, homes: [home], paidDay: '2026-11-17' },
+    // whole buildings open with the 6th home
+    homes: { v: 1, homes: [home, ...Array.from({ length: 5 }, (_, i) => ({ ...home, id: `o${i}`, kind: 'flat' as const }))], paidDay: '2026-11-17' },
     owned: new Map([[lot, home]]),
     world: { proj: { toLngLat: () => ({ lat: 49, lon: 11 }) } },
     payRent: vi.fn(() => 0),

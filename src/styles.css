@@ -20,6 +20,8 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 /* above the steering area, which would otherwise swallow taps on the little map */
 #hud { position: fixed; inset: 0; z-index: 1; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 body[data-screen='start'] #hud, body[data-screen='start'] #touch { display: none; }
+#saved { color: #c9b8ff; font-weight: 600; font-size: 13px; margin-top: -4px; }
+#saved[hidden] { display: none; }
 .stats { top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); display: grid; gap: 6px; min-width: 132px; }
 #cash { font-size: 22px; color: var(--green); letter-spacing: 0.01em; }
 #heat { display: flex; gap: 5px; }
@@ -48,6 +50,7 @@ body.touch .hint kbd { display: none; }
 #arrow svg { position: absolute; width: 48px; height: 48px; left: 36px; top: 36px; transform: rotate(var(--rot, 0deg)); overflow: visible; }
 #arrow path { fill: var(--cyan); stroke: #10242a; stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke; }
 #arrow.drop path { fill: var(--yellow); stroke: #2a2400; }
+#arrow.guide path { fill: #5fd08a; stroke: #0f2a1a; }
 #arrow span { position: absolute; left: calc(60px + var(--lx, -24px)); top: calc(60px + var(--ly, 20px)); width: 60px; margin-left: -6px; white-space: nowrap; text-align: center; font: 700 14px/1 inherit; text-shadow: 0 1px 3px #000, 0 0 2px #000; }
 
 #toasts { position: absolute; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; }
@@ -308,6 +311,10 @@ html body.radio-on #minimap[data-corner='tr'] { top: calc(168px + env(safe-area-
 #forsale button { padding: 8px 12px; border-radius: 10px; border: 1px solid transparent; background: var(--green); color: #1c1f24; font-weight: 600; text-align: left; }
 #forsale button + button { background: #30353e; color: var(--ink); border-color: var(--line); }
 #forsale button:disabled { opacity: 0.45; cursor: default; }
+#forsale p.small { font-size: 12px; opacity: 0.8; }
+#forsale .paints { display: flex; flex-wrap: wrap; gap: 6px; }
+#forsale .paints button.swatch { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); background: #30353e; color: var(--ink); text-align: center; font-weight: 700; }
+#forsale .paints button.swatch.on { border-color: var(--yellow); box-shadow: 0 0 0 2px #16181c inset; }
 @media (max-width: 640px) { #forsale { right: auto; left: 50%; transform: translateX(-50%); top: calc(210px + env(safe-area-inset-top)); width: min(300px, calc(100vw - 32px)); font-size: 13px; } }
 /* a card over the game */
 .over { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgba(12, 14, 17, 0.72); }
@@ -347,3 +354,4 @@ body.secret #toasts { top: calc(80px + env(safe-area-inset-top)); }
 #btn-guess.nudge { animation: nudge 1.1s ease-in-out 1.2s 5; }
 @keyframes nudge { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.09); box-shadow: 0 0 0 6px rgba(255, 212, 0, 0.35); } }
 @media (max-width: 720px) { body.secret #toasts { top: calc(130px + env(safe-area-inset-top)); } }
+.over .kicker { display: block; color: #5fd08a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; margin-bottom: 4px; }

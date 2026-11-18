@@ -187,6 +187,36 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   Ideas to brainstorm with the owner (17 November, nothing decided): tie homes to the shops, restaurants and
   cafés found earlier (left out of the map for now, see above); and building something on top of a bought
   building, so players slowly change their city.
+- **Banks and savings, the home plate (owner, 17 November 2026).** Savings are kept at banks, and only
+  in the player's **home plate**: the town of their first home (within `PLATE_KM` 25 km of it,
+  `src/game/bank.ts`). Decided: one place for now, not every city ("the challenge atm is enough"); money is
+  paid in by going to a bank (stop on its spot by the street, or walk up to it); no interest, since homes
+  pay rent; rent still comes in as cash, not into the bank; savings pay for things ("whatever will come"),
+  for now homes bought in the home plate, cash first and the rest from the bank. Fines take only cash, so
+  the bank is what keeps money safe. Banks come from the map's points of interest (`bank`), with a
+  made-up one (dashed ring) where a part of town has none, by the same rule as the fuel, fire and police
+  stations; a symbol, never a name. They show only in the home plate, from the first home on; the HUD
+  shows "Bank $…" under the cash. Kept in `3da-bank`, so saving online carries it. No taking money out.
+  Built on branch `claude/bank`, not deployed. Raised by the owner for later, not built: cash not paid in
+  could be lost between visits ("you got to take it there or you will start with zero when you come back").
+  Also seen on the owner's iPad: the panel beside a building sits over the minimap and under the radio
+  hint, top right; not changed yet.
+- **Flats first, painting, and the first-home mission (owner, 17 November 2026).** Asked for together:
+  - *Flats first:* "First you need to buy floors/flats... the further the game the more you can buy houses
+    as a whole." A first home is a flat; houses open with the 3rd home (`HOUSES_AFTER`), whole buildings
+    (buy all, or the rest of a building one has a flat in) with the 6th (`BUILDINGS_AFTER`), in `homes.ts`.
+    A locked button says when it opens. Homes bought before keep what they are.
+  - *Painting* ("as soon as you bought a full house"): a house or a whole building one owns can be painted
+    from the panel beside it: eight colours and the map's own again (`PAINTS`). Free for now. The colour
+    is kept with the home (a ninth field in the packed homes; older saves read fine) and drawn on the 3D
+    building (`CityModel.paintBuilding`, by the outline handed in).
+  - *Private mission:* once a player with no home has the cash for the cheapest flat in the square,
+    between runs and with no package on board, a card says "Private mission open now". "Show me the place"
+    picks a part of town near the player where flats are cheap (several of the cheapest flats within
+    150 m of each other, within 800 m), marks up to six of them with a green $ sign, and the arrow (green)
+    points there (`Game.guide`); on arrival it says from what price. Done with the first home, however
+    bought. "Later" asks again on the next visit. Kept in `3da-mission`.
+  Built on branch `claude/bank`, with the banks; not deployed.
 - **Supabase's GitHub link: not now (owner, 17 November 2026).** The dashboard shows "No repository
   connected"; that is Supabase's optional GitHub link (changes in `supabase/migrations/` on main go live by
   themselves, and test copies of the database per pull request on a paid plan). Not set up: the Supabase

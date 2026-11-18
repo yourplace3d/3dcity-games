@@ -29,8 +29,9 @@ export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rus
 
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 
-export function readServices(tiles: LoadedTile[], proj: Projector, half: number): Service[] {
-  const out: Service[] = [];
+/** Points of interest of the map tiles, by the map's sub-kind, as metres from the square's middle. */
+function readPoints<K extends string>(tiles: LoadedTile[], proj: Projector, half: number, pick: Record<string, K>): Array<{ kind: K; x: number; y: number }> {
+  const out: Array<{ kind: K; x: number; y: number }> = [];
   for (const t of tiles) {
     const layer = t.tile.layers.poi;
     if (!layer) continue;
@@ -39,7 +40,7 @@ export function readServices(tiles: LoadedTile[], proj: Projector, half: number)
       const f = layer.feature(i);
       if (f.type !== 1) continue;
       // by the map's sub-kind: its "fuel" class holds charging points for electric cars too
-      const kind = KIND[String(f.properties.subclass ?? '')];
+      const kind = pick[String(f.properties.subclass ?? '')];
       if (!kind) continue;
       const pt = f.loadGeometry()[0]?.[0];
       // points near a tile's edge are repeated in its neighbours
@@ -54,6 +55,22 @@ export function readServices(tiles: LoadedTile[], proj: Projector, half: number)
     }
   }
   return out;
+}
+
+export function readServices(tiles: LoadedTile[], proj: Projector, half: number): Service[] {
+  return readPoints(tiles, proj, half, KIND);
+}
+
+/** A bank: where savings are paid in, in the player's home town. Marked with a symbol, never named. */
+export interface Bank {
+  kind: 'bank';
+  x: number;
+  y: number;
+  invented?: boolean;
+}
+
+export function readBanks(tiles: LoadedTile[], proj: Projector, half: number): Bank[] {
+  return readPoints(tiles, proj, half, { bank: 'bank' as const });
 }
 
 /** Kinds of place the game leaves alone: never named, and for an add-on never for sale. */
@@ -88,6 +105,9 @@ function hash(a: number, b: number, c: number): number {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
 
+export type PlaceKind = ServiceKind | 'bank';
+const ORDER: PlaceKind[] = ['fuel', 'fire', 'police', 'bank'];
+
 /** A cell of the earth about 1.2 km across holds one made-up place of each kind, unless a real one is near. */
 const CELL_DEG = 0.011;
 /** a real place of the kind this near (m) and none is made up */
@@ -97,29 +117,36 @@ const REAL_NEAR = 450;
  * The made-up places a square needs. `real` is every real one in the loaded map, also those just
  * outside the square, so that the answer is the same from whichever square a spot is looked at.
  */
-export function inventServices(real: Service[], proj: Projector, half: number, roads: RoadNet): Service[] {
-  const out: Service[] = [];
+export function inventServices<K extends PlaceKind = ServiceKind>(
+  real: Array<{ kind: K; x: number; y: number }>,
+  proj: Projector,
+  half: number,
+  roads: RoadNet,
+  kinds: K[] = ['fuel', 'fire', 'police'] as K[],
+): Array<{ kind: K; x: number; y: number; invented: true }> {
+  const out: Array<{ kind: K; x: number; y: number; invented: true }> = [];
   const sw = proj.toLngLat(-half, -half);
   const ne = proj.toLngLat(half, half);
-  const kinds: ServiceKind[] = ['fuel', 'fire', 'police'];
   for (let row = Math.floor(sw.lat / CELL_DEG); row <= Math.floor(ne.lat / CELL_DEG); row++) {
     // cells as wide as they are tall, whatever the latitude
     const lonStep = CELL_DEG / Math.max(0.2, Math.cos((((row + 0.5) * CELL_DEG) * Math.PI) / 180));
     for (let col = Math.floor(sw.lon / lonStep); col <= Math.floor(ne.lon / lonStep); col++) {
-      kinds.forEach((kind, k) => {
+      for (const kind of kinds) {
+        // each kind its own numbers, the same whichever kinds are asked for
+        const k = ORDER.indexOf(kind);
         const lat = (row + 0.15 + 0.7 * hash(row, col, k * 2 + 1)) * CELL_DEG;
         const lon = (col + 0.15 + 0.7 * hash(row, col, k * 2 + 2)) * lonStep;
         const [x, y] = proj.toLocal(lon, lat);
-        if (Math.abs(x) > half - 40 || Math.abs(y) > half - 40) return;
-        if (real.some((r) => r.kind === kind && Math.hypot(r.x - x, r.y - y) < REAL_NEAR)) return;
+        if (Math.abs(x) > half - 40 || Math.abs(y) > half - 40) continue;
+        if (real.some((r) => r.kind === kind && Math.hypot(r.x - x, r.y - y) < REAL_NEAR)) continue;
         // beside a street a car can reach
         const n = roads.nearest(x, y, 240, 'traffic');
-        if (!n) return;
+        if (!n) continue;
         const [rx, ry] = roads.point(n.line, n.s);
         const [hx, hy] = roads.heading({ line: n.line, s: n.s, dir: 1 });
         const side = roads.lines[n.line].w / 2 + 7;
         out.push({ kind, x: rx + hy * side, y: ry - hx * side, invented: true });
-      });
+      }
     }
   }
   return out;
@@ -128,7 +155,7 @@ export function inventServices(real: Service[], proj: Projector, half: number, r
 const icons = new Map<string, HTMLCanvasElement>();
 
 /** The symbol of a kind of place: a round sign, 128 px, drawn once. A made-up place has a dashed ring. */
-export function serviceIcon(kind: ServiceKind, invented = false): HTMLCanvasElement {
+export function serviceIcon(kind: PlaceKind, invented = false): HTMLCanvasElement {
   const had = icons.get(kind + invented);
   if (had) return had;
   const c = document.createElement('canvas');
@@ -180,6 +207,19 @@ export function serviceIcon(kind: ServiceKind, invented = false): HTMLCanvasElem
     g.bezierCurveTo(72, 99, 56, 99, 54, 92);
     g.bezierCurveTo(51, 82, 60, 78, 64, 66);
     g.fill();
+  } else if (kind === 'bank') {
+    // a bank: a roof over three columns, on a step
+    disc('#6a4fc2');
+    g.fillStyle = '#f4f1ea';
+    g.beginPath();
+    g.moveTo(64, 26);
+    g.lineTo(98, 46);
+    g.lineTo(30, 46);
+    g.closePath();
+    g.fill();
+    g.fillRect(32, 49, 64, 6);
+    for (const cx of [38, 59, 80]) g.fillRect(cx, 58, 10, 28);
+    g.fillRect(30, 89, 68, 9);
   } else {
     // a badge
     disc('#1f4fa8');

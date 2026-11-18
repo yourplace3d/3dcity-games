@@ -51,6 +51,13 @@ the streets, buildings, water and hills come from the same map squares as
   place has hardly any blocks of flats, its bigger houses hold flats. Owned buildings carry a yellow house on
   the roof and on both maps. Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
+- **Flats first.** A first home is a flat; houses open with your 3rd home, whole buildings with your 6th.
+  A house or whole building you own can be painted, from the panel beside it. A player with no home who
+  has the cash for a flat gets a private mission that shows a part of town nearby where flats are cheap.
+- **Banks.** The town of your first home is your home plate. Its banks carry a symbol (made up, with a
+  dashed ring, where a part of town has none); stop at one to pay in your cash. Money in the bank is safe
+  from fines and pays for homes in the home plate, after the cash you carry. No interest, and rent comes in
+  as cash (`src/game/bank.ts`, kept as `3da-bank`).
 - **Cash stops at $1,000,000** for now (`MAX_CASH` in `game.ts`): above it, pay and rent are not added, and
   the game says so once. Open jobs pay more with each delivery made, up to the 50th; after that they no longer grow.
 - **A place opens seen from above:** about a kilometre of it for a second, then the view comes down to you

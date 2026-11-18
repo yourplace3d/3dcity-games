@@ -185,9 +185,20 @@ export function assembleRings(segments: Pt[][]): Ring[] {
 /** Assign each inner ring to the outer ring that contains it. Orients outers CCW and holes CW. */
 export function groupPolygons(outers: Ring[], inners: Ring[]): Polygon[] {
   const polys: Polygon[] = outers.map((o) => ({ outer: withOrientation(o, true), holes: [] }));
+  const areas = polys.map((p) => Math.abs(signedArea(p.outer)));
   for (const inner of inners) {
     const probe = inner[0];
-    const host = polys.find((p) => pointInRing(probe, p.outer));
+    if (!probe) continue;
+    // An island may have its own holes inside the surrounding water's outer ring.
+    // The smallest enclosing outer owns the hole, independent of member order.
+    let host: Polygon | undefined;
+    let hostArea = Infinity;
+    for (let i = 0; i < polys.length; i++) {
+      if (areas[i] < hostArea && pointInRing(probe, polys[i].outer)) {
+        host = polys[i];
+        hostArea = areas[i];
+      }
+    }
     if (host) host.holes.push(withOrientation(inner, false));
   }
   return polys;

@@ -33,7 +33,16 @@ async function idbCache(): Promise<TileCache | null> {
   if (typeof indexedDB === 'undefined') return null;
   const open = indexedDB.open(MAP_CACHE, 1);
   open.onupgradeneeded = () => open.result.createObjectStore(IDB_STORE);
-  const db = await req(open);
+  const db = await new Promise<IDBDatabase | null>((resolve, reject) => {
+    let blocked = false;
+    open.onsuccess = () => {
+      if (blocked) open.result.close();
+      else resolve(open.result);
+    };
+    open.onerror = () => reject(open.error);
+    open.onblocked = () => { blocked = true; resolve(null); };
+  });
+  if (!db) return null;
   const store = (mode: IDBTransactionMode) => db.transaction(IDB_STORE, mode).objectStore(IDB_STORE);
   return {
     async match(url) {
@@ -57,8 +66,16 @@ let cachePromise: Promise<TileCache | null> | null = null;
 
 function openCache(): Promise<TileCache | null> {
   cachePromise ??= (async () => {
+    if (typeof caches !== 'undefined') {
+      try {
+        return await caches.open(MAP_CACHE);
+      } catch {
+        // Some web views expose Cache Storage but refuse opening it. IndexedDB
+        // can still work there, just as when Cache Storage is absent entirely.
+      }
+    }
     try {
-      return typeof caches === 'undefined' ? await idbCache() : await caches.open(MAP_CACHE);
+      return await idbCache();
     } catch {
       return null;
     }
@@ -68,6 +85,7 @@ function openCache(): Promise<TileCache | null> {
 
 /** fetch, answered from the device when the tile is there; good answers are kept. */
 export async function mapFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  init.signal?.throwIfAborted();
   if (BAKED) {
     const m = url.match(/(\d+)\/(\d+)\/(\d+)\.(png|pbf)$/);
     const name = `${m?.[1]}-${m?.[2]}-${m?.[3]}`;
@@ -78,13 +96,16 @@ export async function mapFetch(url: string, init: RequestInit = {}): Promise<Res
     return new Response(Uint8Array.from(atob((await res.text()).trim()), (c) => c.charCodeAt(0)));
   }
   const cache = await openCache();
+  init.signal?.throwIfAborted();
   if (cache) {
+    let hit: Response | undefined;
     try {
-      const hit = await cache.match(url);
-      if (hit) return hit;
+      hit = await cache.match(url);
     } catch {
       /* fall through to the network */
     }
+    init.signal?.throwIfAborted();
+    if (hit) return hit;
   }
   const res = await fetch(url, init);
   if (cache && res.ok) {
@@ -94,6 +115,7 @@ export async function mapFetch(url: string, init: RequestInit = {}): Promise<Res
       /* storage full or refused: still show the tile */
     }
   }
+  init.signal?.throwIfAborted();
   return res;
 }
 
@@ -117,8 +139,9 @@ export async function mapCacheSize(): Promise<{ tiles: number; bytes: number | n
 
 export async function clearMapCache(): Promise<void> {
   try {
-    if (typeof caches !== 'undefined') await caches.delete(MAP_CACHE);
-    else await (await openCache())?.clear?.();
+    const cache = await openCache();
+    if (cache?.clear) await cache.clear();
+    else if (typeof caches !== 'undefined') await caches.delete(MAP_CACHE);
   } catch {
     /* nothing kept */
   }

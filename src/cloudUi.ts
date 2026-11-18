@@ -23,20 +23,21 @@ async function hand(text: string, url: string): Promise<'shared' | 'copied' | 's
 /** The line on the start screen: save the game under a name, carry it to another device, stop. */
 export function wireCloud(box: HTMLElement, home: string, suggested: () => string): void {
   box.hidden = false;
-  const draw = (note = ''): void => {
-    if (!savingOn()) {
+  const draw = (note = '', retry = false): void => {
+    if (!savingOn() || retry) {
       box.innerHTML =
         '<form id="cloud-form"><input type="text" maxlength="16" placeholder="Your name" autocomplete="off" required /><button>Save my game online</button></form>' +
         `<p class="small" id="cloud-note" aria-live="polite">${esc(note) || 'Optional. With a name, your game is kept online so you can go on with it on another device. No email, no password. Without a name nothing is sent. A game not played for six months is deleted.'}</p>`;
       const form = box.querySelector<HTMLFormElement>('#cloud-form')!;
       const input = form.querySelector('input')!;
-      input.value = suggested();
+      input.value = savedName() || suggested();
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = cleanName(input.value);
         if (!name) return;
         form.querySelector('button')!.disabled = true;
-        draw((await startSaving(name)) ? '' : 'That didn’t go through. Please try again in a moment.');
+        const saved = await startSaving(name);
+        draw(saved ? '' : 'That didn’t go through. Please try again in a moment.', !saved);
       });
       return;
     }

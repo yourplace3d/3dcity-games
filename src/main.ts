@@ -18,7 +18,8 @@ import { serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
-import { findPlace, nearCity, placeAt } from './places';
+import { findPlace, nearCity, placeAt, placeFromHash } from './places';
+import { readPlayerSave } from './playerSave';
 import { newRound, packGuess, played, points, readGuess, type Round, type SentGuess } from './guess';
 import { addScore, lastName, nameScore, scores, type Score } from './scores';
 import { BAKED } from './geo/mapCache';
@@ -152,10 +153,10 @@ function lineButton(): void {
  * waits while it is open, so there is time to look.
  */
 function showMap(open: boolean): void {
-  if (open && (!game?.world || !playing)) return;
+  if (open && (!game?.world || !playing || paused || guessing || welcoming)) return;
   mapOpen = open;
   $('bigmap').hidden = !open;
-  controls.enabled = playing && !open;
+  controls.enabled = playing && !open && !paused && !guessing && !welcoming;
   if (open) {
     $('bigmap-place').textContent = secret ? 'Where am I?' : placeName;
     lineButton();
@@ -166,7 +167,7 @@ const controls = new Controls($('pad'), $('knob'), $('btn-action'), $('btn-brake
 
 function load(): { cash: number; delivered: number; at?: LngLat } {
   try {
-    return { cash: 0, delivered: 0, ...(JSON.parse(localStorage.getItem(SAVE) ?? '{}') as object) };
+    return readPlayerSave(localStorage.getItem(SAVE));
   } catch {
     return { cash: 0, delivered: 0 };
   }
@@ -256,7 +257,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       game.onRunEnd = (score, seconds) => {
         // up over the town while the result is read
         game!.overview();
-        setTimeout(() => runEnded(score, seconds), 1400);
+        runEnded(score, seconds);
       };
       controls.onAction = () => {
         const before = game!.car;
@@ -412,6 +413,7 @@ $('btn-firsthome-save').addEventListener('click', () => {
 /** how long the player has looked around (s), and the wrong names picked */
 let lookedS = 0;
 let wrongPicks = 0;
+const wrongNames = new Set<string>();
 /** the guess someone sent that is being played: theirs is the one to beat */
 let guessRival: SentGuess | null = null;
 /** the city just guessed, to send on */
@@ -441,6 +443,7 @@ async function drop(sent: SentGuess | null = null): Promise<void> {
     secret = round;
     lookedS = 0;
     wrongPicks = 0;
+    wrongNames.clear();
     try {
       await go(round.at);
     } finally {
@@ -489,6 +492,8 @@ function askGuess(): void {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = name;
+    b.disabled = wrongNames.has(name);
+    b.classList.toggle('wrong', b.disabled);
     b.addEventListener('click', () => pick(name, b));
     box.append(b);
   }
@@ -501,6 +506,7 @@ function pick(name: string, b: HTMLButtonElement): void {
   const buttons = [...$('guess-options').querySelectorAll('button')];
   if (name !== round.city) {
     wrongPicks++;
+    wrongNames.add(name);
     b.disabled = true;
     b.classList.add('wrong');
     sound.play('late');
@@ -692,10 +698,12 @@ async function search(q: string): Promise<void> {
   const typed = parseLatLon(q);
   if (typed) return go(typed);
   if (busy) return;
+  busy = true;
   status.className = 'status';
   status.textContent = '';
   working('Searching');
   const found = await findPlace(q);
+  busy = false;
   if (found === 'none' || found === 'silent') {
     working(null);
     status.className = 'status error';
@@ -781,13 +789,24 @@ function closeBoard(): void {
 }
 
 function runEnded(score: number, seconds: number): void {
+  const ended = game?.run;
   const run: Score = { name: '', score, seconds, place: placeName, at: Date.now(), jobs: game?.run.of ?? RUN_JOBS };
-  freshCourse = game ? { start: game.course.start, legs: [...game.course.legs] } : null;
+  const course = game ? { start: game.course.start, legs: [...game.course.legs] } : null;
   addScore(run);
   if (!BAKED) countPlay('run');
-  showBoard(run);
-  // a home for the cash just made, near where the run ended
-  homes?.offer($('result-home'));
+  // Save the completed run now, but let the final delivery's message be read. A new
+  // run or a city/menu change during that delay must not receive the old result.
+  const showResult = (): void => {
+    if (!playing || busy || game?.run !== ended) return;
+    if (paused || mapOpen || guessing || welcoming) {
+      setTimeout(showResult, 100);
+      return;
+    }
+    freshCourse = course;
+    showBoard(run);
+    homes?.offer($('result-home'));
+  };
+  setTimeout(showResult, 1400);
 }
 
 $<HTMLFormElement>('result-form').addEventListener('submit', (e) => {
@@ -1202,7 +1221,7 @@ if (!BAKED && savingTrial) {
 }
 
 // a place in the link starts there straight away: coordinates, or a name to look up
-const linked = BAKED ? '' : decodeURIComponent(location.hash.slice(1)).replace(/[_+]/g, ' ').trim();
+const linked = BAKED ? '' : placeFromHash(location.hash);
 const fromLink = parseLatLon(linked);
 const code = BAKED ? null : new URLSearchParams(location.search).get('c');
 const sentRun = code ? readChallenge(code) : null;

@@ -507,7 +507,7 @@ export class World {
   /** Whether a circle is clear of buildings and water. */
   free(x: number, y: number, r: number): boolean {
     if (Math.abs(x) > this.half - 6 || Math.abs(y) > this.half - 6) return false;
-    if (this.solids.inside(x, y) || this.water.at(x, y)) return false;
+    if (this.solids.inside(x, y) || this.inWater(x, y)) return false;
     const c = { x, y };
     return !this.solids.push(c, r);
   }

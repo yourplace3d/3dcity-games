@@ -223,6 +223,8 @@ export class Game {
   autoAvoid = true;
   private offenceAt = 0;
   private loading = false;
+  /** A city change makes any pending neighbouring square obsolete. */
+  private loadVersion = 0;
   private retryAt = 0;
   private frozen = 0;
   private readonly smoke: Array<{ mesh: Mesh<SphereGeometry, MeshBasicMaterial>; life: number }> = [];
@@ -428,6 +430,8 @@ export class Game {
       world.dispose();
       throw new Error('no roads here');
     }
+    this.loadVersion++;
+    this.loading = false;
     this.clear();
     this.world = world;
     this.scene.add(world.model.group);
@@ -440,6 +444,7 @@ export class Game {
     this.me.x = px;
     this.me.y = py;
     this.me.hp = 100;
+    this.me.vx = this.me.vy = 0;
     this.car = null;
     this.sinking = null;
     this.heat = 0;
@@ -464,6 +469,23 @@ export class Game {
     if (this.job) this.scene.remove(this.job.to.mesh);
     this.job = null;
     this.routeLine.visible = false;
+    this.routePts = null;
+    this.routeT = 0;
+    this.mine = null;
+    this.blowT = 0;
+    this.blown = null;
+    this.frozen = 0;
+    this.caughtT = 0;
+    this.copT = 0;
+    this.spawnT = 0;
+    this.noWay = 0;
+    this.retryAt = 0;
+    this.offenceAt = 0;
+    this.dry = [0, 0];
+    for (const s of this.smoke) {
+      s.life = 0;
+      s.mesh.visible = false;
+    }
   }
 
   /** The next square is ready: move everything near you over to it. */
@@ -479,6 +501,12 @@ export class Game {
     this.sweep();
     for (let i = this.people.length - 1; i >= 0; i--) if (!near(this.people[i])) this.dropPerson(i);
     for (const o of [this.me, this.cam, ...this.cars, ...this.people]) move(o);
+    const moveShore = ([x, y]: [number, number]): [number, number] => {
+      const ll = old.proj.toLngLat(x, y);
+      return next.proj.toLocal(ll.lon, ll.lat);
+    };
+    this.dry = moveShore(this.dry);
+    if (this.sinking) this.sinking.shore = moveShore(this.sinking.shore);
     // puffs in the air belong to the old square: put them away, or they hang where they were
     for (const s of this.smoke) {
       s.life = 0;
@@ -506,18 +534,26 @@ export class Game {
     const next = this.world.needsRecentre(x, y);
     if (!next) return;
     this.loading = true;
+    const version = this.loadVersion;
     this.onSquare('loading');
     World.load(next, this.texturePx)
       .then((w) => {
+        if (version !== this.loadVersion) {
+          w.dispose();
+          return;
+        }
         this.swap(w);
         this.onSquare('ready');
       })
       .catch((err) => {
+        if (version !== this.loadVersion) return;
         console.warn('next square failed', err);
         this.retryAt = this.clock + 6;
         this.onSquare('ready');
       })
-      .finally(() => (this.loading = false));
+      .finally(() => {
+        if (version === this.loadVersion) this.loading = false;
+      });
   }
 
   /** The place on the network nearest to a point, facing the way `th` points. */
@@ -1061,7 +1097,11 @@ export class Game {
       const fy = Math.sin(c.th);
       const out = c.r + 0.9;
       const spots: Array<[number, number]> = [[-fy * out, fx * out], [fy * out, -fx * out], [-fx * (c.a + out), -fy * (c.a + out)], [fx * (c.a + out), fy * (c.a + out)]];
-      const s = spots.find(([dx, dy]) => w.free(c.x + dx, c.y + dy, 0.4)) ?? spots[0];
+      const s = spots.find(([dx, dy]) => w.free(c.x + dx, c.y + dy, 0.4));
+      if (!s) {
+        this.onToast('No room to get out here', 'info');
+        return;
+      }
       this.me.x = c.x + s[0];
       this.me.y = c.y + s[1];
       this.me.vx = 0;

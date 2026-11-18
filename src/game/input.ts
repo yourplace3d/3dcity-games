@@ -26,13 +26,26 @@ export class Controls {
   private stickId: number | null = null;
   private stickFrom = { x: 0, y: 0 };
   private stickAt = { x: 0, y: 0 };
-  private brakeTouch = false;
+  private brakeId: number | null = null;
   /** called once per press */
   onAction: () => void = () => undefined;
   onReset: () => void = () => undefined;
   onRoute: () => void = () => undefined;
   onMap: () => void = () => undefined;
-  enabled = false;
+  private active = false;
+
+  get enabled(): boolean { return this.active; }
+  set enabled(value: boolean) {
+    this.active = value;
+    if (!value) this.clear();
+  }
+
+  /** A menu or lost focus ends the gesture, even if its release never reaches the page. */
+  private clear(): void {
+    this.down.clear();
+    this.stickId = this.brakeId = null;
+    this.knob.parentElement!.hidden = true;
+  }
 
   constructor(pad: HTMLElement, private readonly knob: HTMLElement, actionBtn: HTMLElement, brakeBtn: HTMLElement) {
     addEventListener('keydown', (e) => {
@@ -51,7 +64,8 @@ export class Controls {
       const k = KEYS[e.code];
       if (k) this.down.delete(k);
     });
-    addEventListener('blur', () => this.down.clear());
+    addEventListener('blur', () => this.clear());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.clear(); });
 
     pad.addEventListener('pointerdown', (e) => {
       if (this.stickId !== null || !this.enabled) return;
@@ -76,6 +90,7 @@ export class Controls {
     };
     pad.addEventListener('pointerup', end);
     pad.addEventListener('pointercancel', end);
+    pad.addEventListener('lostpointercapture', end);
 
     actionBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -83,10 +98,13 @@ export class Controls {
     });
     brakeBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this.brakeTouch = true;
+      if (!this.enabled || this.brakeId !== null) return;
+      this.brakeId = e.pointerId;
       brakeBtn.setPointerCapture(e.pointerId);
     });
-    for (const ev of ['pointerup', 'pointercancel'] as const) brakeBtn.addEventListener(ev, () => (this.brakeTouch = false));
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) brakeBtn.addEventListener(ev, (e) => {
+      if (e.pointerId === this.brakeId) this.brakeId = null;
+    });
   }
 
   private stickVector(): [number, number] {
@@ -120,7 +138,7 @@ export class Controls {
       stick,
       throttle: ky,
       steer: -kx,
-      brake: this.brakeTouch,
+      brake: this.brakeId !== null,
       handbrake: d.has('handbrake'),
     };
   }

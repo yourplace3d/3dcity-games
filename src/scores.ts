@@ -21,8 +21,12 @@ const KEEP = 50;
 
 export function scores(): Score[] {
   try {
-    const list = JSON.parse(localStorage.getItem(KEY) ?? '[]') as Score[];
-    return Array.isArray(list) ? list.filter((s) => typeof s?.score === 'number') : [];
+    const list: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]');
+    return Array.isArray(list) ? list.filter((s): s is Score =>
+      !!s && typeof s === 'object' && typeof s.name === 'string' && typeof s.place === 'string' &&
+      [s.score, s.seconds, s.at].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0) &&
+      (s.jobs === undefined || (Number.isSafeInteger(s.jobs) && s.jobs > 0)),
+    ) : [];
   } catch {
     return [];
   }

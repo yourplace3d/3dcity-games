@@ -162,7 +162,20 @@ the streets, buildings, water and hills come from the same map squares as
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # static site in dist/ (relative paths, host it anywhere)
+npm test           # game, storage and engine regression tests
 ```
+
+For browser checks (real public map tiles, simulated cloud failures):
+
+```bash
+npm install --no-save --package-lock=false playwright
+npx playwright install chromium
+node tools/ui-test.mjs # starts its own local Vite server
+```
+
+Use `CHROME_CHANNEL=chrome node tools/ui-test.mjs` to use an installed Chrome instead.
+The checks workflow runs tests and the production build without deploying. See
+[the bugfix verification notes](docs/bugfix-verification.md) for reproduced cases and test limits.
 
 Add a place to the link to start there: `#52.5163,13.3777`, or a name: `#Hamburg`, `#Freiburg_im_Breisgau`.
 
@@ -199,6 +212,8 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
   (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways.
+  Bug fixes cover date-line tile requests, cache failure and cancellation handling, nested polygon
+  holes, terrain edge patches and clipped road/bridge export heights; see the verification notes above.
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
 There are no traffic lights, level-crossing barriers or one-way streets, and bus and tram lines are not the real routes: vehicles follow

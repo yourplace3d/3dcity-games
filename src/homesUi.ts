@@ -156,7 +156,9 @@ export class HomesUi {
   buy(lot: Lot, what: 'flat' | 'house' | 'building'): boolean {
     const { game } = this.host;
     const had = this.homeOf(lot);
-    const price = what === 'building' ? lot.whole - (had?.paid ?? 0) : lot.price;
+    // Prices are ranked within each loaded square, so a later square can value the same
+    // building below what the flat cost. Credit that payment, but never refund cash on a buy.
+    const price = what === 'building' ? Math.max(0, lot.whole - (had?.paid ?? 0)) : lot.price;
     if (game.cash < price || (had && what !== 'building') || had?.kind === 'building') return false;
     // the rent so far goes out first, so the new home's rent starts now
     this.payRent();
@@ -227,7 +229,7 @@ export class HomesUi {
       title.textContent = had.kind === 'building' ? 'Your building' : had.kind === 'house' ? 'Your house' : 'Your flat';
       this.panel.append(title);
       line(`Pays ${money(had.rent)} rent each day you come back.`);
-      if (had.kind === 'flat') button('Buy the rest of the building', found.whole - had.paid, 'building');
+      if (had.kind === 'flat') button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
       return;
     }
     title.textContent = 'For sale';

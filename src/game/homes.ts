@@ -320,7 +320,7 @@ export interface Home {
   kind: 'flat' | 'house' | 'building';
   /** what was paid, in all */
   paid: number;
-  /** rent per real hour, fixed when bought */
+  /** rent per day the player returns, fixed when bought */
   rent: number;
   street: string;
   place: string;
@@ -368,16 +368,32 @@ export function packHomes(h: Homes): string {
 }
 
 export function readHomes(raw: string | null, now = Date.now()): Homes {
+  const home = (value: unknown): Home | null => {
+    if (!value || typeof value !== 'object') return null;
+    const x = value as Partial<Home>;
+    if (typeof x.id !== 'string' || !['flat', 'house', 'building'].includes(x.kind ?? '')) return null;
+    if (typeof x.lat !== 'number' || !Number.isFinite(x.lat) || Math.abs(x.lat) > 90 || typeof x.lon !== 'number' || !Number.isFinite(x.lon) || Math.abs(x.lon) > 180) return null;
+    if (typeof x.paid !== 'number' || !Number.isSafeInteger(x.paid) || x.paid < 0 || typeof x.at !== 'number' || !Number.isFinite(x.at) || !Number.isFinite(new Date(x.at).getTime())) return null;
+    return { id: x.id, lat: x.lat, lon: x.lon, kind: x.kind as Home['kind'], paid: x.paid, rent: rentFor(x.paid), street: typeof x.street === 'string' ? x.street : '', place: typeof x.place === 'string' ? x.place : '', at: x.at };
+  };
   try {
     const h = JSON.parse(raw ?? '') as (Homes & { paidUntil?: number }) | Kept;
     if (h && h.v === 2 && Array.isArray(h.h)) {
-      const kind = (k: string): Home['kind'] => (k === 'b' ? 'building' : k === 'h' ? 'house' : 'flat');
-      const homes = h.h.map(([id, lat, lon, k, paid, si, pi, day]) => ({ id, lat, lon, kind: kind(k), paid, rent: rentFor(paid), street: h.s[si] ?? '', place: h.p[pi] ?? '', at: day * DAY_MS }));
+      const kinds: Record<string, Home['kind']> = { b: 'building', h: 'house', f: 'flat' };
+      const homes = h.h.flatMap((row) => {
+        if (!Array.isArray(row)) return [];
+        const [id, lat, lon, k, paid, si, pi, day] = row;
+        const x = home({ id, lat, lon, kind: kinds[k], paid, street: Array.isArray(h.s) ? h.s[si] : '', place: Array.isArray(h.p) ? h.p[pi] : '', at: typeof day === 'number' ? day * DAY_MS : NaN });
+        return x ? [x] : [];
+      });
       return { v: 1, homes, paidDay: typeof h.d === 'string' ? h.d : dayOf(now) };
     }
     if (h && h.v === 1 && Array.isArray(h.homes)) {
       // the first way of keeping them; the rent follows the price paid, whatever was kept
-      const homes = h.homes.map((x) => ({ ...x, rent: rentFor(x.paid) }));
+      const homes = h.homes.flatMap((x) => {
+        const valid = home(x);
+        return valid ? [valid] : [];
+      });
       const paidDay = typeof h.paidDay === 'string' ? h.paidDay : dayOf(Number.isFinite(h.paidUntil) ? h.paidUntil! : now);
       return { v: 1, homes, paidDay };
     }

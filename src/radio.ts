@@ -111,6 +111,8 @@ export function wireRadio(
   let askedFor: { lat: number; lon: number } | null = null;
   let giveUp = 0;
   let failed = 0;
+  // A station lookup may outlive a switch off/on or a move to another town.
+  let tuning = 0;
   /** on, but silent because you are not in a car */
   let waiting = false;
   const nameEl = bar.querySelector<HTMLElement>('.name')!;
@@ -144,6 +146,7 @@ export function wireRadio(
   };
 
   function off(): void {
+    tuning++;
     on = false;
     waiting = false;
     clearTimeout(giveUp);
@@ -153,8 +156,21 @@ export function wireRadio(
     show('');
   }
 
+  function wait(): void {
+    waiting = true;
+    clearTimeout(giveUp);
+    audio.pause();
+    if (!inCar()) show('The radio plays in a car');
+  }
+
   function play(): void {
     clearTimeout(giveUp);
+    if (!on) return;
+    if (document.hidden || !inCar()) {
+      wait();
+      return;
+    }
+    waiting = false;
     if (!stations.length) {
       show('No station plays here');
       return;
@@ -177,6 +193,10 @@ export function wireRadio(
 
   function skip(): void {
     if (!on) return;
+    if (document.hidden || !inCar()) {
+      wait();
+      return;
+    }
     failed++;
     if (failed >= stations.length) {
       show('No station plays here');
@@ -188,6 +208,10 @@ export function wireRadio(
 
   audio.addEventListener('playing', () => {
     if (audio.currentSrc.startsWith('data:')) return;
+    if (!on || document.hidden || !inCar()) {
+      audio.pause();
+      return;
+    }
     clearTimeout(giveUp);
     failed = 0;
   });
@@ -197,11 +221,11 @@ export function wireRadio(
   async function turnOn(): Promise<void> {
     const p = place();
     if (!p) return;
+    const request = ++tuning;
     on = true;
-    if (!inCar()) {
+    if (document.hidden || !inCar()) {
       // switched on, and heard as soon as you sit in a car
-      waiting = true;
-      show('The radio plays in a car');
+      wait();
       return;
     }
     waiting = false;
@@ -210,10 +234,13 @@ export function wireRadio(
     if (far) {
       show('Looking for stations…');
       try {
-        stations = await stationsNear(p.lat, p.lon);
+        const found = await stationsNear(p.lat, p.lon);
+        if (request !== tuning || !on) return;
+        stations = found;
         askedFor = p;
         at = 0;
       } catch {
+        if (request !== tuning || !on) return;
         stations = [];
         on = false;
         show('');
@@ -272,12 +299,9 @@ export function wireRadio(
       const text = label();
       if (nameEl.textContent !== text) nameEl.textContent = text;
     }
-    const sitting = inCar();
+    const sitting = inCar() && !document.hidden;
     if (!sitting && !waiting) {
-      waiting = true;
-      clearTimeout(giveUp);
-      audio.pause();
-      show('The radio plays in a car');
+      wait();
     } else if (sitting && waiting) {
       void turnOn();
     }
@@ -285,7 +309,7 @@ export function wireRadio(
   // silent while the game is out of sight
   document.addEventListener('visibilitychange', () => {
     if (!on) return;
-    if (document.hidden) audio.pause();
-    else if (!waiting) void audio.play().catch(() => undefined);
+    if (document.hidden) wait();
+    else void turnOn();
   });
 }

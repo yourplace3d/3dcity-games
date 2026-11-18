@@ -145,11 +145,28 @@ export class Solids {
 
   /** Whether a building stands between two points. */
   blocked(x0: number, y0: number, x1: number, y1: number): boolean {
-    const d = Math.hypot(x1 - x0, y1 - y0);
-    const steps = Math.max(1, Math.ceil(d / 4));
-    for (let i = 1; i < steps; i++) {
-      const t = i / steps;
-      if (this.inside(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return true;
+    if (this.inside(x0, y0) || this.inside(x1, y1)) return true;
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const seen = new Set<number>();
+    // Sampling every few metres misses thin walls and even whole short sight lines.
+    // Check the indexed wall edges instead, including the walls around courtyards.
+    for (let cy = Math.floor(Math.min(y0, y1) / CELL); cy <= Math.floor(Math.max(y0, y1) / CELL); cy++) {
+      for (let cx = Math.floor(Math.min(x0, x1) / CELL); cx <= Math.floor(Math.max(x0, x1) / CELL); cx++) {
+        for (const e of this.cells.get(key(cx, cy)) ?? []) {
+          if (seen.has(e)) continue;
+          seen.add(e);
+          const ex = this.bx[e] - this.ax[e];
+          const ey = this.by[e] - this.ay[e];
+          const den = dx * ey - dy * ex;
+          if (Math.abs(den) < 1e-9) continue;
+          const ax = this.ax[e] - x0;
+          const ay = this.ay[e] - y0;
+          const t = (ax * ey - ay * ex) / den;
+          const u = (ax * dy - ay * dx) / den;
+          if (t >= 0 && t <= 1 && u >= 0 && u <= 1) return true;
+        }
+      }
     }
     return false;
   }

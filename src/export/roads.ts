@@ -185,7 +185,7 @@ export function addRoads(t: Triangles, grid: HeightGrid, roads: PrintRoad[], opt
       return road.bridge && total > 0 ? Math.max(g, deckFrom + ((deckTo - deckFrom) * along) / total + up) : g;
     };
 
-    const piece = (corners: Pt[], along: number[]) => {
+    const piece = (corners: Pt[], along: (p: Pt) => number) => {
       const cut = clipConvex(corners, -edge, -edge, edge, edge);
       if (cut.length < 3) return;
       const mm = cut.map(([x, y]) => [x * s, y * s] as Pt);
@@ -194,19 +194,9 @@ export function addRoads(t: Triangles, grid: HeightGrid, roads: PrintRoad[], opt
         mm.reverse();
         cut.reverse();
       }
-      // where along the road each corner is, for a bridge deck: nearest of the corners given
-      const tops = cut.map((p) => {
-        let best = 0;
-        let bd = Infinity;
-        corners.forEach((c, k) => {
-          const d = Math.hypot(c[0] - p[0], c[1] - p[1]);
-          if (d < bd) {
-            bd = d;
-            best = along[k];
-          }
-        });
-        return topAt(p, best);
-      });
+      // Clipping creates new corners: sample their actual distance along the road,
+      // so bridge decks and variable lifts keep their slope at the model boundary.
+      const tops = cut.map((p) => topAt(p, along(p)));
       const floor = Math.min(...cut.map(ground)) - bury;
       emitPiece(t, mm, tops, floor);
     };
@@ -262,15 +252,14 @@ export function addRoads(t: Triangles, grid: HeightGrid, roads: PrintRoad[], opt
         // each piece runs on a little into the next, so they overlap instead of touching
         const d0 = ds[cuts[c]] - (c > 0 ? overlap : 0);
         const d1 = ds[cuts[c + 1]] + (c < cuts.length - 2 ? overlap : 0);
-        const a0 = lengths[k] + Math.max(0, Math.min(len, d0));
-        const a1 = lengths[k] + Math.max(0, Math.min(len, d1));
-        piece([at(d0, -1), at(d1, -1), at(d1, 1), at(d0, 1)], [a0, a1, a1, a0]);
+        piece([at(d0, -1), at(d1, -1), at(d1, 1), at(d0, 1)], ([x, y]) =>
+          lengths[k] + Math.max(0, Math.min(len, (x - p[0]) * ux + (y - p[1]) * uy)));
       }
       // a sharp corner: an octagon round the point, as wide as the road
       if (k + 1 < pts.length - 1 && turn(k + 1) > Math.PI / 2) {
         const r = w / Math.cos(Math.PI / 8);
         const oct: Pt[] = Array.from({ length: 8 }, (_, i) => [q[0] + r * Math.cos(((i + 0.5) * Math.PI) / 4), q[1] + r * Math.sin(((i + 0.5) * Math.PI) / 4)] as Pt);
-        piece(oct, oct.map(() => lengths[k + 1]));
+        piece(oct, () => lengths[k + 1]);
       }
     }
     added++;

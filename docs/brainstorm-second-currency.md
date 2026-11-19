@@ -411,3 +411,285 @@ Shipped this way, every plate plays the same up to a full team, and the crate la
 - Distances between the named pairs, measured: Titisee to Freiburg 28.3 km, Pottenstein to Nuremberg 42.7 km, Tai O to Central 30.6 km. All are more than 25 km, so each can be its own plate, as long as the first homes are that far apart.
 - Found in the re-run: without yard runs, the cellar never fills (question 12).
 - Wording: the staff are written without he or she; "run of 3" is kept for the challenge run only, and venue nights are "three deliveries".
+
+## Round 2: street cred (the owner's choice, 19 November)
+
+Your answer to round 1: street cred replaces crates, because wine crates do not fit a game in which you take cars.
+- **The split:** money buys homes; cred brings the people who run them, because they come for your name.
+- **Cred is the scarce currency,** like a freemium game's premium currency, but nothing is sold and no timer can be skipped. Only play earns it: missions, firsts and badges.
+- **Never cred:** taking an ordinary car, or losing the police.
+
+How to read the numbers:
+- A **town** is the plan's plate. Every amount is an **estimate**.
+- **Modelled** means the plan's simulator: 5 homes by hand, half buyer, no wages, 3 seeds, 180 visit days, medians.
+  - Starts: Pottenstein and Titisee (villages), Nuremberg and Manhattan (cities).
+  - Players: casual (5 minutes, 5 visits a week), regular (15 minutes daily), heavy (60 minutes daily).
+  - A mission takes 2.5 minutes. Missions per visit day: casual 0.5, regular 2, heavy 6.
+- The **money day** is the plan's day for the same step without cred.
+- **Measured** means a scripted driver in the running game.
+
+### 1. The design in short
+
+Design 2, "money buys the homes, your name brings the people", wins.
+- **Critics' scores** (rules, cheating, equal start): design 2 got 6, 5 and 6.5; design 1 got 5, 5 and 5.5; design 3 got 6.5, 3 and 5.
+- **The model:** designs 1 and 3 kept a money price on hires, so regular players waited for money (19-22 visit days) and hardly ever for cred (0-2).
+
+This answer is design 2 with the critics' fixes and your badges, plus design 3's cars that differ by country and city, and its car show.
+
+For the player: every visit day, today's car job, today's police job and the race of the day wait nearby. The day's first mission pays 35 cred, so one mission of about 2.5 minutes in a short visit counts. More missions still pay, and badges reward doing more and doing it well. Cred signs on the staff (a venue's manager too); money buys homes and venues.
+
+### 2. Where cred comes from
+
+**Badges for ordinary jobs** (each pays once; every delivery counts):
+- **The ladder** keeps your counts and adds steps between them.
+- **It pays twice your example.** At your amounts, a regular player who never does a mission gets the first housekeeper on visit day 153, and a casual one never does. At twice, days 41 and 119.
+- **Players who do missions** finish on the same day either way.
+
+"Next up" in your message is read as 10 jobs.
+
+| jobs done | your example | suggested | visit day: casual / regular / heavy |
+|---|---|---|---|
+| 3 | 5 | 10 | 2 / 1 / 1 |
+| 10 ("next up") | 10 | 20 | 10 / 2 / 1 |
+| 20, 35, 50 | - | 20 each | 49 / 19 / 4 (at 50) |
+| 75, 100, 150 | -, 15, next | 30 each | 157 / 65 / 13 (at 150) |
+| 200, 300, 400 | - | 40 each | - / 175 / 34 (at 400) |
+| 500, 750, 1,000 | next, -, next | 50, 50, 60 | - / - / 85 (at 1,000) |
+| 1,500 to 10,000 | - | 60 to 120 | - |
+
+**Badges for missions, with more variation.** Each kind has its own counts, starting at 1, and two ladders reward doing a job well. They start at your example amounts (5, 10, 15) and climb to 50. Car jobs and police jobs share the same rungs, so neither path is favoured.
+
+| ladder | counts → cred each | first badge, visit day (casual / regular / heavy) |
+|---|---|---|
+| Car jobs delivered; Police jobs by the book | 1, 2, 3, 5 → 5; 7, 10, 15, 20 → 10; 25, 30, 40, 50 → 15; 60, 75, 100, 125 → 20; 150, 200, 250 → 25; 300, 400 → 30; 500 → 35; 750 → 40; 1,000 → 50 | 14 / 5 / 2 |
+| Clean car jobs (no new dent, no police car ever saw you); Not a scratch (police jobs with no new dent) | 1, 3 → 5; 5, 10, 15 → 10; 20, 30, 40 → 15; 50, 75 → 20; 100, 150 → 25; 200, 300 → 30 | 16 / 5 / 2 |
+| Races won (the course of the day or a friend's link; later battles) | 1, 2, 3 → 5; 5, 7, 10 → 10; 15, 20, 30 → 15; 40, 50 → 20; 75, 100 → 25; 150, 200 → 30 | - / 8 / 2 |
+| Beat a friend (above both their score and the course's score to beat) | 1, 3 → 5; 5, 10 → 10; 20, 35 → 15; 50 → 20 | - / 12 / 7 |
+
+The model assumes half of the missions that succeed are clean (estimate). Casual players race rarely, so they have no race badge by day 180.
+
+- **How often.** A casual player meets a badge every 3-4 visit days up to day 90, then every 7 (longest wait 15).
+- **How much.** Badges give 15-32% of cred until town 1 runs. For players who never do a mission, they are 86-94%.
+
+**Firsts and missions:**
+
+| what | cred |
+|---|---|
+| the very first car driven away (the parked one at the start counts) | 5 |
+| the very first home / the first building painted | 20 / 15 |
+| each later town: first home / first building painted | 10 / 10 |
+| a town runs on its own / first town of the other kind runs | 200 / 100 |
+| today's car job or today's police job | 35 as the day's first mission, else 10; +5 per running town; +5 for no new dent |
+| more car or police jobs that day | 5 each, no limit |
+| race of the day (course of the day, friend's link, later a battle) | 10 (+5 per running town), never the 35 |
+| the day's harder car: hot (heat 2) / the long way | +15 / +5 |
+
+Painting the first building costs more than 3 deliveries pay. So by the time it is painted, every player has the three firsts (5 + 20 + 15) and the 3-jobs badge (10): 50 cred, the caretaker's price.
+
+**The two paths, side by side:**
+
+| | outlaw: today's car job | law-abiding: today's police job |
+|---|---|---|
+| what you do | take the parked car of the day (alarm: heat 1) to the lock-up | return a found car to its owner (you have the key, so it is no offence) |
+| fails when | caught or wrecked | you commit any offence |
+| success | 65-95% by place (measured) | 85% (estimate) |
+| town-1 team, visit day (casual / regular / heavy) | 82 / 37 / 19 | 77 / 37 / 18 |
+
+Both paths pay the same cred and an open job's money. Doing both: 79 / 33 / 17.
+
+**Ordinary car-taking stays an offence** and pays nothing.
+
+**Caught on a mission:** no cred, plus the game's usual fine (25% of cash carried, 15% if wrecked, never the bank). You can try again at once. Cred is never taken away, and staff never leave.
+
+### 3. The special car-theft missions
+
+"Today near you: the lime sports car on Mill Street. A collector wants it in the lock-up."
+- **The car** is parked and empty. It is a made-up kind, never a maker: pickups, campers and roadsters in the country; saloons, coupés and sports cars in cities.
+- **Getting in** sets off its alarm (heat 1), and the police come as everywhere.
+- **The lock-up** is a free-standing garage box by the road, with a dashed ring. It is never drawn on a mapped building.
+- **Arriving ends it,** even with police behind you: "They lost you at the door. +35 cred."
+- **No countdown.** The car joins "Your cars".
+
+**Placement:**
+- **The spot.** A fixed calculation on the 1.2 km earth cell and the date picks a point, moved to the nearest road with traffic. Everyone in the cell sees the same car that day.
+- **No road with traffic in the cell:** the road nearest the player, up to 1.5 km. At the Titisee start, no police came in 19 of 20 tries, so a car off the traffic roads would be a free getaway.
+- **Distances:** 80 m from schools, places of worship and other reserved places. The lock-up is 400-500 m away by road.
+
+**How often.** One car of the day; after it, more cars at 5 cred each, as many as the player likes.
+
+**The measurement.** There are 7-8 cars to take within 150 m in villages and cities alike.
+
+| place | sight lines blocked | heat 2, lose them | heat 1, lose them | heat 1, ends at the lock-up |
+|---|---|---|---|---|
+| Pottenstein (village) | 45% | 35% | 75% | 70% |
+| Titisee, main road (village) | 32% | 23% | 70% | 70% |
+| Nuremberg, old town | 71% | 50% | 55% | 80% |
+| Manhattan | 34% | 23% | 55% | 95% |
+| Tokyo | 68% | 33% | 65% | 80% |
+| Hong Kong | 48% | 18% | 55% | 65% |
+| villages / cities | | 29% / 31% | 73% / 57% | 70% / 80% |
+
+Each share rests on 20-40 tries: good to 15-20 points either way.
+
+What it shows:
+- **Villages and cities are equal on average.** Place by place they differ, and the split follows open or closed street layouts.
+- **For the script, a getaway is luck.** In 67 of the 72 heat-2 getaways that worked, no police car ever saw the car. Of the 170 tries in which one saw it for more than 3 s, only 2 got away. A player who turns corners will do better (estimate).
+
+**The rule that evens it out:**
+1. Start at heat 1.
+2. End at a lock-up 400-500 m away by road, not in a straight line. A straight 600-700 m was 981-1,433 m of road in winding towns.
+3. Allow a retry at once.
+4. Leave police behaviour unchanged.
+
+The worst place goes from 18% to 65%. Outlaw-only regular players get their team on days 34-41, depending on the place. The police job has no chase, so the streets never decide it.
+
+### 4. Staff and your name
+
+**Cred per hire.** Design 2's ladder (50, 150, 220, 300, 380, 500) with every hire after the caretaker raised by 15%; each new town multiplies all six by 1.15. The plan's other conditions stay.
+
+| town | caretaker | housekeeper | housekeeper | letting agent | housekeeper | manager | all six |
+|---|---|---|---|---|---|---|---|
+| 1 | 50 | 175 | 255 | 345 | 435 | 575 | 1,835 |
+| 2 | 55 | 200 | 290 | 395 | 505 | 660 | 2,105 |
+| 3 | 65 | 230 | 335 | 455 | 580 | 760 | 2,425 |
+
+**Staff cost no money and no wage.**
+- **No money price.** Any money price, even a fixed floor, made regular players wait 17-22 days for money and 0-2 for cred.
+- **No cred wage.** It would be upkeep that short visits cannot keep up.
+
+**The caretaker's due** is 50 cred, once, and the firsts and the 3-jobs badge pay it. It depends on the hire's place on the ladder and the town's number, never on rent: 50 whether the homes bring in $1,348 a day (Pottenstein) or $427,000 (Manhattan). Their card: "Signed for your name: 50 cred."
+
+**When each hire comes** (visit day; money day in brackets), village Pottenstein / city Nuremberg:
+
+| hire | casual | regular | heavy |
+|---|---|---|---|
+| caretaker | 12 [12] / 13 [13] | 4 [4] / 4 [4] | 1 [1] / 1 [1] |
+| 1st housekeeper | 17 [14] / 17 [15] | 6 [6] / 6 [6] | 3 [3] / 3 [3] |
+| letting agent | 46 [35] / 44 [40] | 17 [14] / 17 [17] | 8 [7] / 8 [8] |
+| manager: town 1 runs | 79 [53] / 78 [54] | 33 [36] / 33 [28] | 17 [15] / 17 [15] |
+| town 2 runs | 158 [85] / 154 [94] | 65 [60] / 62 [58] | 35 [31] / 34 [33] |
+
+Titisee and Manhattan come within 2 days of these. Staff were never unpaid or idle.
+
+**How much harder cred is:**
+- **What players wait for** in town 1 (visit days held up, casual / regular / heavy): for cred 31 / 15 / 6, for money 0 / 0 / 0. In the plan, money held them 22 / 20 / 4.
+- **How it comes in.** Money comes without play once the caretaker banks rent. Cred comes only from play: a regular player earns 57-98 cred a visit day, a casual one 17-30.
+- **Money piles up for regular and heavy players.** By day 180 a regular player holds $435M, against $4.7M in the plan (heavy: $387M against $18M). Money needs things of its own to buy (section 7).
+- **Casual players fall further behind after town 1.** Town 2 runs on visit day 154-158, against 85-101 for money, and by day 180 they have 2 towns, against 4 in the plan. They hold $11M, against $43M.
+
+### 5. Fairness
+
+| player | town-1 team, visit day (casual / regular / heavy) |
+|---|---|
+| does both kinds | 79 / 33 / 17 |
+| law-abiding only / outlaw only | 77 / 37 / 18 and 82 / 37 / 19 |
+| no friends playing | 79 / 33 / 17 |
+| friends send a link every visit day | 131 / 37 / 16 |
+| never a mission | never; first housekeeper on days 119 / 41 / 11 (3-minute visitors: just short by day 180) |
+| 3-minute visitor, one mission a visit | 97-109 (money day 65-73); caretaker on the money day |
+
+- **One path only** loses the day's second job slot, not anything about the path.
+- **Friends' links** cost casual players time, not cred: a 6-minute race replaces the visit's mission.
+- **The run of 3,** its score and its links stay as they are.
+
+**Fake or self-sent links.** Measured in today's game: a hand-made link asking for a run of 5 with legs of 0 m finished in 0.55 s, paid $750 and counted 5 deliveries. That works now, with or without cred, and is worth fixing on its own. Unchecked, about 50 minutes of loading such links would earn about 780 cred (estimate), 43% of town 1's team. The rules:
+1. **Check the course.** A link pays cred, counts toward a badge or adds deliveries only with 3 plain legs of at least 200/280/360 m by road.
+2. **Work out the score to beat from the course,** never from the sender's score.
+3. **One race of the day,** never worth the 35. Links you sent yourself pay nothing.
+4. **Visit days only move forward.** Changing the clock gives nothing.
+5. **Battles pay cred** only once the server checks claims.
+
+### 6. Country and city
+
+Plainly: nothing makes both kinds needed for the team. That is on purpose: the start stays equal and nobody is stuck. At the top:
+- **The cars differ by kind,** so a full car show needs both.
+- **Venue step 3 needs a showpiece car from the other kind of town, and step 4 needs two more.** A visit is enough: do a job there and drive the car home.
+- **The Touring Gala** needs both kinds.
+- **Your first town of the other kind** pays +100.
+
+Design 3's model put this need on the manager instead, and casual players stalled in town 2 for good.
+
+### 7. Venues, the car show and the Touring Gala
+
+"The art venue" is the car show: at gala nights your cars stand on plinths, lit like paintings. Taken cars are labelled "from a car job"; found cars are "on loan" from owners you helped, so both paths fill the show. A separate gallery would add a building, not a new thing to do.
+
+| step | money | cred | needs |
+|---|---|---|---|
+| pub | opens with the paint | - | - |
+| bar and club (barn / hall) | plan's shop price | 150 to sign its manager | - |
+| inn / restaurant | 4 days of rent | 250 to sign its manager | 1 showpiece |
+| festival barn / hotel | 8 days | 400 to sign its manager | 2 showpieces |
+| gala night (car show) | 1 day | pays 40 | 3 cars |
+| Touring Gala | 5 days | pays 150 and the trophy, once per town | both kinds; 6 cars |
+
+- **Nights you host** pay 10 cred. Managers host nights for stars and money only.
+- **Not modelled.**
+
+### 8. Tone
+
+- **Age rating** matters only for app stores. This is not legal advice.
+  - PEGI's guidance for 16 has named "the depiction of criminal activities" (older text, quoted by secondary sources; check PEGI's current criteria). Google Play's questionnaire gives PEGI ratings in Europe.
+  - Missions make taking cars rewarded, not just allowed.
+  - This design is the mildest of the three: no money bonus for crime, an alarm every time, the same cred for the police path, nobody pulled from a car, and no weapons.
+  - Answer the questionnaire honestly.
+- **The famous game the name nods at.** Its rules may be shared, its words may not: never "wanted", "export", "respect" or "heat level", and no stars under the cash.
+- **What makes it yours:** the key tag ("people hand you their keys"), the lock-up, "Your cars", the car show, and a landlord's story, not a crime empire.
+- **The look.** "Cred 245" on a paper key tag: no gem and no coin.
+- **"Street cred."** A 2020 role-playing game uses it as a level (fairly sure), so spend it and show no level bar.
+- **"Badge."** The game already uses the word twice: for the police level in the help text ("light up the badges", main.ts:668-669; on screen it is four red shields, styles.css:27-29) and for the police station's mark on open jobs ("the pump, the flame and the badge", main.ts:334, homesUi.ts:477). Keep "badge" for your achievements and say "red shields" and "the police shield" there.
+
+### 9. What changes against round 1, and the build
+
+- **Gone:** crates, the cellar, yard runs, crate wages, the swap and the carrier.
+- **Staff are signed on for cred alone.** The caretaker still comes at 5 homes and the paint.
+- **Money buys** homes, venues, galas and pilots, priced in days of rent.
+- **Still there:** the venue ladder, stars and the Touring Gala. The need for the other kind now uses cars.
+- **Pacing, town 1:**
+  - regular players run on day 33, against the money day of 28-36;
+  - heavy players on day 16-17, against 15-17;
+  - casual players 22-26 days later than the money day.
+- **Build, about 8 days** (estimate):
+  - cred and firsts, 1;
+  - badges, 0.5;
+  - spots and the lock-up, 1.5;
+  - car job, 1;
+  - police job, 1;
+  - races and the link check, 1.5;
+  - staff in cred, 0.5;
+  - visit days, the morning line and tests, 1.
+- **Later, about 5.5 days:** "Your cars", venues, galas and battle cred.
+
+### 10. Questions for the owner
+
+1. **Hires take cred only, with no money price and no wage?** Suggested: yes.
+2. **Should "Jobs done" pay twice your example?** Suggested: yes. Otherwise a player who skips missions waits until day 153.
+3. **Casual players finish town 1 22-26 days after the money day, and town 2 about 60 days after it (2 towns by day 180, against 4). Is that acceptable?** Suggested: yes for town 1; for later towns, tune after you play. The levers are the day's first mission (35) and the 15% per town.
+4. **A player who never does a mission stops at the caretaker. Is that intended?** Suggested: yes, and the bank says why.
+5. **Car jobs never pay more than police jobs? And is a store release planned?** Suggested: yes; answer the rating questionnaires honestly.
+6. **Are both kinds of town needed only above the team?** Suggested: yes.
+7. **Is "the art venue" the car show?** Suggested: yes.
+8. **Build the link check and forward-only visit days first?** Suggested: yes.
+
+### 11. Where the numbers come from
+
+All in the session's scratchpad, not in the repo: /tmp/claude-0/-home-user/850259fd-2450-55af-9ba3-5fea4af0561a/scratchpad/cred/:
+- **Getaways:** measure/table.md.
+- **The three designs:** model/x3-tables.md and model/x3-ladders.md.
+- **This design:** final/x5-designs.mjs and final/x5-run.mjs with `PRESET=final`. Results: final/x5-tables.txt, final/x5-ladders.md and final/x5-short.txt.
+- **Cheating:** exploits/x4-forger.md.
+- **The simulator:** /tmp/claude-0/-home-user/19d968bc-3916-40c7-b8c9-654318434293/scratchpad/sim/econ-final.mjs.
+
+### 12. Checked after the write-up
+
+- **Against the model's output** (final/x5-tables.txt, x5-ladders.md, x5-short.txt): the hire prices and their sums, every hire day in section 4, the fairness table, the badge days, the shares of cred from badges and the 3-minute visitors all match.
+- **Corrected here:**
+  - the mission badge counts are now listed exactly, with races and "Beat a friend" in rows of their own;
+  - the hire price rule (+15% once on later hires, not per hire);
+  - the casual players' town 2 and money by day 180 were added;
+  - the forged link asked for a run of 5;
+  - the venues' cred is for signing each venue's manager;
+  - the age-rating line now names PEGI's older text.
+- **In the code:** "light up the badges" is at main.ts:668-669, the police level is drawn as four red shields (styles.css:27-29), and "the badge" marks the police station on open jobs (main.ts:334).
+- **Wording:** no follower count and nothing that looks like a social network; staff are written without he or she; "run of 3" is kept for the challenge run only.
+- **Venues and the car show are not modelled.** Their prices are estimates to tune.
+

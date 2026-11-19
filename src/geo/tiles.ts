@@ -48,6 +48,8 @@ export interface MappedColour {
   y: number;
   colour: string;
   height: number;
+  /** the map's own number for the building, so it finds its colour again whatever square it is drawn in */
+  id?: string;
 }
 
 export interface TileData {
@@ -275,9 +277,16 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         const colour = /^#[0-9a-f]{6}$/i.test(str(f.properties.colour)) ? str(f.properties.colour) : '';
         const id = f.id != null ? String(f.id) : '';
         for (const p of polygonsOf(f, toLocal)) {
+          if (colour) {
+            // every recorded colour in the tile, also outside the square: buildings near its edge
+            // then see the same neighbours from whichever square they are drawn in
+            const [x0, y0, x1, y1] = ringBounds(p.outer);
+            const x = (x0 + x1) / 2;
+            const y = (y0 + y1) / 2;
+            if (x >= w && x < e && y >= s && y < n) colours.push({ x, y, colour, height, id: id || undefined });
+          }
           for (const c of clipBuildingToRect(p, bw, bs, be, bn, 2)) {
             const [x0, y0, x1, y1] = ringBounds(c.outer);
-            if (colour) colours.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, colour, height });
             const eps = 1e-6;
             const onSeam = (bw > -h && x0 <= bw + eps) || (be < h && x1 >= be - eps) || (bs > -h && y0 <= bs + eps) || (bn < h && y1 >= bn - eps);
             if (!onSeam) {
@@ -315,7 +324,11 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
       const toLocal = tileProjector(t, extentOf('landcover'), proj);
       eachFeature(layers.landcover, (f) => {
         const kind = LANDCOVER_KIND[str(f.properties.class)];
-        if (kind && f.type === 3) clipArea(kind, polygonsOf(f, toLocal));
+        if (!kind || f.type !== 3) return;
+        const before = areas.length;
+        clipArea(kind, polygonsOf(f, toLocal));
+        // what the green is (park, garden, grass, meadow): a lawn is painted over a square, a park under it
+        if (areas.length > before && str(f.properties.subclass)) areas[before].cls = str(f.properties.subclass);
       });
     }
     {

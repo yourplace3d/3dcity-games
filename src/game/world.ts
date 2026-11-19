@@ -442,7 +442,7 @@ export class World {
     const decks = takeDecks(data.features.areas);
     model.setFeatures(data.features);
     const colours = localColours(data.colours, makeProjector(centre));
-    model.setBuildingTint((e, n) => colours.at(e, n));
+    model.setBuildingTint((e, n, i) => colours.at(e, n, buildings[i]?.id));
     (model as unknown as { roofCounts: unknown }).roofCounts = colours.counts;
     (model as unknown as { heightCounts: unknown }).heightCounts = heightCounts;
     await breathe();

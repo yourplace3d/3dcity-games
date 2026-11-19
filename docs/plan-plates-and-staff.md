@@ -626,3 +626,21 @@ Pacing is unchanged. Tenant chores stay at 7.5 minutes on 9 visits in 10 and 10 
    of about 30 homes. A big city could instead be split into district plates, so "conquering Berlin" means
    running several. Not simulated. *Recommendation: keep 25 km for the first release, as `bank.ts` already has
    it, and decide after the owner has played a plate.*
+
+---
+
+## 12. The owner's decisions (19 November 2026)
+
+1. **Buying only inside one's plates, and a new town only once every plate runs: yes.**
+2. **Homes run by hand per plate: 5** (not 4). **Then the caretaker comes**, as the first hire. "The money he is
+   owed shouldn't be dependent on the money he makes": staff are not paid a share of the rent they bring in
+   (this replaces the wages in section 5). That may be the reason for a second currency: something farmed, or a
+   supply industry the runs build up. Not drugs. Something regional would be best. A brainstorm is under way:
+   `docs/brainstorm-second-currency.md`.
+3. **Trade-up: yes** (section 11's rules).
+4. Plate size in big cities: to be explained again; 25 km stays for now.
+5. **The start must be the same** whether a player begins in the countryside or in a big city. Something should
+   make both necessary later, such as farming in the countryside and commercial places in the city; that is a
+   reason for the second currency too.
+
+Still open from section 10: question 5, the run score after a fine.

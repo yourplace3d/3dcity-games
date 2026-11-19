@@ -68,10 +68,26 @@ body.touch #touch { display: block; }
 #stick { position: fixed; width: 0; height: 0; pointer-events: none; }
 #stick::before { content: ''; position: absolute; left: -62px; top: -62px; width: 124px; height: 124px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.35); }
 #knob { position: absolute; left: -27px; top: -27px; width: 54px; height: 54px; border-radius: 50%; background: rgba(255, 255, 255, 0.75); }
-#touch button { position: fixed; right: calc(18px + env(safe-area-inset-right)); width: 92px; height: 92px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.4); background: var(--panel); color: var(--ink); font: 700 15px/1.1 inherit; touch-action: none; }
-#btn-action { bottom: calc(24px + env(safe-area-inset-bottom)); border-color: var(--yellow); }
-#btn-brake { bottom: calc(130px + env(safe-area-inset-bottom)); }
-#touch button:active { background: rgba(255, 255, 255, 0.28); }
+/* Touch buttons, bottom right. Each shows only when a press would do something: the pedal in a car,
+   the other button when there's a car (or a subway, or an add-on's thing) to use, labelled with what
+   the press does. Hidden ones fade out where they stand, so the other never jumps. */
+#touch button { position: fixed; color: var(--ink); font-family: inherit; font-size: 14px; font-weight: 700; line-height: 1.1; touch-action: none; -webkit-tap-highlight-color: transparent; transition: opacity 0.18s, transform 0.18s, visibility 0.18s; }
+#touch button.off { opacity: 0; visibility: hidden; pointer-events: none; transform: scale(0.82); }
+#btn-action { right: calc(16px + env(safe-area-inset-right)); bottom: calc(22px + env(safe-area-inset-bottom)); width: 100px; min-height: 76px; padding: 8px 6px 9px; display: grid; justify-items: center; align-content: center; gap: 4px; border-radius: 22px; border: 2px solid var(--yellow); background: var(--panel); backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35); }
+#btn-action svg { width: 28px; height: 28px; fill: none; stroke: var(--yellow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#btn-action .knob { fill: var(--yellow); stroke: none; }
+#btn-action .go-out, #btn-action[data-mode='out'] .go-in { display: none; }
+#btn-action[data-mode='out'] .go-out { display: inline; }
+#btn-action[data-mode='other'] svg { display: none; }
+#btn-action span { font-size: 14px; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+#btn-action[data-mode='other'] span { font-size: 13px; }
+#btn-action:active { background: rgba(255, 212, 0, 0.22); transform: scale(0.96); }
+/* the brake: a red pedal, ribbed like a real one, standing above the other button */
+#btn-brake { right: calc(24px + env(safe-area-inset-right)); bottom: calc(116px + env(safe-area-inset-bottom)); width: 84px; height: 112px; padding: 0 0 12px; display: grid; align-content: end; justify-items: center; border-radius: 16px 16px 24px 24px; border: 2px solid rgba(255, 255, 255, 0.28); background: linear-gradient(180deg, #ff6a5e 0%, #e2392e 55%, #b8261d 100%); box-shadow: 0 5px 0 #7d1912, 0 8px 18px rgba(0, 0, 0, 0.4); text-transform: uppercase; letter-spacing: 0.08em; font-size: 13px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
+#btn-brake .ribs { position: absolute; left: 14px; right: 14px; top: 14px; height: 52px; border-radius: 6px; background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0 5px, rgba(255, 255, 255, 0.12) 5px 6px, transparent 6px 11px); }
+#btn-brake:active, #btn-brake.held { transform: translateY(4px); box-shadow: 0 1px 0 #7d1912, 0 3px 8px rgba(0, 0, 0, 0.4); filter: brightness(0.9); }
+/* on touch the button already says what the press does */
+body.touch .hint { display: none !important; }
 
 #start { position: fixed; inset: 0; display: grid; place-items: start center; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); background: rgba(18, 20, 24, 0.78); overflow: auto; -webkit-user-select: text; user-select: text; touch-action: auto; }
 body[data-screen='play'] #start { display: none; }

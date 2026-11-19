@@ -7,6 +7,7 @@ import { BufferAttribute, BufferGeometry, DoubleSide, Group, type Material, Mesh
 import type { Pt } from '../geo/polygon';
 import { PALETTE } from '../scene/overlay';
 import type { RoadLine, RoadNet } from './roads';
+import { deckWidth, overWaterRuns } from './river';
 
 /**
  * Seen from straight above a hill looks flat. The light is made to treat every slope as this many
@@ -252,7 +253,17 @@ function beside(pts: Pt[], d: number): Pt[] {
  * `wet` says whether a spot is open water: a footpath across it is a jetty or a floating dock, drawn
  * as boards on the water instead of a path on the ground.
  */
-export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: number) => number, pause: () => Promise<void>, wet: (x: number, y: number) => boolean = () => false): Promise<Group> {
+/**
+ * `river` says whether a spot is in the water cut out of the ground (`river.ts`): a bridge gets a
+ * deck wider than its street where it crosses it.
+ */
+export async function buildRoadMeshes(
+  net: RoadNet,
+  groundY: (x: number, y: number) => number,
+  pause: () => Promise<void>,
+  wet: (x: number, y: number) => boolean = () => false,
+  river: (x: number, y: number) => boolean = () => false,
+): Promise<Group> {
   const kerb = new Strip();
   const fill = new Strip();
   const path = new Strip();
@@ -274,6 +285,8 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   const trackM = net.lines.reduce((a, l) => a + (l.train ? l.len : 0), 0);
   const gap = trackM > 20000 ? 1.9 : 0.8;
   for (const l of net.lines) {
+    // a bridge over the water: a deck under the street, as wide as its parapets (`bridgeMesh`)
+    if (l.bridge && !l.tram && !l.train) for (const run of overWaterRuns(l.pts, river)) deck.add(run, deckWidth(l), 0.03, groundY);
     if (l.tram || l.train) {
       const gauge = l.train ? 0.78 : 0.72;
       // over water a track lies on a bridge: a deck wide enough to close up with the track beside it
@@ -334,7 +347,7 @@ export async function buildRoadMeshes(net: RoadNet, groundY: (x: number, y: numb
   await pause();
   const g = new Group();
   // drawn in this order: a street lies over the gravel where they cross, and the rails over the street
-  g.add(deck.mesh('#8b8a86', 0), stairs.mesh('#d8d0c0', 1), treads.mesh('#8f8676', 2), arrows.mesh('#c9c3b4', 6), bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), boards.mesh('#b08a5e', 3), seams.mesh('#7d5f3e', 4), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
+  g.add(deck.mesh('#9a958b', 1), stairs.mesh('#d8d0c0', 1), treads.mesh('#8f8676', 2), arrows.mesh('#c9c3b4', 6), bed.mesh('#a39a8b', 1), sleepers.mesh('#6f6355', 2), path.mesh(PALETTE.path, 3), boards.mesh('#b08a5e', 3), seams.mesh('#7d5f3e', 4), kerb.mesh(PALETTE.roadCasing, 4), fill.mesh(PALETTE.roadFill, 5), paint.mesh('#e9e6dc', 6), groove.mesh('#3a3e45', 7), rails.mesh('#c3c8d0', 8));
   return g;
 }
 

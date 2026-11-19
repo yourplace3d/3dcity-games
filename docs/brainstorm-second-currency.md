@@ -693,3 +693,21 @@ All in the session's scratchpad, not in the repo: /tmp/claude-0/-home-user/85025
 - **Wording:** no follower count and nothing that looks like a social network; staff are written without he or she; "run of 3" is kept for the challenge run only.
 - **Venues and the car show are not modelled.** Their prices are estimates to tune.
 
+
+## The owner's answer (19 November): start with the suggestions, learn from play
+
+"Is there a possibility you learn this via the save games? Then we just start with your suggestions and learn on the run."
+
+So the suggested answers to section 10's questions are the starting point. What the server already holds, checked on 19 November:
+- **Online saves: 8 in all,** about 630 characters each. Saving is optional and offered only once a player owns a home. A save holds where a game is now (homes, scores, settings, the last visit day), not when anything happened.
+- **The play counts** (`play_counts`, every browser, nothing about the player), 17-19 November: 98 new browsers and 12 return visits. 55 runs started and 13 finished. 23 homes bought, and rent collected on a return twice. Visits: 56 under 1 minute, 59 of 1-5, 15 of 5-20, 2 over 20.
+
+How to learn from play:
+1. **Use the counts, not the saves.** They cover every browser, the README already says what they are, and they keep nothing about the player. The saves are few and come from the keenest players. The README promises them for going on with a game on another device, not for study.
+2. **New words to count,** each a word and a number per day. The visit day is sent as a span (1, 2-3, 4-7, 8-14, 15-30, 31+), never as a date:
+   - a mission tried and how it ended (car job delivered / caught / wrecked; police job done / broken by an offence);
+   - each first, badge and hire, with the visit-day span it came on;
+   - "held by cred" on a visit's first look at the next hire.
+3. **Changing numbers on the run.** Cred already earned is never taken back. A new price applies only to hires not yet signed, and a new amount only to badges not yet earned. Each change is a release that the owner approves.
+4. **What comes quickly and what does not.** At today's traffic, mission success rates and the first badges show within a week or two. Players who reach the caretaker are few, and the full team (visit day 33 or later) may take months to show. Until then, the owner's own play is the test for the later hires.
+5. **Needs the owner's approval before it goes live:** a change to `count_play` on the live server (it only takes the words it knows), and the README's line on what is counted.

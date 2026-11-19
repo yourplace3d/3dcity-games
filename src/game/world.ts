@@ -26,6 +26,7 @@ import { findLots, type Lot } from './homes';
 import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
 import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
+import { carvePassagesInSteps, keepPassages, Roofs } from './passages';
 import { inventServices, readBanks, readReserved, readServices, serviceIcon, type Bank, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
@@ -87,8 +88,9 @@ export function gameHeight(h: number): number {
 }
 
 /**
- * Buildings a street runs through: gateways, passages, town walls, stations over the road. The map draws
- * them as whole blocks, which would wall the street off, so they don't count as walls.
+ * Buildings a street runs through: gateways, passages, town walls, stations over the road. They are no
+ * longer left out of the walls (`passages.ts` cuts a corridor through them instead), but they still
+ * aren't homes for sale.
  */
 function buildingsOverRoads(buildings: Array<{ poly: Polygon }>, roads: RoadNet): Set<number> {
   const CELL = 32;
@@ -107,7 +109,8 @@ function buildingsOverRoads(buildings: Array<{ poly: Polygon }>, roads: RoadNet)
   const hits = new Map<number, number>();
   for (let li = 0; li < roads.lines.length; li++) {
     const l = roads.lines[li];
-    if (!l.traffic) continue;
+    // a passage the tiles call a tunnel was left out before; kept out here, the homes stay the same
+    if (!l.traffic || l.passage) continue;
     for (let sv = 0.5; sv < l.len; sv += 1.5) {
       const p = roads.point(li, sv);
       for (const i of cells.get(key(Math.floor(p[0] / CELL), Math.floor(p[1] / CELL))) ?? []) {
@@ -348,6 +351,8 @@ export class World {
   /** the buildings that are walls here: outline in metres from the middle of the square, and height */
   buildings: Array<{ poly: Polygon; height: number; id?: string }> = [];
 
+  /** the roofs you can pass beneath: over passages, and parts of buildings that bridge a street */
+  roofs = new Roofs([]);
   /** the buildings that are for sale, with their prices (`homes.ts`) */
   lots: Lot[] = [];
 
@@ -402,6 +407,11 @@ export class World {
     // a building with no recorded height takes its neighbours', before tall ones are squashed
     const heightCounts = localHeights(data.buildings);
     const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true, id: b.id, realHeight: b.height }));
+    // ways through buildings: the map's "tunnels" that stay at ground level under a building are
+    // kept, and every street or path through a building has a corridor cut out of it at ground level
+    data.features.lines = keepPassages(data.features.lines, buildings);
+    const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe);
+    await breathe();
     // roofs out of the ground and the sea to sea level, before anything is built on it
     calmGround(grid, buildings, data.features.sea);
     const model = new CityModel(grid, texturePx, '#ffcc00');
@@ -422,7 +432,7 @@ export class World {
         addWindows(mesh.material);
       };
     }
-    model.setBuildingSpecs(buildings);
+    model.setBuildingSpecs(shapes);
     await breathe();
     // small water becomes basins with a rim, taken out of what is painted on the ground
     const basins = takeBasins(data.features.areas, AREA_SIZE_M / 2);
@@ -445,8 +455,10 @@ export class World {
     const ribbons = await buildRoadMeshes(roads, (x, y) => surfaceY(model, x, y), breathe, (x, y) => water.at(x, y));
     model.group.add(ribbons);
     await breathe();
+    // the homes for sale are the buildings as the map has them, as before passages were cut: an
+    // owned home keeps its building. A building a street ran through was never one.
     const walls = buildings.filter((_, i) => !over.has(i));
-    const solids = new Solids(walls);
+    const solids = new Solids(shapes);
     // last, when nothing works the ground's surface over again
     showRelief(model.terrain.surface.geometry);
     const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y), roads, subwayLetter(centre.lat, centre.lon), 'picture', keepsLeft(centre.lat, centre.lon));
@@ -458,7 +470,8 @@ export class World {
     const deckShape = deckMesh(decks, (x, y) => surfaceY(model, x, y));
     if (deckShape) signs.add(deckShape);
     const world = new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
-    world.buildings = walls;
+    world.buildings = shapes.filter((b) => b.minHeight <= 2.6);
+    world.roofs = new Roofs(shapes.filter((b) => b.minHeight > 2.6 && b.minHeight < 12));
     world.streetNames = readStreetNames(tiles, world.proj, AREA_SIZE_M / 2);
     world.reserved = readReserved(tiles, world.proj, AREA_SIZE_M / 2);
     // every real one the loaded map holds, to judge by; those in the square and the made-up ones are kept

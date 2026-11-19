@@ -228,8 +228,10 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
 There are no traffic lights, level-crossing barriers or one-way streets, and bus and tram lines are not the real routes: vehicles follow
-the streets and tracks and mostly carry straight on. Buildings that
-stand over a street (gateways, passages) aren't walls.
+the streets and tracks and mostly carry straight on. Where a street or
+path runs through a building (gateways, archways, passages into courtyards, gates in a town wall), a corridor is
+cut through it at ground level: walls either side, the floors above as a roof you pass under, and you are drawn
+over that roof while beneath it (`src/game/passages.ts`).
 
 `game.auto = true` in the browser console makes the game drive the jobs itself: for tests and for filming.
 

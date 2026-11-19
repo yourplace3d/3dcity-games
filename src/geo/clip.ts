@@ -44,10 +44,10 @@ export function joinPieces(pieces: Polygon[]): Polygon[] {
   }
 }
 
-const closed = (r: Ring): Ring => [...r, r[0]];
-const toGeom = (p: Polygon) => [closed(p.outer), ...p.holes.map(closed)];
+export const closed = (r: Ring): Ring => [...r, r[0]];
+export const toGeom = (p: Polygon) => [closed(p.outer), ...p.holes.map(closed)];
 
-function fromMulti(mp: MultiPolygon, minArea: number): Polygon[] {
+export function fromMulti(mp: MultiPolygon, minArea: number): Polygon[] {
   const polys: Polygon[] = [];
   for (const [outer, ...holes] of mp) {
     const o = outer.slice(0, -1) as Ring;

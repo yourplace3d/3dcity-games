@@ -347,7 +347,12 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
       eachFeature(layers.transportation, (f) => {
         const cls = str(f.properties.class);
         const brunnel = str(f.properties.brunnel);
-        if (brunnel === 'tunnel') return;
+        // The tiles call a way through a building a tunnel too (tunnel=building_passage). Those stay at
+        // ground level; a real tunnel goes below it (layer -1 or lower). Ground-level ones are kept as
+        // candidates, and only those that run under buildings survive (`keepPassages`).
+        const layer = Number(f.properties.layer ?? 0) || 0;
+        const passage = brunnel === 'tunnel' && f.type === 2 && layer >= 0 && !f.properties.indoor && !!ROAD_KIND[cls];
+        if (brunnel === 'tunnel' && !passage) return;
         if (f.type === 3) {
           // pedestrian squares and platforms come as areas
           if (cls === 'path' && str(f.properties.subclass) === 'pedestrian') clipArea('plaza', polygonsOf(f, toLocal));
@@ -364,7 +369,7 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         const road = ROAD_KIND[cls];
         if (!road && !isRail) return;
         const [kind, width] = isRail ? (['rail', str(f.properties.subclass) === 'tram' ? 1.6 : 3] as [LineKind, number]) : road;
-        for (const pts of linesOf(f, toLocal)) if (pts.length >= 2) lines.push({ kind, widthM: width, pts, bridge: brunnel === 'bridge', steps: cls === 'path' && str(f.properties.subclass) === 'steps' });
+        for (const pts of linesOf(f, toLocal)) if (pts.length >= 2) lines.push({ kind, widthM: width, pts, bridge: brunnel === 'bridge', steps: cls === 'path' && str(f.properties.subclass) === 'steps', ...(passage ? { passage } : {}) });
       });
     }
     {

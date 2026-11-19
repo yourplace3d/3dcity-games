@@ -82,6 +82,11 @@ export interface LineFeature {
   bridge: boolean;
   /** a stairway: a footpath no car is meant to take */
   steps?: boolean;
+  /**
+   * The map calls it a tunnel but it stays at ground level: most often a way through a building
+   * (tunnel=building_passage), kept only where it does run under buildings (`passages.ts`).
+   */
+  passage?: boolean;
 }
 
 export interface FeatureSet {

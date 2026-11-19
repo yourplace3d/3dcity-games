@@ -7,6 +7,7 @@
 import { CanvasTexture, LinearMipmapLinearFilter, SRGBColorSpace } from 'three';
 import type { AreaFeature, AreaKind, FeatureSet, LineFeature, LineKind } from '../geo/osm';
 import type { SeaMask } from '../geo/sea';
+import type { Polygon } from '../geo/polygon';
 import type { Layers } from '../state';
 import type { GroundPainter } from '../data/types';
 
@@ -65,6 +66,11 @@ export class Overlay {
   private seaLayer: HTMLCanvasElement | null = null;
   /** data layers painted on top of the map (a route), in local metres */
   painters: GroundPainter[] = [];
+  /**
+   * Water drawn as a shape of its own (the game's `river.ts`): cut out of the picture, leaving it
+   * see-through there, so the ground drawn with it has a hole for the water below.
+   */
+  cut: Polygon[] | null = null;
 
   constructor(readonly px: number) {
     this.canvas = document.createElement('canvas');
@@ -171,6 +177,14 @@ export class Overlay {
       for (const l of vehicular) strokeLine(ctx, l, Math.max(l.widthM, minW));
       ctx.strokeStyle = PALETTE.rail;
       for (const l of features.lines) if (l.kind === 'rail') strokeLine(ctx, l, Math.max(l.widthM * 0.6, minW));
+    }
+    if (this.cut?.length && layers.water) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      for (const p of this.cut) for (const r of [p.outer, ...p.holes]) traceRing(ctx, r);
+      ctx.fill('nonzero');
+      ctx.globalCompositeOperation = 'source-over';
     }
     this.paintData(ctx, sizeM);
     ctx.restore();

@@ -283,6 +283,13 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   squeezes through). The tiles call `tunnel=building_passage` a tunnel; ground-level "tunnels" (layer 0 or
   none) are kept when at least half of them runs under buildings. Under a roof, a yellow shape draws you on
   top of it. Homes for sale are still chosen from the buildings as before, so owned homes don't change.
+- **Water is a shape of its own** (`river.ts`, 19 November 2026). Rivers, canals, docks, lakes and the sea are
+  joined into one outline per square (tiles cut them at every tile edge), cut out of the ground picture (the
+  ground material has `alphaTest`, so it has a hole there) and drawn 1.4 m below the bank (0.45 m for a lake or
+  pond) on the ground's own grid squares. A granite coping covers the cut edge, with a quay wall down to the
+  water (an earth bank for lakes). The ground under rivers and lakes is levelled with their banks before the
+  square is built, so bridges run level. A bridge over the water gets a wider deck, side faces, parapets and
+  piers, only over the water and a few metres onto each bank. Driving and walking still use `WaterMask`.
 - **Routes** are a shortest-path field per target (`RoadNet.field`, `RoadNet.route`). Drop-offs are only placed
   where a route exists. The distances are a `Float64Array` on purpose: with 32-bit floats the search skipped
   nodes.

@@ -25,10 +25,20 @@ export const PALETTE = {
   rail: '#8e877b',
 };
 
-const AREA_ORDER: AreaKind[] = ['farmland', 'green', 'forest', 'sand', 'plaza', 'water'];
-const AREA_LAYER: Record<AreaKind, keyof Layers> = {
+/**
+ * 'lawn' is green that is grass itself (a lawn, a meadow), as against a park or garden around it.
+ * Mappers often draw a square (Berlin's Rathausforum) over the lawns in it without cutting them out:
+ * painted under the square, only the bits of lawn sticking out of it showed, as odd triangles.
+ * A park is still painted under the square, so a square in a park stays a square.
+ */
+type PaintKind = AreaKind | 'lawn';
+const AREA_ORDER: PaintKind[] = ['farmland', 'green', 'forest', 'sand', 'plaza', 'lawn', 'water'];
+const LAWNS = new Set(['grass', 'meadow', 'grassland', 'flowerbed', 'village_green']);
+export const paintKind = (a: AreaFeature): PaintKind => (a.kind === 'green' && a.cls && LAWNS.has(a.cls) ? 'lawn' : a.kind);
+const AREA_LAYER: Record<PaintKind, keyof Layers> = {
   farmland: 'green',
   green: 'green',
+  lawn: 'green',
   forest: 'green',
   sand: 'green',
   plaza: 'roads',
@@ -114,17 +124,18 @@ export class Overlay {
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
 
-    const byKind = new Map<AreaKind, AreaFeature[]>();
+    const byKind = new Map<PaintKind, AreaFeature[]>();
     for (const a of features.areas) {
-      const arr = byKind.get(a.kind);
+      const k = paintKind(a);
+      const arr = byKind.get(k);
       if (arr) arr.push(a);
-      else byKind.set(a.kind, [a]);
+      else byKind.set(k, [a]);
     }
     for (const kind of AREA_ORDER) {
       if (!layers[AREA_LAYER[kind]]) continue;
       const list = byKind.get(kind);
       if (!list) continue;
-      ctx.fillStyle = PALETTE[kind];
+      ctx.fillStyle = PALETTE[kind === 'lawn' ? 'green' : kind];
       ctx.beginPath();
       for (const a of list) {
         for (const p of a.polys) {

@@ -40,7 +40,46 @@ export interface BuildingsBuild {
   maxHeight: number;
 }
 
+/** how far apart two roofs at one height are set (m): too little to see, enough for the depth buffer */
+export const ROOF_STEP_M = 0.15;
+
+/**
+ * The height each roof is drawn at. Two buildings that overlap with roofs at the same height (a
+ * building and a part of it, two parts mapped over each other) drew their roofs in one plane, and
+ * the graphics card then showed one or the other from frame to frame: a roof that flashed between
+ * two colours as the camera moved. Each such roof is lifted a hair above the one it lies on.
+ */
+export function roofTops(specs: BuildingSpec[]): Float32Array {
+  const tops = new Float32Array(specs.length);
+  const CELL = 64;
+  const cells = new Map<number, number[]>();
+  const key = (cx: number, cy: number) => (cx + 32768) * 65536 + (cy + 32768);
+  const boxes = specs.map((s) => ringBounds(s.poly.outer));
+  specs.forEach((s, i) => {
+    const [x0, y0, x1, y1] = boxes[i];
+    const near = new Set<number>();
+    const c0 = Math.floor(x0 / CELL), c1 = Math.floor(x1 / CELL), r0 = Math.floor(y0 / CELL), r1 = Math.floor(y1 / CELL);
+    for (let cx = c0; cx <= c1; cx++) for (let cy = r0; cy <= r1; cy++) for (const j of cells.get(key(cx, cy)) ?? []) near.add(j);
+    // only buildings whose boxes overlap by more than a hair: neighbours that just touch are left alone
+    const over = [...near].filter((j) => {
+      const b = boxes[j];
+      return Math.min(x1, b[2]) - Math.max(x0, b[0]) > 0.3 && Math.min(y1, b[3]) - Math.max(y0, b[1]) > 0.3;
+    });
+    let top = s.height;
+    for (let tries = 0; tries < 8 && over.some((j) => Math.abs(tops[j] - top) < ROOF_STEP_M * 0.6); tries++) top += ROOF_STEP_M;
+    tops[i] = top;
+    for (let cx = c0; cx <= c1; cx++)
+      for (let cy = r0; cy <= r1; cy++) {
+        const list = cells.get(key(cx, cy));
+        if (list) list.push(i);
+        else cells.set(key(cx, cy), [i]);
+      }
+  });
+  return tops;
+}
+
 export function buildBuildings(specs: BuildingSpec[], groundElevation: (poly: Polygon) => number, refElev: number, ex: number): BuildingsBuild {
+  const tops = roofTops(specs);
   // pass 1: triangulate roofs and count
   const tris: number[][] = [];
   let vCount = 0;
@@ -94,7 +133,7 @@ export function buildBuildings(specs: BuildingSpec[], groundElevation: (poly: Po
     buildingGround[bi] = g;
     starts[bi] = v;
     bounds.set(ringBounds(s.poly.outer), bi * 4);
-    const top = s.height;
+    const top = tops[bi];
     const bottom = s.minHeight > 0.5 ? s.minHeight : -1.5; // sink slightly so no seam shows on flat ground
     maxHeight = Math.max(maxHeight, top);
     if (s.estimated) estimatedCount++;
@@ -283,11 +322,11 @@ export function paintBuildings(b: BuildingsBuild, indices: number[], color: Colo
  * Colour each building by a data layer: `colourAt` gets the middle of its footprint (metres E, N)
  * and gives a colour, or null to keep the style's.
  */
-export function tintBuildings(b: BuildingsBuild, colourAt: (e: number, n: number) => Color | null): void {
+export function tintBuildings(b: BuildingsBuild, colourAt: (e: number, n: number, building: number) => Color | null): void {
   const col = b.geometry.getAttribute('color') as BufferAttribute;
   const arr = col.array as Float32Array;
   for (let i = 0; i < b.count; i++) {
-    const c = colourAt((b.bounds[i * 4] + b.bounds[i * 4 + 2]) / 2, (b.bounds[i * 4 + 1] + b.bounds[i * 4 + 3]) / 2);
+    const c = colourAt((b.bounds[i * 4] + b.bounds[i * 4 + 2]) / 2, (b.bounds[i * 4 + 1] + b.bounds[i * 4 + 3]) / 2, i);
     if (!c) continue;
     for (let v = b.starts[i]; v < b.starts[i + 1]; v++) {
       arr[v * 3] = c.r;

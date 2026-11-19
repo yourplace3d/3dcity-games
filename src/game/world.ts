@@ -24,7 +24,7 @@ import { calmGround } from './ground';
 import { readNamedStreets, readStreetNames, type StreetLabel } from './streetNames';
 import { findLots, type Lot } from './homes';
 import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
-import { stopShapes, type StopSign, type StopSpot } from './stopShapes';
+import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
 import { inventServices, readBanks, readReserved, readServices, serviceIcon, type Bank, type Service } from './services';
 
@@ -140,6 +140,11 @@ const LEFT_HAND: Array<[number, number, number, number]> = [
   [-11.8, 30.9, 4.7, 41.9], // Tanzania, Kenya, Uganda
 ];
 
+/** Whether cars keep left at a place. */
+function keepsLeft(lat: number, lon: number): boolean {
+  return LEFT_HAND.some(([s, w, n, e]) => lat >= s && lat <= n && lon >= w && lon <= e);
+}
+
 /** Stops and stations from the map tiles' points of interest. */
 function readStops(tiles: LoadedTile[], proj: Projector, half: number): Stop[] {
   const out: Stop[] = [];
@@ -212,7 +217,7 @@ function townSights(tiles: LoadedTile[], proj: Projector, half: number): Sight[]
 
 
 /** What stands at every stop: a shelter, a platform, or a stairwell, each with its sign. */
-function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number, roads: RoadNet, letter: 'U' | 'M', sign: StopSign): Group {
+function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number, roads: RoadNet, letter: 'U' | 'M', sign: StopSign, leftHand: boolean): Group {
   const g = new Group();
   const spots: StopSpot[] = [];
   const entrances: EntranceSpot[] = [];
@@ -228,14 +233,21 @@ function stopSigns(stops: Stop[], groundY: (x: number, y: number) => number, roa
     const near = roads.nearest(s.x, s.y, 40, s.kind === 'tram' ? 'tram' : 'drive') ?? roads.nearest(s.x, s.y, 40, 'any');
     let heading = 0;
     let side: 1 | -1 = 1;
+    let x = s.x;
+    let y = s.y;
     if (near) {
       const [hx, hy] = roads.heading({ line: near.line, s: near.s, dir: 1 });
       const [rx, ry] = roads.point(near.line, near.s);
       heading = Math.atan2(hy, hx);
-      // left of the heading is (-hy, hx)
-      side = (s.x - rx) * -hy + (s.y - ry) * hx >= 0 ? 1 : -1;
+      if (s.kind === 'bus') {
+        // the map's point is often in the road itself: the shelter goes to the kerb, on the pavement
+        ({ x, y, side } = kerbSpot(s.x, s.y, [rx, ry], [hx, hy], roads.lines[near.line].w, leftHand));
+      } else {
+        // left of the heading is (-hy, hx)
+        side = (s.x - rx) * -hy + (s.y - ry) * hx >= 0 ? 1 : -1;
+      }
     }
-    spots.push({ kind: s.kind, x: s.x, y: s.y, ground: groundY(s.x, s.y) + riseUnder(groundY, s.x, s.y, 3), heading, side });
+    spots.push({ kind: s.kind, x, y, ground: groundY(x, y) + riseUnder(groundY, x, y, 3), heading, side });
   }
   g.add(stopShapes(spots, sign));
   g.add(subwayEntrances(entrances, letter));
@@ -437,7 +449,7 @@ export class World {
     const solids = new Solids(walls);
     // last, when nothing works the ground's surface over again
     showRelief(model.terrain.surface.geometry);
-    const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y), roads, subwayLetter(centre.lat, centre.lon), 'picture');
+    const signs = stopSigns(stops, (x, y) => surfaceY(model, x, y), roads, subwayLetter(centre.lat, centre.lon), 'picture', keepsLeft(centre.lat, centre.lon));
     model.group.add(signs);
     const basinShape = basinMesh(basins, (x, y) => surfaceY(model, x, y));
     if (basinShape) signs.add(basinShape);
@@ -484,8 +496,7 @@ export class World {
 
   /** Whether cars keep left here (Britain, Japan, Australia, India, southern Africa and so on). */
   get leftHand(): boolean {
-    const { lat, lon } = this.centre;
-    return LEFT_HAND.some(([s, w, n, e]) => lat >= s && lat <= n && lon >= w && lon <= e);
+    return keepsLeft(this.centre.lat, this.centre.lon);
   }
 
   /**

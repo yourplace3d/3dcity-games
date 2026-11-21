@@ -10,12 +10,20 @@
  * finished; a home bought (flat, house or building); rent collected on a return. Whether a browser
  * was here before is a date kept in it (`3da-visit-day`); that date is never sent.
  *
+ * City (`count_play`, kind "city"): which city is being played, once for each city in a visit: the
+ * well-known city the place lies in or beside, by name (the game's own list, `CITIES` in `places.ts`),
+ * else the one-degree square of the place. Not what the visitor typed, nor the name the place search
+ * gave. Not for "Where I am" (that is where the visitor is, which is never counted) and not for a
+ * Where am I? round (a place they were not asked to pick).
+ *
  * What is sent is one word ("made", "opened" or "youtube") and that square, for example "53,10".
  * Not the link, not a name, not the street or the town. The tally is a number per day, word and
  * square. Nothing is kept in the player's browser for it, so a link opened twice is counted twice.
  * Like any request, it reaches the server from the sender's internet address, which the tally does
  * not keep. Where the visitor is plays no part: the square is the place on the map being played.
  */
+
+import { nearCity } from './places';
 
 const TALLY = 'https://lecaoamodyjubwuvhpcq.supabase.co/rest/v1/rpc/count_link_at';
 const PLAY = 'https://lecaoamodyjubwuvhpcq.supabase.co/rest/v1/rpc/count_play';
@@ -171,6 +179,28 @@ export function countVisit(query: URLSearchParams): void {
  */
 export function countPlay(kind: 'start' | 'run' | 'home' | 'rent' | 'guess', detail = ''): void {
   send(kind, detail);
+}
+
+/**
+ * What a place is counted under: the well-known city it lies in or beside (the rule that names it on
+ * the sign), else its one-degree square, as the links are. Never a name from the place search.
+ */
+export function cityOf(at: Place): string {
+  return nearCity(at) ?? square(at);
+}
+
+// the cities counted in this visit; nothing is kept in the browser for it
+const citiesSeen = new Set<string>();
+
+/**
+ * A city was loaded to play in: counted once for each city in a visit, and once the page has been
+ * touched (a link opened by a checker that never touches anything is not a player).
+ */
+export function countCity(at: Place): void {
+  const city = cityOf(at);
+  if (citiesSeen.has(city)) return;
+  citiesSeen.add(city);
+  void person.then(() => send('city', city));
 }
 
 /** How long a visit played, as one of four spans: what is sent is the span, not the time. */

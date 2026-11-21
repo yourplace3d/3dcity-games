@@ -98,7 +98,11 @@ the streets, buildings, water and hills come from the same map squares as
   (`?ref=youtube`), each with the region of the map being played (a square of one degree, about
   100 km). It also counts how it is played, per day: a visit, once a day for each browser and only once
   the page is touched, as "new" (first time) or "back", with where it came from in one word (direct,
-  youtube, search, challenge, link); a run of three finished; a home bought; rent collected on a return.
+  youtube, search, challenge, link); a run begun, and a run of three finished; a home bought; rent
+  collected on a return; a Where am I? round; how long a visit played, as one of four spans; and which
+  city is played, once for each city in a visit: one of the well-known cities by name, or any other
+  place as its square of one degree. What a visitor types is not sent, nor is "Where I am" or a
+  Where am I? round (that is where they are, or a place they were not asked to pick).
   Each count is a word and a number for the day, and nothing else: nothing about the player, the friend
   or where they are. Whether a browser was here before is a date kept in it (`3da-visit-day`) that is never
   sent. Test browsers and the developer's own machine are not counted (`src/linkCount.ts`,

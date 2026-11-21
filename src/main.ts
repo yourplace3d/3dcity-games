@@ -5,7 +5,7 @@
 
 import { Game, MAX_CASH, RUN_JOBS, type Course, type Hud } from './game/game';
 import { linkHome, packChallenge, readChallenge, type Challenge } from './challenge';
-import { cameByVideo, countMade, countOpened, countPlay, countTime, countVisit, playingAt } from './linkCount';
+import { cameByVideo, countCity, countMade, countOpened, countPlay, countTime, countVisit, playingAt } from './linkCount';
 import { arrive as cloudArrive, changed, savedName, savingOn } from './cloud';
 import { loadHomes, type Home } from './game/homes';
 import { loadReno, type Reno } from './game/renovation';
@@ -224,7 +224,8 @@ function setScreen(screen: 'start' | 'play'): void {
   homesButtons();
 }
 
-async function go(at: LngLat, name?: string, sent: Challenge | null = null): Promise<void> {
+/** Load a place and start playing in it. `here`: the place is where the visitor is ("Where I am"), which is never counted. */
+async function go(at: LngLat, name?: string, sent: Challenge | null = null, here = false): Promise<void> {
   if (busy) return;
   busy = true;
   if (!dropping) endGuess();
@@ -280,6 +281,8 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       void fullNote.then((n) => n && toast(n.text, n.kind));
     }
     await game.start(at);
+    // which city is played; not one a Where am I? round put the player in, nor the place "Where I am" found
+    if (!BAKED && !dropping && !here) countCity(at);
     // a run a friend sent is a run, whatever the start screen is set to
     if (sent || mode === 'run') game.newRun(sent?.course ?? null);
     else game.openPlay();
@@ -1056,7 +1059,7 @@ if (baked) {
       status.className = 'status';
       status.textContent = 'Finding you…';
       navigator.geolocation.getCurrentPosition(
-        (p) => void go({ lat: p.coords.latitude, lon: p.coords.longitude }),
+        (p) => void go({ lat: p.coords.latitude, lon: p.coords.longitude }, undefined, null, true),
         () => {
           status.className = 'status error';
           status.textContent = 'Your location isn’t available. Pick a city instead.';

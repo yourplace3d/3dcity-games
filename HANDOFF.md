@@ -168,6 +168,22 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   project; the game code that writes to it went live on 17 November 2026. The table was empty
   on 16 November (the owner deleted three test rows). Deletes through the Supabase tool ask the owner to
   confirm and that answer did not arrive in time, twice; for a delete, give the owner the SQL to run instead.
+- **Which city is played, counted (owner, 21 November 2026; built, not live).** After a Reddit post that
+  used the same short link as the video, so the two can't be told apart ("which cities were played"
+  would say more). `count_play('city', …)`: when a place has loaded, once for each city in a visit and
+  only after the first touch, the place a link opens in included (`countCity`, `src/linkCount.ts`; called in `go()`, `src/main.ts`). The
+  detail is the well-known city the place lies in or beside (`nearCity`, 15 km, the same rule that names a place on
+  the sign: the first name in `CITIES`), else its one-degree square such as `53,9`. Never what was typed or the
+  name the place search gave. Not counted: "Where I am" (that is where the visitor is), Where am I?
+  rounds, baked builds, test browsers. The database function takes the 60 names, a square on Earth (at most
+  500 different ones a day), and puts anything else under `other`; `tests/cityCount.test.ts` fails if its list
+  and `CITIES` differ, so a new city in `places.ts` needs a new migration with its name. Migration
+  "play_counts_city" (21 November), tried in a transaction first (`docs/supabase/play_counts.sql`). Read it
+  with the second query in that file's header. **Needs the owner's yes and a Pages run to go live**; nothing
+  is counted until then, and nothing before it can be looked up: the only older place data is `link_counts_at`
+  (the square of each arrival by the video link). The short address's forwarder
+  (`docs/mindmacher/3da/index.html`) sets `ref=youtube` whatever the link says, so everyone sent through it counts
+  as YouTube; the game's own address posted elsewhere shows as `link` (or `direct` where an app hides the sender).
 - **Saving online for everyone, with homes (owner, 16 November 2026).** The owner's worry was space and
   traffic, not names: a save belongs to its secret code, so two players may share a name (a number as a
   suggestion is for later, if names are ever shown publicly). Done: the box shows on every start screen

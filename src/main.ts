@@ -366,7 +366,7 @@ function begin(): void {
   if (rival && coached()) return;
   if (secret) {
     // someone who came by a friend's link may never have played: say how to get going, once the sign has been read
-    setTimeout(() => playing && secret && !game?.car && toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info'), guessRival ? 6200 : 3400);
+    setTimeout(() => playing && secret && !game?.car && toast(document.body.classList.contains('touch') ? 'Walk to a car and tap Get in' : 'Walk to a car and press E', 'info'), guessRival ? 6200 : 3400);
     return;
   }
   // open jobs from the start: say where they are, once the place's name has been read
@@ -374,7 +374,7 @@ function begin(): void {
     setTimeout(() => playing && game?.run.over && openJobs(true), 3600);
     return;
   }
-  if (coached()) toast(document.body.classList.contains('touch') ? 'Walk to a car and tap In / out' : 'Walk to a car and press E', 'info');
+  if (coached()) toast(document.body.classList.contains('touch') ? 'Walk to a car and tap Get in' : 'Walk to a car and press E', 'info');
   else if (step < 0) step = 0;
 }
 
@@ -656,12 +656,12 @@ function coached(): boolean {
 const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = [
   {
     keys: 'You walk with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrow keys. Step up to the car beside you and press <kbd>E</kbd> to get in.',
-    touch: 'Drag anywhere on the left half of the screen to walk. Step up to the car beside you and tap <b>In / out</b>.',
+    touch: 'Drag anywhere on the left half of the screen to walk. Step up to the car beside you and tap <b>Get in</b>.',
     done: (h) => h.carHp !== null,
   },
   {
     keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
-    touch: 'Drag to steer and drive, <b>Brake</b> to stop. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
+    touch: 'Drag to steer and drive, hold the red <b>Brake</b> pedal to stop. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
     done: (h) => h.job !== null,
   },
   {
@@ -718,7 +718,7 @@ function tour(h: Hud, dt: number): void {
   const touch = document.body.classList.contains('touch');
   // out of the car in the middle of it all: the next thing is to get back into one
   const onFoot = h.carHp === null && step > 0 && !last;
-  put('coach-text', onFoot ? (touch ? 'You are on foot. Walk up to a car and tap <b>In / out</b>. A parked one is free to take.' : 'You are on foot. Walk up to a car and press <kbd>E</kbd>. A parked one is free to take.') : touch ? TOUR[step].touch : TOUR[step].keys);
+  put('coach-text', onFoot ? (touch ? 'You are on foot. Walk up to a car and tap <b>Get in</b>. A parked one is free to take.' : 'You are on foot. Walk up to a car and press <kbd>E</kbd>. A parked one is free to take.') : touch ? TOUR[step].touch : TOUR[step].keys);
   put('coach-skip', last ? 'Got it' : 'Skip the tour');
 }
 $('coach-skip').addEventListener('click', endTour);
@@ -942,6 +942,7 @@ function paint(h: Hud): void {
   }
   $('hint').hidden = !h.hint;
   if (h.hint) put('hint', `<kbd>E</kbd>${h.hint}`);
+  touchButtons(h);
 
   // names over the well-known sights in the picture
   const box = $('sights');
@@ -984,6 +985,33 @@ function paint(h: Hud): void {
       arrow.style.setProperty('--ly', y > hh / 2 ? '-30px' : '20px');
       put('arrow-m', fmtM(h.target.metres));
     }
+  }
+}
+
+/**
+ * The two touch buttons follow what you're doing: the brake pedal only in a car, and the other
+ * button says what a press would do (get in, get out, take the subway, an add-on's thing). On foot
+ * with nothing in reach it goes away, since a press would do nothing.
+ */
+let touchSeen = '';
+function touchButtons(h: Hud): void {
+  const inCar = h.carHp !== null;
+  // the game's own "wrecked" says why, not what the press does: it gets you out
+  const said = h.hint && h.hint !== 'wrecked' ? h.hint : '';
+  const label = said ? said[0].toUpperCase() + said.slice(1) : inCar ? 'Get out' : '';
+  const mode = !label ? 'in' : inCar && !said ? 'out' : /^(get in|take this (car|bus))$/.test(said) ? 'in' : 'other';
+  const seen = `${inCar}|${label}|${mode}`;
+  if (seen === touchSeen) return;
+  touchSeen = seen;
+  const brake = $('btn-brake');
+  if (!inCar && !brake.classList.contains('off')) controls.releaseBrake();
+  brake.classList.toggle('off', !inCar);
+  const act = $('btn-action');
+  act.classList.toggle('off', !label);
+  act.dataset.mode = mode;
+  if (label) {
+    put('action-label', label);
+    act.setAttribute('aria-label', label);
   }
 }
 

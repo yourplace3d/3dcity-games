@@ -5,8 +5,8 @@
  * recorded nearby, the square's own mix is used if it has one, and otherwise the plain palette
  * every place had before.
  *
- * The pick comes from where the building stands on the earth, so a building keeps its colour on
- * every visit and when the next square loads.
+ * The pick comes from the map's number for the building (where it stands on the earth when it has
+ * none), so a building keeps its colour on every visit and when the next square loads.
  */
 
 import { Color } from 'three';
@@ -50,8 +50,16 @@ function hash(a: number, b: number): number {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
 
+/** A number in [0, 1) from the map's number for a building. */
+function hashId(id: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 0x01000193) >>> 0;
+  return hash(h, id.length);
+}
+
 export interface LocalColours {
-  at(e: number, n: number): Color;
+  /** `id`: the map's number for the building; with it the colour is the same in every square it is drawn in */
+  at(e: number, n: number, id?: string): Color;
   /** of the buildings asked about: how many had a recorded colour, took a neighbour's, the square's, or stayed plain */
   counts: { mapped: number; neighbours: number; square: number; plain: number };
 }
@@ -65,6 +73,8 @@ export function localColours(mapped: MappedColour[], proj: Projector): LocalColo
     if (!shade) shades.set(key, (shade = roof(m.colour)));
     return { x: m.x, y: m.y, shade, tall: m.height >= 25 };
   });
+  const byId = new Map<string, Shade>();
+  for (const [i, m] of mapped.entries()) if (m.id) byId.set(m.id, pts[i].shade);
   const cells = new Map<number, number[]>();
   const cellOf = (cx: number, cy: number) => (cx + 512) * 1024 + cy + 512;
   pts.forEach((p, i) => {
@@ -94,11 +104,19 @@ export function localColours(mapped: MappedColour[], proj: Projector): LocalColo
   const rings = Math.ceil(REACH / CELL);
   return {
     counts,
-    at(e, n) {
+    at(e, n, id) {
+      // A building on the edge of a square is cut off there, so the middle of what is drawn moves
+      // from one square to the next; its number does not. Picked by the spot it stood on, it could
+      // take another colour when the next square loaded: a roof that suddenly changed colour.
+      const own = id ? byId.get(id) : undefined;
+      if (own) {
+        counts.mapped++;
+        return own.colour;
+      }
       const ll = proj.toLngLat(e, n);
       const a = Math.round(ll.lat * 1e5);
       const b = Math.round(ll.lon * 1e5);
-      const r = hash(a, b);
+      const r = id ? hashId(id) : hash(a, b);
       const cx = Math.floor(e / CELL);
       const cy = Math.floor(n / CELL);
       const near: Array<{ d: number; i: number }> = [];

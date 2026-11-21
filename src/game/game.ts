@@ -16,6 +16,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   NeutralToneMapping,
+  PlaneGeometry,
   PCFShadowMap,
   BasicShadowMap,
   PerspectiveCamera,
@@ -220,6 +221,8 @@ export class Game {
   showRoute = false;
   /** the car you last drove, ringed while you're on foot so you can find it again */
   private mine: Car | null = null;
+  /** you, drawn over a roof you are beneath (a passage through a building): the camera looks straight down */
+  private readonly ghost = new Mesh(new PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
   private readonly mineRing = new Mesh(new RingGeometry(3.3, 3.8, 40), new MeshBasicMaterial({ color: '#ffffff', side: DoubleSide, transparent: true, opacity: 0.85, depthWrite: false }));
   autoSpeed = 16;
   autoAvoid = true;
@@ -336,7 +339,9 @@ export class Game {
     this.sun.shadow.radius = 2;
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.25;
-    this.scene.add(new HemisphereLight('#ffffff', '#c9c0b0', 1.3), this.sun, this.sun.target, this.me.mesh, this.routeLine, this.mineRing);
+    this.scene.add(new HemisphereLight('#ffffff', '#c9c0b0', 1.3), this.sun, this.sun.target, this.me.mesh, this.routeLine, this.mineRing, this.ghost);
+    this.ghost.renderOrder = 20;
+    this.ghost.visible = false;
     this.mineRing.rotation.x = -Math.PI / 2;
     this.mineRing.visible = false;
     this.routeLine.visible = false;
@@ -1907,6 +1912,14 @@ export class Game {
       const from = this.descentFrom || ARRIVE_M * portrait;
       this.cam.h = Math.exp(Math.log(from) + (Math.log(h) - Math.log(from)) * eased);
     } else this.cam.h += (h - this.cam.h) * (1 - Math.exp(-1.8 * dt));
+    // under a roof, you are drawn over it
+    this.ghost.visible = !this.rising && w.roofs.over(px, py);
+    if (this.ghost.visible) {
+      const c = this.car;
+      this.ghost.scale.set(c ? c.spec.len : 0.9, 1, c ? c.spec.wid : 0.9);
+      this.ghost.position.set(px, w.groundY(px, py) + 0.3, -py);
+      this.ghost.rotation.y = c ? c.th : this.me.th;
+    }
     const gy = w.groundY(this.cam.x, this.cam.y);
     this.camera.position.set(this.cam.x, gy + this.cam.h, -this.cam.y);
     this.camera.lookAt(this.cam.x, gy, -this.cam.y);

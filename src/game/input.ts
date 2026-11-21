@@ -27,6 +27,11 @@ export class Controls {
   private stickFrom = { x: 0, y: 0 };
   private stickAt = { x: 0, y: 0 };
   private brakeId: number | null = null;
+  /** The pedal is let go (it is hidden once you're out of the car, and the release may never come). */
+  releaseBrake(): void {
+    this.brakeId = null;
+    this.brakeBtn.classList?.remove('held');
+  }
   /** called once per press */
   onAction: () => void = () => undefined;
   onReset: () => void = () => undefined;
@@ -45,9 +50,10 @@ export class Controls {
     this.down.clear();
     this.stickId = this.brakeId = null;
     this.knob.parentElement!.hidden = true;
+    this.brakeBtn.classList?.remove('held');
   }
 
-  constructor(pad: HTMLElement, private readonly knob: HTMLElement, actionBtn: HTMLElement, brakeBtn: HTMLElement) {
+  constructor(pad: HTMLElement, private readonly knob: HTMLElement, actionBtn: HTMLElement, private readonly brakeBtn: HTMLElement) {
     addEventListener('keydown', (e) => {
       const k = KEYS[e.code];
       if (!k || !this.enabled || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -101,9 +107,12 @@ export class Controls {
       if (!this.enabled || this.brakeId !== null) return;
       this.brakeId = e.pointerId;
       brakeBtn.setPointerCapture(e.pointerId);
+      brakeBtn.classList?.add('held');
     });
     for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) brakeBtn.addEventListener(ev, (e) => {
-      if (e.pointerId === this.brakeId) this.brakeId = null;
+      if (e.pointerId !== this.brakeId) return;
+      this.brakeId = null;
+      brakeBtn.classList?.remove('held');
     });
   }
 

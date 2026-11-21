@@ -58,7 +58,7 @@ export type AreaKind = 'water' | 'green' | 'forest' | 'farmland' | 'sand' | 'pla
 export interface AreaFeature {
   kind: AreaKind;
   polys: Polygon[];
-  /** from the map tiles: the map's own word for it (water: pond, lake, river, swimming_pool, ocean; land: pitch, stadium, playground, cemetery) */
+  /** from the map tiles: the map's own word for it (water: pond, lake, river, swimming_pool, ocean; land: pitch, stadium, playground, cemetery; land cover: park, garden, grass, meadow) */
   cls?: string;
 }
 
@@ -82,6 +82,11 @@ export interface LineFeature {
   bridge: boolean;
   /** a stairway: a footpath no car is meant to take */
   steps?: boolean;
+  /**
+   * The map calls it a tunnel but it stays at ground level: most often a way through a building
+   * (tunnel=building_passage), kept only where it does run under buildings (`passages.ts`).
+   */
+  passage?: boolean;
 }
 
 export interface FeatureSet {
@@ -326,7 +331,9 @@ export function parseFeatures(res: OverpassResponse, center: LngLat): FeatureSet
     if (ak) {
       const polys = elementPolygons(el, proj);
       if (polys.length) {
-        areas.push({ kind: ak, polys });
+        // a lawn is painted over a pedestrian square it lies in (see LAWNS in the overlay)
+        const lawn = ak === 'green' && (tags.landuse === 'grass' || tags.landuse === 'meadow' || tags.natural === 'grassland');
+        areas.push(lawn ? { kind: ak, polys, cls: 'grass' } : { kind: ak, polys });
         continue;
       }
     }

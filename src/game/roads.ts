@@ -41,6 +41,8 @@ export interface RoadLine {
   train: boolean;
   /** a stairway */
   steps: boolean;
+  /** a way through a building (`passages.ts`) */
+  passage: boolean;
   /** lines met at the start and at the end */
   ends: [Conn[], Conn[]];
   /** other lines that begin or end somewhere along this one */
@@ -107,7 +109,7 @@ export class RoadNet {
       const len = cum[pts.length - 1];
       if (len < 2) continue;
       const id = this.lines.length;
-      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, steps: !!f.steps, ends: [[], []], joins: [] });
+      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = this.segLine.length;
         this.segLine.push(id);

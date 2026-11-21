@@ -90,6 +90,30 @@ export interface StopSpot {
   side: 1 | -1;
 }
 
+/**
+ * Where a bus stop's shelter stands, from the stop's point on the map and the street beside it.
+ *
+ * The map often puts a bus stop's point on the street's centre line, or somewhere in its lanes,
+ * so the point itself is no place for the shelter. It goes on the pavement instead: at the kerb of
+ * the side the point lies on, straight out from the nearest place on the street. A point on or
+ * very near the middle has no side of its own and takes the side traffic keeps to (the right, or the
+ * left where cars keep left). A point already out past the kerb stays as far out as it is.
+ *
+ * `road` is the nearest place on the centre line, `heading` the street's direction there and
+ * `width` its full width (m).
+ */
+export function kerbSpot(x: number, y: number, road: [number, number], heading: [number, number], width: number, leftHand: boolean): { x: number; y: number; side: 1 | -1 } {
+  const [rx, ry] = road;
+  const [hx, hy] = heading;
+  // to the left of the heading is (-hy, hx)
+  const across = (x - rx) * -hy + (y - ry) * hx;
+  const side: 1 | -1 = Math.abs(across) > 1 ? (across > 0 ? 1 : -1) : leftHand ? 1 : -1;
+  const out = Math.max(Math.abs(across), width / 2);
+  // keep the stop where it is along the street, only move it across
+  const along = (x - rx) * hx + (y - ry) * hy;
+  return { x: rx + hx * along - hy * out * side, y: ry + hy * along + hx * out * side, side };
+}
+
 const roofMat = new MeshStandardMaterial({ color: '#a9bcc6', roughness: 0.5, metalness: 0.1 });
 const wallMat = new MeshStandardMaterial({ color: '#4a4f57', roughness: 0.8 });
 const slabMat = new MeshStandardMaterial({ color: '#aab3bd', roughness: 0.9 });

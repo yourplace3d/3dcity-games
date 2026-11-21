@@ -300,9 +300,13 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   near you is carried over (`Game.swap`). Loading blocks for roughly 130 ms.
 - **Streets connect where they cross**, not only where a map line ends (`RoadNet.cross`). Before this the
   network was nearly disconnected. Bridges and the roads under them don't meet.
-- **Buildings a street runs through are not walls** (`buildingsOverRoads` in `world.ts`): passages, gateways,
-  town walls. Any building with a street's centre line inside it is left out of the collision index. It is
-  still drawn, so a car can disappear under a roof for a moment.
+- **Ways through buildings are cut out** (`passages.ts`, 19 November 2026): passages, gateways, town walls.
+  Every street or footpath that goes well into a building (not one that only grazes its front) gets a corridor
+  cut out at ground level: walls either side stay solid, the part above starts at 4 m and is a roof you pass
+  under, and a low gate or wall is opened to the sky. Streets get at least 3.6 m, footpaths 2.6 m (a car still
+  squeezes through). The tiles call `tunnel=building_passage` a tunnel; ground-level "tunnels" (layer 0 or
+  none) are kept when at least half of them runs under buildings. Under a roof, a yellow shape draws you on
+  top of it. Homes for sale are still chosen from the buildings as before, so owned homes don't change.
 - **Routes** are a shortest-path field per target (`RoadNet.field`, `RoadNet.route`). Drop-offs are only placed
   where a route exists. The distances are a `Float64Array` on purpose: with 32-bit floats the search skipped
   nodes.

@@ -83,7 +83,7 @@ export class CityModel implements ModelSurface {
   /** data layers on the model (a route): ground paint and 3D objects */
   private readonly overlays: ModelOverlay[] = [];
   /** a data layer colouring the buildings (values per area), or null */
-  private tint: ((e: number, n: number) => Color | null) | null = null;
+  private tint: ((e: number, n: number, building: number) => Color | null) | null = null;
 
   constructor(
     readonly grid: HeightGrid,
@@ -376,7 +376,7 @@ export class CityModel implements ModelSurface {
    * Colour the buildings by a data layer: `colourAt` gets the middle of each footprint (metres E,
    * N) and gives its colour, or null to keep the style's. null takes the layer off.
    */
-  setBuildingTint(colourAt: ((e: number, n: number) => Color | null) | null): void {
+  setBuildingTint(colourAt: ((e: number, n: number, building: number) => Color | null) | null): void {
     this.tint = colourAt;
     this.paint();
   }

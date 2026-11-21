@@ -87,6 +87,11 @@ export interface LineFeature {
    * (tunnel=building_passage), kept only where it does run under buildings (`passages.ts`).
    */
   passage?: boolean;
+  /**
+   * A one-way street: 1 when traffic goes the way the points run, -1 when it goes against them
+   * (the map's `oneway`). Left out for a two-way street.
+   */
+  oneway?: 1 | -1;
 }
 
 export interface FeatureSet {

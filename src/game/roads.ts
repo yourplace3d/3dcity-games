@@ -43,6 +43,8 @@ export interface RoadLine {
   steps: boolean;
   /** a way through a building (`passages.ts`) */
   passage: boolean;
+  /** traffic goes only with the points (1), only against them (-1), or both ways (0) */
+  oneway: 0 | 1 | -1;
   /** lines met at the start and at the end */
   ends: [Conn[], Conn[]];
   /** other lines that begin or end somewhere along this one */
@@ -109,7 +111,7 @@ export class RoadNet {
       const len = cum[pts.length - 1];
       if (len < 2) continue;
       const id = this.lines.length;
-      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
+      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, steps: !!f.steps, passage: !!f.passage, oneway: f.oneway ?? 0, ends: [[], []], joins: [] });
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = this.segLine.length;
         this.segLine.push(id);
@@ -454,27 +456,33 @@ export class RoadNet {
     return [x + hy * side, y - hx * side];
   }
 
-  /** Ways on from a meeting point on a line: along it in each direction that has road left. */
-  private optionsAt(c: Conn, want: 'drive' | 'walk' | 'tram' | 'train'): PathState[] {
+  /**
+   * Ways on from a meeting point on a line: along it in each direction that has road left. With
+   * `oneWay`, a car keeps to the way a one-way street goes.
+   */
+  private optionsAt(c: Conn, want: 'drive' | 'walk' | 'tram' | 'train', oneWay = false): PathState[] {
     const l = this.lines[c.line];
     if (!l[want]) return [];
     const out: PathState[] = [];
-    if (l.len - c.s > 4) out.push({ line: c.line, s: c.s, dir: 1 });
-    if (c.s > 4) out.push({ line: c.line, s: c.s, dir: -1 });
+    const may = (dir: 1 | -1) => !oneWay || want !== 'drive' || l.oneway === 0 || l.oneway === dir;
+    if (l.len - c.s > 4 && may(1)) out.push({ line: c.line, s: c.s, dir: 1 });
+    if (c.s > 4 && may(-1)) out.push({ line: c.line, s: c.s, dir: -1 });
     return out;
   }
 
   /**
    * Move along the network by `ds` metres. At the end of a line `pick` chooses among the ways
    * on (null: turn round). Passing a junction, `pick` gets the side road and "carry on" (null).
+   * With `oneWay`, only the ways a one-way street allows are offered; where the map leaves no
+   * such way on (a gap in the data, the edge of the square), all of them are.
    */
-  advance(p: PathState, ds: number, want: 'drive' | 'walk' | 'tram' | 'train', pick: Pick): void {
+  advance(p: PathState, ds: number, want: 'drive' | 'walk' | 'tram' | 'train', pick: Pick, oneWay = false): void {
     const l = this.lines[p.line];
     const from = p.s;
     const to = p.s + p.dir * ds;
     for (const j of l.joins) {
       if (p.dir > 0 ? j.s > from && j.s <= to : j.s < from && j.s >= to) {
-        const options = this.optionsAt({ line: j.line, s: j.s2 }, want);
+        const options = this.optionsAt({ line: j.line, s: j.s2 }, want, oneWay);
         if (!options.length) continue;
         const chosen = pick(options, p);
         if (chosen) {
@@ -487,7 +495,9 @@ export class RoadNet {
       p.s = to;
       return;
     }
-    const options = l.ends[p.dir > 0 ? 1 : 0].flatMap((c) => this.optionsAt(c, want));
+    const ends = l.ends[p.dir > 0 ? 1 : 0];
+    const allowed = oneWay ? ends.flatMap((c) => this.optionsAt(c, want, true)) : [];
+    const options = allowed.length ? allowed : ends.flatMap((c) => this.optionsAt(c, want));
     const chosen = options.length ? pick(options, null) : null;
     if (chosen) Object.assign(p, chosen);
     else {
@@ -514,6 +524,9 @@ export class RoadNet {
         place = { line, s: rnd() * this.lines[line].len, dir: rnd() < 0.5 ? 1 : -1 };
       }
       if (!place) continue;
+      // on a one-way street, a car is put down facing the way it goes
+      const ow = this.lines[place.line].oneway;
+      if (ow && (want === 'drive' || want === 'traffic')) place.dir = ow;
       const [px, py] = this.point(place.line, place.s);
       const d = Math.hypot(px - x, py - y);
       if (d < minD || d > maxD || Math.abs(px) > edge || Math.abs(py) > edge) continue;

@@ -42,3 +42,52 @@ describe('driving routes', () => {
     expect(net.route(net.field(80, 0)!, 0, 80)).toBeNull();
   });
 });
+
+describe('one-way streets', () => {
+  const oneway = (pts: LineFeature['pts'], dir: 1 | -1): LineFeature => ({ ...road(pts), oneway: dir });
+  // a T: the main road runs west to east, a side street leaves it at x = 50 going north
+  const tee = (side: LineFeature) => new RoadNet([road([[0, 0], [100, 0]]), side], 750);
+
+  it('offers traffic only the way a one-way street goes', () => {
+    for (const [dir, expected] of [[1, 1], [-1, null]] as const) {
+      // the side street is drawn from the junction northwards
+      const net = tee(oneway([[50, 0], [50, 100]], dir));
+      const p = { line: 0, s: 40, dir: 1 as const };
+      const offered: number[] = [];
+      net.advance(p, 20, 'drive', (options) => {
+        for (const o of options) if (o.line === 1) offered.push(o.dir);
+        return null;
+      }, true);
+      expect([...new Set(offered)]).toEqual(expected === null ? [] : [expected]);
+    }
+  });
+
+  it('still offers both ways when one-way streets are not kept to (a police chase)', () => {
+    const net = tee(oneway([[50, 0], [50, 100]], -1));
+    const offered: number[] = [];
+    net.advance({ line: 0, s: 40, dir: 1 }, 20, 'drive', (options) => {
+      for (const o of options) if (o.line === 1) offered.push(o.dir);
+      return null;
+    });
+    expect([...new Set(offered)]).toEqual([1]);
+  });
+
+  it('turns into a one-way street the wrong way rather than stopping where the map leaves no other way', () => {
+    // a dead end: the only way on from the end of the first road is a one-way street towards it
+    const net = new RoadNet([road([[0, 0], [100, 0]]), oneway([[100, 0], [200, 0]], -1)], 750);
+    const p = { line: 0, s: 90, dir: 1 as const };
+    net.advance(p, 20, 'drive', (options) => options[0] ?? null, true);
+    expect(p.line).toBe(1);
+  });
+
+  it('puts traffic down facing the way a one-way street goes', () => {
+    const net = new RoadNet([oneway([[-100, 0], [100, 0]], -1)], 750);
+    for (let k = 0; k < 20; k++) expect(net.randomPlace('traffic', 0, 0, 10, 90)?.dir).toBe(-1);
+  });
+
+  it('keeps footpaths two-way', () => {
+    const net = new RoadNet([oneway([[-100, 0], [100, 0]], 1)], 750);
+    expect(net.lines[0].oneway).toBe(1);
+    for (let k = 0; k < 20; k++) expect([1, -1]).toContain(net.randomPlace('walk', 0, 0, 10, 90)?.dir);
+  });
+});

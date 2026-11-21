@@ -810,8 +810,10 @@ export class Game {
           };
       const look = 7 + Math.abs(vf) * 0.55;
       [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
+      // traffic keeps to the way one-way streets go; police after you don't
+      const oneWay = want === 'drive' && !chase;
       for (let k = 0; k < 30 && Math.hypot(tx - c.x, ty - c.y) < look; k++) {
-        net.advance(p, 2, want, pick);
+        net.advance(p, 2, want, pick, oneWay);
         [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
       }
       // at the end of a track a tram or train stops, waits a moment and sets off the other way

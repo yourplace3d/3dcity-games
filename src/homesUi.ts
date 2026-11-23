@@ -879,7 +879,7 @@ export class HomesUi {
           ? `${text}: too big for now`
           : wait
             ? `${text}  ${money(price)}: after ${deliveries(wait)}`
-            : `${text}  ${money(price)}${day ? ' · free today' : need ? ` · ${need} points` : ''}`;
+            : `${text}  ${money(price)}${day ? ' · no points needed' : need ? ` · ${need} points` : ''}`;
       b.disabled = !open || wait > 0 || this.budget() < price;
       b.addEventListener('click', () => this.buy(found!, what));
       this.panel.append(b);
@@ -927,7 +927,7 @@ export class HomesUi {
       const p = document.createElement('p');
       p.className = 'small';
       const d = this.dailyNow();
-      const today = d === 'ready' ? 'One flat or house is free today.' : d === 'later' ? 'After your first delivery today, one flat or house is free.' : 'Today’s free home is taken: tomorrow again.';
+      const today = d === 'ready' ? 'Today one flat or house needs no points.' : d === 'later' ? 'After your first delivery today, one flat or house needs no points.' : 'Today’s flat or house without points is bought. Tomorrow there is another.';
       p.textContent = `You have ${this.points} ${this.points === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. ${today}`;
       this.panel.append(p);
     }

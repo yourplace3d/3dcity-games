@@ -59,7 +59,7 @@ side menu became a card over the game, one with the pause card.
   and "Main menu" (the start screen) is now inside the menu. Three tabs:
   - **❚❚ (paused):** the tab shows the pause sign, not the word (the owner, 23 November). What is being played, "Continue", "Do open jobs instead" (or "Start a run of three"), "Main
     menu".
-  - **Real estate:** the home points at the top ("5 home points: 2 flats free to buy; a house at 10"), what
+  - **Real estate:** the home points at the top ("5 home points", and under it "You may buy 2 flats now; a house at 10 points"), what
     the homes pay and the cash carried, then the homes by town. A home in the part of town being played has
     "On the map": the big map opens with the home blinking in a yellow ring, and once the map is closed the
     arrow points the way. A home elsewhere has "Go there", which loads that place.
@@ -79,8 +79,9 @@ The owner liked the limit that grows with missions best, and asked for a counter
   than 20 (more than 10 flats) shows "too big for now".
 - **The first home, and the rest of its building in the first-home mission, take none.**
 - **One flat or house a day takes none,** once a delivery has been made that day (the owner, 23 November:
-  "one flat/object should be buyable anyways per day"). The "for sale" panel says "free today"; the number
-  on the house button counts it. Never a whole building.
+  "one flat/object should be buyable anyways per day"). The "for sale" panel says "no points needed"
+  (first "free today", which the owner found wrong: the home still costs its price); the number on the
+  house button counts it. Never a whole building.
 - **Buying the rest of a building** takes points only for the flats it adds: the flat you own already took
   its points (a building of 5 flats: 4 × 2 = 8).
 - The "for sale" panel says what is missing ("Buy a flat $2,100: after 1 more delivery") and how many points
@@ -269,7 +270,7 @@ that grows with visits pays for showing up rather than for playing, and lets the
    Is that the tone you want?
 
 6. **Home points:** a flat 2 and a house 10 (yes, 23 November), up to 20 waiting, so buildings of more than 10
-   flats are out of reach for now. One flat or house a day is free after the day's first delivery. Points
+   flats are out of reach for now. One flat or house a day needs no points, after the day's first delivery. Points
    wait from day to day rather than starting at 0 (the owner's "maybe"; see section 3). Agreed?
 
 ## 7. Before anything goes live

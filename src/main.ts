@@ -1288,7 +1288,7 @@ function estateButton(): void {
   const free = n ? flatsFree(points) + (day === 'ready' ? 1 : 0) : 0;
   $('estate-free').hidden = !free;
   $('estate-free').textContent = String(free);
-  b.setAttribute('aria-label', `Real estate and trophies: ${points} home ${points === 1 ? 'point' : 'points'}${free ? `, ${free} ${free === 1 ? 'flat' : 'flats'} free to buy` : ''}`);
+  b.setAttribute('aria-label', `Real estate and trophies: ${points} home ${points === 1 ? 'point' : 'points'}${free ? `, you may buy ${free} ${free === 1 ? 'flat' : 'flats'} now` : ''}`);
 }
 
 /**
@@ -1312,9 +1312,9 @@ function drawEstate(): void {
   big.textContent = `${points} home ${points === 1 ? 'point' : 'points'}`;
   const small = document.createElement('small');
   const today =
-    day === 'ready' ? 'One flat or house is free today.' : day === 'later' ? 'After your first delivery today, one flat or house is free.' : 'Today’s free home is taken: tomorrow again.';
+    day === 'ready' ? 'Today one flat or house needs no points.' : day === 'later' ? 'After your first delivery today, one flat or house needs no points.' : 'Today’s flat or house without points is bought. Tomorrow there is another.';
   small.textContent = n
-    ? `${free ? `${free} ${free === 1 ? 'flat' : 'flats'} free to buy${points >= HOUSE_POINTS || day === 'ready' ? ', or a house' : `; a house at ${HOUSE_POINTS}`}` : `A flat at ${FLAT_POINTS}, a house at ${HOUSE_POINTS}`}. ${today} One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
+    ? `${free ? `You may buy ${free} ${free === 1 ? 'flat' : 'flats'} now${points >= HOUSE_POINTS || day === 'ready' ? ', or a house' : `; a house at ${HOUSE_POINTS} points`}` : `A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}`}. ${today} One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
     : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;
   text.append(big, small);
   box.append(text);

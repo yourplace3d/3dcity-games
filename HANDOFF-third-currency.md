@@ -5,6 +5,10 @@ person who has not seen this session. It answers the owner's question whether th
 beside money and street cred, by comparing it with mobile endless games. It changes nothing in the game. Street
 cred, missions and the harvest are planned, not built, and round 3 of the plan still waits for the owner's answers.
 
+**Status, 23 November:** the owner has read this and replied "Noted." That is not an answer: the recommendation
+is still a suggestion, and questions 1 to 3 in section 9 still wait. Where the whole economy plan stands:
+`HANDOFF-economy.md`.
+
 Read `README.md` and `HANDOFF.md` first for what the game is. The full research is in
 `docs/research-third-currency.md`; "research, section 5" below points into that file.
 

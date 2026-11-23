@@ -8,6 +8,11 @@ lives.
 
 The newest state. The sections below are older and kept for their decisions.
 
+**Economy plan (19 to 23 November):** towns run by their own staff, street cred as a second currency, and
+whether a third currency is needed (the owner: "Noted"; no third currency suggested). All of it is planned, not
+built, on branch `claude/plan-plates-and-staff`. Where it stands and what waits for the owner:
+`HANDOFF-economy.md`.
+
 **Live** at https://yourplace3d.github.io/3dcity-games/: `main` at `8d4844f` (PR #4 merged by the owner at
 16:24, deployed at 16:24 and again at 16:39, Pages run 55, success; the served script was checked to carry
 the new code). In it:

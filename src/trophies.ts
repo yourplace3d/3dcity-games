@@ -7,10 +7,12 @@
  * Kept in the browser under `3da-trophies`, so saving online carries them along.
  */
 
+import { kmBetween } from './game/bank';
+
 const STORE = '3da-trophies';
 const DAY_MS = 86400000;
-/** places further apart than this count as different places (degrees, about 28 km north to south) */
-const PLACE_DEG = 0.25;
+/** a place counts as another when it is at least this far from every place kept (km): a town apart */
+const PLACE_KM = 15;
 /** the most places kept: enough for the last trophy of places */
 const PLACES_MAX = 40;
 
@@ -99,7 +101,7 @@ export interface Snapshot {
 export interface Kept {
   /** each trophy earned, with the day it was earned on this device (`localDay`) */
   got: Partial<Record<TrophyId, number>>;
-  /** the places played, as squares of `PLACE_DEG` */
+  /** the places played, each at least `PLACE_KM` from the others (`placeKey`) */
   places: string[];
 }
 
@@ -136,9 +138,9 @@ export function earnedBy(s: Snapshot, places: number): TrophyId[] {
   return out;
 }
 
-/** The square a place falls in, so that places close together count once. */
+/** A place as it is kept: its point, to about a kilometre. */
 export function placeKey(lat: number, lon: number): string {
-  return `${Math.round(lat / PLACE_DEG)},${Math.round(lon / PLACE_DEG)}`;
+  return `${lat.toFixed(2)},${lon.toFixed(2)}`;
 }
 
 export class Trophies {
@@ -163,6 +165,11 @@ export class Trophies {
     return this.kept.got[id] ?? null;
   }
 
+  /** How many places, a town apart, have been played. */
+  placesCount(): number {
+    return this.kept.places.length;
+  }
+
   count(): number {
     return Object.keys(this.kept.got).length;
   }
@@ -183,9 +190,12 @@ export class Trophies {
 
   /** A place was played. */
   visit(lat: number, lon: number): void {
-    const key = placeKey(lat, lon);
-    if (this.kept.places.includes(key) || this.kept.places.length >= PLACES_MAX) return;
-    this.kept.places.push(key);
+    const near = this.kept.places.some((k) => {
+      const [a, b] = k.split(',').map(Number);
+      return kmBetween(a, b, lat, lon) < PLACE_KM;
+    });
+    if (near || this.kept.places.length >= PLACES_MAX) return;
+    this.kept.places.push(placeKey(lat, lon));
     this.store();
   }
 

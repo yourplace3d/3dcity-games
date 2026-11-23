@@ -630,6 +630,11 @@ export class HomesUi {
     if (this.bankGuide) game.guide = this.bankGuide;
   }
 
+  /** Whether the arrow points to a bank now (another way, to a home, can have it). */
+  private bankArrow(): boolean {
+    return !!this.bankGuide && this.host.game.guide === this.bankGuide;
+  }
+
   private bankTick(): void {
     const { game } = this.host;
     if (!this.world || !this.homes.homes.length) return;
@@ -655,11 +660,11 @@ export class HomesUi {
         this.setLesson({ stage: 'offer', later: n.today, rent: true });
         return;
       }
+      this.guideBank(true);
       if (!this.lessonSaid) {
         this.lessonSaid = true;
-        this.host.toast('Mission: to the bank. The arrow shows the nearest one: stop beside it and pay in.', 'info', 7000);
+        this.host.toast(this.bankArrow() ? 'Mission: to the bank. The arrow shows the nearest one: stop beside it and pay in.' : 'Mission: to the bank. Stop beside one and pay in.', 'info', 7000);
       }
-      this.guideBank(true);
       return;
     }
     if (this.host.card && lessonDue(l, n)) {
@@ -684,7 +689,8 @@ export class HomesUi {
     if (remindDue(l, n, this.rentPerVisit(), this.sinceRemind)) {
       this.sinceRemind = 0;
       this.remindArrow = REMIND_ARROW_S;
-      this.host.toast(`You carry ${money(game.cash)}. Caught by the police, you'd lose ${money(caughtCost(game.cash))}: the arrow shows the nearest bank.`, 'info', 9000);
+      this.guideBank(true);
+      this.host.toast(`You carry ${money(game.cash)}. Caught by the police, you'd lose ${money(caughtCost(game.cash))}: ${this.bankArrow() ? 'the arrow shows the nearest bank' : 'a bank keeps it safe'}.`, 'info', 9000);
     }
     // the reminder's arrow, for a while; a package on board has its own
     this.guideBank(this.remindArrow > 0 && n.bankHere && game.cash >= remindAt(this.rentPerVisit()) / 2);

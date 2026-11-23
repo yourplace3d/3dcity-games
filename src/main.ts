@@ -200,15 +200,17 @@ function save(at?: LngLat): void {
 }
 
 /**
- * On touch screens the lines over the game take no taps (the steering pad lies under them). A line that
- * leads somewhere pulses the house button instead, and the button then does what the oldest such line
- * still showing would do: the one the player has had longest to read.
+ * A line over the game that leads somewhere (the menu) can be clicked with a mouse. On touch screens the
+ * lines take no taps, as the steering pad lies under them, so such a line also pulses the house button,
+ * and the button then does what the oldest such line still showing would do: the one the player has had
+ * longest to read. Both ways stay open, as a tablet with a trackpad goes from one to the other.
  */
-const asks: Array<{ tap: () => void; until: number }> = [];
+const asks: Array<{ tap: () => void; until: number; el: HTMLElement }> = [];
 let askT = 0;
-function askedNow(): Array<{ tap: () => void; until: number }> {
+function askedNow(): typeof asks {
   const now = performance.now();
-  while (asks.length && asks[0].until <= now) asks.shift();
+  // gone: shown long enough, clicked, or pushed out by newer lines
+  for (let i = asks.length - 1; i >= 0; i--) if (asks[i].until <= now || !asks[i].el.isConnected) asks.splice(i, 1);
   return asks;
 }
 function nudgeButton(): void {
@@ -225,21 +227,19 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
   const el = document.createElement('div');
   el.className = `toast ${kind}${tap ? ' tap' : ''}`;
   el.textContent = text;
-  if (tap && document.body.classList.contains('touch')) {
-    // the steering pad lies under the lines: they take no taps; the house button pulses, and does what the line would
-    asks.push({ tap, until: performance.now() + ms });
+  if (tap) {
+    el.setAttribute('role', 'button');
+    el.addEventListener('click', () => {
+      el.remove();
+      nudgeButton();
+      tap();
+    });
+    asks.push({ tap, until: performance.now() + ms, el });
     // the pulse starts again for each new line
     const b = $('btn-estate');
     b.classList.remove('nudge');
     void b.offsetWidth;
     b.classList.add('nudge');
-    nudgeButton();
-  } else if (tap) {
-    el.setAttribute('role', 'button');
-    el.addEventListener('click', () => {
-      el.remove();
-      tap();
-    });
   }
   // it fades over the time it is shown, a long message as well as a short one
   el.style.animationDuration = `${ms}ms`;
@@ -247,6 +247,7 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
   box.append(el);
   // three at most: the oldest goes first, but a line that can be tapped stays while others can go
   while (box.children.length > 3) ([...box.children].find((c) => c !== el && !c.classList.contains('tap')) ?? box.firstElementChild)!.remove();
+  if (tap) nudgeButton();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -326,7 +327,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => setPause(true, 'estate'), quiet: () => !!secret, blocked: () => menuOpen || mapOpen || welcoming || guessing });
+      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => setPause(true, 'estate'), quiet: () => !!secret, blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden });
       (window as unknown as { homes: HomesUi }).homes = homes;
       // trophies: what happens in play, and now and then what the player has
       {

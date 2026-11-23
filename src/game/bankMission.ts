@@ -92,7 +92,7 @@ export function lessonDue(l: Lesson, n: LessonNow): boolean {
 
 /** The cash that brings a reminder: at least `REMIND_MIN`, and at least a day of rent from all one's homes. */
 export function remindAt(rentPerDay: number): number {
-  return Math.max(REMIND_MIN, Math.round(rentPerDay / 100) * 100);
+  return Math.max(REMIND_MIN, Math.ceil(rentPerDay / 100) * 100);
 }
 
 /** Whether to remind now: the lesson learnt, a bank here, much cash carried, and none said for a while. */

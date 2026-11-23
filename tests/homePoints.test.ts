@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { dailyReady, deliveries, deliveriesFor, earn, flatsFree, pointsFor, POINTS_MAX, readDaily, readPoints } from '../src/game/homePoints';
 import { HomesUi } from '../src/homesUi';
 import { dayOf, type Home, type Lot } from '../src/game/homes';
-import { earnedBy, placeKey, readTrophies, Trophies, type Snapshot } from '../src/trophies';
+import { earnedBy, readTrophies, Trophies, type Snapshot } from '../src/trophies';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -125,8 +125,17 @@ describe('trophies', () => {
   });
 
   it('count places a town apart once', () => {
-    expect(placeKey(49.45, 11.07)).toBe(placeKey(49.46, 11.09));
-    expect(placeKey(49.45, 11.07)).not.toBe(placeKey(52.52, 13.4));
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+    const t = new Trophies();
+    // 200 m apart, across a line a rounding would have drawn: one place
+    t.visit(52.374, 4.9);
+    t.visit(52.376, 4.9);
+    expect(t.placesCount()).toBe(1);
+    // Fürth is about 7 km from Nuremberg's middle: the same place; Berlin is another
+    t.visit(49.45, 11.08);
+    t.visit(49.477, 10.989);
+    t.visit(52.52, 13.4);
+    expect(t.placesCount()).toBe(3);
   });
 
   it('read what is kept, and nothing odd', () => {

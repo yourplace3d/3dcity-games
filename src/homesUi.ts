@@ -31,6 +31,10 @@ const RENT_AFTER_S = 3.4;
 /** the first this many times, the line on rent says where to find the homes */
 const RENT_NOTES = 5;
 const NOTES_STORE = '3da-rentnotes';
+/** said once to a player with homes: buying now takes home points (new on 23 November 2026) */
+const POINTS_NOTE = '3da-pointsnote';
+/** seconds of play before it is said: after the place's name and the rent */
+const POINTS_NOTE_S = 9;
 
 let homeIcon: HTMLCanvasElement | null = null;
 
@@ -172,6 +176,8 @@ export class HomesUi {
   private daily: Daily = loadDaily();
   /** the deliveries counted for points so far */
   private counted = -1;
+  /** seconds of play left before the line on home points; null: not to be said */
+  private pointsNoteT: number | null = null;
   /** learning to use the bank (`game/bankMission.ts`) */
   private lesson: Lesson = loadLesson(this.saved > 0);
   /** this visit: seconds played, the deliveries before it, the seconds since the last reminder */
@@ -212,6 +218,14 @@ export class HomesUi {
       this.welcomed = true;
       this.deliveredBefore = game.delivered;
       this.payRent(true);
+      // a player with homes, once: buying now takes home points
+      let told = true;
+      try {
+        told = !!localStorage.getItem(POINTS_NOTE);
+      } catch {
+        /* private window: nothing kept, so nothing said */
+      }
+      if (this.homes.homes.length && !told) this.pointsNoteT = POINTS_NOTE_S;
     }
     this.playedS += dt;
     this.sinceRemind += dt;
@@ -230,6 +244,13 @@ export class HomesUi {
       if (this.rentLineT <= 0) {
         this.sayRent(this.rentLine);
         this.rentLine = null;
+      }
+    }
+    if (this.pointsNoteT !== null) {
+      this.pointsNoteT -= dt;
+      if (this.pointsNoteT <= 0 && !game.job && !this.host.quiet?.()) {
+        this.pointsNoteT = null;
+        this.sayPointsNote();
       }
     }
     if (this.savedEl) {
@@ -709,6 +730,22 @@ export class HomesUi {
   }
 
   // ------------------------------------------------------------ home points
+
+  /** Once, to a player with homes: what home points are, with the way to the menu. */
+  private sayPointsNote(): void {
+    try {
+      localStorage.setItem(POINTS_NOTE, '1');
+    } catch {
+      /* as above */
+    }
+    const how = document.body.classList.contains('touch') ? 'Tap' : 'Click';
+    this.host.toast(
+      `New: home points. Each delivery earns one; a flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. After your first delivery each day, one flat or house can be bought without a realtor. ${how} here to see yours.`,
+      'info',
+      14000,
+      this.host.openHomes,
+    );
+  }
 
   /** Home points now: one for each delivery, up to `POINTS_MAX`. */
   pointsNow(): number {

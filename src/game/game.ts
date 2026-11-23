@@ -123,6 +123,8 @@ export type GameEvent =
 
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
+/** how near a station, or the spot on the road beside it, counts as being at it (m) */
+const STATION_M = 35;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
 export const MAX_CASH = 1_000_000;
 /** open jobs pay more with each delivery made, up to this many */
@@ -1560,6 +1562,23 @@ export class Game {
     const last = this.lastFrom ? this.local({ at: this.lastFrom } as Marker) : null;
     for (const kind of ['fuel', 'fire', 'police'] as const) {
       const job = JOB_OF[kind];
+      // driven to a station of this kind: its package waits right there, wherever it waited before.
+      // Players drove to the symbol they saw and found no package there (23 November).
+      const at = this.stationHere(kind);
+      if (at) {
+        const [ax, ay] = w.roads.point(at.line, at.s);
+        const i = this.pickups.findIndex((m) => m.kind === job);
+        const there = i >= 0 && Math.hypot(this.local(this.pickups[i])[0] - ax, this.local(this.pickups[i])[1] - ay) < 30;
+        if (!there) {
+          const m = this.pickupAt(at);
+          if (m) {
+            if (i >= 0) this.scene.remove(this.pickups.splice(i, 1)[0].mesh);
+            m.kind = job;
+            this.pickups.push(m);
+          }
+        }
+        continue;
+      }
       if (this.pickups.some((m) => m.kind === job)) continue;
       // the nearest station of the kind that a road leads to
       const near: Array<{ d: number; p: PathState }> = [];
@@ -1587,6 +1606,23 @@ export class Game {
       const m = p && this.pickupAt(p);
       if (m) this.pickups.push(m);
     }
+  }
+
+  /**
+   * The spot on the road beside a station of a kind, when the player is at it: within `STATION_M` of that
+   * spot or of the symbol itself. Null when not at one.
+   */
+  private stationHere(kind: 'fuel' | 'fire' | 'police'): PathState | null {
+    const w = this.world;
+    const [px, py] = this.pos();
+    for (const s of w.services) {
+      if (s.kind !== kind || Math.hypot(s.x - px, s.y - py) > 200) continue;
+      const n = w.roads.nearest(s.x, s.y, 150, 'traffic');
+      if (!n) continue;
+      const [x, y] = w.roads.point(n.line, n.s);
+      if (Math.hypot(x - px, y - py) < STATION_M || Math.hypot(s.x - px, s.y - py) < STATION_M) return { line: n.line, s: n.s, dir: 1 };
+    }
+    return null;
   }
 
   /** Driving distances to a marker, in the square that is loaded now. */

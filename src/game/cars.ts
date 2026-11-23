@@ -104,6 +104,11 @@ export interface Controls {
   handbrake: boolean;
 }
 
+/** the speed below which a hill never stops a car under power (m/s, about 13 km/h) */
+export const CRAWL = 3.6;
+/** what is left to climb with below that, besides rolling (m/s², with the rolling's 0.4 that is about 0.6 net) */
+const CLIMB = 1;
+
 export class Car {
   x = 0;
   y = 0;
@@ -193,7 +198,14 @@ export class Car {
     if (this.driver === 'player' && (Math.abs(vf) > 0.6 || c.throttle !== 0)) {
       const slope = (world.groundY(this.x + fx * 2.5, this.y + fy * 2.5) - world.groundY(this.x - fx * 2.5, this.y - fy * 2.5)) / 5;
       if (Math.abs(slope) > 0.025) {
-        const pull = Math.min((this.heavy ? 30 : 21) * Math.abs(slope), this.spec.acc * (this.heavy ? 0.6 : 0.62));
+        let pull = Math.min((this.heavy ? 30 : 21) * Math.abs(slope), this.spec.acc * (this.heavy ? 0.6 : 0.62));
+        // uphill under power, below a crawl the hill takes less than the engine gives: slow, never stuck.
+        // On a touch screen the throttle is how far the stick is pushed, and less in a bend, so without
+        // this a steep bend with a heavy load stopped the car (Salvador, 23 November).
+        if (slope > 0 && c.throttle > 0 && vf < CRAWL) {
+          const drive = this.spec.acc * (this.heavy ? 0.72 : 1) * c.throttle * (1 - (0.55 * Math.max(0, vf)) / top);
+          pull = Math.min(pull, Math.max(0, drive - CLIMB));
+        }
         vf -= Math.sign(slope) * pull * dt;
         vf = Math.min(vf, top * 1.3);
       }

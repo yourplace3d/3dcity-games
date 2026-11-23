@@ -69,6 +69,13 @@ const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'delivery' : 'de
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
+/** The cards of the stations' jobs: what each asks of the player. */
+const JOB_CARDS = {
+  supply: { title: 'Supply run', text: 'A heavy load: slow uphill and slow to stop. More pay for a car without a new dent.' },
+  rush: { title: 'Rush job', text: 'A short clock, and every second left over pays three times.' },
+  clean: { title: 'Clean run', text: 'Pays well, but break the law on the way and the job is gone.' },
+} as const;
+
 /** things done in the game, kept with the day (`trophies.ts`) */
 const trophies = new Trophies();
 trophies.onStored = () => changed();
@@ -306,6 +313,19 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       game.onRide = (t) => flash(t, true);
       game.onSquare = (s) => ($('next').hidden = s !== 'loading');
       game.onSave = () => save();
+      // a station's job: a card, and the player takes it or not
+      game.onOffer = (kind, special, answer) => {
+        const job = JOB_CARDS[kind as keyof typeof JOB_CARDS];
+        if (!job) return answer(true);
+        missionCard(
+          job.title,
+          `${special ? `${special}. ` : ''}${job.text} While you are on it there are no other jobs and nothing to buy: only this delivery, until it is done or the job is gone.`,
+          'Take the job',
+          'Not now',
+          answer,
+          'Open job',
+        );
+      };
       game.onSound = (what, strength) => sound.play(what, strength);
       // let the last delivery's message be read before the result covers it
       // a run is counted as started when its first package is on board

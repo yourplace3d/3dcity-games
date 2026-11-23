@@ -76,9 +76,8 @@
       <button class="panel" id="btn-guess" hidden></button>
       <div id="toasts"></div>
       <div class="panel" id="coach" hidden><small id="coach-n"></small><p id="coach-text"></p><button id="coach-skip">Skip the tour</button></div>
-      <button class="panel" id="btn-menu" aria-label="Main menu">☰</button>
+      <button class="panel" id="btn-menu" aria-label="Menu: pause, real estate, trophies">☰</button>
       <button class="panel" id="btn-sound" aria-label="Sound">♪</button>
-      <button class="panel" id="btn-pause" aria-label="Pause">❚❚</button>
       <button class="panel" id="btn-estate" aria-label="Real estate and trophies"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="18.5"/><circle class="fill" cx="22" cy="22" r="18.5" pathLength="100" stroke-dasharray="0 100"/><path class="house" d="M22 11.5l10 9.2h-3V31H15V20.7h-3z"/></svg><b id="estate-free" hidden></b></button>
       <button class="panel" id="btn-radio" aria-label="Radio" hidden>FM</button>
       <div class="panel" id="radio-bar" hidden><span class="name"></span><button class="next" aria-label="Next station">next ›</button></div>
@@ -135,33 +134,30 @@
         <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Stops and stations from OpenStreetMap. Search by Photon (komoot) and Nominatim. Built on the Your Place 3D engine.</p>
       </div>
     </section>
-    <section id="pause" hidden>
-      <div class="card">
-        <h2>Paused</h2>
-        <p class="small" id="pause-line"></p>
-        <div class="row">
-          <button class="primary" id="btn-continue">Continue</button>
-          <button id="btn-switch"></button>
-          <button id="btn-pause-homes" hidden>Your homes</button>
-          <button id="btn-city">Main menu</button>
-        </div>
-        <p class="small">P or Esc pauses and continues.</p>
-      </div>
-    </section>
-    <section id="estate" hidden>
-      <div class="drawer" role="dialog" aria-label="Real estate and trophies">
-        <div class="drawer-head">
+    <section id="pause" class="over" hidden>
+      <div class="card menu" role="dialog" aria-label="Menu">
+        <div class="menu-head">
           <div class="tabs" role="tablist">
-            <button id="tab-estate" role="tab" aria-selected="true">Real estate</button>
+            <button id="tab-game" role="tab" aria-selected="true">Paused</button>
+            <button id="tab-estate" role="tab" aria-selected="false">Real estate</button>
             <button id="tab-trophies" role="tab" aria-selected="false">Trophies</button>
           </div>
-          <button id="btn-estate-close" aria-label="Close">✕</button>
+          <button id="btn-menu-close" aria-label="Close">✕</button>
         </div>
-        <div id="pane-estate" role="tabpanel">
+        <div id="pane-game" role="tabpanel">
+          <p class="small" id="pause-line"></p>
+          <div class="row">
+            <button class="primary" id="btn-continue">Continue</button>
+            <button id="btn-switch"></button>
+            <button id="btn-city">Main menu</button>
+          </div>
+          <p class="small">☰, P or Esc opens this and closes it. The game waits while it is open.</p>
+        </div>
+        <div id="pane-estate" role="tabpanel" hidden>
           <div class="points" id="estate-points"></div>
           <p id="homes-line"></p>
           <div id="homes-list"></div>
-          <p class="small">Your cash, homes and trophies are kept in this browser and come along to every place you play. Each home pays rent on your first visit of a day, wherever you are. The game waits while this is open.</p>
+          <p class="small">Your cash, homes and trophies are kept in this browser and come along to every place you play. Each home pays rent on your first visit of a day, wherever you are.</p>
         </div>
         <div id="pane-trophies" role="tabpanel" hidden>
           <p class="small" id="trophies-line"></p>

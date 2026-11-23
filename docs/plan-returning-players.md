@@ -26,10 +26,10 @@ right away what the first visit built.
 | Visit | What happens | State |
 |---|---|---|
 | 1 | Two deliveries, then a cheap worn-down flat to buy (the first-home mission). | Live since 18 November |
-| 2, at the start | A line: "Welcome back. Today your 3 homes paid you $1,320 rent." The first five times it adds "Tap here to see your homes", which opens the side menu. | Built, branch `claude/returning-players` |
+| 2, at the start | A line: "Welcome back. Today your 3 homes paid you $1,320 rent." The first five times it adds "Tap here to see your homes", which opens the menu on its real estate. | Built, branch `claude/returning-players` |
 | 2, after a delivery or a minute of play | A mission: you carry cash, the police take a quarter of it when they catch you, bring it to the bank. The arrow shows the nearest bank. | Built, same branch |
 | From then on | When the cash carried grows large, a reminder and the arrow to the nearest bank, for a while. | Built, same branch |
-| Always | A house button opens the side menu, "Real estate" and "Trophies". Its ring fills with home points: one for each delivery, and a home takes points. | Built, same branch |
+| Always | ☰ pauses and opens the menu: "Paused", "Real estate", "Trophies". A house button beside it opens the real estate; its ring fills with home points: one for each delivery, and a home takes points. | Built, same branch |
 | 3 and later | Things happen at your homes: a flat needs renovating, and more. Missions solve them. | Brainstorm, section 4 |
 
 ## 3. What is built (branch `claude/returning-players`, not merged, not live)
@@ -42,26 +42,33 @@ only. First five times the sentence added click here to find the houses (the men
 - On the first visit of a new day, about 3 seconds in (after the place's name has been read), a line:
   **"Welcome back. Today your 3 homes paid you $1,320 rent."** The game does not stop.
 - **The first five times** it adds "Tap here to see your homes" ("Click" on a computer), and tapping the line
-  opens the side menu. Of the three lines the screen holds at once, this one is the last to be pushed out.
+  opens the menu on its real estate. Of the three lines the screen holds at once, this one is the last to be
+  pushed out.
 - Not while a city is being guessed ("Where am I?"): the homes would give the city away.
 - The first try, a card with a map of the homes and their amounts, is gone.
 - Rent itself works as before: all of a day's rent comes in as cash on the first visit of that day.
 
-### The side menu: real estate and trophies
+### The menu: paused, real estate, trophies
 
-The owner chose a new house button, the game waiting while the menu is open, the big map and then the arrow
-for a home, and trophies built now (23 November).
+The owner chose a house button, the game waiting while the menu is open, the big map and then the arrow for
+a home, and trophies built now. Then, the same day: "Making the menu button the pause button and if there s
+no necessary to keep it as a side menu and open while driving we can make it an over the window menu?" So the
+side menu became a card over the game, one with the pause card.
 
-- **The house button,** top right beside pause. Its ring fills with home points toward a house (10 points),
-  green, then yellow when a house is in reach. A green number on it says how many flats the points buy now.
-- **The menu** slides in from the right, over the game, which waits. Two tabs:
+- **☰ pauses** and opens the menu over the game, which waits. P and Esc do the same. The ❚❚ button is gone,
+  and "Main menu" (the start screen) is now inside the menu. Three tabs:
+  - **Paused:** what is being played, "Continue", "Do open jobs instead" (or "Start a run of three"), "Main
+    menu".
   - **Real estate:** the home points at the top ("5 home points: 2 flats free to buy; a house at 10"), what
-    the homes pay and the cash carried, then the homes by town (the list that was on the start screen and
-    the pause card). A home in the part of town being played has "On the map": the big map opens with the
-    home blinking in a yellow ring, and once the map is closed the arrow points the way. A home elsewhere has
-    "Go there", which loads that place.
+    the homes pay and the cash carried, then the homes by town. A home in the part of town being played has
+    "On the map": the big map opens with the home blinking in a yellow ring, and once the map is closed the
+    arrow points the way. A home elsewhere has "Go there", which loads that place.
   - **Trophies:** 17, in four groups, each with how it is earned, and the date once it is.
-- It also opens from the start screen and the pause card ("Real estate (3) & trophies").
+- **The house button,** beside ☰ and the sound, opens the menu on its real estate. Its ring fills with home
+  points toward a house (10 points), green, then yellow when a house is in reach. A green number on it says
+  how many flats the points buy now.
+- On the start screen, "Real estate (3) & trophies" opens the menu without the paused tab. While a city is
+  guessed, only the paused tab shows, as the homes would give the city away.
 
 ### Home points: the limit on buying homes
 
@@ -120,7 +127,7 @@ homes earns the ones that fit at once, in one line.
 - The game tells listeners about deliveries, fines, the police shaken off and runs finished
   (`Game.events`), for the trophies.
 - Fixed on the way: a map canvas exactly 300 pixels wide stayed 150 high and drew stretched.
-- The radio button (a trial, `?try=radio`) moved one place left, for the house button.
+- The radio button (a trial, `?try=radio`) stays where it was: the house button took the place of ❚❚.
 - Nothing new is counted: new count words need the owner's yes on the live server's whitelist.
 - Kept in the browser, so saving online carries them along: `3da-banklesson`, `3da-points`,
   `3da-trophies`, `3da-rentnotes`.
@@ -133,7 +140,9 @@ homes earns the ones that fit at once, in one line.
   points each), the clock set a day on, the page opened again. The rent line came with "Click here"; clicking
   it opened the side menu; the trophies showed 3 of 17; "On the map" opened the big map with the home
   blinking, and after closing it the arrow pointed to the home, 192 m away; beside a flat for sale with 1
-  point, the panel said "after 1 more delivery". The side menu was also checked on a phone-sized screen. The
+  point, the panel said "after 1 more delivery". Then the menu: ☰ opens it on "Paused", Esc closes it, the house
+  button opens it on "Real estate", the start screen opens it without "Paused"; checked on an iPhone-sized
+  screen too. The
   mission to the bank and the reminder were played through before the rent card became a line.
 - Not tested: a real iPad; a real player's reaction.
 

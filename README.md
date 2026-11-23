@@ -10,7 +10,7 @@ the streets, buildings, water and hills come from the same map squares as
 
 - **Two ways to play, chosen on the start screen** and remembered. *Compare with friends*: a run of three
   deliveries against the clock, to send to a friend to beat. *Do jobs*: the open jobs from the stations in
-  town, as many as you like. The pause card switches between them. A run a friend sent is always a run.
+  town, as many as you like. The menu (☰) switches between them. A run a friend sent is always a run.
 - **Where am I?**, the third choice on the start screen: you are put down in one of about sixty well-known cities without
   being told which. Drive around, then pick the city from four names (two of the wrong ones are cities
   nearby). A pick at once is worth 1,000 points, each second of looking costs 4, a wrong pick 250 and
@@ -49,9 +49,10 @@ the streets, buildings, water and hills come from the same map squares as
   cheap and dear streets: a dense part of town, a park, water or a sight close by raise it; a big road or
   railway outside and a district of halls lower it. The cheapest flats cost about one run's pay. Where a
   place has hardly any blocks of flats, its bigger houses hold flats. Owned buildings carry a yellow house on
-  the roof and on both maps. **Your homes**, on the start screen and the pause card once you own one, lists
-  them by town with what each pays: *Go there* starts beside one, and in the town you are in, *Show the way*
-  points the arrow at it. Cash and homes come along to every place you play: a new place is not a new game.
+  the roof and on both maps. **Real estate**, a tab of the menu (☰, or the house button beside it, whose ring
+  fills with home points), lists them by town with what each pays: *Go there* starts beside one, and in the
+  town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
+  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 17 things to do. Cash and homes come along to every place you play: a new place is not a new game.
   Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
 - **Flats first.** A first home is a flat; houses open with your 3rd home, whole buildings with your 6th.
@@ -166,7 +167,7 @@ the streets, buildings, water and hills come from the same map squares as
 | Brake, reverse | `S` | **Brake** |
 | Handbrake | `Space` | |
 | Big map of the loaded streets | `M` | tap the little map |
-| Pause | `P` or `Esc` | **❚❚** at the top |
+| Menu: pause, real estate, trophies | `P` or `Esc` | **☰** at the top; the house button opens real estate |
 | Route line on the road | `G` | the button on the big map |
 | Back onto the road when stuck | `R` | |
 
@@ -216,7 +217,8 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/game/game.ts`: you, traffic, people, police, jobs, camera.
 - `src/game/homes.ts`: which buildings are for sale and their prices, what the player owns, and the rent.
   `src/homesUi.ts`: the offer after a run, the panel beside a building, the roof marks and the rent on return.
-  `src/homesList.ts`: the list of homes by town, from the start screen and the pause card.
+  `src/homesList.ts`: the list of homes by town, in the menu. `src/game/homePoints.ts`: home points.
+  `src/trophies.ts`: the trophies. `src/game/bankMission.ts`: the mission to the bank and its reminder.
 - `src/addon.ts`: where an extra feature plugs in. The game loads an add-on only when it is handed its
   address (`loadAddon(address)`); on its own it loads none.
   For such a file the game can stand a car in the world, take one out, lay a ring, put a symbol on a

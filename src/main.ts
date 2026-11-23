@@ -72,10 +72,10 @@ const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 /** things done in the game, kept with the day (`trophies.ts`) */
 const trophies = new Trophies();
 trophies.onEarned = (names) =>
-  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 5000, () => showEstate(true, 'trophies'));
+  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 5000, () => setPause(true, 'trophies'));
 /** the big map is up and the game waits behind it */
 let mapOpen = false;
-/** the game waits behind the pause card */
+/** the game waits behind the menu (`setPause`) */
 let paused = false;
 const MODE = '3da-mode';
 /** what the start screen is set to: a run of three to compare, or open jobs */
@@ -162,7 +162,7 @@ function lineButton(): void {
  * waits while it is open, so there is time to look.
  */
 function showMap(open: boolean): void {
-  if (open && (!game?.world || !playing || paused || guessing || welcoming || estateOpen)) return;
+  if (open && (!game?.world || !playing || paused || guessing || welcoming)) return;
   mapOpen = open;
   $('bigmap').hidden = !open;
   controls.enabled = playing && !open && !paused && !guessing && !welcoming;
@@ -294,7 +294,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => showEstate(true, 'estate'), quiet: () => !!secret });
+      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => setPause(true, 'estate'), quiet: () => !!secret });
       (window as unknown as { homes: HomesUi }).homes = homes;
       // trophies: what happens in play, and now and then what the player has
       {
@@ -888,7 +888,7 @@ function runEnded(score: number, seconds: number): void {
   // run or a city/menu change during that delay must not receive the old result.
   const showResult = (): void => {
     if (!playing || busy || game?.run !== ended) return;
-    if (paused || mapOpen || guessing || welcoming || estateOpen) {
+    if (paused || mapOpen || guessing || welcoming) {
       setTimeout(showResult, 100);
       return;
     }
@@ -1074,8 +1074,8 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
-  if (!game?.world || !playing || mapOpen || paused || guessing || welcoming || estateOpen) sound.hear(null);
-  if (paused || guessing || welcoming || estateOpen) return;
+  if (!game?.world || !playing || mapOpen || paused || guessing || welcoming) sound.hear(null);
+  if (paused || guessing || welcoming) return;
   if (game?.world && playing && !mapOpen) playedS += Math.min(dt, 1);
   if (!game?.world || !playing) {
     // behind the result of a run the camera goes on rising
@@ -1160,14 +1160,35 @@ if (baked) {
 for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico, #openjobs .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
 // ------------------------------------------------------------------ pause, and what to play
 
-/** Hold the game, or let it go on. The card also lets the player change what they are playing. */
-function setPause(on: boolean): void {
-  if (on && (!playing || mapOpen || welcoming || estateOpen || !$('result').hidden || !$('guess').hidden)) return;
-  paused = on;
+type MenuTab = 'game' | 'estate' | 'trophies';
+/** the menu is open, over the game or over the start screen */
+let menuOpen = false;
+
+/**
+ * The menu over the game (☰, P or Esc), and the game waits behind it. Three tabs: paused (what is
+ * being played, and changing it), the player's real estate, and their trophies. Over the start screen it
+ * opens without the first; while a city is guessed, only the first, as the homes would give the city away.
+ */
+function setPause(on: boolean, tab: MenuTab = 'game'): void {
+  if (on && playing && (mapOpen || welcoming || guessing || !$('result').hidden || !$('guess').hidden)) return;
+  if (on && !playing && tab === 'game') return;
+  if (on && secret) tab = 'game';
+  paused = on && playing;
+  menuOpen = on;
   $('pause').hidden = !on;
   controls.enabled = playing && !on;
+  before = 0;
   if (!on) return;
-  homesButtons();
+  $('tab-game').hidden = !playing;
+  $('tab-estate').hidden = $('tab-trophies').hidden = !!secret;
+  const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['estate', 'estate'], ['trophies', 'trophies']];
+  for (const [t, id] of tabs) {
+    $(`tab-${id}`).setAttribute('aria-selected', String(t === tab));
+    $(`pane-${id}`).hidden = t !== tab;
+  }
+  if (tab === 'trophies') drawTrophies($('trophies-list'), $('trophies-line'), trophies);
+  if (tab === 'estate') drawEstate();
+  if (tab !== 'game') return;
   const jobs = !!game?.run.over;
   $('btn-switch').hidden = !!secret;
   if (secret) {
@@ -1177,10 +1198,14 @@ function setPause(on: boolean): void {
   $('pause-line').textContent = jobs ? 'You are doing open jobs.' : rival ? `You are on the run ${rival.name || 'someone'} sent you.` : 'You are on a run of three deliveries.';
   $('btn-switch').textContent = jobs ? 'Start a run of three' : 'Do open jobs instead';
 }
-$('btn-pause').addEventListener('click', () => {
+$('btn-menu').addEventListener('click', () => {
+  $('btn-menu').blur();
   setPause(true);
-  $('btn-pause').blur();
 });
+$('btn-menu-close').addEventListener('click', () => setPause(false));
+$('tab-game').addEventListener('click', () => setPause(true, 'game'));
+$('tab-estate').addEventListener('click', () => setPause(true, 'estate'));
+$('tab-trophies').addEventListener('click', () => setPause(true, 'trophies'));
 $('btn-continue').addEventListener('click', () => setPause(false));
 $('pause').addEventListener('click', (e) => e.target === e.currentTarget && setPause(false));
 $('btn-switch').addEventListener('click', () => {
@@ -1208,12 +1233,7 @@ addEventListener('keydown', (e) => {
   if (e.repeat || (e.code !== 'KeyP' && e.code !== 'Escape') || (e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
   // Esc closes the map first; that is handled where the map is
   if (mapOpen) return;
-  // and the side menu before the pause card under it
-  if (estateOpen) {
-    showEstate(false);
-    return;
-  }
-  if (paused) setPause(false);
+  if (menuOpen) setPause(false);
   else if (playing) setPause(true);
 });
 // the game does not run on while its tab is out of sight
@@ -1233,23 +1253,18 @@ function owned(): { homes: Home[]; reno: Reno | null; saved: number } {
   return { homes: h.homes, reno: loadReno(h.homes.length > 0), saved: loadSaved() };
 }
 
-/** The buttons to the side menu on the start screen and the pause card: once there is something in it, and never while a city is guessed. */
+/** The start screen's way to the real estate and trophies: once there is something in them, and never while a city is guessed. */
 function homesButtons(): void {
   const n = owned().homes.length;
-  for (const id of ['btn-homes', 'btn-pause-homes']) {
-    $(id).hidden = (!n && !trophies.count()) || !!secret;
-    $(id).textContent = n ? `Real estate (${n}) & trophies` : 'Trophies';
-  }
+  $('btn-homes').hidden = (!n && !trophies.count()) || !!secret;
+  $('btn-homes').textContent = n ? `Real estate (${n}) & trophies` : 'Trophies';
 }
-
-/** the side menu is open: the game waits */
-let estateOpen = false;
-let estateTab: 'estate' | 'trophies' = 'estate';
 
 /** The ring of home points: on the house button, and bigger at the top of the side menu. */
 function ring(points: number): string {
   const fill = Math.min(points, HOUSE_POINTS) / HOUSE_POINTS;
-  return `<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="18.5"/><circle class="fill" cx="22" cy="22" r="18.5" pathLength="100" stroke-dasharray="${Math.round(fill * 100)} 100"/><path class="house" d="M22 11.5l10 9.2h-3V31H15V20.7h-3z"/></svg>`;
+  // no fill at all at 0: a round end alone would draw a dot
+  return `<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="18.5"/>${fill > 0 ? `<circle class="fill" cx="22" cy="22" r="18.5" pathLength="100" stroke-dasharray="${Math.round(fill * 100)} 100"/>` : ''}<path class="house" d="M22 11.5l10 9.2h-3V31H15V20.7h-3z"/></svg>`;
 }
 
 let buttonShows = '';
@@ -1264,7 +1279,10 @@ function estateButton(): void {
   buttonShows = shows;
   b.hidden = hide;
   b.classList.toggle('full', points >= HOUSE_POINTS);
-  b.querySelector('.fill')!.setAttribute('stroke-dasharray', `${Math.round((Math.min(points, HOUSE_POINTS) / HOUSE_POINTS) * 100)} 100`);
+  const fill = b.querySelector<SVGElement>('.fill')!;
+  fill.setAttribute('stroke-dasharray', `${Math.round((Math.min(points, HOUSE_POINTS) / HOUSE_POINTS) * 100)} 100`);
+  // at 0 a round end alone would draw a dot
+  fill.style.visibility = points > 0 ? '' : 'hidden';
   const free = n ? flatsFree(points) : 0;
   $('estate-free').hidden = !free;
   $('estate-free').textContent = String(free);
@@ -1272,27 +1290,12 @@ function estateButton(): void {
 }
 
 /**
- * The side menu: the player's homes by town, with the home points that say how many more may be
- * bought, and the trophies. A new place is not a new game, so this says what the player owns and
- * where, and leads there: a home in the part of town being played is shown on the big map, and the
- * arrow then points the way. The game waits while it is open.
+ * The menu's real estate: the home points that say how many more homes may be bought, and the
+ * player's homes by town. A new place is not a new game, so this says what the player owns and where,
+ * and leads there: a home in the part of town being played is shown on the big map, and the arrow then
+ * points the way.
  */
-function showEstate(open: boolean, tab: 'estate' | 'trophies' = estateTab): void {
-  if (open && (guessing || !!secret)) return;
-  estateOpen = open;
-  $('estate').hidden = !open;
-  controls.enabled = playing && !open && !paused && !mapOpen && !welcoming;
-  before = 0;
-  if (!open) return;
-  estateTab = tab;
-  $('tab-estate').setAttribute('aria-selected', String(tab === 'estate'));
-  $('tab-trophies').setAttribute('aria-selected', String(tab === 'trophies'));
-  $('pane-estate').hidden = tab !== 'estate';
-  $('pane-trophies').hidden = tab !== 'trophies';
-  if (tab === 'trophies') {
-    drawTrophies($('trophies-list'), $('trophies-line'), trophies);
-    return;
-  }
+function drawEstate(): void {
   const mine = owned();
   const towns = homeTowns(mine.homes, mine.reno);
   const n = mine.homes.length;
@@ -1318,8 +1321,7 @@ function showEstate(open: boolean, tab: 'estate' | 'trophies' = estateTab): void
   drawHomes($('homes-list'), towns, {
     here: (h) => !secret && !!homes?.isHere(h),
     show: (h) => {
-      showEstate(false);
-      if (paused) setPause(false);
+      setPause(false);
       setScreen('play');
       // the big map, with the home blinking; the arrow points the way once it is closed
       const at = homes?.spotOf(h);
@@ -1328,8 +1330,7 @@ function showEstate(open: boolean, tab: 'estate' | 'trophies' = estateTab): void
       showMap(true);
     },
     go: (t, h) => {
-      showEstate(false);
-      if (paused) setPause(false);
+      setPause(false);
       save();
       setScreen('start');
       void go({ lat: h.lat, lon: h.lon }, isCoords(t.place) ? undefined : t.place);
@@ -1338,14 +1339,9 @@ function showEstate(open: boolean, tab: 'estate' | 'trophies' = estateTab): void
 }
 $('btn-estate').addEventListener('click', () => {
   $('btn-estate').blur();
-  if (playing && !paused && !mapOpen && !welcoming && !guessing) showEstate(true);
+  setPause(true, 'estate');
 });
-$('btn-homes').addEventListener('click', () => showEstate(true));
-$('btn-pause-homes').addEventListener('click', () => showEstate(true));
-$('btn-estate-close').addEventListener('click', () => showEstate(false));
-$('tab-estate').addEventListener('click', () => showEstate(true, 'estate'));
-$('tab-trophies').addEventListener('click', () => showEstate(true, 'trophies'));
-$('estate').addEventListener('click', (e) => e.target === e.currentTarget && showEstate(false));
+$('btn-homes').addEventListener('click', () => setPause(true, 'estate'));
 
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);
@@ -1360,10 +1356,6 @@ $('btn-sound').addEventListener('click', () => {
   if (sound.on) setTimeout(() => sound.play('pickup'), 120);
 });
 (window as unknown as { sound: Sound }).sound = sound;
-$('btn-menu').addEventListener('click', () => {
-  save();
-  setScreen('start');
-});
 $('btn-resume').addEventListener('click', () => setScreen('play'));
 // The little map can be put in any corner: press it and drag. A short tap still opens the big map.
 {

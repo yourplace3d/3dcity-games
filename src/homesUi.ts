@@ -867,6 +867,12 @@ export class HomesUi {
     this.host.save();
     countPlay('home', what);
     if (first) {
+      // home points were there from this player's first home: the note on them is not news
+      try {
+        localStorage.setItem(POINTS_NOTE, '1');
+      } catch {
+        /* private window */
+      }
       this.dropArea(worn ? lot : undefined);
       // a worn-down flat is repaired, building and all; any other first home has nothing to repair
       this.setReno(worn ? { stage: 'flat', units: lot.units } : { stage: 'done' });
@@ -1077,7 +1083,8 @@ export class HomesUi {
       });
       box.append(b);
     } else {
-      const cheap = [...free].filter(open).sort((a, b) => a.price - b.price)[0];
+      const paid = [...free].filter((l) => open(l) && l.price <= cash).sort((a, b) => this.waitFor(a, what(a)) - this.waitFor(b, what(b)) || a.price - b.price)[0];
+      const cheap = paid ?? [...free].filter(open).sort((a, b) => a.price - b.price)[0];
       if (!cheap) return;
       const wait = this.waitFor(cheap, what(cheap));
       if (cheap.price <= cash && wait) p(`For sale near here: ${describe(cheap, what(cheap))}, ${money(cheap.price)}. You can buy your next home after ${deliveries(wait)}.`);

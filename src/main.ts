@@ -73,7 +73,7 @@ const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 const trophies = new Trophies();
 trophies.onStored = () => changed();
 trophies.onEarned = (names) =>
-  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 8000, () => setPause(true, 'trophies'));
+  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 8000, secret ? undefined : () => setPause(true, 'trophies'));
 /** the big map is up and the game waits behind it */
 let mapOpen = false;
 /** the game waits behind the menu (`setPause`) */
@@ -229,10 +229,16 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
   el.textContent = text;
   if (tap) {
     el.setAttribute('role', 'button');
+    el.tabIndex = 0;
     el.addEventListener('click', () => {
       el.remove();
       nudgeButton();
       tap();
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      el.click();
     });
     asks.push({ tap, until: performance.now() + ms, el });
     // the pulse starts again for each new line
@@ -1380,7 +1386,7 @@ $('btn-estate').addEventListener('click', () => {
   const b = $('btn-estate');
   b.blur();
   // a line showing asked for it: where that line leads (the trophies, for a new one)
-  const go = askedNow()[0]?.tap ?? null;
+  const go = document.body.classList.contains('touch') ? (askedNow()[0]?.tap ?? null) : null;
   asks.length = 0;
   nudgeButton();
   if (go) go();

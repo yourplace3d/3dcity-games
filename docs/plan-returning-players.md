@@ -274,10 +274,20 @@ that grows with visits pays for showing up rather than for playing, and lets the
    flats are out of reach for now. One flat or house a day needs no points, after the day's first delivery. Points
    wait from day to day rather than starting at 0 (the owner's "maybe"; see section 3). Agreed?
 
-## 7. Before anything goes live
+## 7. Going live (23 November 2026)
 
-- The owner plays branch `claude/returning-players` (a test build, or after merging), and says yes.
-- Then a pull request, merged by the owner, and a deploy only after the owner says so.
-- `claude/tenants` and this branch both change `src/homesUi.ts`: whichever is merged second needs care.
-- Before players meet home points on the live site, say it in the game once: players with homes find that
-  buying now takes deliveries.
+The owner: "Ok review it and bring it live if the review passes."
+
+- **Four code reviews** of the whole branch against `main`. The first three each found problems marked
+  important, all fixed and checked in the browser: tappable lines lay over the steering pad on touch screens
+  (they now take no taps there; the house button pulses and leads where the line would); a new plain line
+  could vanish at once; the bank's arrow went missing behind a way to a home elsewhere; the bank's card named
+  the city in Where am I?; the offer after a run ignored points; a line could do nothing on a tablet with a
+  trackpad. The fourth found only small points; the quick ones were fixed too.
+- **Said once to players who had homes before:** "New: home points. Each delivery earns one; a flat takes 2,
+  a house 10. After your first delivery each day, one flat or house can be bought without a realtor."
+  Players whose first home comes after this never get it.
+- **Left for later** (small, from the fourth review): the menu opened from the start screen before any place
+  is loaded leaves out the day's flat without a realtor; the menu's checks against opening over the result
+  card apply only while playing (nothing opens it there today).
+- `claude/tenants` (never merged) also changes `src/homesUi.ts`: merging it later needs care.

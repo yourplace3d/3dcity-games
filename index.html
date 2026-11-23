@@ -47,7 +47,7 @@
     <div id="hud" aria-live="off">
       <div class="panel stats">
         <b id="cash">$0</b>
-        <small id="saved" title="Money in the bank: safe from fines" hidden></small>
+        <small id="saved" role="button" tabindex="0" title="Money in the bank, safe from fines. Click for the way to the nearest bank." hidden></small>
         <span id="heat" aria-label="Police heat"><i></i><i></i><i></i><i></i></span>
         <span class="bar" title="You"><i id="health"></i></span>
         <span class="bar car" id="carbar" title="Car" hidden><i id="carhp"></i></span>
@@ -156,6 +156,7 @@
         <div id="pane-estate" role="tabpanel" hidden>
           <div class="points" id="estate-points"></div>
           <p id="homes-line"></p>
+          <button id="btn-bank-way" hidden>Show the way to the nearest bank</button>
           <div id="homes-list"></div>
           <p class="small">Your cash, homes and trophies are kept in this browser and come along to every place you play. Each home pays rent on your first visit of a day, wherever you are.</p>
         </div>

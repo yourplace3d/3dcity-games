@@ -177,10 +177,12 @@ there will be a brainstorm about [what] can be done as missions like painting th
 to bring people living in the apartment not paying to justice or the trash is on the street stuff like that or
 even an ambulance because somebody got sick."
 
-### Rules for all of them (suggested)
+### Rules for all of them (built with step 1, 23 November)
 
-- **When:** from the third visit day on (visit 2 belongs to the rent and the bank), after the first delivery
-  of the visit. At most one new event per visit day, and at most one open event per home.
+- **When:** from the second day with a home on, or on the first after 30 minutes of play (the owner: "we can
+  start with from visit 2 on or even with visit 1 if visit 1 is longer than say 30 minutes"), after the
+  first delivery of the visit, and not within 30 seconds of another card. At most one new event a day,
+  and at most one open event per home. Not while the first-home mission still uses the stations' packages.
 - **Where:** only at homes in the town being played, so the mission can be driven now.
 - **What it costs:** while an event is open, that one home's rent **waits** at the building. It is not lost:
   it is paid out when the event is solved. So nothing is lost for missing a day (the house rule), and no
@@ -198,8 +200,19 @@ even an ambulance because somebody got sick."
 |---|---|---|---|---|
 | 1 | **A flat needs renovating** (the owner's "next") | After a while (suggest: 7 visit days after it was bought or last renovated) the flat's walls wear down, grey like the first-home flat. A package from any station repairs it. | The first-home mission's repairs (`src/game/renovation.ts`) | 1 day |
 | 2 | **The house needs painting** | Whole houses and buildings only. The colour fades. Paint from the pump, a heavy load (careful driving pays more), then choose the colour at the building. | The supply run and the paint panel | half a day |
-| 3a | **The tenants stopped paying: go and settle it** (the owner, 23 November: "the tenants are not paying anymore go there and have a dispute") | The home's rent waits at the building until you go there. Stop beside it: the tenants say why (the heating has been broken for weeks, say). You answer on a card: give a little (they pay what they owe, less a share for the repair) or insist on all of it (they may pay, or refuse). Refused: step 3b. | Rent that waits at the building (the tenants branch's idea), a card | 1 day |
-| 3b | **The court's order** (police) | When a dispute fails, the court orders the tenants to move out, and the police carry out the order. Pick up two officers at the badge and drive them to your building without breaking the law (the clean-run rule). The tenants leave; new ones move in with the next delivery. No arrest, no fight. | The clean run at the badge | 1.5 days |
+| 3a | **The tenants stopped paying: go and settle it** (the owner, 23 November: "the tenants are not paying anymore go there and have a dispute") | The home's rent waits at the building until you go there. Stop beside it: the tenants say why (the heating has been broken for weeks, say). You decide on a card, and each choice can go two ways, so there are always at least four outcomes (the owner's design, below). | Rent that waits at the building (the tenants branch's idea), a card | 1 day |
+| 3b | **The court's order** (police) | When the tenants still will not pay, the court orders them to move out, and the police carry out the order. Pick up two officers at the badge and drive them to your building without breaking the law (the clean-run rule). The tenants leave; new ones move in with the next delivery. No arrest, no fight. **The bill is high** (the owner): the court's and the officers' costs, several days of the home's rent (estimate: 5). | The clean run at the badge | 1.5 days |
+
+**The dispute's four outcomes** (the owner, 23 November: "We need both options to have an escalation variant
+… so you have always at least four different outcome possibilities"):
+
+| You choose | It goes well | It escalates |
+|---|---|---|
+| **Insist on all of it** | They pay everything they owe: settled. | They still will not pay: you come back with the police (3b), and the bill is high. |
+| **Accept part of it** (a lower rent for now) | They pay what they agreed: settled, the rent a little lower for a while. | The broken thing is still broken and gets worse: now the whole of it must be replaced, which costs more than the rent you gave up, and a repair mission follows (a package from the matching station, as for renovation). |
+
+Which way it goes is chance, the same for every home and every part of town (estimate: an even chance at
+first; to be tuned from play). Nothing in the wording blames the tenants or the neighbourhood.
 | 4 | **A tenant got sick** (ambulance) | Take the ambulance at the flame (in many countries the fire service runs them), fetch the tenant at your building, and drive to the hospital: a short clock, and bumps cost (both rules exist). The tenant thanks you with a bigger tip. | The rush job, a new vehicle, hospitals on the map | 2 days |
 | 5 | **Trash on the street** | Bags piled in front of your building, and the neighbours complain. Take the small truck at the pump, pick up three bags around the block, drop them at the recycling yard. | A job with several pickups (new), a made-up yard | 2 days |
 
@@ -218,9 +231,23 @@ new locks after a break-in (the badge), furniture on moving day (the pump).
 5. **Painting** (half a day): cheap, but much like renovation, so it comes later, for variety.
 6. **Trash** (2 days): needs a job with several stops, the most that is new.
 
-About 8 build days in all (estimate). The rules for all of them stay as above: from the third visit day,
-at most one new event a day, after the first delivery, at a home in the town being played, chosen at
-random, and the home's rent waits (it is not lost) until the event is solved.
+About 8 build days in all (estimate). The rules for all of them are as above: from the second day with a
+home (or after 30 minutes on the first), at most one new event a day, after the first delivery, at a home in
+the town being played, chosen at random, and the home's rent waits (it is not lost) until the event is
+solved. The owner agreed to this order on 23 November.
+
+### Step 1, renovation: built (branch `claude/returning-players`, not live)
+
+- **When:** a home bought or last renovated 7 days ago or more (estimate), in the part of town being
+  played, under the rules above.
+- **What you see:** a card, "Your flat needs renovating": its walls are worn down, its rent waits at the
+  building (it is not lost), and a package from any fuel, fire or police station brings what it needs. The
+  walls turn grey, the station symbols blink (once a run is over), and the list of homes says "Needs
+  renovating".
+- **Solved:** the package delivered to the building. The rent that waited is paid out, the tenants thank you
+  with a quarter of a day's rent, and the walls get their colour back.
+- On a new day while it is open: "$456 waits at your flat on Königstraße until it is renovated."
+- Kept under `3da-events`. Played through in headless Chromium in Nuremberg.
 
 ## 5. A limit on buying homes (the owner, 23 November)
 
@@ -273,13 +300,19 @@ that grows with visits pays for showing up rather than for playing, and lets the
 2. **A reward for going to the bank?** Answer: "No. And it s not a mission per se it just makes sure money
    stays in the bank." So no reward, and it no longer calls itself a mission: the card says "Good to know"
    above "Keep your cash safe", and the line on the way "To the bank: the arrow shows the nearest one".
-3. **Which event first?** Answer: "show me which order you d suggest". The order is in section 4. How long
-   until a flat needs renovating: 7 visit days, as suggested, unless the owner says otherwise.
+   Then: "it must be somehow selectable so the bank 'mission' is showing the navigation to the next bank".
+   Built: tap "Bank $… ›" in the money box, or "Show the way to the nearest bank" in Real estate, and the
+   arrow leads to the nearest bank until you are there (asked again, it is turned off). Outside the home
+   town, a line says where the banks are.
+3. **Which event first?** Answer: "show me which order you d suggest", then "the Event order is fine". The
+   order is in section 4; renovation is built. Events start from visit 2, or on visit 1 after 30 minutes.
+   A flat needs renovating 7 days after it was bought or last renovated (estimate).
 4. **Hospitals on the map for the ambulance?** Answer: "Sounds like a plan." Big ones only, a symbol and no
    name; made up where a part of town has none, as with the stations.
 5. **The tenant who stopped paying:** a court's order carried out by the police, no arrest, no chase.
-   Answer: "I assume like this yes." The tone, in short: the tenants are told by the court to move out, the
-   officers you drive there hand over the order, the tenants leave, new ones move in.
+   Answer: "I assume like this yes", and later "that s fine but the bill should be high". The tone, in
+   short: the tenants are told by the court to move out, the officers you drive there hand over the order,
+   the tenants leave, new ones move in; and it costs several days of the home's rent.
 
 6. **Home points:** a flat 2 and a house 10 (yes, 23 November), up to 20 waiting, so buildings of more than 10
    flats are out of reach for now. One flat or house a day needs no points, after the day's first delivery. Points

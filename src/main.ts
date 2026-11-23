@@ -1341,6 +1341,8 @@ function estateButton(): void {
 function drawEstate(): void {
   const mine = owned();
   const towns = homeTowns(mine.homes, mine.reno);
+  // what is open at a home, and the rent waiting there
+  for (const t of towns) for (const l of t.homes) l.note = homes?.eventNote(l.home) || l.note;
   const n = mine.homes.length;
   const points = homes ? homes.pointsNow() : loadPoints();
   const day = homes?.dailyNow() ?? null;
@@ -1363,6 +1365,7 @@ function drawEstate(): void {
   const plate = towns.find((t) => t.plate)?.place ?? 'your home town';
   const who = n === 1 ? 'Your home pays' : `Your ${n} homes${towns.length > 1 ? `, in ${towns.length} towns,` : ''} pay`;
   const bank = mine.saved ? `, and ${fmtMoney(mine.saved)} in the bank in ${plate}` : '';
+  $('btn-bank-way').hidden = !playing || !homes?.hasBanks();
   $('homes-line').textContent = n ? `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.` : 'No homes yet.';
   drawHomes($('homes-list'), towns, {
     here: (h) => !secret && !!homes?.isHere(h),
@@ -1393,6 +1396,23 @@ $('btn-estate').addEventListener('click', () => {
   if (go) go();
   else setPause(true, 'estate');
 });
+/** The way to the nearest bank: from the bank line in the money box, or from the real estate. */
+function bankWay(): void {
+  if (!homes || !playing) return;
+  if (menuOpen) setPause(false);
+  if (mapOpen || welcoming || guessing) return;
+  homes.wayToBank();
+}
+$('saved').addEventListener('click', () => {
+  $('saved').blur();
+  bankWay();
+});
+$('saved').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault();
+  bankWay();
+});
+$('btn-bank-way').addEventListener('click', bankWay);
 $('btn-homes').addEventListener('click', () => setPause(true, owned().homes.length ? 'estate' : 'trophies'));
 
 const soundButton = (): void => {

@@ -20,7 +20,11 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 /* above the steering area, which would otherwise swallow taps on the little map */
 #hud { position: fixed; inset: 0; z-index: 1; pointer-events: none; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 body[data-screen='start'] #hud, body[data-screen='start'] #touch { display: none; }
-#saved { color: #c9b8ff; font-weight: 600; font-size: 13px; margin-top: -4px; }
+#saved { color: #c9b8ff; font-weight: 600; font-size: 13px; margin-top: -4px; pointer-events: auto; cursor: pointer; }
+/* the bank line leads to the nearest bank: a small arrow says so */
+#saved::after { content: ' ›'; opacity: 0.7; }
+#btn-bank-way { width: 100%; margin: 2px 0 4px; }
+#btn-bank-way[hidden] { display: none; }
 #saved[hidden] { display: none; }
 .stats { top: calc(12px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left)); display: grid; gap: 6px; min-width: 132px; }
 #cash { font-size: 22px; color: var(--green); letter-spacing: 0.01em; }

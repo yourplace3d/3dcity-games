@@ -52,7 +52,9 @@ the streets, buildings, water and hills come from the same map squares as
   the roof and on both maps. **Real estate**, a tab of the menu (☰, or the house button beside it, whose ring
   fills with home points), lists them by town with what each pays: *Go there* starts beside one, and in the
   town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
-  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 17 things to do. Cash and homes come along to every place you play: a new place is not a new game.
+  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 17 things to do.
+  Now and then something happens at a home (for now: it needs renovating); its rent waits at the building
+  until a station's package solves it. Tapping "Bank" in the money box shows the way to the nearest bank. Cash and homes come along to every place you play: a new place is not a new game.
   Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
 - **Flats first.** A first home is a flat; houses open with your 3rd home, whole buildings with your 6th.

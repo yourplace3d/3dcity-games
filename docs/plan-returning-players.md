@@ -79,9 +79,10 @@ The owner liked the limit that grows with missions best, and asked for a counter
   than 20 (more than 10 flats) shows "too big for now".
 - **The first home, and the rest of its building in the first-home mission, take none.**
 - **One flat or house a day takes none,** once a delivery has been made that day (the owner, 23 November:
-  "one flat/object should be buyable anyways per day"). The "for sale" panel says "no points needed"
-  (first "free today", which the owner found wrong: the home still costs its price); the number on the
-  house button counts it. Never a whole building.
+  "one flat/object should be buyable anyways per day"). The "for sale" panel says "no realtor needed",
+  and under it "Today one flat or house can be bought without a realtor: no points needed" (the owner's
+  wording; first "free today", which sounded as if the home cost nothing). The number on the house button
+  counts it. Never a whole building.
 - **Buying the rest of a building** takes points only for the flats it adds: the flat you own already took
   its points (a building of 5 flats: 4 × 2 = 8).
 - The "for sale" panel says what is missing ("Buy a flat $2,100: after 1 more delivery") and how many points

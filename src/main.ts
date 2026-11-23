@@ -1312,7 +1312,7 @@ function drawEstate(): void {
   big.textContent = `${points} home ${points === 1 ? 'point' : 'points'}`;
   const small = document.createElement('small');
   const today =
-    day === 'ready' ? 'Today one flat or house needs no points.' : day === 'later' ? 'After your first delivery today, one flat or house needs no points.' : 'Today’s flat or house without points is bought. Tomorrow there is another.';
+    day === 'ready' ? 'Today one flat or house can be bought without a realtor: no points needed.' : day === 'later' ? 'After your first delivery today, one flat or house can be bought without a realtor: no points needed.' : 'Today’s flat or house without a realtor is bought. Tomorrow there is another.';
   small.textContent = n
     ? `${free ? `You may buy ${free} ${free === 1 ? 'flat' : 'flats'} now${points >= HOUSE_POINTS || day === 'ready' ? ', or a house' : `; a house at ${HOUSE_POINTS} points`}` : `A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}`}. ${today} One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
     : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;

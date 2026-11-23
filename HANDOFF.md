@@ -20,6 +20,9 @@ lives.
   The order of the events at the player's homes is in section 4 (agreed). Step 1, renovation, and the way to
   the bank on demand go live on the owner's word ("Put it live", 23 November) after three code reviews.
   Next is step 2, the tenants' dispute with its four outcomes.
+- **Then, from the owner's play:** hills never stop a car under power, and jobs at the stations come on a
+  card (take it or not; then only that job). Live on the owner's word ("then you can push both") after two
+  code reviews: the plan, section 6b.
 
 ## Where things stand
 

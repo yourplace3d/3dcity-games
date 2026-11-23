@@ -318,6 +318,26 @@ that grows with visits pays for showing up rather than for playing, and lets the
    flats are out of reach for now. One flat or house a day needs no points, after the day's first delivery. Points
    wait from day to day rather than starting at 0 (the owner's "maybe"; see section 3). Agreed?
 
+## 6b. From the owner's play in Salvador and Rio (23 November, evening)
+
+- **Hills:** on a steep bend with a heavy load the car stopped dead (Salvador; in Rio uphill by the beach it
+  barely moved). On a touch screen the throttle is how far the stick is pushed, and less in a bend, and the
+  hill's pull could match it. Now, uphill under power and below about 13 km/h, the hill always leaves the car
+  something to climb with: slow, never stuck. A light touch still feels the hill, a wreck still rolls back,
+  and backing up a hill works the same way. Tests in `tests/hills.test.ts`.
+- **Jobs at the stations, on a card** (the owner: "starting the job by walking or driving towards the
+  building it gets a card to read and you can accept the job or cancel it. Once you accepted doing the job
+  the other standard runs are not shown and no other jobs and no buying of places is possible"). Stopping at
+  a fuel, fire or police station (at its ring, or by its symbol) shows a card: "Supply run", "Rush job" or
+  "Clean run", what it asks, and "Take the job" or "Not now". Before, each kind had one package at whichever
+  station was nearest, and none at a station you stood at, so driving to the symbol you saw often gave
+  nothing. Now the package comes to the station you stop at. Only when stopped (driving past brings no card),
+  not at the very start of a visit, and "Not now" holds until you drive off. While on the job there are no
+  other jobs and nothing to buy, until it is delivered or gone. Runs of three keep their plain packages,
+  taken by driving onto them.
+- **Has anyone played a station job?** Not counted: the counts are runs, homes, rent and guesses only. A
+  count word for job kinds needs the owner's yes on the live server.
+
 ## 7. Going live (23 November 2026)
 
 The owner: "Ok review it and bring it live if the review passes."

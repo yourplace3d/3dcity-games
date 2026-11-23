@@ -773,8 +773,8 @@ const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = 
     done: (h) => h.carHp !== null,
   },
   {
-    keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
-    touch: 'Drag to steer and drive, hold the red <b>Brake</b> pedal to stop. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
+    keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package. At a station’s ring, stop: a card shows the job.',
+    touch: 'Drag to steer and drive, hold the red <b>Brake</b> pedal to stop. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package. At a station’s ring, stop: a card shows the job.',
     done: (h) => h.job !== null,
   },
   {

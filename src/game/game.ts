@@ -123,9 +123,9 @@ export type GameEvent =
 
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
-/** how near a station's package the card offering its job comes (m), and how slow the player has to be (m/s, about 18 km/h) */
+/** how near a station's package the card offering its job comes (m), and how slow the player has to be: stopped (m/s) */
 const OFFER_M = 14;
-const OFFER_SPEED = 5;
+const OFFER_SPEED = 1.5;
 /** how near a station, or the spot on the road beside it, counts as being at it (m) */
 const STATION_M = 35;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
@@ -299,10 +299,14 @@ export class Game {
    * line of a mission's package, when it goes to one. Without it, a package is taken by driving onto it.
    */
   onOffer: ((kind: JobKind, special: string | null, answer: (yes: boolean) => void) => void) | null = null;
-  /** the station's package the player said no to, until they drive off */
-  private declined: Marker | null = null;
+  /** the stations' packages the player said no to, each until they drive off */
+  private declined = new Set<Marker>();
+  /** the station spot where moving a package there found no way, so it is not tried again while there */
+  private triedAt: string | null = null;
   /** "slow down at the ring" has been said */
   private slowSaid = false;
+  /** the player has got going since the start: no job's card at the very start, standing where the game put them */
+  private moved = false;
   /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished. */
   readonly events: Array<(e: GameEvent) => void> = [];
   private emit(e: GameEvent): void {
@@ -325,6 +329,9 @@ export class Game {
   /** No run: the open jobs from the start, as many as one likes. */
   openPlay(): void {
     this.comeDown();
+    this.declined.clear();
+    this.slowSaid = false;
+    this.moved = false;
     this.run = { done: 0, score: 0, seconds: 0, over: true, of: RUN_JOBS };
     this.set = null;
     this.from = null;
@@ -337,6 +344,9 @@ export class Game {
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
     this.comeDown();
+    this.declined.clear();
+    this.slowSaid = false;
+    this.moved = false;
     this.lastFrom = null;
     this.set = course && course.legs.length >= 1 && course.legs.length <= RUN_STEPS.length ? course : null;
     this.run = { done: 0, score: 0, seconds: 0, over: false, of: this.set?.legs.length ?? RUN_JOBS };
@@ -1462,24 +1472,26 @@ export class Game {
       }
       return;
     }
+    if (!this.moved && this.speed() > 3) this.moved = true;
     // in a run someone sent there is one package at a time, where theirs was
     const sent = this.run.over ? null : this.set?.legs[this.run.done] ?? null;
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const m = this.pickups[i];
       const [x, y] = this.local(m);
       const d = Math.hypot(x - px, y - py);
-      // a station's job (the open jobs): a card first, once the player slows down at the ring
+      // a station's job (the open jobs): a card first, once the player has stopped at the ring
       if (this.asks(m)) {
+        if (!this.moved) continue;
         const atIt = d < OFFER_M || (d < 160 && this.atStationOf(m));
-        if (this.declined === m) {
+        if (this.declined.has(m)) {
           // asked once: again only after driving off, away from the ring and from the station
-          if (d > 40 && !atIt) this.declined = null;
+          if (d > 40 && !atIt) this.declined.delete(m);
         } else if (atIt && this.speed() < OFFER_SPEED && !this.held) {
           this.offerJob(m);
           return;
         } else if (d < 6.5 && !this.slowSaid) {
           this.slowSaid = true;
-          this.onToast('Slow down at the ring to see the job', 'info');
+          this.onToast('Stop at the ring to see the job', 'info');
         }
       } else if (d < 6.5) {
         if (this.take(m)) return;
@@ -1521,20 +1533,22 @@ export class Game {
       // Players drove to the symbol they saw and found no package there (23 November).
       const at = this.speed() < OFFER_SPEED ? this.stationHere(kind) : null;
       const atLast = at && last && ((([ax, ay]) => Math.hypot(ax - last[0], ay - last[1]) < 30)(w.roads.point(at.line, at.s)));
-      if (at && !atLast) {
+      const spot = at && `${at.line}:${Math.round(at.s)}`;
+      if (at && !atLast && spot !== this.triedAt) {
         const [ax, ay] = w.roads.point(at.line, at.s);
         const i = this.pickups.findIndex((m) => m.kind === job);
         const there = i >= 0 && Math.hypot(this.local(this.pickups[i])[0] - ax, this.local(this.pickups[i])[1] - ay) < 30;
-        if (!there) {
-          const m = this.pickupAt(at);
-          if (m) {
-            if (i >= 0) this.scene.remove(this.pickups.splice(i, 1)[0].mesh);
-            m.kind = job;
-            this.pickups.push(m);
-          }
+        if (there) continue;
+        const m = this.pickupAt(at);
+        if (m) {
+          if (i >= 0) this.scene.remove(this.pickups.splice(i, 1)[0].mesh);
+          m.kind = job;
+          this.pickups.push(m);
+          continue;
         }
-        continue;
-      }
+        // no way from this station: its package stays where it was, and this spot is not tried again while here
+        this.triedAt = spot;
+      } else if (!at) this.triedAt = null;
       if (this.pickups.some((m) => m.kind === job)) continue;
       // the nearest station of the kind that a road leads to
       const near: Array<{ d: number; p: PathState }> = [];
@@ -1581,15 +1595,26 @@ export class Game {
 
   /** A station's job on a card: taken only if the player says yes. Asked once until they drive off. */
   private offerJob(m: Marker): void {
-    this.declined = m;
+    this.declined.add(m);
     const kind = m.kind!;
     // the mission's package goes to its place only when that is in the part of town loaded now (`take`)
     const sp = this.special;
     const there = sp && ((([sx, sy]) => Math.abs(sx) < this.world.half - 10 && Math.abs(sy) < this.world.half - 10)(this.world.proj.toLocal(sp.at.lon, sp.at.lat)));
     this.onOffer!(kind, there ? sp!.say[kind] : null, (yes) => {
-      if (!yes || this.job || !this.pickups.includes(m)) return;
-      if (this.take(m)) this.declined = null;
-      else this.onToast('No drop-off for this job from here: try another station', 'bad');
+      if (!yes) {
+        // no to one is no to every station's package here, until the player drives off
+        const [px, py] = this.pos();
+        for (const o of this.pickups) if (o.kind && Math.hypot(this.local(o)[0] - px, this.local(o)[1] - py) < 160) this.declined.add(o);
+        return;
+      }
+      if (this.job || !this.pickups.includes(m)) return;
+      if (!this.take(m)) {
+        this.onToast('No drop-off for this job from here: try another station', 'bad');
+        return;
+      }
+      this.declined.delete(m);
+      // `take` has set the job
+      if (there && !(this.job as Job | null)?.special) this.onToast('No road from here to your building: this one is an ordinary job', 'info');
     });
   }
 

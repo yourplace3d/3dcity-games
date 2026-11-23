@@ -106,8 +106,13 @@ export interface Controls {
 
 /** the speed below which a hill never stops a car under power (m/s, about 13 km/h) */
 export const CRAWL = 3.6;
-/** what is left to climb with below that, besides rolling (m/s², with the rolling's 0.4 that is about 0.6 net) */
-const CLIMB = 1;
+/**
+ * what is left to climb with below that, besides rolling (m/s², about 1.1 net with the rolling's 0.4). It must
+ * be well over 0.6: from a standstill, a speed under 0.02 m/s after a step is taken for standing still.
+ */
+const CLIMB = 1.5;
+/** the least share of a hill's pull that is always felt, so a light touch on the throttle does not cancel it */
+const HILL_FLOOR = 0.3;
 
 export class Car {
   x = 0;
@@ -202,9 +207,15 @@ export class Car {
         // uphill under power, below a crawl the hill takes less than the engine gives: slow, never stuck.
         // On a touch screen the throttle is how far the stick is pushed, and less in a bend, so without
         // this a steep bend with a heavy load stopped the car (Salvador, 23 November).
+        // A light touch still feels the hill: it never takes less than `HILL_FLOOR` of its pull.
         if (slope > 0 && c.throttle > 0 && !dead && vf < CRAWL) {
           const drive = this.spec.acc * (this.heavy ? 0.72 : 1) * c.throttle * (1 - (0.55 * Math.max(0, vf)) / top);
-          pull = Math.min(pull, Math.max(0, drive - CLIMB));
+          pull = Math.min(pull, Math.max(drive - CLIMB, pull * HILL_FLOOR));
+        }
+        // backing up a hill (facing downhill): the same, with reverse's drive
+        if (slope < 0 && c.throttle < 0 && !dead && vf <= 0.4 && vf > -CRAWL) {
+          const drive = 6 * -c.throttle;
+          pull = Math.min(pull, Math.max(drive - CLIMB, pull * HILL_FLOOR));
         }
         vf -= Math.sign(slope) * pull * dt;
         vf = Math.min(vf, top * 1.3);

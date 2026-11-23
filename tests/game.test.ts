@@ -213,6 +213,8 @@ describe("a station's job on a card", () => {
     const answers: Array<(yes: boolean) => void> = [];
     const offer = vi.fn((_kind: string, _special: string | null, answer: (yes: boolean) => void) => void answers.push(answer));
     g.onOffer = offer;
+    // the player has got going since the start
+    (g as unknown as { moved: boolean }).moved = true;
     return { g, offer, answers, jobs: () => jobs.call(g, 0.016) };
   }
 
@@ -241,6 +243,16 @@ describe("a station's job on a card", () => {
     expect(g.job).toBeNull();
   });
 
+  it('"Not now" holds for every station here: two side by side do not take turns asking', async () => {
+    const { g, offer, answers, jobs } = await atStation();
+    (g as unknown as { pickups: Pickup[] }).pickups.push({ at: { lon: 5, lat: 0 }, mesh: new Group(), kind: 'clean' });
+    jobs();
+    answers[0](false);
+    jobs();
+    jobs();
+    expect(offer).toHaveBeenCalledOnce();
+  });
+
   it('no card over another card, and none while driving fast', async () => {
     const { g, offer, jobs } = await atStation();
     g.held = true;
@@ -249,6 +261,14 @@ describe("a station's job on a card", () => {
     g.me.vx = 12;
     jobs();
     expect(offer).not.toHaveBeenCalled();
+  });
+
+  it('no card at the very start, standing where the game put the player', async () => {
+    const { g, offer, jobs } = await atStation();
+    (g as unknown as { moved: boolean }).moved = false;
+    jobs();
+    expect(offer).not.toHaveBeenCalled();
+    expect(g.job).toBeNull();
   });
 
   it('the autopilot takes it by driving onto it, as before', async () => {

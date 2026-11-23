@@ -11,12 +11,12 @@ const slope = (grade: number) =>
     solids: { push: () => null },
   }) as unknown as World;
 
-/** Drive a car uphill for some seconds; how far it got, and how fast it went at the end. */
-function climb(kind: 'sedan' | 'van', heavy: boolean, throttle: number, grade: number, seconds = 20): { metres: number; speed: number } {
+/** Drive a car uphill for some seconds (facing up, or with `back` facing down and reversing); how far up it got, and its speed at the end. */
+function climb(kind: 'sedan' | 'van', heavy: boolean, throttle: number, grade: number, seconds = 20, back = false): { metres: number; speed: number } {
   const car = new Car(kind, '#888888');
   car.driver = 'player';
   car.heavy = heavy;
-  car.th = 0;
+  car.th = back ? Math.PI : 0;
   car.controls.throttle = throttle;
   const world = slope(grade);
   const dt = 1 / 30;
@@ -42,5 +42,14 @@ describe('hills', () => {
   it('with the foot off, a car standing on a hill stays where it is', () => {
     const r = climb('sedan', false, 0, 0.3, 5);
     expect(Math.abs(r.metres)).toBeLessThan(0.01);
+  });
+
+  it('a light touch on the throttle still feels the hill', () => {
+    expect(climb('sedan', false, 0.05, 0.3, 10).metres).toBeLessThan(1);
+  });
+
+  it('backing up a steep street: slow, but never stuck', () => {
+    const r = climb('sedan', false, -0.5, 0.3, 10, true);
+    expect(r.metres).toBeGreaterThan(5);
   });
 });

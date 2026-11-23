@@ -97,7 +97,7 @@ export interface Snapshot {
 }
 
 export interface Kept {
-  /** each trophy earned, with the day (days since 1970, UTC) */
+  /** each trophy earned, with the day it was earned on this device (`localDay`) */
   got: Partial<Record<TrophyId, number>>;
   /** the places played, as squares of `PLACE_DEG` */
   places: string[];
@@ -169,7 +169,7 @@ export class Trophies {
   give(ids: TrophyId[], now = Date.now()): TrophyId[] {
     const fresh = ids.filter((id, i) => !this.kept.got[id] && ids.indexOf(id) === i);
     if (!fresh.length) return fresh;
-    for (const id of fresh) this.kept.got[id] = Math.floor(now / DAY_MS);
+    for (const id of fresh) this.kept.got[id] = localDay(now);
     this.store();
     this.onEarned(fresh.map((id) => ALL.find((t) => t.id === id)!.name));
     return fresh;
@@ -205,7 +205,13 @@ export function disc(t: Trophy, colour: string, earned: boolean): string {
   return `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="30" fill="${earned ? '#16181c' : '#2a2e35'}"/><circle cx="32" cy="32" r="26" fill="${fill}"/><g fill="${ink}">${sign.replaceAll('#16181c', ink)}</g></svg>`;
 }
 
-/** "23.11.26": the day a trophy was earned. */
+/** The day on this device as a day number: the local date, counted as days since 1 January 1970. */
+export function localDay(ms: number): number {
+  const d = new Date(ms);
+  return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS);
+}
+
+/** "23.11.26": the day a trophy was earned (a local date, as `localDay` keeps it). */
 export function dateOf(day: number): string {
   const d = new Date(day * DAY_MS);
   return `${String(d.getUTCDate()).padStart(2, '0')}.${String(d.getUTCMonth() + 1).padStart(2, '0')}.${String(d.getUTCFullYear()).slice(2)}`;

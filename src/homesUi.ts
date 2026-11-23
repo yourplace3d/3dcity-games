@@ -17,6 +17,11 @@ import { pointInRing } from './geo/polygon';
 import { countPlay } from './linkCount';
 
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+/**
+ * How to get to the menu from a line over the game: with a mouse, the line itself is clicked; on a touch
+ * screen the lines take no taps, as the steering pad lies under them, so it is the house button.
+ */
+const toMenu = () => (document.body.classList.contains('touch') ? 'Tap the house button at the top' : 'Click here');
 /** "1 more delivery", "3 more deliveries" */
 const deliveries = (n: number) => `${n} more ${n === 1 ? 'delivery' : 'deliveries'}`;
 /** how near a building one has to stop for its panel (m) */
@@ -725,8 +730,7 @@ export class HomesUi {
     } catch {
       /* as above */
     }
-    const how = document.body.classList.contains('touch') ? 'Tap' : 'Click';
-    this.host.toast(`${text} ${how} here to see your homes.`, 'good', 12000, open);
+    this.host.toast(`${text} ${toMenu()} to see your homes.`, 'good', 12000, open);
   }
 
   // ------------------------------------------------------------ home points
@@ -738,9 +742,8 @@ export class HomesUi {
     } catch {
       /* as above */
     }
-    const how = document.body.classList.contains('touch') ? 'Tap' : 'Click';
     this.host.toast(
-      `New: home points. Each delivery earns one; a flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. After your first delivery each day, one flat or house can be bought without a realtor. ${how} here to see yours.`,
+      `New: home points. Each delivery earns one; a flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. After your first delivery each day, one flat or house can be bought without a realtor. ${toMenu()} to see yours.`,
       'info',
       14000,
       this.host.openHomes,
@@ -757,6 +760,20 @@ export class HomesUi {
     if (!this.homes.homes.length) return null;
     const today = dayOf(Date.now());
     return this.daily.used === today ? 'used' : this.daily.played === today ? 'ready' : 'later';
+  }
+
+  /** Whether houses can be bought yet (`HOUSES_AFTER`). */
+  housesOpen(): boolean {
+    return canBuy(this.homes, 'house');
+  }
+
+  /** The line on the day's home without a realtor: there, after the first delivery, or bought. */
+  dailyLine(): string {
+    const d = this.dailyNow();
+    const what = this.housesOpen() ? 'flat or house' : 'flat';
+    if (d === 'ready') return `Today one ${what} can be bought without a realtor: no points needed.`;
+    if (d === 'later') return `After your first delivery today, one ${what} can be bought without a realtor: no points needed.`;
+    return `Today’s ${what} without a realtor is bought. Tomorrow there is another.`;
   }
 
   /** Points, and the day's free home, kept; `changed`: the day's free home changed even if the points did not. */
@@ -963,9 +980,7 @@ export class HomesUi {
     if (this.homes.homes.length) {
       const p = document.createElement('p');
       p.className = 'small';
-      const d = this.dailyNow();
-      const today = d === 'ready' ? 'Today one flat or house can be bought without a realtor: no points needed.' : d === 'later' ? 'After your first delivery today, one flat or house can be bought without a realtor: no points needed.' : 'Today’s flat or house without a realtor is bought. Tomorrow there is another.';
-      p.textContent = `You have ${this.points} ${this.points === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. ${today}`;
+      p.textContent = `You have ${this.points} ${this.points === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. ${this.dailyLine()}`;
       this.panel.append(p);
     }
   }

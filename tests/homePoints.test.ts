@@ -117,11 +117,11 @@ describe('trophies', () => {
     const t = new Trophies();
     const said: string[][] = [];
     t.onEarned = (n) => said.push(n);
-    const day = Date.UTC(2026, 10, 23);
+    const day = new Date(2026, 10, 23, 12).getTime();
     expect(t.give(['car', 'car', 'lost'], day)).toEqual(['car', 'lost']);
     expect(t.give(['car'], day)).toEqual([]);
     expect(said).toEqual([['First car', 'Shaken off']]);
-    expect(t.day('car')).toBe(Math.floor(day / 86400000));
+    expect(t.day('car')).toBe(Date.UTC(2026, 10, 23) / 86400000);
   });
 
   it('count places a town apart once', () => {

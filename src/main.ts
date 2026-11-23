@@ -202,7 +202,12 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
   const el = document.createElement('div');
   el.className = `toast ${kind}${tap ? ' tap' : ''}`;
   el.textContent = text;
-  if (tap) {
+  if (tap && document.body.classList.contains('touch')) {
+    // the steering pad lies under the lines: they take no taps, and the house button pulses instead
+    const b = $('btn-estate');
+    b.classList.add('nudge');
+    setTimeout(() => b.classList.remove('nudge'), ms);
+  } else if (tap) {
     el.setAttribute('role', 'button');
     el.addEventListener('click', () => {
       el.remove();
@@ -214,7 +219,7 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
   const box = $('toasts');
   box.append(el);
   // three at most: the oldest goes first, but a line that can be tapped stays while others can go
-  while (box.children.length > 3) (box.querySelector('.toast:not(.tap)') ?? box.firstElementChild)!.remove();
+  while (box.children.length > 3) ([...box.children].find((c) => c !== el && !c.classList.contains('tap')) ?? box.firstElementChild)!.remove();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -1237,7 +1242,7 @@ addEventListener('keydown', (e) => {
   else if (playing) setPause(true);
 });
 // the game does not run on while its tab is out of sight
-document.addEventListener('visibilitychange', () => document.hidden && setPause(true));
+document.addEventListener('visibilitychange', () => document.hidden && !menuOpen && setPause(true));
 setMode(mode);
 $('mode-run').addEventListener('click', () => setMode('run'));
 $('mode-jobs').addEventListener('click', () => setMode('jobs'));
@@ -1311,10 +1316,10 @@ function drawEstate(): void {
   const big = document.createElement('b');
   big.textContent = `${points} home ${points === 1 ? 'point' : 'points'}`;
   const small = document.createElement('small');
-  const today =
-    day === 'ready' ? 'Today one flat or house can be bought without a realtor: no points needed.' : day === 'later' ? 'After your first delivery today, one flat or house can be bought without a realtor: no points needed.' : 'Today’s flat or house without a realtor is bought. Tomorrow there is another.';
+  const houses = !!homes?.housesOpen();
+  const house = !houses ? '' : points >= HOUSE_POINTS || day === 'ready' ? ', or a house' : `; a house at ${HOUSE_POINTS} points`;
   small.textContent = n
-    ? `${free ? `You may buy ${free} ${free === 1 ? 'flat' : 'flats'} now${points >= HOUSE_POINTS || day === 'ready' ? ', or a house' : `; a house at ${HOUSE_POINTS} points`}` : `A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}`}. ${today} One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
+    ? `${free ? `You may buy ${free} ${free === 1 ? 'flat' : 'flats'} now${house}` : `A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}`}. ${homes?.dailyLine() ?? ''} One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
     : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;
   text.append(big, small);
   box.append(text);
@@ -1346,7 +1351,7 @@ $('btn-estate').addEventListener('click', () => {
   $('btn-estate').blur();
   setPause(true, 'estate');
 });
-$('btn-homes').addEventListener('click', () => setPause(true, 'estate'));
+$('btn-homes').addEventListener('click', () => setPause(true, owned().homes.length ? 'estate' : 'trophies'));
 
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);

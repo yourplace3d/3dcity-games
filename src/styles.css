@@ -409,8 +409,13 @@ ul.trophies li.locked b { color: var(--dim); }
 #estate-free[hidden] { display: none; }
 body.touch #btn-estate { width: 50px; height: 46px; right: calc(132px + env(safe-area-inset-right)); }
 body.touch #btn-estate svg { width: 36px; height: 36px; }
-/* a line over the game that does something when tapped */
+/* the house button pulses while a line over the game says to tap it (touch screens) */
+#btn-estate.nudge { animation: estate-nudge 1.1s ease-in-out 3; }
+@keyframes estate-nudge { 50% { transform: scale(1.12); box-shadow: 0 0 0 6px rgba(95, 208, 138, 0.4); } }
+@media (prefers-reduced-motion: reduce) { #btn-estate.nudge { animation: none; border-color: #5fd08a; } }
+/* a line over the game that does something when clicked: not on touch screens, where it lies over the steering pad */
 .toast.tap { pointer-events: auto; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(95, 208, 138, 0.5); text-underline-offset: 3px; }
+body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 .town-head { display: grid; gap: 1px; margin-bottom: 6px; }
 .town-head b { font-size: 17px; }
 .town.plate .town-head b { color: var(--yellow); }

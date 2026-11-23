@@ -1361,7 +1361,8 @@ function drawEstate(): void {
     : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;
   text.append(big, small);
   box.append(text);
-  const rent = towns.reduce((s, t) => s + t.rent, 0);
+  // rent that waits at a home with something open is not paid each day
+  const rent = homes ? homes.rentPaying() : towns.reduce((s, t) => s + t.rent, 0);
   const plate = towns.find((t) => t.plate)?.place ?? 'your home town';
   const who = n === 1 ? 'Your home pays' : `Your ${n} homes${towns.length > 1 ? `, in ${towns.length} towns,` : ''} pay`;
   const bank = mine.saved ? `, and ${fmtMoney(mine.saved)} in the bank in ${plate}` : '';

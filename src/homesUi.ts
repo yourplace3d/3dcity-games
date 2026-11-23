@@ -178,7 +178,7 @@ export class HomesUi {
    */
   private wayTo: Home | null = null;
   /** the line on the rent of the day, waiting for the place's name to be read (`RENT_AFTER_S`) */
-  private rentLine: string | null = null;
+  private rentLine: (() => string) | null = null;
   private rentLineT = 0;
   /** home points (`game/homePoints.ts`): earned by deliveries, taken by homes */
   private points = loadPoints();
@@ -260,7 +260,7 @@ export class HomesUi {
     if (this.rentLine !== null) {
       this.rentLineT -= dt;
       if (this.rentLineT <= 0) {
-        this.sayRent(this.rentLine);
+        this.sayRent(this.rentLine());
         this.rentLine = null;
       }
     }
@@ -307,7 +307,7 @@ export class HomesUi {
       const h = this.homeOfEvent(e);
       return h ? [h] : [];
     });
-    const h = open.find((o) => this.lotOf(o)) ?? open[0];
+    const h = [...open].reverse().find((o) => this.lotOf(o)) ?? open.at(-1);
     this.host.game.special = h ? { at: { lat: h.lat, lon: h.lon }, say: renovateLines(this.nameOf(h)) } : null;
   }
 
@@ -567,6 +567,8 @@ export class HomesUi {
     this.banks = [];
     this.guideBank(false);
     this.showBanks();
+    // a way to the bank asked for ends where there is none: another town, or a part of town without one
+    if (!this.bankHere()) this.bankWay = false;
     // the mission's area is picked again in the new square
     this.area = null;
     this.host.game.guide = null;
@@ -696,8 +698,17 @@ export class HomesUi {
       );
       return;
     }
-    // on the way to pay in for the first time, the arrow stays until the cash is in
-    if (this.bankWay && this.lesson.stage !== 'go') {
+    // already at a bank: nothing to point to
+    {
+      const [px, py] = this.host.game.pos();
+      const at = nearestBank(this.banks, px, py);
+      if (at && Math.hypot(at.rx - px, at.ry - py) < BANK_ROAD_M * 2) {
+        toast('You are at a bank: stop beside it and pay in.', 'info', 4000);
+        return;
+      }
+    }
+    // on the way to pay in for the first time, the arrow stays until the cash is in; it is turned off only when it shows
+    if (this.bankWay && this.bankArrow() && this.lesson.stage !== 'go') {
       this.bankWay = false;
       this.remindArrow = 0;
       this.guideBank(false);
@@ -816,15 +827,18 @@ export class HomesUi {
     // the homes that paid: those with nothing open
     const paying = this.homes.homes.length - this.events.open.filter((e) => this.homeOfEvent(e)).length;
     const homes = paying === 1 ? 'your home' : `your ${paying} homes`;
-    const waits = held ? this.heldLine(held) : '';
-    const paid = got >= 1 ? `${homes} paid you ${money(got)} rent.${waits}` : waits.trim();
-    const text = arriving ? `Welcome back. ${got >= 1 ? 'Today ' : ''}${paid}` : `A new day: ${paid}`;
+    // worded when it is said: a city being guessed by then hides the street of a home
+    const text = () => {
+      const waits = held ? this.heldLine(held) : '';
+      const paid = got >= 1 ? `${homes} paid you ${money(got)} rent.${waits}` : waits.trim();
+      return arriving ? `Welcome back. ${got >= 1 ? 'Today ' : ''}${paid}` : `A new day: ${paid}`;
+    };
     if (arriving) {
       // once the place's name has been read
       this.rentLine = text;
       this.rentLineT = RENT_AFTER_S;
-    } else if (covered) this.host.toast(text, 'good', 9000);
-    else this.sayRent(text);
+    } else if (covered) this.host.toast(text(), 'good', 9000);
+    else this.sayRent(text());
     return got;
   }
 
@@ -880,6 +894,11 @@ export class HomesUi {
     return `Needs renovating: its rent waits until then${e.waiting ? ` (${money(e.waiting)} so far)` : ''}. A package from any station in its part of town renovates it`;
   }
 
+  /** A day's rent of the homes with nothing open: what comes in as cash each day now. */
+  rentPaying(): number {
+    return this.homes.homes.reduce((s, h) => s + (this.eventOf(h) ? 0 : this.rentOf(h)), 0);
+  }
+
   /** A day's rent of the homes with something open goes to wait at them. Returns how much. */
   private holdRent(): number {
     let held = 0;
@@ -911,8 +930,8 @@ export class HomesUi {
       playedS: this.playedS,
       deliveredHere: game.delivered - Math.max(0, this.deliveredBefore),
       sinceCardS: this.playedS - this.cardAtS,
-      // the first-home mission has the stations' packages until it is done
-      busy: !!game.job || this.rentLine !== null || (!!this.reno && this.reno.stage !== 'done'),
+      // the first-home mission has the stations' packages while it wants one
+      busy: !!game.job || this.rentLine !== null || wantsJob(this.reno),
     };
     if (!eventDue(this.events, n)) return;
     const can = renovationCandidates(this.homes.homes, this.events, dayNumber(Date.now()), (h) => !!this.lotOf(h));
@@ -1281,7 +1300,7 @@ export class HomesUi {
       return el;
     };
     const owned = this.homes.homes.length;
-    if (owned) p(`Your ${owned === 1 ? 'home pays' : `${owned} homes pay`} ${money(this.rentPerVisit())} rent each day you come back${rent ? `. Paid today: ${money(rent)}` : ''}.`, 'small');
+    if (owned) p(`Your ${owned === 1 ? 'home pays' : `${owned} homes pay`} ${money(this.rentPaying())} rent each day you come back${rent ? `. Paid today: ${money(rent)}` : ''}.`, 'small');
     if (!free.length) {
       box.hidden = !owned;
       return;

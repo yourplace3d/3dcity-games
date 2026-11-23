@@ -3,7 +3,10 @@ import { eventDue, FIRST_DAY_S, homeKey, readEvents, renovationCandidates, RENOV
 import { HomesUi } from '../src/homesUi';
 import type { Home } from '../src/game/homes';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 const none = (o: Partial<Events> = {}): Events => ({ open: [], last: '', first: '2026-11-20', renovated: {}, ...o });
 const now = (o: Partial<EventNow> = {}): EventNow => ({ today: '2026-11-24', playedS: 100, deliveredHere: 1, sinceCardS: 999, busy: false, ...o });
@@ -123,5 +126,32 @@ describe('rent and renovation', () => {
     vi.runAllTimers();
     vi.useRealTimers();
     expect(toast.mock.calls.at(-1)![0]).toBe('Your house on Spitalgasse is renovated. The $1,056 rent that waited there is yours, and the tenants thank you with $130.');
+  });
+});
+
+describe('when the first-home mission waits', () => {
+  it('a player who has not bought the rest of the first building still gets events', () => {
+    vi.stubGlobal('navigator', { webdriver: true });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+    const old: Home = { id: 'a', lat: 49.45, lon: 11.07, kind: 'flat', paid: 1600, rent: 384, street: 'Königstraße', place: 'Nuremberg', at: Date.now() - 10 * 86400000 };
+    const lot = { id: 'a', x: 0, y: 0, poly: { outer: [], holes: [] } };
+    const card = vi.fn();
+    const u: HomesUi = Object.assign(Object.create(HomesUi.prototype), {
+      host: { game: { delivered: 4, job: null, run: { over: true }, special: null }, save: vi.fn(), toast: vi.fn(), card, quiet: () => false, blocked: () => false },
+      homes: { v: 1, homes: [old], paidDay: '' },
+      // the flat is repaired; the rest of the building is for sale, maybe for a long time
+      reno: { stage: 'buy', units: 4 },
+      events: { open: [], last: '', first: 'before', renovated: {} },
+      owned: new Map([[lot, old]]),
+      world: { model: { paintBuilding: vi.fn() } },
+      playedS: 100,
+      cardAtS: -60,
+      deliveredBefore: 3,
+      rentLine: null,
+      shown: '',
+    });
+    (u as unknown as { eventTick: () => void }).eventTick();
+    expect(card).toHaveBeenCalledOnce();
+    expect(card.mock.calls[0][0]).toBe('Your flat needs renovating');
   });
 });

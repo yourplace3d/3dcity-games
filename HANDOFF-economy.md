@@ -7,6 +7,15 @@ waits for the owner, and where everything is. **Nothing of this plan is built. N
 Read `README.md` and `HANDOFF.md` first for what the game is and how the owner works. `HANDOFF-third-currency.md`
 is a separate handoff for one question: whether there should be a third currency.
 
+## Status, 23 November 2026, later: on the wishlist
+
+The owner, after reading the third-currency handoff: "we'd rather leave the second currency as well for a
+little longer on the wishlist and instead should continue with missions and learning how to use bank and
+such." So **street cred is on the wishlist too**, like the third currency. Nothing below is wrong, but none
+of it is next, and the questions listed as waiting no longer wait: they come back with cred. What is next:
+`docs/plan-returning-players.md` on branch `claude/returning-players` (the rent card, a mission to the bank,
+reminders, and a brainstorm of missions at the player's homes).
+
 ## Right now (23 November 2026)
 
 - **Branch `claude/plan-plates-and-staff`,** pushed. It holds documents only: compared with `claude/tenants`, it

@@ -100,7 +100,7 @@ export function drawHomes(
       const here = act.here(l.home);
       const go = document.createElement('button');
       go.type = 'button';
-      go.textContent = here ? 'Show the way' : 'Go there';
+      go.textContent = here ? 'On the map' : 'Go there';
       go.addEventListener('click', () => (here ? act.show(l.home) : act.go(t, l.home)));
       li.append(text, go);
       ul.append(li);
@@ -116,49 +116,3 @@ export function drawHomes(
   }
 }
 
-/** at most this many homes of one town on the card on return; the rest are counted */
-const RENT_LIST_MAX = 8;
-
-/**
- * The card on return: what each home paid, town by town. `here[i]`: home i of the town stands in the
- * square being played, so it is on the card's map with what it paid.
- */
-export function drawRent(list: HTMLElement, towns: Array<Town & { here: boolean[] }>): void {
-  list.replaceChildren();
-  for (const t of towns) {
-    const box = document.createElement('div');
-    box.className = t.plate ? 'town plate' : 'town';
-    const head = document.createElement('div');
-    head.className = 'town-head';
-    const name = document.createElement('b');
-    name.textContent = t.place;
-    const sub = document.createElement('small');
-    const count = t.homes.length === 1 ? '1 home' : `${t.homes.length} homes`;
-    sub.textContent = `${count} · ${t.rent ? `paid ${money(t.rent)}` : 'no rent yet'}${t.plate ? ' · your banks are here' : ''}`;
-    head.append(name, sub);
-    const ul = document.createElement('ul');
-    t.homes.slice(0, RENT_LIST_MAX).forEach((l, i) => {
-      const li = document.createElement('li');
-      const text = document.createElement('span');
-      const b = document.createElement('b');
-      b.textContent = l.what;
-      const s = document.createElement('small');
-      s.textContent = [l.note, t.here[i] && l.rent ? 'on the map' : ''].filter(Boolean).join(' · ') || ' ';
-      text.append(b, s);
-      const paid = document.createElement('b');
-      paid.className = l.rent ? 'paid' : 'paid none';
-      paid.textContent = l.rent ? `+${money(l.rent)}` : '–';
-      li.append(text, paid);
-      ul.append(li);
-    });
-    box.append(head, ul);
-    if (t.homes.length > RENT_LIST_MAX) {
-      const rest = t.homes.slice(RENT_LIST_MAX);
-      const more = document.createElement('p');
-      more.className = 'small';
-      more.textContent = `and ${rest.length} more ${rest.length === 1 ? 'home' : 'homes'}: ${money(rest.reduce((s, l) => s + l.rent, 0))}`;
-      box.append(more);
-    }
-    list.append(box);
-  }
-}

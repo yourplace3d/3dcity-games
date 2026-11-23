@@ -1,0 +1,106 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { earn, flatsFree, missing, pointsFor, POINTS_MAX, readPoints } from '../src/game/homePoints';
+import { HomesUi } from '../src/homesUi';
+import type { Home, Lot } from '../src/game/homes';
+import { earnedBy, placeKey, readTrophies, Trophies, type Snapshot } from '../src/trophies';
+
+afterEach(() => vi.unstubAllGlobals());
+
+describe('home points', () => {
+  it('a flat takes 2, a house 10, a whole building 2 for each flat it adds', () => {
+    expect(pointsFor('flat')).toBe(2);
+    expect(pointsFor('house')).toBe(10);
+    expect(pointsFor('building', 5)).toBe(10);
+    expect(pointsFor('building', 400)).toBeGreaterThan(POINTS_MAX);
+  });
+
+  it('come one for each delivery, and no more than 20 wait', () => {
+    expect(earn(3, 2)).toBe(5);
+    expect(earn(19, 5)).toBe(POINTS_MAX);
+    expect(earn(4, -3)).toBe(4);
+    expect(flatsFree(7)).toBe(3);
+    expect(missing(1, 2)).toBe('1 more delivery');
+    expect(missing(0, 10)).toBe('10 more deliveries');
+  });
+
+  it('reads what is kept, and nothing odd', () => {
+    expect(readPoints('{"v":1,"points":7}')).toBe(7);
+    expect(readPoints('{"v":1,"points":999}')).toBe(POINTS_MAX);
+    expect(readPoints('{"points":-4}')).toBe(0);
+    expect(readPoints('nonsense')).toBe(0);
+  });
+});
+
+describe('buying with home points', () => {
+  const home: Home = { id: '1', lat: 49, lon: 11, kind: 'flat', paid: 700, rent: 168, street: '', place: '', at: 0 };
+  const lot = (id: string, units = 4): Lot => ({ id, x: 0, y: 0, poly: { outer: [[0, 0], [10, 0], [10, 10]], holes: [] }, kind: 'flats', floors: 3, units, price: 700, whole: 700 * units, street: '' });
+  const ui = (points: number, homes: Home[], reno: unknown = { stage: 'done' }) => {
+    vi.stubGlobal('navigator', { webdriver: true });
+    // the house drawn for a new home's mark: a canvas that draws nothing
+    const ctx = new Proxy({}, { get: () => () => undefined, set: () => true });
+    vi.stubGlobal('document', { createElement: () => ({ getContext: () => ctx }) });
+    const game = { cash: 100_000 };
+    const u: HomesUi = Object.assign(Object.create(HomesUi.prototype), {
+      host: { game, save: vi.fn(), toast: vi.fn(), place: () => 'Nuremberg' },
+      homes: { v: 1, homes, paidDay: '2026-11-23' },
+      owned: new Map(),
+      marks: new Map(),
+      world: { proj: { toLngLat: () => ({ lat: 49, lon: 11 }) }, mark: () => ({ remove: () => undefined }) },
+      reno,
+      points,
+      saved: 0,
+      payRent: vi.fn(() => 0),
+      look: vi.fn(),
+    });
+    return { u, game };
+  };
+
+  it('a flat needs 2 points, and takes them', () => {
+    const short = ui(1, [home]);
+    expect(short.u.buy(lot('a'), 'flat')).toBe(false);
+    expect(short.game.cash).toBe(100_000);
+    const enough = ui(5, [home]);
+    expect(enough.u.buy(lot('b'), 'flat')).toBe(true);
+    expect(enough.u.pointsNow()).toBe(3);
+  });
+
+  it('the first home takes none', () => {
+    const { u } = ui(0, [], null);
+    vi.spyOn(u as unknown as { setReno: () => void }, 'setReno').mockImplementation(() => undefined);
+    Object.assign(u, { dropArea: vi.fn(), showBanks: vi.fn() });
+    expect(u.buy(lot('c'), 'flat')).toBe(true);
+    expect(u.pointsNow()).toBe(0);
+  });
+});
+
+describe('trophies', () => {
+  const none: Snapshot = { car: false, delivered: 0, homes: 0, saved: 0, building: false, painted: false, towns: 0, rentPerDay: 0 };
+
+  it('are earned by what the player has done', () => {
+    expect(earnedBy(none, 0)).toEqual([]);
+    expect(earnedBy({ ...none, car: true, delivered: 1, homes: 1 }, 1)).toEqual(['car', 'delivery', 'home']);
+    expect(earnedBy({ ...none, homes: 5, towns: 2, rentPerDay: 1200, delivered: 100 }, 5)).toEqual(expect.arrayContaining(['homes5', 'towns2', 'rent1000', 'deliveries100', 'places5']));
+  });
+
+  it('are kept with the day, once each', () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+    const t = new Trophies();
+    const said: string[][] = [];
+    t.onEarned = (n) => said.push(n);
+    const day = Date.UTC(2026, 10, 23);
+    expect(t.give(['car', 'car', 'lost'], day)).toEqual(['car', 'lost']);
+    expect(t.give(['car'], day)).toEqual([]);
+    expect(said).toEqual([['First car', 'Shaken off']]);
+    expect(t.day('car')).toBe(Math.floor(day / 86400000));
+  });
+
+  it('count places a town apart once', () => {
+    expect(placeKey(49.45, 11.07)).toBe(placeKey(49.46, 11.09));
+    expect(placeKey(49.45, 11.07)).not.toBe(placeKey(52.52, 13.4));
+  });
+
+  it('read what is kept, and nothing odd', () => {
+    expect(readTrophies('{"v":1,"got":{"car":20415,"odd":3},"places":["1,2",5]}')).toEqual({ got: { car: 20415 }, places: ['1,2'] });
+    expect(readTrophies('nonsense')).toEqual({ got: {}, places: [] });
+  });
+});

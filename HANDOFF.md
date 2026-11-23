@@ -9,9 +9,10 @@ lives.
 - **The owner put street cred on the wishlist,** like the third currency: missions and learning to use the
   bank come first, for players who come back. The plan and the brainstorm of what happens at the player's
   homes: `docs/plan-returning-players.md`.
-- **Built, not merged, not live:** branch `claude/returning-players`, on `main`: the rent card on return
-  (each home with what it paid, the homes here on a map), the mission to the bank, and the reminder. Six
-  questions wait for the owner (the plan, section 6), among them a limit on buying homes (section 5). No pull request yet; deploy only after the owner says yes.
+- **Built, not merged, not live:** branch `claude/returning-players`, on `main`: a line on return saying what
+  the homes paid, the mission to the bank and its reminder, a house button with the side menu "Real estate"
+  and "Trophies", and home points (a delivery earns one; a flat takes 2, a house 10). Questions wait for the
+  owner (the plan, section 6). No pull request yet; deploy only after the owner says yes.
 
 ## Where things stand
 

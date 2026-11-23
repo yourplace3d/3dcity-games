@@ -10,11 +10,13 @@ import { arrive as cloudArrive, changed, savedName, savingOn } from './cloud';
 import { loadHomes, type Home } from './game/homes';
 import { loadReno, type Reno } from './game/renovation';
 import { loadSaved } from './game/bank';
-import { drawHomes, drawRent, homeTowns, isCoords } from './homesList';
+import { drawHomes, homeTowns, isCoords } from './homesList';
 import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
 import { addonHost } from './addon';
-import { HomesUi, type RentReport } from './homesUi';
+import { HomesUi } from './homesUi';
+import { drawTrophies, Trophies, type TrophyId } from './trophies';
+import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
 import { wireRadio } from './radio';
 import { serviceIcon, type ServiceKind } from './game/services';
@@ -67,8 +69,10 @@ const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'delivery' : 'de
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
-/** the map on the card on return: the whole square, with what each home here paid */
-const rentMap = new Minimap($<HTMLCanvasElement>('rent-map'), true);
+/** things done in the game, kept with the day (`trophies.ts`) */
+const trophies = new Trophies();
+trophies.onEarned = (names) =>
+  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 5000, () => showEstate(true, 'trophies'));
 /** the big map is up and the game waits behind it */
 let mapOpen = false;
 /** the game waits behind the pause card */
@@ -158,10 +162,16 @@ function lineButton(): void {
  * waits while it is open, so there is time to look.
  */
 function showMap(open: boolean): void {
-  if (open && (!game?.world || !playing || paused || guessing || welcoming)) return;
+  if (open && (!game?.world || !playing || paused || guessing || welcoming || estateOpen)) return;
   mapOpen = open;
   $('bigmap').hidden = !open;
   controls.enabled = playing && !open && !paused && !guessing && !welcoming;
+  // a home shown from the side menu blinks on the map; the line under the place says so
+  if (!open) bigmap.spot = null;
+  const spot = open ? bigmap.spot : null;
+  // the arrow stops pointing 40 m from the home (`HomesUi.missionTick`)
+  const near = !!spot && !!game && Math.hypot(spot.x - game.pos()[0], spot.y - game.pos()[1]) < 40;
+  $('bigmap-note').textContent = spot ? (near ? 'your home blinks · you are right beside it' : 'your home blinks · the arrow shows the way when you close this') : '1.5 km across · north is up · the game waits';
   if (open) {
     $('bigmap-place').textContent = secret ? 'Where am I?' : placeName;
     lineButton();
@@ -188,15 +198,23 @@ function save(at?: LngLat): void {
   }
 }
 
-function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300): void {
+function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, tap?: () => void): void {
   const el = document.createElement('div');
-  el.className = `toast ${kind}`;
+  el.className = `toast ${kind}${tap ? ' tap' : ''}`;
   el.textContent = text;
+  if (tap) {
+    el.setAttribute('role', 'button');
+    el.addEventListener('click', () => {
+      el.remove();
+      tap();
+    });
+  }
   // it fades over the time it is shown, a long message as well as a short one
   el.style.animationDuration = `${ms}ms`;
   const box = $('toasts');
   box.append(el);
-  while (box.children.length > 3) box.firstElementChild!.remove();
+  // three at most: the oldest goes first, but a line that can be tapped stays while others can go
+  while (box.children.length > 3) (box.querySelector('.toast:not(.tap)') ?? box.firstElementChild)!.remove();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -276,13 +294,44 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, rentCard, quiet: () => !!secret });
+      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => showEstate(true, 'estate'), quiet: () => !!secret });
       (window as unknown as { homes: HomesUi }).homes = homes;
+      // trophies: what happens in play, and now and then what the player has
+      {
+        const g = game;
+        g.events.push((e) => {
+          const ids: TrophyId[] = [];
+          if (e.kind === 'lost') ids.push('lost');
+          if (e.kind === 'run') ids.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
+          if (e.kind === 'delivered' && e.job === 'rush' && e.left >= 30) ids.push('rush');
+          if (ids.length) trophies.give(ids);
+        });
+        let every = 0;
+        g.ticks.push((dt) => {
+          every -= dt;
+          if (every > 0 || !homes) return;
+          every = 1;
+          const mine = homes.mine();
+          const towns = homeTowns(mine.homes, mine.reno);
+          trophies.check({
+            car: !!g.car,
+            delivered: g.delivered,
+            homes: mine.homes.length,
+            saved: mine.saved,
+            building: mine.homes.some((h) => h.kind === 'building'),
+            painted: mine.homes.some((h) => !!h.colour),
+            towns: towns.length,
+            rentPerDay: towns.reduce((n, t) => n + t.rent, 0),
+          });
+        });
+      }
       addonHost({ game, toast, api: 2 });
       // a tester's key was in play: say how it went
       void fullNote.then((n) => n && toast(n.text, n.kind));
     }
     await game.start(at);
+    // a place played, for the trophies of places; not one a Where am I? round put the player in
+    if (!dropping) trophies.visit(at.lat, at.lon);
     // which city is played; not one a Where am I? round put the player in, nor the place "Where I am" found
     if (!BAKED && !dropping && !here) countCity(at);
     // a run a friend sent is a run, whatever the start screen is set to
@@ -432,41 +481,6 @@ function closeMission(yes: boolean): void {
   missionAnswer = null;
   answer?.(yes);
 }
-/** On the first visit of a day: what each home paid, and where. The game waits while it is read. */
-function rentCard(r: RentReport): void {
-  welcoming = true;
-  controls.enabled = false;
-  if (game) game.held = true;
-  const n = r.towns.reduce((s, t) => s + t.homes.length, 0);
-  $('rent-title').textContent = `Your ${n === 1 ? 'home' : `${n} homes`} paid you ${fmtMoney(r.total)} rent`;
-  drawRent($('rent-list'), r.towns);
-  const line = r.atPlate
-    ? `It is cash in your pocket now: if the police catch you, they take a quarter of the cash you carry. Money in the bank is safe.`
-    : `It is cash in your pocket now: if the police catch you, they take a quarter of the cash you carry. Your banks are in ${r.plate || 'the town of your first home'}: money there is safe.`;
-  $('rent-line').textContent = r.capped ? `${line} Not all of it fitted: ${fmtMoney(MAX_CASH)} is the most cash you can hold.` : line;
-  const map = $<HTMLCanvasElement>('rent-map');
-  map.hidden = !r.pins.length || !game?.world;
-  $('rent').hidden = false;
-  if (!map.hidden && game) {
-    // the homes and the player, with room around them; never wider than the square
-    const xs = [...r.pins.map((p) => p.x), game.pos()[0]];
-    const ys = [...r.pins.map((p) => p.y), game.pos()[1]];
-    const half = game.world.half;
-    const reach = Math.min(half, Math.max(220, (Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2) * 1.25 + 90));
-    const mid = (v: number[]) => Math.max(-half + reach, Math.min(half - reach, (Math.max(...v) + Math.min(...v)) / 2));
-    rentMap.focus = { x: mid(xs), y: mid(ys), r: reach };
-    rentMap.labels = r.pins;
-    rentMap.draw(game);
-  }
-}
-function closeRent(): void {
-  $('rent').hidden = true;
-  welcoming = false;
-  if (game) game.held = false;
-  controls.enabled = playing && !paused;
-  before = 0;
-}
-$('btn-rent-go').addEventListener('click', closeRent);
 $('btn-mission-yes').addEventListener('click', () => closeMission(true));
 $('btn-mission-no').addEventListener('click', () => closeMission(false));
 function closeWelcome(): void {
@@ -594,6 +608,7 @@ function pick(name: string, b: HTMLButtonElement): void {
     }
   }
   const got = name === round.city ? points(lookedS, wrongPicks) : 0;
+  if (name === round.city) trophies.give(['guessed']);
   for (const o of buttons) {
     o.disabled = true;
     if (o.textContent === round.city) o.classList.add('right');
@@ -873,7 +888,7 @@ function runEnded(score: number, seconds: number): void {
   // run or a city/menu change during that delay must not receive the old result.
   const showResult = (): void => {
     if (!playing || busy || game?.run !== ended) return;
-    if (paused || mapOpen || guessing || welcoming) {
+    if (paused || mapOpen || guessing || welcoming || estateOpen) {
       setTimeout(showResult, 100);
       return;
     }
@@ -1059,8 +1074,8 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
   const dt = before ? (now - before) / 1000 : 0;
   before = now;
-  if (!game?.world || !playing || mapOpen || paused || guessing || welcoming) sound.hear(null);
-  if (paused || guessing || welcoming) return;
+  if (!game?.world || !playing || mapOpen || paused || guessing || welcoming || estateOpen) sound.hear(null);
+  if (paused || guessing || welcoming || estateOpen) return;
   if (game?.world && playing && !mapOpen) playedS += Math.min(dt, 1);
   if (!game?.world || !playing) {
     // behind the result of a run the camera goes on rising
@@ -1074,6 +1089,7 @@ function frame(now: number): void {
     bigmap.draw(game);
     return;
   }
+  estateButton();
   game.tune(dt);
   game.update(dt, controls.read());
   if (secret) {
@@ -1146,7 +1162,7 @@ for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico, #open
 
 /** Hold the game, or let it go on. The card also lets the player change what they are playing. */
 function setPause(on: boolean): void {
-  if (on && (!playing || mapOpen || welcoming || !$('result').hidden || !$('guess').hidden)) return;
+  if (on && (!playing || mapOpen || welcoming || estateOpen || !$('result').hidden || !$('guess').hidden)) return;
   paused = on;
   $('pause').hidden = !on;
   controls.enabled = playing && !on;
@@ -1192,9 +1208,9 @@ addEventListener('keydown', (e) => {
   if (e.repeat || (e.code !== 'KeyP' && e.code !== 'Escape') || (e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
   // Esc closes the map first; that is handled where the map is
   if (mapOpen) return;
-  // and the list of homes before the pause card under it
-  if (!$('homes').hidden) {
-    showHomes(false);
+  // and the side menu before the pause card under it
+  if (estateOpen) {
+    showEstate(false);
     return;
   }
   if (paused) setPause(false);
@@ -1217,40 +1233,102 @@ function owned(): { homes: Home[]; reno: Reno | null; saved: number } {
   return { homes: h.homes, reno: loadReno(h.homes.length > 0), saved: loadSaved() };
 }
 
-/** The buttons to the list of homes: once the browser owns one, and never while a city is guessed. */
+/** The buttons to the side menu on the start screen and the pause card: once there is something in it, and never while a city is guessed. */
 function homesButtons(): void {
   const n = owned().homes.length;
   for (const id of ['btn-homes', 'btn-pause-homes']) {
-    $(id).hidden = !n || !!secret;
-    $(id).textContent = `Your homes (${n})`;
+    $(id).hidden = (!n && !trophies.count()) || !!secret;
+    $(id).textContent = n ? `Real estate (${n}) & trophies` : 'Trophies';
   }
 }
 
+/** the side menu is open: the game waits */
+let estateOpen = false;
+let estateTab: 'estate' | 'trophies' = 'estate';
+
+/** The ring of home points: on the house button, and bigger at the top of the side menu. */
+function ring(points: number): string {
+  const fill = Math.min(points, HOUSE_POINTS) / HOUSE_POINTS;
+  return `<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="18.5"/><circle class="fill" cx="22" cy="22" r="18.5" pathLength="100" stroke-dasharray="${Math.round(fill * 100)} 100"/><path class="house" d="M22 11.5l10 9.2h-3V31H15V20.7h-3z"/></svg>`;
+}
+
+let buttonShows = '';
+/** The house button: the ring fills with home points toward a house; the number is the flats they buy now. */
+function estateButton(): void {
+  const b = $('btn-estate');
+  const hide = !game?.world || !!secret;
+  const points = homes ? homes.pointsNow() : loadPoints();
+  const n = owned().homes.length;
+  const shows = `${hide} ${points} ${n}`;
+  if (shows === buttonShows) return;
+  buttonShows = shows;
+  b.hidden = hide;
+  b.classList.toggle('full', points >= HOUSE_POINTS);
+  b.querySelector('.fill')!.setAttribute('stroke-dasharray', `${Math.round((Math.min(points, HOUSE_POINTS) / HOUSE_POINTS) * 100)} 100`);
+  const free = n ? flatsFree(points) : 0;
+  $('estate-free').hidden = !free;
+  $('estate-free').textContent = String(free);
+  b.setAttribute('aria-label', `Real estate and trophies: ${points} home points${free ? `, ${free} ${free === 1 ? 'flat' : 'flats'} free to buy` : ''}`);
+}
+
 /**
- * The card with the player's homes, by town: a new place is not a new game, so this says what the
- * player owns and where, and leads there. A home in the town being played gets the arrow instead.
+ * The side menu: the player's homes by town, with the home points that say how many more may be
+ * bought, and the trophies. A new place is not a new game, so this says what the player owns and
+ * where, and leads there: a home in the part of town being played is shown on the big map, and the
+ * arrow then points the way. The game waits while it is open.
  */
-function showHomes(open: boolean): void {
-  $('homes').hidden = !open;
+function showEstate(open: boolean, tab: 'estate' | 'trophies' = estateTab): void {
+  if (open && (guessing || !!secret)) return;
+  estateOpen = open;
+  $('estate').hidden = !open;
+  controls.enabled = playing && !open && !paused && !mapOpen && !welcoming;
+  before = 0;
   if (!open) return;
+  estateTab = tab;
+  $('tab-estate').setAttribute('aria-selected', String(tab === 'estate'));
+  $('tab-trophies').setAttribute('aria-selected', String(tab === 'trophies'));
+  $('pane-estate').hidden = tab !== 'estate';
+  $('pane-trophies').hidden = tab !== 'trophies';
+  if (tab === 'trophies') {
+    drawTrophies($('trophies-list'), $('trophies-line'), trophies);
+    return;
+  }
   const mine = owned();
   const towns = homeTowns(mine.homes, mine.reno);
   const n = mine.homes.length;
+  const points = homes ? homes.pointsNow() : loadPoints();
+  const free = flatsFree(points);
+  const box = $('estate-points');
+  box.classList.toggle('full', points >= HOUSE_POINTS);
+  box.innerHTML = ring(points);
+  const text = document.createElement('div');
+  const big = document.createElement('b');
+  big.textContent = `${points} home ${points === 1 ? 'point' : 'points'}`;
+  const small = document.createElement('small');
+  small.textContent = n
+    ? `${free ? `${free} ${free === 1 ? 'flat' : 'flats'} free to buy${points >= HOUSE_POINTS ? ', or a house' : `; a house at ${HOUSE_POINTS}`}` : `A flat at ${FLAT_POINTS}, a house at ${HOUSE_POINTS}`}. One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
+    : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;
+  text.append(big, small);
+  box.append(text);
   const rent = towns.reduce((s, t) => s + t.rent, 0);
   const plate = towns.find((t) => t.plate)?.place ?? 'your home town';
   const who = n === 1 ? 'Your home pays' : `Your ${n} homes${towns.length > 1 ? `, in ${towns.length} towns,` : ''} pay`;
   const bank = mine.saved ? `, and ${fmtMoney(mine.saved)} in the bank in ${plate}` : '';
-  $('homes-line').textContent = `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.`;
+  $('homes-line').textContent = n ? `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.` : 'No homes yet.';
   drawHomes($('homes-list'), towns, {
     here: (h) => !secret && !!homes?.isHere(h),
     show: (h) => {
-      showHomes(false);
+      showEstate(false);
       if (paused) setPause(false);
       setScreen('play');
-      homes?.showWay(h);
+      // the big map, with the home blinking; the arrow points the way once it is closed
+      const at = homes?.spotOf(h);
+      if (!homes?.showWay(h) || !at) return;
+      bigmap.spot = at;
+      showMap(true);
     },
     go: (t, h) => {
-      showHomes(false);
+      showEstate(false);
       if (paused) setPause(false);
       save();
       setScreen('start');
@@ -1258,10 +1336,16 @@ function showHomes(open: boolean): void {
     },
   });
 }
-$('btn-homes').addEventListener('click', () => showHomes(true));
-$('btn-pause-homes').addEventListener('click', () => showHomes(true));
-$('btn-homes-close').addEventListener('click', () => showHomes(false));
-$('homes').addEventListener('click', (e) => e.target === e.currentTarget && showHomes(false));
+$('btn-estate').addEventListener('click', () => {
+  $('btn-estate').blur();
+  if (playing && !paused && !mapOpen && !welcoming && !guessing) showEstate(true);
+});
+$('btn-homes').addEventListener('click', () => showEstate(true));
+$('btn-pause-homes').addEventListener('click', () => showEstate(true));
+$('btn-estate-close').addEventListener('click', () => showEstate(false));
+$('tab-estate').addEventListener('click', () => showEstate(true, 'estate'));
+$('tab-trophies').addEventListener('click', () => showEstate(true, 'trophies'));
+$('estate').addEventListener('click', (e) => e.target === e.currentTarget && showEstate(false));
 
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);

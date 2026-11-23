@@ -26,27 +26,69 @@ right away what the first visit built.
 | Visit | What happens | State |
 |---|---|---|
 | 1 | Two deliveries, then a cheap worn-down flat to buy (the first-home mission). | Live since 18 November |
-| 2, at the start | A card: "Your homes paid you $X rent", each home with what it paid and where. Homes in the part of town being played are on a map in the card, each with its amount. | Built, branch `claude/returning-players` |
+| 2, at the start | A line: "Welcome back. Today your 3 homes paid you $1,320 rent." The first five times it adds "Tap here to see your homes", which opens the side menu. | Built, branch `claude/returning-players` |
 | 2, after a delivery or a minute of play | A mission: you carry cash, the police take a quarter of it when they catch you, bring it to the bank. The arrow shows the nearest bank. | Built, same branch |
 | From then on | When the cash carried grows large, a reminder and the arrow to the nearest bank, for a while. | Built, same branch |
+| Always | A house button opens the side menu, "Real estate" and "Trophies". Its ring fills with home points: one for each delivery, and a home takes points. | Built, same branch |
 | 3 and later | Things happen at your homes: a flat needs renovating, and more. Missions solve them. | Brainstorm, section 4 |
 
 ## 3. What is built (branch `claude/returning-players`, not merged, not live)
 
-### The rent card
+### The rent line (changed on the owner's word, 23 November)
 
-- On the first visit of a new day, about 3 seconds in (after the place's name has been read), the game
-  waits behind a card: **"Welcome back. Your 3 homes paid you $1,320 rent."**
-- Under it, the homes by town, as in the list of homes: "A flat on Königstraße +$384". A flat still worn
-  down shows no amount. More than 8 homes in one town: "and 12 more homes: $4,100".
-- **The map:** if any of the homes stand in the part of town being played, the card shows a map of them,
-  zoomed to fit the homes and the player, with a green tag beside each home: "+$384". Homes in another
-  city are only listed.
-- **The last line** says the rent is cash in your pocket now, that the police take a quarter of the cash
-  carried, and that money in the bank is safe. Away from the home town, it says where the banks are.
-- While a city is being guessed ("Where am I?"), the card waits until the guess is over, so the homes
-  don't give the city away.
+The owner: "Instead of showing it too long on the minimap and blocking it stick to the message rent was paid
+only. First five times the sentence added click here to find the houses (the menu to the side opens)."
+
+- On the first visit of a new day, about 3 seconds in (after the place's name has been read), a line:
+  **"Welcome back. Today your 3 homes paid you $1,320 rent."** The game does not stop.
+- **The first five times** it adds "Tap here to see your homes" ("Click" on a computer), and tapping the line
+  opens the side menu. Of the three lines the screen holds at once, this one is the last to be pushed out.
+- Not while a city is being guessed ("Where am I?"): the homes would give the city away.
+- The first try, a card with a map of the homes and their amounts, is gone.
 - Rent itself works as before: all of a day's rent comes in as cash on the first visit of that day.
+
+### The side menu: real estate and trophies
+
+The owner chose a new house button, the game waiting while the menu is open, the big map and then the arrow
+for a home, and trophies built now (23 November).
+
+- **The house button,** top right beside pause. Its ring fills with home points toward a house (10 points),
+  green, then yellow when a house is in reach. A green number on it says how many flats the points buy now.
+- **The menu** slides in from the right, over the game, which waits. Two tabs:
+  - **Real estate:** the home points at the top ("5 home points: 2 flats free to buy; a house at 10"), what
+    the homes pay and the cash carried, then the homes by town (the list that was on the start screen and
+    the pause card). A home in the part of town being played has "On the map": the big map opens with the
+    home blinking in a yellow ring, and once the map is closed the arrow points the way. A home elsewhere has
+    "Go there", which loads that place.
+  - **Trophies:** 17, in four groups, each with how it is earned, and the date once it is.
+- It also opens from the start screen and the pause card ("Real estate (3) & trophies").
+
+### Home points: the limit on buying homes
+
+The owner liked the limit that grows with missions best, and asked for a counter that fills up (section 5).
+
+- **One point for each delivery** (a run's, an open job's, a mission's package). Up to 20 wait.
+- **A flat takes 2, a house 10, a whole building 2 for each flat it adds.** A building that would take more
+  than 20 (more than 10 flats) shows "too big for now".
+- **The first home, and the rest of its building in the first-home mission, take none.**
+- The "for sale" panel says what is missing ("Buy a flat $2,100: after 1 more delivery") and how many points
+  you have; so does the offer after a run.
+- Kept under `3da-points`. Points start at 0 for everyone, also for players who have homes already.
+
+### Trophies
+
+Nothing is paid for them and nothing can be bought with them. Called trophies, not badges, because "the
+badge" is already the police station's symbol. Our own flat discs, grey until earned (`src/trophies.ts`).
+
+| Group | Trophies |
+|---|---|
+| Getting started | First car · First delivery · A run of three · First home · Money in the bank |
+| Real estate | Five homes · A whole building · A fresh coat (paint one) · Two towns · $1,000 a day |
+| Driving | Shaken off (lose the police) · A clean run (three with no fine) · Time to spare (rush job, 30 s left) · 100 deliveries |
+| Places | Five places · Twenty places (each a town or more apart) · City guessed (Where am I?) |
+
+A new trophy brings a line ("Trophy: First car"); tapping it opens the trophies. A player who already has
+homes earns the ones that fit at once, in one line.
 
 ### The mission to the bank
 
@@ -74,19 +116,25 @@ right away what the first visit built.
 
 ### What else changed
 
-- The map drawing can put short tags beside points, and show a part of the square (`src/game/minimap.ts`).
-- Fixed on the way: a map canvas exactly 300 pixels wide stayed 150 high and drew stretched. Only the new
-  card's map was that size.
+- The big map can make one point blink (`src/game/minimap.ts`).
+- The game tells listeners about deliveries, fines, the police shaken off and runs finished
+  (`Game.events`), for the trophies.
+- Fixed on the way: a map canvas exactly 300 pixels wide stayed 150 high and drew stretched.
+- The radio button (a trial, `?try=radio`) moved one place left, for the house button.
 - Nothing new is counted: new count words need the owner's yes on the live server's whitelist.
-- Kept in the browser under `3da-banklesson`, so saving online carries it along.
+- Kept in the browser, so saving online carries them along: `3da-banklesson`, `3da-points`,
+  `3da-trophies`, `3da-rentnotes`.
 
 ### Tested
 
-- 106 tests pass (9 new, in `tests/bankMission.test.ts`), type check and build pass.
-- Played through in headless Chromium on the Nuremberg map: three flats bought, the clock set a day
-  on, the page opened again. The card showed the three homes on its map with their amounts; after a minute
-  the mission came; the arrow led to a bank; paying in ended it; later, $4,200 carried brought the reminder.
-  Also checked: homes in Nuremberg while playing in Berlin (list, no map), on a phone-sized screen.
+- 115 tests pass (`tests/bankMission.test.ts`, `tests/homePoints.test.ts` are new), type check and build
+  pass.
+- Played through in headless Chromium on the Nuremberg map: three flats bought (the first free, then 2
+  points each), the clock set a day on, the page opened again. The rent line came with "Click here"; clicking
+  it opened the side menu; the trophies showed 3 of 17; "On the map" opened the big map with the home
+  blinking, and after closing it the arrow pointed to the home, 192 m away; beside a flat for sale with 1
+  point, the panel said "after 1 more delivery". The side menu was also checked on a phone-sized screen. The
+  mission to the bank and the reminder were played through before the rent card became a line.
 - Not tested: a real iPad; a real player's reaction.
 
 ## 4. Brainstorm: things that happen at your homes
@@ -158,7 +206,8 @@ capped at $1,000,000 carried plus $1,000,000 in the bank). Homes owned after so 
 The date trick (10 real days of 5 minutes, then the date changed 100 times without playing): no limit 30 → 106,477
 homes; fixed 17 → 217; grows with visits 11 → 671; **grows with missions 11 → 11.**
 
-**Suggestion: the limit grows with missions.**
+**Decided (the owner, 23 November): the limit grows with missions,** shown as a counter that fills up.
+Built as below; see section 3, "Home points".
 - **One home for every 2 deliveries** (a run's, an open job's, or a mission's package). Up to 5 can wait, so
   a long drive without buying still counts, but not without end.
 - **A whole building counts as its flats:** a building of 8 flats needs 16 deliveries. Otherwise one purchase
@@ -189,11 +238,14 @@ that grows with visits pays for showing up rather than for playing, and lets the
 5. **The tenant who stopped paying:** the police carry out a court's order, with no arrest and no chase.
    Is that the tone you want?
 
-6. **The limit on buying homes:** one home per 2 deliveries, up to 5 saved, a whole building counting as its
-   flats (section 5)?
+6. **Home points, as built:** a flat 2, a house 10, up to 20 waiting, so buildings of more than 10 flats are
+   out of reach for now. Do "two apartments free" and "after ten a house" mean that? And should points
+   start from 0 each day ("only for the day run"), or wait from day to day, as built?
 
 ## 7. Before anything goes live
 
 - The owner plays branch `claude/returning-players` (a test build, or after merging), and says yes.
 - Then a pull request, merged by the owner, and a deploy only after the owner says so.
 - `claude/tenants` and this branch both change `src/homesUi.ts`: whichever is merged second needs care.
+- Before players meet home points on the live site, say it in the game once: players with homes find that
+  buying now takes deliveries.

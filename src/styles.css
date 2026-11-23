@@ -298,9 +298,9 @@ html body.touch #minimap[data-corner='br'] { right: calc(150px + env(safe-area-i
 .dot.sub { border-radius: 50%; background: #1f6fd6; box-shadow: 0 0 0 2px #16181c; }
 
 /* the radio trial: a button left of pause, and a bar with the station's name under the top buttons */
-#btn-radio { pointer-events: auto; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(166px + env(safe-area-inset-right)); color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1.5; padding: 9px 10px; cursor: pointer; letter-spacing: 1px; }
+#btn-radio { pointer-events: auto; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(220px + env(safe-area-inset-right)); color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1.5; padding: 9px 10px; cursor: pointer; letter-spacing: 1px; }
 #btn-radio.on { color: #ffd400; border-color: #ffd400; }
-body.touch #btn-radio { font-size: 15px; padding: 13px 13px; right: calc(196px + env(safe-area-inset-right)); }
+body.touch #btn-radio { font-size: 15px; padding: 13px 13px; right: calc(256px + env(safe-area-inset-right)); }
 #radio-bar { pointer-events: auto; position: absolute; top: calc(118px + env(safe-area-inset-top)); right: calc(12px + env(safe-area-inset-right)); display: flex; align-items: center; gap: 10px; max-width: min(320px, calc(100vw - 24px)); font-size: 13px; }
 #radio-bar[hidden] { display: none; }
 #radio-bar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -372,19 +372,47 @@ body.secret #toasts { top: calc(80px + env(safe-area-inset-top)); }
 @media (max-width: 720px) { body.secret #toasts { top: calc(130px + env(safe-area-inset-top)); } }
 .over .kicker { display: block; color: #5fd08a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; margin-bottom: 4px; }
 
-/* the card on return: what each home paid, and the homes here on a map */
-#rent { place-items: start center; overflow: auto; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); touch-action: auto; }
-#rent > .card { margin: auto 0; }
-#rent-map { display: block; width: min(300px, 100%); aspect-ratio: 1; margin: 10px auto 4px; border-radius: 12px; background: #20242a; }
-#rent-map[hidden] { display: none; }
-#rent-list { display: grid; gap: 12px; margin: 10px 0 6px; }
-#rent-list .paid { color: #5fd08a; font-weight: 800; white-space: nowrap; }
-#rent-list .paid.none { color: var(--dim); }
-
-/* the player's homes, by town: a long list scrolls, like the scoreboard */
-#homes { place-items: start center; overflow: auto; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); -webkit-user-select: text; user-select: text; touch-action: auto; }
-#homes > .card { margin: auto 0; }
+/* the side menu: real estate and trophies, sliding in from the right; the game waits behind it */
+#estate { position: fixed; inset: 0; z-index: 30; background: rgba(12, 14, 17, 0.55); }
+#estate[hidden] { display: none; }
+#estate .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(400px, 100vw); box-sizing: border-box; overflow: auto; background: #23272e; border-left: 1px solid var(--line); box-shadow: -18px 0 60px rgba(0, 0, 0, 0.5); padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) 16px; -webkit-user-select: text; user-select: text; touch-action: auto; animation: drawer 0.18s ease-out; }
+@keyframes drawer { from { transform: translateX(40px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #estate .drawer { animation: none; } }
+#estate p { line-height: 1.45; margin: 8px 0; }
+#estate p.small { font-size: 12px; color: var(--dim); }
+#estate button { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line); background: #30353e; color: var(--ink); font-weight: 600; }
+.drawer-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.drawer-head .tabs { display: flex; gap: 4px; flex: 1; background: #1b1e23; border-radius: 12px; padding: 4px; }
+#estate .tabs button { flex: 1; border: 0; background: none; color: var(--dim); padding: 9px 8px; }
+#estate .tabs button[aria-selected='true'] { background: #30353e; color: var(--ink); }
+#estate #btn-estate-close { padding: 9px 13px; }
+#estate .points { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #2a2e35; }
+#estate .points svg { width: 64px; height: 64px; }
+#estate .points b { display: block; font-size: 18px; }
+#estate .points small { display: block; color: var(--dim); font-size: 12px; line-height: 1.35; margin-top: 2px; }
 #homes-list { display: grid; gap: 14px; margin: 12px 0 6px; }
+.trophy-group { margin: 14px 0 4px; }
+ul.trophies { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
+ul.trophies li { display: grid; justify-items: center; text-align: center; gap: 2px; }
+ul.trophies .disc svg { width: 64px; height: 64px; display: block; }
+ul.trophies b { font-size: 13px; font-weight: 700; line-height: 1.2; }
+ul.trophies small { font-size: 11px; color: var(--dim); line-height: 1.25; }
+ul.trophies li.locked b { color: var(--dim); }
+
+/* the house button: a ring that fills with home points, and how many flats they buy now */
+#btn-estate { pointer-events: auto; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(166px + env(safe-area-inset-right)); width: 44px; height: 38px; padding: 0; display: grid; place-items: center; cursor: pointer; }
+#btn-estate[hidden] { display: none; }
+#btn-estate svg { width: 32px; height: 32px; }
+#btn-estate .track, .points .track { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 4; }
+#btn-estate .fill, .points .fill { fill: none; stroke: #5fd08a; stroke-width: 4; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 22px 22px; transition: stroke-dasharray 0.4s; }
+#btn-estate.full .fill, .points.full .fill { stroke: var(--yellow); }
+#btn-estate .house, .points .house { fill: var(--ink); }
+#estate-free { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: #5fd08a; color: #16181c; font-size: 12px; line-height: 18px; text-align: center; font-weight: 800; }
+#estate-free[hidden] { display: none; }
+body.touch #btn-estate { width: 50px; height: 46px; right: calc(196px + env(safe-area-inset-right)); }
+body.touch #btn-estate svg { width: 36px; height: 36px; }
+/* a line over the game that does something when tapped */
+.toast.tap { pointer-events: auto; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(95, 208, 138, 0.5); text-underline-offset: 3px; }
 .town-head { display: grid; gap: 1px; margin-bottom: 6px; }
 .town-head b { font-size: 17px; }
 .town.plate .town-head b { color: var(--yellow); }

@@ -4,6 +4,15 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
+## Right now (23 November 2026)
+
+- **The owner put street cred on the wishlist,** like the third currency: missions and learning to use the
+  bank come first, for players who come back. The plan and the brainstorm of what happens at the player's
+  homes: `docs/plan-returning-players.md`.
+- **Built, not merged, not live:** branch `claude/returning-players`, on `main`: the rent card on return
+  (each home with what it paid, the homes here on a map), the mission to the bank, and the reminder. Five
+  questions wait for the owner (the plan, section 5). No pull request yet; deploy only after the owner says yes.
+
 ## Where things stand
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).

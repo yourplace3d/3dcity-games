@@ -372,6 +372,15 @@ body.secret #toasts { top: calc(80px + env(safe-area-inset-top)); }
 @media (max-width: 720px) { body.secret #toasts { top: calc(130px + env(safe-area-inset-top)); } }
 .over .kicker { display: block; color: #5fd08a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; margin-bottom: 4px; }
 
+/* the card on return: what each home paid, and the homes here on a map */
+#rent { place-items: start center; overflow: auto; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); touch-action: auto; }
+#rent > .card { margin: auto 0; }
+#rent-map { display: block; width: min(300px, 100%); aspect-ratio: 1; margin: 10px auto 4px; border-radius: 12px; background: #20242a; }
+#rent-map[hidden] { display: none; }
+#rent-list { display: grid; gap: 12px; margin: 10px 0 6px; }
+#rent-list .paid { color: #5fd08a; font-weight: 800; white-space: nowrap; }
+#rent-list .paid.none { color: var(--dim); }
+
 /* the player's homes, by town: a long list scrolls, like the scoreboard */
 #homes { place-items: start center; overflow: auto; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); -webkit-user-select: text; user-select: text; touch-action: auto; }
 #homes > .card { margin: auto 0; }

@@ -24,6 +24,10 @@ export class Minimap {
   private baseOf: World | null = null;
   /** the place is being guessed: sights keep their star and lose their name */
   secret = false;
+  /** short words beside points of the map, such as what a home paid */
+  labels: Array<{ x: number; y: number; text: string }> = [];
+  /** the whole map only: a part of the square to show instead (its middle, and how far it reaches each way, m) */
+  focus: { x: number; y: number; r: number } | null = null;
 
   /** `whole`: show the whole loaded square instead of the streets around you. */
   constructor(private readonly canvas: HTMLCanvasElement, private readonly whole = false) {
@@ -67,17 +71,19 @@ export class Minimap {
     const css = el.clientWidth;
     if (!css) return;
     const W = Math.round(css * dpr);
-    if (el.width !== W) {
+    // a new canvas is 300 × 150: square it even when its width already fits
+    if (el.width !== W || el.height !== W) {
       el.width = W;
       el.height = W;
     }
     const ctx = this.ctx;
     const view = game.mapView();
     const world = game.world;
-    const m = W / (2 * (this.whole ? world.half : RANGE_M));
-    // the middle of the picture: you, or the middle of the square
-    const cx = this.whole ? 0 : view.x;
-    const cy = this.whole ? 0 : view.y;
+    const focus = this.whole ? this.focus : null;
+    const m = W / (2 * (focus ? focus.r : this.whole ? world.half : RANGE_M));
+    // the middle of the picture: you, the middle of the square, or the part of it asked for
+    const cx = focus ? focus.x : this.whole ? 0 : view.x;
+    const cy = focus ? focus.y : this.whole ? 0 : view.y;
     /** marks are a little bigger on the big map */
     const big = this.whole ? 1.35 : 1;
     const base = this.streets(world);
@@ -175,6 +181,28 @@ export class Minimap {
       if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
       const r = (this.whole ? 9 : 7) * dpr;
       ctx.drawImage(s.icon, sx - r, sy - r, r * 2, r * 2);
+    }
+    // words beside points: a green tag to the right of the point, kept inside the frame
+    for (const l of this.labels) {
+      const [sx, sy] = at(l.x, l.y);
+      if (sx < 0 || sy < 0 || sx > W || sy > W) continue;
+      ctx.font = `700 ${Math.round(11 * dpr * big)}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const w = ctx.measureText(l.text).width + 8 * dpr;
+      const h = 16 * dpr * big;
+      const gap = 10 * dpr * big;
+      const x = sx + gap + w > W ? sx - gap - w : sx + gap;
+      const y = Math.min(W - h, Math.max(0, sy - h / 2));
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, 4 * dpr);
+      ctx.fillStyle = '#5fd08a';
+      ctx.fill();
+      ctx.lineWidth = 1.2 * dpr;
+      ctx.strokeStyle = '#16181c';
+      ctx.stroke();
+      ctx.fillStyle = '#16181c';
+      ctx.fillText(l.text, x + 4 * dpr, y + h / 2 + 0.5 * dpr);
     }
     // well-known sights: a gold star, and on the big map the name beside it
     for (const s of world.sights) {

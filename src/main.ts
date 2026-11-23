@@ -10,11 +10,11 @@ import { arrive as cloudArrive, changed, savedName, savingOn } from './cloud';
 import { loadHomes, type Home } from './game/homes';
 import { loadReno, type Reno } from './game/renovation';
 import { loadSaved } from './game/bank';
-import { drawHomes, homeTowns, isCoords } from './homesList';
+import { drawHomes, drawRent, homeTowns, isCoords } from './homesList';
 import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
 import { addonHost } from './addon';
-import { HomesUi } from './homesUi';
+import { HomesUi, type RentReport } from './homesUi';
 import { fullNote } from './full';
 import { wireRadio } from './radio';
 import { serviceIcon, type ServiceKind } from './game/services';
@@ -67,6 +67,8 @@ const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'delivery' : 'de
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
+/** the map on the card on return: the whole square, with what each home here paid */
+const rentMap = new Minimap($<HTMLCanvasElement>('rent-map'), true);
 /** the big map is up and the game waits behind it */
 let mapOpen = false;
 /** the game waits behind the pause card */
@@ -274,7 +276,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard });
+      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, rentCard, quiet: () => !!secret });
       (window as unknown as { homes: HomesUi }).homes = homes;
       addonHost({ game, toast, api: 2 });
       // a tester's key was in play: say how it went
@@ -430,6 +432,41 @@ function closeMission(yes: boolean): void {
   missionAnswer = null;
   answer?.(yes);
 }
+/** On the first visit of a day: what each home paid, and where. The game waits while it is read. */
+function rentCard(r: RentReport): void {
+  welcoming = true;
+  controls.enabled = false;
+  if (game) game.held = true;
+  const n = r.towns.reduce((s, t) => s + t.homes.length, 0);
+  $('rent-title').textContent = `Your ${n === 1 ? 'home' : `${n} homes`} paid you ${fmtMoney(r.total)} rent`;
+  drawRent($('rent-list'), r.towns);
+  const line = r.atPlate
+    ? `It is cash in your pocket now: if the police catch you, they take a quarter of the cash you carry. Money in the bank is safe.`
+    : `It is cash in your pocket now: if the police catch you, they take a quarter of the cash you carry. Your banks are in ${r.plate || 'the town of your first home'}: money there is safe.`;
+  $('rent-line').textContent = r.capped ? `${line} Not all of it fitted: ${fmtMoney(MAX_CASH)} is the most cash you can hold.` : line;
+  const map = $<HTMLCanvasElement>('rent-map');
+  map.hidden = !r.pins.length || !game?.world;
+  $('rent').hidden = false;
+  if (!map.hidden && game) {
+    // the homes and the player, with room around them; never wider than the square
+    const xs = [...r.pins.map((p) => p.x), game.pos()[0]];
+    const ys = [...r.pins.map((p) => p.y), game.pos()[1]];
+    const half = game.world.half;
+    const reach = Math.min(half, Math.max(220, (Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2) * 1.25 + 90));
+    const mid = (v: number[]) => Math.max(-half + reach, Math.min(half - reach, (Math.max(...v) + Math.min(...v)) / 2));
+    rentMap.focus = { x: mid(xs), y: mid(ys), r: reach };
+    rentMap.labels = r.pins;
+    rentMap.draw(game);
+  }
+}
+function closeRent(): void {
+  $('rent').hidden = true;
+  welcoming = false;
+  if (game) game.held = false;
+  controls.enabled = playing && !paused;
+  before = 0;
+}
+$('btn-rent-go').addEventListener('click', closeRent);
 $('btn-mission-yes').addEventListener('click', () => closeMission(true));
 $('btn-mission-no').addEventListener('click', () => closeMission(false));
 function closeWelcome(): void {

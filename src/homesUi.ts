@@ -9,6 +9,8 @@ import type { World } from './game/world';
 import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHomes, type Home, type Homes, type Lot } from './game/homes';
 import { FIXER_AFTER, FIXER_MIN, jobLines, loadReno, rentShare, storeReno, UNITS_MAX, UNITS_MIN, wantsJob, WORN, type Reno } from './game/renovation';
 import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from './game/bank';
+import { caughtCost, lessonDue, loadLesson, nearestBank, remindAt, remindDue, REMIND_ARROW_S, REMIND_GAP_S, storeLesson, type Lesson, type LessonNow } from './game/bankMission';
+import { homeTowns, type Town } from './homesList';
 import { MAX_CASH } from './game/game';
 import { serviceIcon } from './game/services';
 import { pointInRing } from './geo/polygon';
@@ -22,6 +24,8 @@ const BANK_ROAD_M = 9;
 const BANK_M = 14;
 /** how far from the end of a run an offer may lie (m) */
 const OFFER_M = 500;
+/** seconds of play before the rent card, so the place's name across the screen is read first */
+const REPORT_AFTER_S = 3.4;
 
 let homeIcon: HTMLCanvasElement | null = null;
 
@@ -116,6 +120,28 @@ export interface HomesHost {
   firstHome?: (what: string, rent: string, worn: boolean) => void;
   /** a card over the game that waits for an answer (the mission's); with no `no`, a single button */
   card?: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void) => void;
+  /** the card on return: what each home paid, and where (without it, a line says the total) */
+  rentCard?: (report: RentReport) => void;
+  /** nothing may give the place away now (a city is being guessed): the rent card waits */
+  quiet?: () => boolean;
+}
+
+/** What came in on the first visit of a day: home by home, town by town, and on the map where they are here. */
+export interface RentReport {
+  /** what came in, in all */
+  total: number;
+  /** less came in than was due: the most cash one can hold */
+  capped: boolean;
+  /** the homes by town, as the list of homes has them (`homesList.ts`); `here`: in the square being played */
+  towns: Array<Town & { here: boolean[] }>;
+  /** the homes of the square being played that paid: where, and what */
+  pins: Array<{ x: number; y: number; text: string }>;
+  /** the home plate's name, where the banks are */
+  plate: string;
+  /** the square being played is in the home plate */
+  atPlate: boolean;
+  /** the cash carried now */
+  cash: number;
 }
 
 export class HomesUi {
@@ -149,6 +175,22 @@ export class HomesUi {
    * the rest of it, or to paint it), or a home picked from the list of homes.
    */
   private wayTo: Home | null = null;
+  /** the rent card, waiting for the place's name to be read (`REPORT_AFTER_S`) */
+  private report: RentReport | null = null;
+  private reportT = 0;
+  /** learning to use the bank (`game/bankMission.ts`) */
+  private lesson: Lesson = loadLesson(this.saved > 0);
+  /** this visit: seconds played, the deliveries before it, the seconds since the last reminder */
+  private playedS = 0;
+  private deliveredBefore = -1;
+  private sinceRemind = REMIND_GAP_S - 60;
+  /** seconds left of the arrow to the bank after a reminder */
+  private remindArrow = 0;
+  /** the bank the arrow points at, and the point it shows (kept, so the arrow can be told from others') */
+  private bankTarget: HomesUi['banks'][number] | null = null;
+  private bankGuide: { x: number; y: number } | null = null;
+  /** the mission to the bank, said on this visit */
+  private lessonSaid = false;
 
   constructor(private readonly host: HomesHost) {
     host.game.ticks.push((dt) => this.tick(dt));
@@ -174,7 +216,20 @@ export class HomesUi {
     if (game.world !== this.world) this.enter(game.world);
     if (!this.welcomed) {
       this.welcomed = true;
+      this.deliveredBefore = game.delivered;
       this.payRent(true);
+    }
+    this.playedS += dt;
+    this.sinceRemind += dt;
+    if (this.remindArrow > 0) this.remindArrow -= dt;
+    if (this.report) {
+      this.reportT -= dt;
+      if (this.reportT <= 0 && !this.host.quiet?.() && !game.job) {
+        const r = this.report;
+        this.report = null;
+        this.host.rentCard?.(r);
+        return;
+      }
     }
     if (this.savedEl) {
       this.savedEl.hidden = !this.plate;
@@ -186,6 +241,7 @@ export class HomesUi {
     this.lookT = 0.25;
     this.look();
     this.missionTick();
+    this.bankTick();
   }
 
   // ------------------------------------------------------------ the first home and its building
@@ -435,6 +491,7 @@ export class HomesUi {
     this.owned = homesIn(this.homes, world.lots, (lon, lat) => world.proj.toLocal(lon, lat));
     for (const lot of this.owned.keys()) this.marks.set(lot, world.mark(icon(), lot.x, lot.y));
     this.banks = [];
+    this.guideBank(false);
     this.showBanks();
     // the mission's area is picked again in the new square
     this.area = null;
@@ -481,10 +538,117 @@ export class HomesUi {
     this.saved += amount;
     storeSaved(this.saved);
     this.host.save();
+    this.remindArrow = 0;
+    this.sinceRemind = 0;
+    this.guideBank(false);
+    if (this.lesson.stage !== 'done') {
+      const was = this.lesson.stage;
+      this.setLesson({ stage: 'done', rent: this.lesson.rent });
+      // paid in without being asked: nothing more to teach
+      if (was === 'go' && this.host.card) {
+        // the panel first: once the card is up, the game waits and the panel is not drawn again
+        this.shown = '';
+        this.look();
+        this.host.card(
+          'Your money is safe',
+          `${money(amount)} is in the bank now, ${money(this.saved)} in all. Fines only take from the cash you carry. Whenever you carry a lot of it again, you'll be reminded, and the arrow shows the way to the nearest bank.`,
+          'Keep driving',
+          '',
+          () => undefined,
+        );
+        return amount;
+      }
+    }
     this.host.toast(`${money(amount)} paid in. You have ${money(this.saved)} in the bank, safe from fines.`, 'good', 5000);
     this.shown = '';
     this.look();
     return amount;
+  }
+
+  // ------------------------------------------------------------ learning to use the bank
+
+  private setLesson(l: Lesson): void {
+    this.lesson = l;
+    storeLesson(l);
+    this.host.save();
+  }
+
+  /** The square is in the home plate, and has a bank. */
+  private bankHere(): boolean {
+    return this.atPlate && this.banks.length > 0;
+  }
+
+  /** The arrow to the nearest bank, on or off. It gives way to the way to a home, and to any other arrow. */
+  private guideBank(on: boolean): void {
+    const { game } = this.host;
+    if (!on) {
+      if (this.bankGuide && game.guide === this.bankGuide) game.guide = null;
+      this.bankGuide = null;
+      this.bankTarget = null;
+      return;
+    }
+    if (this.wayTo || (game.guide && game.guide !== this.bankGuide)) return;
+    if (!this.bankTarget || !this.banks.includes(this.bankTarget)) {
+      const [px, py] = game.pos();
+      this.bankTarget = nearestBank(this.banks, px, py);
+      this.bankGuide = this.bankTarget && { x: this.bankTarget.rx, y: this.bankTarget.ry };
+    }
+    if (this.bankGuide) game.guide = this.bankGuide;
+  }
+
+  private bankTick(): void {
+    const { game } = this.host;
+    if (!this.world || !this.homes.homes.length) return;
+    const n: LessonNow = {
+      today: dayOf(Date.now()),
+      bankHere: this.bankHere(),
+      cash: game.cash,
+      deliveredHere: game.delivered - Math.max(0, this.deliveredBefore),
+      playedS: this.playedS,
+      busy: !!game.job || !!this.report,
+    };
+    const l = this.lesson;
+    if (l.stage === 'go') {
+      if (!n.bankHere) return;
+      // the cash went on something else: ask again another day
+      if (game.cash < 1) {
+        this.guideBank(false);
+        this.setLesson({ stage: 'offer', later: n.today, rent: true });
+        return;
+      }
+      if (!this.lessonSaid) {
+        this.lessonSaid = true;
+        this.host.toast('Mission: to the bank. The arrow shows the nearest one: stop beside it and pay in.', 'info', 7000);
+      }
+      this.guideBank(true);
+      return;
+    }
+    if (this.host.card && lessonDue(l, n)) {
+      this.lessonSaid = true;
+      const place = this.plate?.place || 'your home town';
+      this.host.card(
+        'Mission: to the bank',
+        `You carry ${money(game.cash)} in cash. If the police catch you, they take ${money(caughtCost(game.cash))} of it, and a wreck costs a share too. Money in the bank is safe from fines, and it still pays for homes in ${place}. The arrow shows the nearest bank: stop beside it and pay in.`,
+        'Show me the bank',
+        'Later',
+        (yes) => {
+          if (!yes) {
+            this.setLesson({ stage: 'offer', later: n.today, rent: true });
+            return;
+          }
+          this.setLesson({ stage: 'go', rent: true });
+          this.guideBank(true);
+        },
+      );
+      return;
+    }
+    if (remindDue(l, n, this.rentPerVisit(), this.sinceRemind)) {
+      this.sinceRemind = 0;
+      this.remindArrow = REMIND_ARROW_S;
+      this.host.toast(`You carry ${money(game.cash)}. Caught by the police, you'd lose ${money(caughtCost(game.cash))}: the arrow shows the nearest bank.`, 'info', 9000);
+    }
+    // the reminder's arrow, for a while; a package on board has its own
+    this.guideBank(this.remindArrow > 0 && n.bankHere && game.cash >= remindAt(this.rentPerVisit()) / 2);
   }
 
   /** Pay the rent of a new day, once. On arrival, say so. */
@@ -503,9 +667,27 @@ export class HomesUi {
     const got = this.host.game.cash - before;
     if (got < 1) return 0;
     if (arriving) countPlay('rent');
+    // rent came in on a return: the mission to the bank may come
+    if (arriving && !this.lesson.rent) this.setLesson({ ...this.lesson, rent: true });
+    if (arriving && this.host.rentCard) {
+      this.report = this.rentReport(got, got < due);
+      this.reportT = REPORT_AFTER_S;
+      return got;
+    }
     const homes = this.homes.homes.length === 1 ? 'your home' : `your ${this.homes.homes.length} homes`;
     this.host.toast(arriving ? `Welcome back. Today ${homes} paid you ${money(got)} rent.` : `A new day: ${homes} paid you ${money(got)} rent.`, 'good', 9000);
     return got;
+  }
+
+  /** What came in, home by home, for the card on return. */
+  private rentReport(total: number, capped: boolean): RentReport {
+    const towns = homeTowns(this.homes.homes, this.reno).map((t) => ({ ...t, here: t.homes.map((l) => this.isHere(l.home)) }));
+    const pins: RentReport['pins'] = [];
+    for (const [lot, home] of this.owned) {
+      const rent = this.rentOf(home);
+      if (rent >= 1) pins.push({ x: lot.x, y: lot.y, text: `+${money(rent)}` });
+    }
+    return { total, capped, towns, pins, plate: this.plate?.place ?? '', atPlate: this.bankHere(), cash: this.host.game.cash };
   }
 
   /** Buy a lot of the square being played. */

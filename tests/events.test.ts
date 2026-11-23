@@ -75,6 +75,30 @@ describe('rent and renovation', () => {
     return { u, game, toast };
   };
 
+  it('while a city is guessed, the lines name no street', () => {
+    const { u, game } = ui();
+    Object.assign((u as unknown as { host: object }).host, { quiet: () => true });
+    (u as unknown as { syncSpecial: () => void }).syncSpecial();
+    const say = (game.special as unknown as { say: Record<string, string> }).say;
+    expect(Object.values(say).some((l) => l.includes('Spitalgasse'))).toBe(false);
+    expect(say.supply).toContain('your house');
+    vi.useRealTimers();
+  });
+
+  it('at the most cash one can hold, the rent that waited goes to the bank', () => {
+    const { u, game, toast } = ui();
+    Object.assign(u, { saved: 0 });
+    // cash stops at the most one can hold, as the game's own does
+    let held = 999_900;
+    Object.defineProperty(game, 'cash', { get: () => held, set: (v: number) => (held = Math.min(1_000_000, v)) });
+    (u as unknown as { eventDone: (k: string) => void }).eventDone(homeKey(house));
+    expect(game.cash).toBe(1_000_000);
+    expect((u as unknown as { saved: number }).saved).toBe(528 + thanks(528) - 100);
+    vi.runAllTimers();
+    vi.useRealTimers();
+    expect(toast.mock.calls.at(-1)![0]).toContain('went to your bank');
+  });
+
   it('a package for a home being renovated brings no card of the first-home mission', () => {
     const { u, game } = ui();
     const card = vi.fn();

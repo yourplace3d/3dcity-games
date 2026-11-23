@@ -1409,8 +1409,11 @@ $('saved').addEventListener('click', () => {
 });
 $('saved').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
+  // the key is the bank line's, not the game's (Space is the handbrake, Enter the action), and focus goes back to the game
   e.preventDefault();
-  bankWay();
+  e.stopPropagation();
+  $('saved').blur();
+  if (!e.repeat) bankWay();
 });
 $('btn-bank-way').addEventListener('click', bankWay);
 $('btn-homes').addEventListener('click', () => setPause(true, owned().homes.length ? 'estate' : 'trophies'));

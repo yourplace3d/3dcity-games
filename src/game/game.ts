@@ -123,6 +123,11 @@ export type GameEvent =
 
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
+/** how near a station's package the card offering its job comes (m), and how slow the player has to be: stopped (m/s) */
+const OFFER_M = 14;
+const OFFER_SPEED = 1.5;
+/** how near a station, or the spot on the road beside it, counts as being at it (m) */
+const STATION_M = 35;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
 export const MAX_CASH = 1_000_000;
 /** open jobs pay more with each delivery made, up to this many */
@@ -289,6 +294,19 @@ export class Game {
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
+  /**
+   * A station's job is offered on a card before it is taken (the owner, 23 November): `special` is the
+   * line of a mission's package, when it goes to one. Without it, a package is taken by driving onto it.
+   */
+  onOffer: ((kind: JobKind, special: string | null, answer: (yes: boolean) => void) => void) | null = null;
+  /** the stations' packages the player said no to, each until they drive off */
+  private declined = new Set<Marker>();
+  /** the station spot where moving a package there found no way, so it is not tried again while there */
+  private triedAt: string | null = null;
+  /** "slow down at the ring" has been said */
+  private slowSaid = false;
+  /** the player has got going since the start: no job's card at the very start, standing where the game put them */
+  private moved = false;
   /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished. */
   readonly events: Array<(e: GameEvent) => void> = [];
   private emit(e: GameEvent): void {
@@ -311,6 +329,9 @@ export class Game {
   /** No run: the open jobs from the start, as many as one likes. */
   openPlay(): void {
     this.comeDown();
+    this.declined.clear();
+    this.slowSaid = false;
+    this.moved = false;
     this.run = { done: 0, score: 0, seconds: 0, over: true, of: RUN_JOBS };
     this.set = null;
     this.from = null;
@@ -323,6 +344,9 @@ export class Game {
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
     this.comeDown();
+    this.declined.clear();
+    this.slowSaid = false;
+    this.moved = false;
     this.lastFrom = null;
     this.set = course && course.legs.length >= 1 && course.legs.length <= RUN_STEPS.length ? course : null;
     this.run = { done: 0, score: 0, seconds: 0, over: false, of: this.set?.legs.length ?? RUN_JOBS };
@@ -1448,85 +1472,30 @@ export class Game {
       }
       return;
     }
+    if (!this.moved && this.speed() > 3) this.moved = true;
     // in a run someone sent there is one package at a time, where theirs was
     const sent = this.run.over ? null : this.set?.legs[this.run.done] ?? null;
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const m = this.pickups[i];
       const [x, y] = this.local(m);
       const d = Math.hypot(x - px, y - py);
-      if (d < 6.5) {
-        const leg = this.run.over ? null : this.set?.legs[this.run.done];
-        const [near, far, pace] = RUN_STEPS[this.run.over ? 2 : Math.min(this.run.done, RUN_STEPS.length - 1)];
-        let marker: Marker | null = null;
-        let metres = 0;
-        if (leg) {
-          // a run someone sent: the drop-off is where theirs was
-          marker = this.markerAt('#ffd400', leg.to);
-          const f = this.fieldOf(marker);
-          const [tx, ty] = this.local(marker);
-          const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
-          const r = inside && f ? w.roads.route(f, px, py) : null;
-          metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
+      // a station's job (the open jobs): a card first, once the player has stopped at the ring
+      if (this.asks(m)) {
+        if (!this.moved) continue;
+        const atIt = d < OFFER_M || (d < 160 && this.atStationOf(m));
+        if (this.declined.has(m)) {
+          // asked once: again only after driving off, away from the ring and from the station
+          if (d > 40 && !atIt) this.declined.delete(m);
+        } else if (atIt && this.speed() < OFFER_SPEED && !this.held) {
+          this.offerJob(m);
+          return;
+        } else if (d < 6.5 && !this.slowSaid) {
+          this.slowSaid = true;
+          this.onToast('Stop at the ring to see the job', 'info');
         }
-        const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
-        // a mission's package from a station: it goes to the mission's place, where a road leads there
-        const special = !leg && this.run.over && m.kind ? this.special : null;
-        if (special) {
-          const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
-          // the street at the door where a car may go (an old town's lanes too), else the nearest main
-          // road: the lane at the door can be a yard's driveway that no road leads to
-          const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
-          for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
-            if (!n || marker) continue;
-            const cand = this.newMarker('#ffd400', { line: n.line, s: n.s, dir: 1 });
-            const f = this.fieldOf(cand);
-            const r = f && w.roads.route(f, px, py);
-            if (r) {
-              marker = cand;
-              metres = r.metres;
-            } else this.scene.remove(cand.mesh);
-          }
-        }
-        const isSpecial = !!(special && marker);
-        // a sight or public place at a fitting distance makes the drop-off, where there is one
-        const sights = leg || marker ? [] : w.sights.filter((s) => {
-          const d2 = Math.hypot(s.x - px, s.y - py);
-          return d2 > near * 0.8 && d2 < far * 1.5;
-        });
-        // otherwise a drop-off on a real street that the roads actually lead to
-        for (let k = 0; k < 10 && !marker; k++) {
-          const sight = k < 2 && sights.length ? pickOne(sights) : null;
-          const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
-          const to: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
-          if (!to) continue;
-          const cand = this.newMarker('#ffd400', to);
-          const f = this.fieldOf(cand);
-          const r = f && w.roads.route(f, px, py);
-          if (r && r.metres < 2400) {
-            marker = cand;
-            metres = r.metres;
-          } else this.scene.remove(cand.mesh);
-        }
-        if (!marker) continue;
-        // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows
-        const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? Math.min(this.delivered, OPEN_JOBS_GROW) : this.run.done) * 0.03)) / 10) * 10);
-        // each kind of job has its own clock and its own pay
-        const [clock, pay, say] = {
-          plain: [25 + metres / pace, base, 'Package on board: get it to the yellow ring'],
-          supply: [32 + metres / (pace * 0.8), Math.round((base * 1.25) / 10) * 10, 'Supply run: a heavy load, slow uphill and slow to stop. More pay for a car without a new dent'],
-          rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, 'Rush job: a short clock, and every second left over pays three times'],
-          clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
-        }[kind] as [number, number, string];
-        // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
-        this.job = { to: marker, metres, left: isSpecial ? clock + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}) };
-        this.from = m.at;
-        this.lastFrom = m.at;
-        this.routeT = 0;
-        for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
-        this.onToast(isSpecial ? special!.say[kind] : say, 'info');
-        this.onSound('pickup');
-        if (isSpecial) this.onSpecialTaken(kind);
-        return;
+      } else if (d < 6.5) {
+        if (this.take(m)) return;
+        continue;
       }
       if (d > 1100 && !sent) {
         this.scene.remove(m.mesh);
@@ -1560,6 +1529,26 @@ export class Game {
     const last = this.lastFrom ? this.local({ at: this.lastFrom } as Marker) : null;
     for (const kind of ['fuel', 'fire', 'police'] as const) {
       const job = JOB_OF[kind];
+      // driven to a station of this kind: its package waits right there, wherever it waited before.
+      // Players drove to the symbol they saw and found no package there (23 November).
+      const at = this.speed() < OFFER_SPEED ? this.stationHere(kind) : null;
+      const atLast = at && last && ((([ax, ay]) => Math.hypot(ax - last[0], ay - last[1]) < 30)(w.roads.point(at.line, at.s)));
+      const spot = at && `${at.line}:${Math.round(at.s)}`;
+      if (at && !atLast && spot !== this.triedAt) {
+        const [ax, ay] = w.roads.point(at.line, at.s);
+        const i = this.pickups.findIndex((m) => m.kind === job);
+        const there = i >= 0 && Math.hypot(this.local(this.pickups[i])[0] - ax, this.local(this.pickups[i])[1] - ay) < 30;
+        if (there) continue;
+        const m = this.pickupAt(at);
+        if (m) {
+          if (i >= 0) this.scene.remove(this.pickups.splice(i, 1)[0].mesh);
+          m.kind = job;
+          this.pickups.push(m);
+          continue;
+        }
+        // no way from this station: its package stays where it was, and this spot is not tried again while here
+        this.triedAt = spot;
+      } else if (!at) this.triedAt = null;
       if (this.pickups.some((m) => m.kind === job)) continue;
       // the nearest station of the kind that a road leads to
       const near: Array<{ d: number; p: PathState }> = [];
@@ -1587,6 +1576,141 @@ export class Game {
       const m = p && this.pickupAt(p);
       if (m) this.pickups.push(m);
     }
+  }
+
+  /** Whether a package is a station's job, which is offered on a card before it is taken. */
+  private asks(m: Marker): boolean {
+    return !!m.kind && this.run.over && !!this.onOffer && !this.auto;
+  }
+
+  /** Whether the player is at the station whose package this is: parked by its symbol, set back from the road. */
+  private atStationOf(m: Marker): boolean {
+    const station = (Object.keys(JOB_OF) as Array<keyof typeof JOB_OF>).find((k) => JOB_OF[k] === m.kind);
+    const at = station && this.stationHere(station);
+    if (!at) return false;
+    const [ax, ay] = this.world.roads.point(at.line, at.s);
+    const [mx, my] = this.local(m);
+    return Math.hypot(ax - mx, ay - my) < 30;
+  }
+
+  /** A station's job on a card: taken only if the player says yes. Asked once until they drive off. */
+  private offerJob(m: Marker): void {
+    this.declined.add(m);
+    const kind = m.kind!;
+    // the mission's package goes to its place only when that is in the part of town loaded now (`take`)
+    const sp = this.special;
+    const there = sp && ((([sx, sy]) => Math.abs(sx) < this.world.half - 10 && Math.abs(sy) < this.world.half - 10)(this.world.proj.toLocal(sp.at.lon, sp.at.lat)));
+    this.onOffer!(kind, there ? sp!.say[kind] : null, (yes) => {
+      if (!yes) {
+        // no to one is no to every station's package here, until the player drives off
+        const [px, py] = this.pos();
+        for (const o of this.pickups) if (o.kind && Math.hypot(this.local(o)[0] - px, this.local(o)[1] - py) < 160) this.declined.add(o);
+        return;
+      }
+      if (this.job || !this.pickups.includes(m)) return;
+      if (!this.take(m)) {
+        this.onToast('No drop-off for this job from here: try another station', 'bad');
+        return;
+      }
+      this.declined.delete(m);
+      // `take` has set the job
+      if (there && !(this.job as Job | null)?.special) this.onToast('No road from here to your building: this one is an ordinary job', 'info');
+    });
+  }
+
+  /** A package taken: the job it brings, to a drop-off the roads lead to. False when none was found. */
+  private take(m: Marker): boolean {
+    const w = this.world;
+    const [px, py] = this.pos();
+    const leg = this.run.over ? null : this.set?.legs[this.run.done];
+    const [near, far, pace] = RUN_STEPS[this.run.over ? 2 : Math.min(this.run.done, RUN_STEPS.length - 1)];
+    let marker: Marker | null = null;
+    let metres = 0;
+    if (leg) {
+      // a run someone sent: the drop-off is where theirs was
+      marker = this.markerAt('#ffd400', leg.to);
+      const f = this.fieldOf(marker);
+      const [tx, ty] = this.local(marker);
+      const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
+      const r = inside && f ? w.roads.route(f, px, py) : null;
+      metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
+    }
+    const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
+    // a mission's package from a station: it goes to the mission's place, where a road leads there
+    const special = !leg && this.run.over && m.kind ? this.special : null;
+    if (special) {
+      const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
+      // the street at the door where a car may go (an old town's lanes too), else the nearest main
+      // road: the lane at the door can be a yard's driveway that no road leads to
+      const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
+      for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
+        if (!n || marker) continue;
+        const cand = this.newMarker('#ffd400', { line: n.line, s: n.s, dir: 1 });
+        const f = this.fieldOf(cand);
+        const r = f && w.roads.route(f, px, py);
+        if (r) {
+          marker = cand;
+          metres = r.metres;
+        } else this.scene.remove(cand.mesh);
+      }
+    }
+    const isSpecial = !!(special && marker);
+    // a sight or public place at a fitting distance makes the drop-off, where there is one
+    const sights = leg || marker ? [] : w.sights.filter((s) => {
+      const d2 = Math.hypot(s.x - px, s.y - py);
+      return d2 > near * 0.8 && d2 < far * 1.5;
+    });
+    // otherwise a drop-off on a real street that the roads actually lead to
+    for (let k = 0; k < 10 && !marker; k++) {
+      const sight = k < 2 && sights.length ? pickOne(sights) : null;
+      const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
+      const to: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
+      if (!to) continue;
+      const cand = this.newMarker('#ffd400', to);
+      const f = this.fieldOf(cand);
+      const r = f && w.roads.route(f, px, py);
+      if (r && r.metres < 2400) {
+        marker = cand;
+        metres = r.metres;
+      } else this.scene.remove(cand.mesh);
+    }
+    if (!marker) return false;
+    // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows
+    const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? Math.min(this.delivered, OPEN_JOBS_GROW) : this.run.done) * 0.03)) / 10) * 10);
+    // each kind of job has its own clock and its own pay
+    const [clock, pay, say] = {
+      plain: [25 + metres / pace, base, 'Package on board: get it to the yellow ring'],
+      supply: [32 + metres / (pace * 0.8), Math.round((base * 1.25) / 10) * 10, 'Supply run: a heavy load, slow uphill and slow to stop. More pay for a car without a new dent'],
+      rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, 'Rush job: a short clock, and every second left over pays three times'],
+      clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
+    }[kind] as [number, number, string];
+    // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
+    this.job = { to: marker, metres, left: isSpecial ? clock + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}) };
+    this.from = m.at;
+    this.lastFrom = m.at;
+    this.routeT = 0;
+    for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
+    this.onToast(isSpecial ? special!.say[kind] : say, 'info');
+    this.onSound('pickup');
+    if (isSpecial) this.onSpecialTaken(kind);
+    return true;
+  }
+
+  /**
+   * The spot on the road beside a station of a kind, when the player is at it: within `STATION_M` of that
+   * spot or of the symbol itself. Null when not at one.
+   */
+  private stationHere(kind: 'fuel' | 'fire' | 'police'): PathState | null {
+    const w = this.world;
+    const [px, py] = this.pos();
+    for (const s of w.services) {
+      if (s.kind !== kind || Math.hypot(s.x - px, s.y - py) > 200) continue;
+      const n = w.roads.nearest(s.x, s.y, 150, 'traffic');
+      if (!n) continue;
+      const [x, y] = w.roads.point(n.line, n.s);
+      if (Math.hypot(x - px, y - py) < STATION_M || Math.hypot(s.x - px, s.y - py) < STATION_M) return { line: n.line, s: n.s, dir: 1 };
+    }
+    return null;
   }
 
   /** Driving distances to a marker, in the square that is loaded now. */

@@ -1139,7 +1139,8 @@ export class HomesUi {
       const [px, py] = game.pos();
       bank = this.banks.some((b) => Math.hypot(b.rx - px, b.ry - py) < BANK_ROAD_M || Math.hypot(b.x - px, b.y - py) < BANK_M);
       let best = BESIDE_M;
-      for (const lot of world.lots) {
+      // on a job, only the job: nothing to buy until it is done (the owner, 23 November)
+      if (!game.job) for (const lot of world.lots) {
         if (Math.abs(lot.x - px) > 120 || Math.abs(lot.y - py) > 120) continue;
         const d = distanceTo(lot, px, py);
         if (d < best) {

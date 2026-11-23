@@ -133,7 +133,47 @@ new locks after a break-in (the badge), furniture on moving day (the pump).
 4. **The ambulance,** once hospitals may be on the map (question 4).
 5. **Trash,** which needs a job with several stops.
 
-## 5. Questions for the owner
+## 5. A limit on buying homes (the owner, 23 November)
+
+The owner: "We need to also assure that per turn not too many houses can be bought otherwise buying a few flats
+and leaving and returning after a year would let you buy the whole city." Asked: a limit that grows with visits
+or missions, or a fixed limit per visit?
+
+**Where the leak is.** Coming back after a year pays one day of rent, not 365: rent is paid once for each day
+you come back (`rentDue` in `src/game/homes.ts`). The leak is that the rent snowballs. A home pays 24% of its
+price on each visit day, so it pays for itself in about 4 visit days, and every home bought with rent brings
+more rent. Two more ways in: setting the phone's date to another day brings another day's rent at once (known
+since 21 November), and one whole building can hold hundreds of flats.
+
+**The model** (estimate: a flat costs $1,500, a job is 800 m, all money goes into flats, no fines; cash is
+capped at $1,000,000 carried plus $1,000,000 in the bank). Homes owned after so many visit days:
+
+| Rule | 5 minutes a day: 30 days | 90 days | 365 days | 60 minutes a day: 30 days | 90 days | 365 days |
+|---|---|---|---|---|---|---|
+| No limit (as now) | 2,783 | 81,242 | 447,817 | 21,119 | 101,099 | 467,674 |
+| Fixed: 2 per visit day | 57 | 177 | 727 | 60 | 180 | 730 |
+| Grows with visits: 1, plus 1 more per 10 visit days | 63 | 459 | 6,881 | 63 | 459 | 6,881 |
+| Grows with missions: 1 per 2 deliveries, up to 5 saved | 31 | 91 | 366 | 150 | 450 | 1,825 |
+
+The date trick (10 real days of 5 minutes, then the date changed 100 times without playing): no limit 30 → 106,477
+homes; fixed 17 → 217; grows with visits 11 → 671; **grows with missions 11 → 11.**
+
+**Suggestion: the limit grows with missions.**
+- **One home for every 2 deliveries** (a run's, an open job's, or a mission's package). Up to 5 can wait, so
+  a long drive without buying still counts, but not without end.
+- **A whole building counts as its flats:** a building of 8 flats needs 16 deliveries. Otherwise one purchase
+  could be 400 flats.
+- **The first home, and the rest of its building in the first-home mission, are free of the limit:** they are
+  how a new player learns.
+- **On screen** only where it matters, on the "for sale" panel: "Your next home: after 1 more delivery." No
+  counter in the corner, so it doesn't look like a second currency.
+
+Why: it ties homes to playing, not to waiting or to the calendar. Coming back after a year gives one day of
+rent, and that rent still needs deliveries to become homes. The date trick then only brings cash, which the
+$1,000,000 cap already limits. A fixed limit treats the 5-minute and the 60-minute player alike, and a limit
+that grows with visits pays for showing up rather than for playing, and lets the date trick through.
+
+## 6. Questions for the owner
 
 1. **Rent as cash on return, or waiting at the building?** This plan keeps rent coming in as cash on the
    first visit of a day, as it is live now, so there is cash to bring to the bank. Branch `claude/tenants`
@@ -149,7 +189,10 @@ new locks after a break-in (the badge), furniture on moving day (the pump).
 5. **The tenant who stopped paying:** the police carry out a court's order, with no arrest and no chase.
    Is that the tone you want?
 
-## 6. Before anything goes live
+6. **The limit on buying homes:** one home per 2 deliveries, up to 5 saved, a whole building counting as its
+   flats (section 5)?
+
+## 7. Before anything goes live
 
 - The owner plays branch `claude/returning-players` (a test build, or after merging), and says yes.
 - Then a pull request, merged by the owner, and a deploy only after the owner says so.

@@ -10,8 +10,8 @@ lives.
   bank come first, for players who come back. The plan and the brainstorm of what happens at the player's
   homes: `docs/plan-returning-players.md`.
 - **Built, not merged, not live:** branch `claude/returning-players`, on `main`: the rent card on return
-  (each home with what it paid, the homes here on a map), the mission to the bank, and the reminder. Five
-  questions wait for the owner (the plan, section 5). No pull request yet; deploy only after the owner says yes.
+  (each home with what it paid, the homes here on a map), the mission to the bank, and the reminder. Six
+  questions wait for the owner (the plan, section 6), among them a limit on buying homes (section 5). No pull request yet; deploy only after the owner says yes.
 
 ## Where things stand
 

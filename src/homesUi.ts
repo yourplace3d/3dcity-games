@@ -132,7 +132,7 @@ export interface HomesHost {
   /** the first home was just bought (what it is, its rent each day; worn down: no rent until repaired): saving online opens */
   firstHome?: (what: string, rent: string, worn: boolean) => void;
   /** a card over the game that waits for an answer (the mission's); with no `no`, a single button */
-  card?: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void) => void;
+  card?: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker?: string) => void;
   /** the side menu with the homes (real estate and trophies) */
   openHomes?: () => void;
   /** nothing may give the place away now (a city is being guessed): no way to the list of homes */
@@ -588,6 +588,7 @@ export class HomesUi {
           'Keep driving',
           '',
           () => undefined,
+          'Good to know',
         );
         return amount;
       }
@@ -663,7 +664,7 @@ export class HomesUi {
       this.guideBank(true);
       if (!this.lessonSaid) {
         this.lessonSaid = true;
-        this.host.toast(this.bankArrow() ? 'Mission: to the bank. The arrow shows the nearest one: stop beside it and pay in.' : 'Mission: to the bank. Stop beside one and pay in.', 'info', 7000);
+        this.host.toast(this.bankArrow() ? 'To the bank: the arrow shows the nearest one. Stop beside it and pay in.' : 'To the bank: stop beside one and pay in.', 'info', 7000);
       }
       return;
     }
@@ -671,7 +672,7 @@ export class HomesUi {
       this.lessonSaid = true;
       const place = this.plate?.place || 'your home town';
       this.host.card(
-        'Mission: to the bank',
+        'Keep your cash safe',
         `You carry ${money(game.cash)} in cash. If the police catch you, they take ${money(caughtCost(game.cash))} of it, and a wreck costs a share too. Money in the bank is safe from fines, and it still pays for homes in ${place}. The arrow shows the nearest bank: stop beside it and pay in.`,
         'Show me the bank',
         'Later',
@@ -683,6 +684,7 @@ export class HomesUi {
           this.setLesson({ stage: 'go', rent: true });
           this.guideBank(true);
         },
+        'Good to know',
       );
       return;
     }

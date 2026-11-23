@@ -498,8 +498,9 @@ function welcomeHome(what: string, rent: string, worn: boolean): void {
 }
 /** A card over the game that waits for a yes or a no (the homes' mission). */
 let missionAnswer: ((yes: boolean) => void) | null = null;
-function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void): void {
+function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now'): void {
   welcoming = true;
+  $('mission-kicker').textContent = kicker;
   controls.enabled = false;
   // the game waits while the card is read: a package's clock too
   if (game) game.held = true;

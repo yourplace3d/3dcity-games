@@ -14,7 +14,11 @@ lives.
   line on return saying what the homes paid, the mission to the bank and its reminder, ☰ as one menu
   (❚❚, "Real estate", "Trophies") with a house button beside it, 17 trophies, and home points (a delivery
   earns one; a flat takes 2, a house 10; one flat or house a day without a realtor, after the day's first
-  delivery). Questions still open for the owner: the plan, section 6.
+  delivery). Live since 23 November (pull request #14, deploy run 61, checked on the live site).
+- **The owner's answers of 23 November** are in the plan, section 6: rent stays cash on return; the bank
+  is a tip, not a mission, with no reward; hospitals may go on the map; the police mission's tone is right.
+  The suggested order of the events at the player's homes is in section 4 and waits for the owner's word;
+  the first is renovation after 7 visit days.
 
 ## Where things stand
 

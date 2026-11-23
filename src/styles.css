@@ -374,11 +374,14 @@ body.secret #toasts { top: calc(80px + env(safe-area-inset-top)); }
 .menu-head .tabs { display: flex; gap: 4px; flex: 1; min-width: 0; background: #1b1e23; border-radius: 12px; padding: 4px; }
 #pause .tabs button { flex: 1; min-width: 0; border: 0; background: none; color: var(--dim); padding: 9px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #pause .tabs button[aria-selected='true'] { background: #30353e; color: var(--ink); }
+/* the paused tab is the pause sign alone, as narrow as it can be */
+#pause .tabs #tab-game { flex: none; padding-left: 14px; padding-right: 14px; font-size: 13px; letter-spacing: 1px; }
 #pause .tabs button[hidden] { display: none; }
 #btn-menu-close { padding: 9px 13px; flex: none; }
 @media (max-width: 480px) {
   #pause > .card { padding: 16px 14px 12px; }
   #pause .tabs button { font-size: 14px; padding: 8px 2px; }
+  #pause .tabs #tab-game { padding-left: 12px; padding-right: 12px; font-size: 12px; }
   #btn-menu-close { padding: 8px 11px; }
 }
 #pause .points { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #2a2e35; }

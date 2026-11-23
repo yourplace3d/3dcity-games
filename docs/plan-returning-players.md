@@ -29,7 +29,7 @@ right away what the first visit built.
 | 2, at the start | A line: "Welcome back. Today your 3 homes paid you $1,320 rent." The first five times it adds "Tap here to see your homes", which opens the menu on its real estate. | Built, branch `claude/returning-players` |
 | 2, after a delivery or a minute of play | A mission: you carry cash, the police take a quarter of it when they catch you, bring it to the bank. The arrow shows the nearest bank. | Built, same branch |
 | From then on | When the cash carried grows large, a reminder and the arrow to the nearest bank, for a while. | Built, same branch |
-| Always | ☰ pauses and opens the menu: "Paused", "Real estate", "Trophies". A house button beside it opens the real estate; its ring fills with home points: one for each delivery, and a home takes points. | Built, same branch |
+| Always | ☰ pauses and opens the menu: ❚❚ (paused), "Real estate", "Trophies". A house button beside it opens the real estate; its ring fills with home points: one for each delivery, and a home takes points. | Built, same branch |
 | 3 and later | Things happen at your homes: a flat needs renovating, and more. Missions solve them. | Brainstorm, section 4 |
 
 ## 3. What is built (branch `claude/returning-players`, not merged, not live)
@@ -57,7 +57,7 @@ side menu became a card over the game, one with the pause card.
 
 - **☰ pauses** and opens the menu over the game, which waits. P and Esc do the same. The ❚❚ button is gone,
   and "Main menu" (the start screen) is now inside the menu. Three tabs:
-  - **Paused:** what is being played, "Continue", "Do open jobs instead" (or "Start a run of three"), "Main
+  - **❚❚ (paused):** the tab shows the pause sign, not the word (the owner, 23 November). What is being played, "Continue", "Do open jobs instead" (or "Start a run of three"), "Main
     menu".
   - **Real estate:** the home points at the top ("5 home points: 2 flats free to buy; a house at 10"), what
     the homes pay and the cash carried, then the homes by town. A home in the part of town being played has

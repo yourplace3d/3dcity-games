@@ -194,3 +194,68 @@ describe('a mission package', () => {
     expect(Math.hypot(x - 100, y)).toBeLessThan(2);
   });
 });
+
+describe("a station's job on a card", () => {
+  type Pickup = { at: { lon: number; lat: number }; mesh: Group; kind?: string };
+  async function atStation() {
+    const w = world();
+    Object.assign(w, { sights: [], services: [] });
+    vi.spyOn(World, 'load').mockResolvedValue(w);
+    const g = game();
+    await g.start({ lon: 0, lat: 0 });
+    g.openPlay();
+    g.car = null;
+    g.me.x = 0;
+    g.me.y = 0;
+    const { pickups, jobs } = g as unknown as { pickups: Pickup[]; jobs: (dt: number) => void };
+    pickups.splice(0);
+    pickups.push({ at: { lon: 0, lat: 0 }, mesh: new Group(), kind: 'rush' });
+    const answers: Array<(yes: boolean) => void> = [];
+    const offer = vi.fn((_kind: string, _special: string | null, answer: (yes: boolean) => void) => void answers.push(answer));
+    g.onOffer = offer;
+    return { g, offer, answers, jobs: () => jobs.call(g, 0.016) };
+  }
+
+  it('asks first, and takes the job on yes', async () => {
+    const { g, offer, answers, jobs } = await atStation();
+    jobs();
+    expect(offer).toHaveBeenCalledOnce();
+    expect(offer.mock.calls[0][0]).toBe('rush');
+    expect(g.job).toBeNull();
+    answers[0](true);
+    expect(g.job?.kind).toBe('rush');
+  });
+
+  it('"Not now" holds while the player stays, and asks again once they drive off and come back', async () => {
+    const { g, offer, answers, jobs } = await atStation();
+    jobs();
+    answers[0](false);
+    jobs();
+    jobs();
+    expect(offer).toHaveBeenCalledOnce();
+    g.me.x = 120;
+    jobs();
+    g.me.x = 0;
+    jobs();
+    expect(offer).toHaveBeenCalledTimes(2);
+    expect(g.job).toBeNull();
+  });
+
+  it('no card over another card, and none while driving fast', async () => {
+    const { g, offer, jobs } = await atStation();
+    g.held = true;
+    jobs();
+    g.held = false;
+    g.me.vx = 12;
+    jobs();
+    expect(offer).not.toHaveBeenCalled();
+  });
+
+  it('the autopilot takes it by driving onto it, as before', async () => {
+    const { g, offer, jobs } = await atStation();
+    g.auto = true;
+    jobs();
+    expect(offer).not.toHaveBeenCalled();
+    expect(g.job?.kind).toBe('rush');
+  });
+});

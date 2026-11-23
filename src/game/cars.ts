@@ -202,7 +202,7 @@ export class Car {
         // uphill under power, below a crawl the hill takes less than the engine gives: slow, never stuck.
         // On a touch screen the throttle is how far the stick is pushed, and less in a bend, so without
         // this a steep bend with a heavy load stopped the car (Salvador, 23 November).
-        if (slope > 0 && c.throttle > 0 && vf < CRAWL) {
+        if (slope > 0 && c.throttle > 0 && !dead && vf < CRAWL) {
           const drive = this.spec.acc * (this.heavy ? 0.72 : 1) * c.throttle * (1 - (0.55 * Math.max(0, vf)) / top);
           pull = Math.min(pull, Math.max(0, drive - CLIMB));
         }

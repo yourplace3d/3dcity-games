@@ -71,9 +71,9 @@ const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 /** The cards of the stations' jobs: what each asks of the player. */
 const JOB_CARDS = {
-  supply: { title: 'Supply run', text: 'A heavy load: slow uphill and slow to stop. More pay for a car without a new dent.' },
-  rush: { title: 'Rush job', text: 'A short clock, and every second left over pays three times.' },
-  clean: { title: 'Clean run', text: 'Pays well, but break the law on the way and the job is gone.' },
+  supply: { title: 'Supply run', text: 'A heavy load: slow uphill and slow to stop. More pay for a car without a new dent.', rule: 'More pay for a car without a new dent.' },
+  rush: { title: 'Rush job', text: 'A short clock, and every second left over pays three times.', rule: 'Every second left over pays three times.' },
+  clean: { title: 'Clean run', text: 'Pays well, but break the law on the way and the job is gone.', rule: 'Break the law on the way and the job is gone.' },
 } as const;
 
 /** things done in the game, kept with the day (`trophies.ts`) */
@@ -319,7 +319,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         if (!job) return answer(true);
         missionCard(
           job.title,
-          `${special ? `${special}. ` : ''}${job.text} While you are on it there are no other jobs and nothing to buy: only this delivery, until it is done or the job is gone.`,
+          `${special ? `${special}. ${job.rule}` : job.text} While you are on it there are no other jobs and nothing to buy: only this delivery, until it is done or the job is gone.`,
           'Take the job',
           'Not now',
           answer,

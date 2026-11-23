@@ -1470,9 +1470,11 @@ export class Game {
       const d = Math.hypot(x - px, y - py);
       // a station's job (the open jobs): a card first, once the player slows down at the ring
       if (this.asks(m)) {
+        const atIt = d < OFFER_M || (d < 160 && this.atStationOf(m));
         if (this.declined === m) {
-          if (d > 40) this.declined = null;
-        } else if ((d < OFFER_M || (d < 160 && this.atStationOf(m))) && this.speed() < OFFER_SPEED) {
+          // asked once: again only after driving off, away from the ring and from the station
+          if (d > 40 && !atIt) this.declined = null;
+        } else if (atIt && this.speed() < OFFER_SPEED && !this.held) {
           this.offerJob(m);
           return;
         } else if (d < 6.5 && !this.slowSaid) {
@@ -1517,8 +1519,9 @@ export class Game {
       const job = JOB_OF[kind];
       // driven to a station of this kind: its package waits right there, wherever it waited before.
       // Players drove to the symbol they saw and found no package there (23 November).
-      const at = this.stationHere(kind);
-      if (at) {
+      const at = this.speed() < OFFER_SPEED ? this.stationHere(kind) : null;
+      const atLast = at && last && ((([ax, ay]) => Math.hypot(ax - last[0], ay - last[1]) < 30)(w.roads.point(at.line, at.s)));
+      if (at && !atLast) {
         const [ax, ay] = w.roads.point(at.line, at.s);
         const i = this.pickups.findIndex((m) => m.kind === job);
         const there = i >= 0 && Math.hypot(this.local(this.pickups[i])[0] - ax, this.local(this.pickups[i])[1] - ay) < 30;
@@ -1563,7 +1566,7 @@ export class Game {
 
   /** Whether a package is a station's job, which is offered on a card before it is taken. */
   private asks(m: Marker): boolean {
-    return !!m.kind && this.run.over && !!this.onOffer;
+    return !!m.kind && this.run.over && !!this.onOffer && !this.auto;
   }
 
   /** Whether the player is at the station whose package this is: parked by its symbol, set back from the road. */
@@ -1580,10 +1583,13 @@ export class Game {
   private offerJob(m: Marker): void {
     this.declined = m;
     const kind = m.kind!;
-    const special = this.special ? this.special.say[kind] : null;
-    this.onOffer!(kind, special, (yes) => {
+    // the mission's package goes to its place only when that is in the part of town loaded now (`take`)
+    const sp = this.special;
+    const there = sp && ((([sx, sy]) => Math.abs(sx) < this.world.half - 10 && Math.abs(sy) < this.world.half - 10)(this.world.proj.toLocal(sp.at.lon, sp.at.lat)));
+    this.onOffer!(kind, there ? sp!.say[kind] : null, (yes) => {
       if (!yes || this.job || !this.pickups.includes(m)) return;
       if (this.take(m)) this.declined = null;
+      else this.onToast('No drop-off for this job from here: try another station', 'bad');
     });
   }
 

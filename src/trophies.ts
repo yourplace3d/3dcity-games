@@ -145,6 +145,8 @@ export class Trophies {
   private kept: Kept;
   /** said when trophies are earned: their names */
   onEarned: (names: string[]) => void = () => undefined;
+  /** what is kept changed: for saving online */
+  onStored: () => void = () => undefined;
 
   constructor() {
     let raw: string | null = null;
@@ -190,6 +192,7 @@ export class Trophies {
   private store(): void {
     try {
       localStorage.setItem(STORE, JSON.stringify({ v: 1, ...this.kept }));
+      this.onStored();
     } catch {
       /* as above */
     }

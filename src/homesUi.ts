@@ -137,6 +137,8 @@ export interface HomesHost {
   openHomes?: () => void;
   /** nothing may give the place away now (a city is being guessed): no way to the list of homes */
   quiet?: () => boolean;
+  /** something lies over the game (the menu, the big map, a card): keys do nothing to the panel under it */
+  blocked?: () => boolean;
 }
 
 export class HomesUi {
@@ -200,7 +202,7 @@ export class HomesUi {
     host.game.onSpecialTaken = () => this.specialTaken();
     host.game.onSpecialDone = () => this.specialDone();
     addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden) return;
+      if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden || this.host.blocked?.()) return;
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
       this.panel.querySelector<HTMLButtonElement>('button:not(.swatch)')?.click();
     });
@@ -575,7 +577,7 @@ export class HomesUi {
     if (this.lesson.stage !== 'done') {
       const was = this.lesson.stage;
       this.setLesson({ stage: 'done', rent: this.lesson.rent });
-      // paid in without being asked: nothing more to teach
+      // the mission to the bank ends with a card; paid in without being asked, a line is enough
       if (was === 'go' && this.host.card) {
         // the panel first: once the card is up, the game waits and the panel is not drawn again
         this.shown = '';
@@ -748,7 +750,7 @@ export class HomesUi {
       /* as above */
     }
     this.host.toast(
-      `New: home points. Each delivery earns one; a flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. After your first delivery each day, one flat or house can be bought without a realtor. ${toMenu()} to see yours.`,
+      `New: home points. Each delivery earns one; a flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. After your first delivery each day, one ${this.housesOpen() ? 'flat or house' : 'flat'} can be bought without a realtor. ${toMenu()} to see yours.`,
       'info',
       14000,
       this.host.openHomes,
@@ -1073,7 +1075,7 @@ export class HomesUi {
       if (!cheap) return;
       const wait = this.waitFor(cheap, what(cheap));
       if (cheap.price <= cash && wait) p(`For sale near here: ${describe(cheap, what(cheap))}, ${money(cheap.price)}. You can buy your next home after ${deliveries(wait)}.`);
-      else p(`The cheapest home near here is ${describe(cheap, what(cheap))}: ${money(cheap.price)}. ${money(cheap.price - cash)} more and it's yours.`);
+      else p(`The cheapest home near here is ${describe(cheap, what(cheap))}: ${money(cheap.price)}. ${money(cheap.price - cash)} more${wait ? ` and ${deliveries(wait)}` : ''}, and it's yours.`);
     }
     // something bigger, to aim for: the nearest house or whole building that costs more
     const goal = free

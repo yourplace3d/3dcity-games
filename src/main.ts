@@ -71,6 +71,7 @@ const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 /** things done in the game, kept with the day (`trophies.ts`) */
 const trophies = new Trophies();
+trophies.onStored = () => changed();
 trophies.onEarned = (names) =>
   toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 8000, () => setPause(true, 'trophies'));
 /** the big map is up and the game waits behind it */
@@ -198,26 +199,41 @@ function save(at?: LngLat): void {
   }
 }
 
-/** on touch screens, what the pulsing house button does: what the last line that asked for it would have done */
-let nudged: (() => void) | null = null;
-let nudgeUntil = 0;
-let nudgeT = 0;
+/**
+ * On touch screens the lines over the game take no taps (the steering pad lies under them). A line that
+ * leads somewhere pulses the house button instead, and the button then does what the oldest such line
+ * still showing would do: the one the player has had longest to read.
+ */
+const asks: Array<{ tap: () => void; until: number }> = [];
+let askT = 0;
+function askedNow(): Array<{ tap: () => void; until: number }> {
+  const now = performance.now();
+  while (asks.length && asks[0].until <= now) asks.shift();
+  return asks;
+}
+function nudgeButton(): void {
+  const b = $('btn-estate');
+  clearTimeout(askT);
+  const left = askedNow();
+  if (!left.length) {
+    b.classList.remove('nudge');
+    return;
+  }
+  askT = window.setTimeout(nudgeButton, Math.min(...left.map((a) => a.until)) - performance.now() + 20);
+}
 function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, tap?: () => void): void {
   const el = document.createElement('div');
   el.className = `toast ${kind}${tap ? ' tap' : ''}`;
   el.textContent = text;
   if (tap && document.body.classList.contains('touch')) {
     // the steering pad lies under the lines: they take no taps; the house button pulses, and does what the line would
+    asks.push({ tap, until: performance.now() + ms });
+    // the pulse starts again for each new line
     const b = $('btn-estate');
+    b.classList.remove('nudge');
+    void b.offsetWidth;
     b.classList.add('nudge');
-    nudged = tap;
-    nudgeUntil = Math.max(nudgeUntil, performance.now() + ms);
-    clearTimeout(nudgeT);
-    nudgeT = window.setTimeout(() => {
-      b.classList.remove('nudge');
-      nudged = null;
-      nudgeUntil = 0;
-    }, nudgeUntil - performance.now());
+    nudgeButton();
   } else if (tap) {
     el.setAttribute('role', 'button');
     el.addEventListener('click', () => {
@@ -310,7 +326,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => setPause(true, 'estate'), quiet: () => !!secret });
+      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => setPause(true, 'estate'), quiet: () => !!secret, blocked: () => menuOpen || mapOpen || welcoming || guessing });
       (window as unknown as { homes: HomesUi }).homes = homes;
       // trophies: what happens in play, and now and then what the player has
       {
@@ -318,7 +334,8 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         g.events.push((e) => {
           const ids: TrophyId[] = [];
           if (e.kind === 'lost') ids.push('lost');
-          if (e.kind === 'run') ids.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
+          // a run a friend sent can have another number of deliveries
+          if (e.kind === 'run' && g.run.of === RUN_JOBS) ids.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
           if (e.kind === 'delivered' && e.job === 'rush' && e.left >= 30) ids.push('rush');
           if (ids.length) trophies.give(ids);
         });
@@ -1361,10 +1378,10 @@ function drawEstate(): void {
 $('btn-estate').addEventListener('click', () => {
   const b = $('btn-estate');
   b.blur();
-  // pulsing for a line: where that line leads (the trophies, for a new one)
-  const go = b.classList.contains('nudge') ? nudged : null;
-  b.classList.remove('nudge');
-  nudged = null;
+  // a line showing asked for it: where that line leads (the trophies, for a new one)
+  const go = askedNow()[0]?.tap ?? null;
+  asks.length = 0;
+  nudgeButton();
   if (go) go();
   else setPause(true, 'estate');
 });

@@ -78,9 +78,30 @@ The owner liked the limit that grows with missions best, and asked for a counter
 - **A flat takes 2, a house 10, a whole building 2 for each flat it adds.** A building that would take more
   than 20 (more than 10 flats) shows "too big for now".
 - **The first home, and the rest of its building in the first-home mission, take none.**
+- **One flat or house a day takes none,** once a delivery has been made that day (the owner, 23 November:
+  "one flat/object should be buyable anyways per day"). The "for sale" panel says "free today"; the number
+  on the house button counts it. Never a whole building.
+- **Buying the rest of a building** takes points only for the flats it adds: the flat you own already took
+  its points (a building of 5 flats: 4 × 2 = 8).
 - The "for sale" panel says what is missing ("Buy a flat $2,100: after 1 more delivery") and how many points
   you have; so does the offer after a run.
-- Kept under `3da-points`. Points start at 0 for everyone, also for players who have homes already.
+- Kept under `3da-points`, with the day the free home was last taken and the last day a delivery was made.
+  Points start at 0 for everyone, also for players who have homes already.
+
+**Points wait from day to day, or start at 0 each day?** The owner thought "maybe start at zero" and asked for
+a recommendation (23 November). The model (estimate, as in section 5; homes after 365 visit days):
+
+| Rule | 5 min a day | 60 min a day | 100 date changes without playing |
+|---|---|---|---|
+| Points start at 0 each day, one free a day | 729 | 4,016 | +100 homes |
+| Points wait (up to 20), one free a day | 731 | 4,016 | +100 homes |
+| **Points wait (up to 20), one free a day after a delivery that day (built)** | **731** | **4,016** | **+0** |
+
+The totals hardly differ, because players spend their points each day. But starting at 0 means a
+five-minute player (2 deliveries a day) can never save the 10 points for a house, and points lost at midnight
+punish a short day. And a free home with no delivery brings one home for each change of the phone's date. So
+points wait, and the free home comes after the day's first delivery: one line each to change if the owner
+prefers otherwise.
 
 ### Trophies
 
@@ -247,9 +268,9 @@ that grows with visits pays for showing up rather than for playing, and lets the
 5. **The tenant who stopped paying:** the police carry out a court's order, with no arrest and no chase.
    Is that the tone you want?
 
-6. **Home points, as built:** a flat 2, a house 10, up to 20 waiting, so buildings of more than 10 flats are
-   out of reach for now. Do "two apartments free" and "after ten a house" mean that? And should points
-   start from 0 each day ("only for the day run"), or wait from day to day, as built?
+6. **Home points:** a flat 2 and a house 10 (yes, 23 November), up to 20 waiting, so buildings of more than 10
+   flats are out of reach for now. One flat or house a day is free after the day's first delivery. Points
+   wait from day to day rather than starting at 0 (the owner's "maybe"; see section 3). Agreed?
 
 ## 7. Before anything goes live
 

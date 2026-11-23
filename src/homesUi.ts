@@ -10,13 +10,15 @@ import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHom
 import { FIXER_AFTER, FIXER_MIN, jobLines, loadReno, rentShare, storeReno, UNITS_MAX, UNITS_MIN, wantsJob, WORN, type Reno } from './game/renovation';
 import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from './game/bank';
 import { caughtCost, lessonDue, loadLesson, nearestBank, remindAt, remindDue, REMIND_ARROW_S, REMIND_GAP_S, storeLesson, type Lesson, type LessonNow } from './game/bankMission';
-import { earn, missing, pointsFor, POINTS_MAX, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS } from './game/homePoints';
+import { dailyReady, deliveriesFor, earn, pointsFor, POINTS_MAX, loadDaily, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS, type Daily } from './game/homePoints';
 import { MAX_CASH } from './game/game';
 import { serviceIcon } from './game/services';
 import { pointInRing } from './geo/polygon';
 import { countPlay } from './linkCount';
 
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+/** "1 more delivery", "3 more deliveries" */
+const deliveries = (n: number) => `${n} more ${n === 1 ? 'delivery' : 'deliveries'}`;
 /** how near a building one has to stop for its panel (m) */
 const BESIDE_M = 7;
 /** how near a bank one has to stop: its spot on the road, or the bank itself on foot (m) */
@@ -166,6 +168,8 @@ export class HomesUi {
   private rentLineT = 0;
   /** home points (`game/homePoints.ts`): earned by deliveries, taken by homes */
   private points = loadPoints();
+  /** the free home of the day: when it was last taken, and the last day a delivery was made */
+  private daily: Daily = loadDaily();
   /** the deliveries counted for points so far */
   private counted = -1;
   /** learning to use the bank (`game/bankMission.ts`) */
@@ -215,8 +219,11 @@ export class HomesUi {
     // a point for each delivery
     if (this.counted < 0 || game.delivered < this.counted) this.counted = game.delivered;
     if (game.delivered > this.counted) {
-      this.setPoints(earn(this.points, game.delivered - this.counted));
+      const more = game.delivered - this.counted;
       this.counted = game.delivered;
+      // a delivery today: the day's free home is there
+      this.daily.played = dayOf(Date.now());
+      this.setPoints(earn(this.points, more), true);
     }
     if (this.rentLine !== null) {
       this.rentLineT -= dt;
@@ -708,10 +715,18 @@ export class HomesUi {
     return this.points;
   }
 
-  private setPoints(p: number): void {
-    if (p === this.points) return;
+  /** The free home of the day: 'ready', 'later' (after the first delivery today) or 'used'; null before the first home. */
+  dailyNow(): 'ready' | 'later' | 'used' | null {
+    if (!this.homes.homes.length) return null;
+    const today = dayOf(Date.now());
+    return this.daily.used === today ? 'used' : this.daily.played === today ? 'ready' : 'later';
+  }
+
+  /** Points, and the day's free home, kept; `changed`: the day's free home changed even if the points did not. */
+  private setPoints(p: number, changed = false): void {
+    if (p === this.points && !changed) return;
     this.points = p;
-    storePoints(p);
+    storePoints(p, this.daily);
     this.host.save();
     this.shown = '';
   }
@@ -722,6 +737,16 @@ export class HomesUi {
     const had = this.homeOf(lot);
     if (what === 'building' && had && had === this.homes.homes[0] && this.reno?.stage === 'buy') return 0;
     return pointsFor(what, what === 'building' ? lot.units - (had ? 1 : 0) : 1);
+  }
+
+  /** Whether buying this now would take the day's free home: a flat or house that would otherwise take points. */
+  private daySpends(lot: Lot, what: 'flat' | 'house' | 'building'): boolean {
+    return what !== 'building' && this.cost(lot, what) > 0 && dailyReady(this.daily, dayOf(Date.now()));
+  }
+
+  /** Deliveries still missing before this can be bought: 0 when it can be now. */
+  private waitFor(lot: Lot, what: 'flat' | 'house' | 'building'): number {
+    return deliveriesFor(this.points, this.cost(lot, what), this.daily, dayOf(Date.now()), what !== 'building' && this.homes.homes.length > 0);
   }
 
   /** Buy a lot of the square being played. */
@@ -744,7 +769,8 @@ export class HomesUi {
     // building below what the flat cost. Credit that payment, but never refund cash on a buy.
     const price = what === 'building' ? Math.max(0, lot.whole - (had?.paid ?? 0)) : worn ? this.fixerPrice(lot) : lot.price;
     const pay = payFrom(price, game.cash, this.saved, this.atPlate);
-    const need = this.cost(lot, what);
+    const daily = this.daySpends(lot, what);
+    const need = daily ? 0 : this.cost(lot, what);
     if (!pay || need > this.points || !this.open(lot, what) || (had && what !== 'building') || had?.kind === 'building') return false;
     const restOfReno = !!had && had === this.homes.homes[0] && this.reno?.stage === 'buy';
     // the rent so far goes out first, so the new home's rent starts now
@@ -753,7 +779,8 @@ export class HomesUi {
     const first = !this.homes.homes.length;
     if (first) this.homes.paidDay = dayOf(Date.now());
     game.cash -= pay.cash;
-    if (need) this.setPoints(this.points - need);
+    if (daily) this.daily.used = dayOf(Date.now());
+    if (need || daily) this.setPoints(this.points - need, daily);
     if (pay.saved) {
       this.saved -= pay.saved;
       storeSaved(this.saved);
@@ -814,7 +841,7 @@ export class HomesUi {
       }
     }
     if (bank) found = null;
-    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points}` : '';
+    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
     this.panel.hidden = !shown;
@@ -844,14 +871,16 @@ export class HomesUi {
       const b = document.createElement('button');
       const open = this.open(found!, what);
       const need = this.cost(found!, what);
+      const wait = this.waitFor(found!, what);
+      const day = this.daySpends(found!, what);
       b.textContent = !open
         ? `${text}: opens ${opensAfter(what)}`
-        : need > POINTS_MAX
+        : need > POINTS_MAX && what === 'building'
           ? `${text}: too big for now`
-          : need > this.points
-            ? `${text}  ${money(price)}: after ${missing(this.points, need)}`
-            : `${text}  ${money(price)}${need ? ` · ${need} points` : ''}`;
-      b.disabled = !open || need > this.points || this.budget() < price;
+          : wait
+            ? `${text}  ${money(price)}: after ${deliveries(wait)}`
+            : `${text}  ${money(price)}${day ? ' · free today' : need ? ` · ${need} points` : ''}`;
+      b.disabled = !open || wait > 0 || this.budget() < price;
       b.addEventListener('click', () => this.buy(found!, what));
       this.panel.append(b);
     };
@@ -897,7 +926,9 @@ export class HomesUi {
     if (this.homes.homes.length) {
       const p = document.createElement('p');
       p.className = 'small';
-      p.textContent = `You have ${this.points} ${this.points === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}.`;
+      const d = this.dailyNow();
+      const today = d === 'ready' ? 'One flat or house is free today.' : d === 'later' ? 'After your first delivery today, one flat or house is free.' : 'Today’s free home is taken: tomorrow again.';
+      p.textContent = `You have ${this.points} ${this.points === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. ${today}`;
       this.panel.append(p);
     }
   }
@@ -965,7 +996,7 @@ export class HomesUi {
     box.hidden = false;
     const what = (l: Lot) => (l.kind === 'house' ? 'house' : 'flat');
     const open = (l: Lot) => canBuy(this.homes, what(l));
-    const affordable = free.filter((l) => open(l) && l.price <= cash && this.cost(l, what(l)) <= this.points).sort((a, b) => b.price - a.price || Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py));
+    const affordable = free.filter((l) => open(l) && l.price <= cash && !this.waitFor(l, what(l))).sort((a, b) => b.price - a.price || Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py));
     const pick = affordable[0];
     if (pick) {
       const head = document.createElement('b');
@@ -982,8 +1013,8 @@ export class HomesUi {
     } else {
       const cheap = [...free].filter(open).sort((a, b) => a.price - b.price)[0];
       if (!cheap) return;
-      const need = this.cost(cheap, what(cheap));
-      if (cheap.price <= cash && need > this.points) p(`For sale near here: ${describe(cheap, what(cheap))}, ${money(cheap.price)}. You can buy your next home after ${missing(this.points, need)}: a point for each, and a flat takes ${FLAT_POINTS}.`);
+      const wait = this.waitFor(cheap, what(cheap));
+      if (cheap.price <= cash && wait) p(`For sale near here: ${describe(cheap, what(cheap))}, ${money(cheap.price)}. You can buy your next home after ${deliveries(wait)}.`);
       else p(`The cheapest home near here is ${describe(cheap, what(cheap))}: ${money(cheap.price)}. ${money(cheap.price - cash)} more and it's yours.`);
     }
     // something bigger, to aim for: the nearest house or whole building that costs more

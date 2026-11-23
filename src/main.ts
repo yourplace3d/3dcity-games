@@ -1274,7 +1274,8 @@ function estateButton(): void {
   const hide = !game?.world || !!secret;
   const points = homes ? homes.pointsNow() : loadPoints();
   const n = owned().homes.length;
-  const shows = `${hide} ${points} ${n}`;
+  const day = homes?.dailyNow() ?? null;
+  const shows = `${hide} ${points} ${n} ${day}`;
   if (shows === buttonShows) return;
   buttonShows = shows;
   b.hidden = hide;
@@ -1283,10 +1284,11 @@ function estateButton(): void {
   fill.setAttribute('stroke-dasharray', `${Math.round((Math.min(points, HOUSE_POINTS) / HOUSE_POINTS) * 100)} 100`);
   // at 0 a round end alone would draw a dot
   fill.style.visibility = points > 0 ? '' : 'hidden';
-  const free = n ? flatsFree(points) : 0;
+  // the flats the points buy, and the day's free one once it is there
+  const free = n ? flatsFree(points) + (day === 'ready' ? 1 : 0) : 0;
   $('estate-free').hidden = !free;
   $('estate-free').textContent = String(free);
-  b.setAttribute('aria-label', `Real estate and trophies: ${points} home points${free ? `, ${free} ${free === 1 ? 'flat' : 'flats'} free to buy` : ''}`);
+  b.setAttribute('aria-label', `Real estate and trophies: ${points} home ${points === 1 ? 'point' : 'points'}${free ? `, ${free} ${free === 1 ? 'flat' : 'flats'} free to buy` : ''}`);
 }
 
 /**
@@ -1300,7 +1302,8 @@ function drawEstate(): void {
   const towns = homeTowns(mine.homes, mine.reno);
   const n = mine.homes.length;
   const points = homes ? homes.pointsNow() : loadPoints();
-  const free = flatsFree(points);
+  const day = homes?.dailyNow() ?? null;
+  const free = flatsFree(points) + (day === 'ready' ? 1 : 0);
   const box = $('estate-points');
   box.classList.toggle('full', points >= HOUSE_POINTS);
   box.innerHTML = ring(points);
@@ -1308,8 +1311,10 @@ function drawEstate(): void {
   const big = document.createElement('b');
   big.textContent = `${points} home ${points === 1 ? 'point' : 'points'}`;
   const small = document.createElement('small');
+  const today =
+    day === 'ready' ? 'One flat or house is free today.' : day === 'later' ? 'After your first delivery today, one flat or house is free.' : 'Today’s free home is taken: tomorrow again.';
   small.textContent = n
-    ? `${free ? `${free} ${free === 1 ? 'flat' : 'flats'} free to buy${points >= HOUSE_POINTS ? ', or a house' : `; a house at ${HOUSE_POINTS}`}` : `A flat at ${FLAT_POINTS}, a house at ${HOUSE_POINTS}`}. One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
+    ? `${free ? `${free} ${free === 1 ? 'flat' : 'flats'} free to buy${points >= HOUSE_POINTS || day === 'ready' ? ', or a house' : `; a house at ${HOUSE_POINTS}`}` : `A flat at ${FLAT_POINTS}, a house at ${HOUSE_POINTS}`}. ${today} One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
     : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;
   text.append(big, small);
   box.append(text);

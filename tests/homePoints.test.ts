@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { earn, flatsFree, missing, pointsFor, POINTS_MAX, readPoints } from '../src/game/homePoints';
+import { dailyReady, deliveriesFor, earn, flatsFree, missing, pointsFor, POINTS_MAX, readDaily, readPoints } from '../src/game/homePoints';
 import { HomesUi } from '../src/homesUi';
-import type { Home, Lot } from '../src/game/homes';
+import { dayOf, type Home, type Lot } from '../src/game/homes';
 import { earnedBy, placeKey, readTrophies, Trophies, type Snapshot } from '../src/trophies';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -23,7 +23,23 @@ describe('home points', () => {
     expect(missing(0, 10)).toBe('10 more deliveries');
   });
 
+  it('one flat or house a day is free, once a delivery has been made that day', () => {
+    const today = '2026-11-24';
+    expect(dailyReady({ used: '', played: today }, today)).toBe(true);
+    expect(dailyReady({ used: '', played: '2026-11-23' }, today)).toBe(false);
+    expect(dailyReady({ used: today, played: today }, today)).toBe(false);
+    // a flat with no points: one delivery away before the day's first delivery, none after it
+    expect(deliveriesFor(0, 2, { used: '', played: '' }, today, true)).toBe(1);
+    expect(deliveriesFor(0, 2, { used: '', played: today }, today, true)).toBe(0);
+    expect(deliveriesFor(0, 10, { used: '', played: today }, today, true)).toBe(0);
+    // taken today, or a whole building: only points count
+    expect(deliveriesFor(0, 2, { used: today, played: today }, today, true)).toBe(2);
+    expect(deliveriesFor(3, 8, { used: '', played: today }, today, false)).toBe(5);
+  });
+
   it('reads what is kept, and nothing odd', () => {
+    expect(readDaily('{"v":1,"points":3,"used":"2026-11-23","played":"2026-11-24"}')).toEqual({ used: '2026-11-23', played: '2026-11-24' });
+    expect(readDaily('{"used":"yesterday"}')).toEqual({ used: '', played: '' });
     expect(readPoints('{"v":1,"points":7}')).toBe(7);
     expect(readPoints('{"v":1,"points":999}')).toBe(POINTS_MAX);
     expect(readPoints('{"points":-4}')).toBe(0);
@@ -48,6 +64,7 @@ describe('buying with home points', () => {
       world: { proj: { toLngLat: () => ({ lat: 49, lon: 11 }) }, mark: () => ({ remove: () => undefined }) },
       reno,
       points,
+      daily: { used: '', played: '' },
       saved: 0,
       payRent: vi.fn(() => 0),
       look: vi.fn(),
@@ -62,6 +79,19 @@ describe('buying with home points', () => {
     const enough = ui(5, [home]);
     expect(enough.u.buy(lot('b'), 'flat')).toBe(true);
     expect(enough.u.pointsNow()).toBe(3);
+  });
+
+  it('the day\'s free home: a flat with no points after a delivery today, once', () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+    const { u } = ui(0, [home]);
+    const today = dayOf(Date.now());
+    Object.assign(u, { daily: { used: '', played: '' } });
+    expect(u.buy(lot('d'), 'flat')).toBe(false);
+    Object.assign(u, { daily: { used: '', played: today } });
+    expect(u.buy(lot('e'), 'flat')).toBe(true);
+    expect(u.pointsNow()).toBe(0);
+    expect(u.dailyNow()).toBe('used');
+    expect(u.buy(lot('f'), 'flat')).toBe(false);
   });
 
   it('the first home takes none', () => {

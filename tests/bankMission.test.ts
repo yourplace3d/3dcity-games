@@ -149,6 +149,16 @@ describe('the arrow and the card', () => {
     expect(game.guide).toEqual({ x: 100, y: 5 });
   });
 
+  it('asked for, the way to the bank takes over from an arrow to a home', () => {
+    const { u, game } = ui({ wayTo: home, lesson: { stage: 'done', rent: true } });
+    game.guide = { x: 5, y: 5 };
+    u.wayToBank();
+    expect(game.guide).toEqual({ x: 100, y: 5 });
+    // asked again, it is off
+    u.wayToBank();
+    expect(game.guide).toBeNull();
+  });
+
   it('asks nothing while a city is being guessed: the card would name the home town', () => {
     const { u, card, game } = ui({ lesson: { stage: 'offer', rent: true }, playedS: 120 });
     (u as unknown as { host: { quiet: () => boolean } }).host.quiet = () => true;

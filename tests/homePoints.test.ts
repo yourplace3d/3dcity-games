@@ -65,6 +65,7 @@ describe('buying with home points', () => {
       reno,
       points,
       daily: { used: '', played: '' },
+      events: { open: [], last: '', first: '', renovated: {} },
       saved: 0,
       payRent: vi.fn(() => 0),
       look: vi.fn(),

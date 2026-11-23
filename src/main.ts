@@ -498,8 +498,9 @@ function welcomeHome(what: string, rent: string, worn: boolean): void {
 }
 /** A card over the game that waits for a yes or a no (the homes' mission). */
 let missionAnswer: ((yes: boolean) => void) | null = null;
-function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void): void {
+function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now'): void {
   welcoming = true;
+  $('mission-kicker').textContent = kicker;
   controls.enabled = false;
   // the game waits while the card is read: a package's clock too
   if (game) game.held = true;
@@ -1340,6 +1341,8 @@ function estateButton(): void {
 function drawEstate(): void {
   const mine = owned();
   const towns = homeTowns(mine.homes, mine.reno);
+  // what is open at a home, and the rent waiting there
+  for (const t of towns) for (const l of t.homes) l.note = homes?.eventNote(l.home) || l.note;
   const n = mine.homes.length;
   const points = homes ? homes.pointsNow() : loadPoints();
   const day = homes?.dailyNow() ?? null;
@@ -1358,10 +1361,12 @@ function drawEstate(): void {
     : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;
   text.append(big, small);
   box.append(text);
-  const rent = towns.reduce((s, t) => s + t.rent, 0);
+  // rent that waits at a home with something open is not paid each day
+  const rent = homes ? homes.rentPaying() : towns.reduce((s, t) => s + t.rent, 0);
   const plate = towns.find((t) => t.plate)?.place ?? 'your home town';
   const who = n === 1 ? 'Your home pays' : `Your ${n} homes${towns.length > 1 ? `, in ${towns.length} towns,` : ''} pay`;
   const bank = mine.saved ? `, and ${fmtMoney(mine.saved)} in the bank in ${plate}` : '';
+  $('btn-bank-way').hidden = !playing || !homes?.hasBanks();
   $('homes-line').textContent = n ? `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.` : 'No homes yet.';
   drawHomes($('homes-list'), towns, {
     here: (h) => !secret && !!homes?.isHere(h),
@@ -1392,6 +1397,26 @@ $('btn-estate').addEventListener('click', () => {
   if (go) go();
   else setPause(true, 'estate');
 });
+/** The way to the nearest bank: from the bank line in the money box, or from the real estate. */
+function bankWay(): void {
+  if (!homes || !playing) return;
+  if (menuOpen) setPause(false);
+  if (mapOpen || welcoming || guessing) return;
+  homes.wayToBank();
+}
+$('saved').addEventListener('click', () => {
+  $('saved').blur();
+  bankWay();
+});
+$('saved').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  // the key is the bank line's, not the game's (Space is the handbrake, Enter the action), and focus goes back to the game
+  e.preventDefault();
+  e.stopPropagation();
+  $('saved').blur();
+  if (!e.repeat) bankWay();
+});
+$('btn-bank-way').addEventListener('click', bankWay);
 $('btn-homes').addEventListener('click', () => setPause(true, owned().homes.length ? 'estate' : 'trophies'));
 
 const soundButton = (): void => {

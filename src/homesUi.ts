@@ -685,16 +685,27 @@ export class HomesUi {
       return;
     }
     if (this.host.quiet?.() || !this.bankHere()) {
-      toast(this.host.quiet?.() ? 'Banks are only in your home town.' : `Your banks are in ${this.plate.place || 'your home town'}: money there is safe from fines.`, 'info', 6000);
+      toast(
+        this.host.quiet?.()
+          ? 'Banks are only in your home town.'
+          : this.atPlate
+            ? 'No bank in this part of town: drive on, and the next one shows.'
+            : `Your banks are in ${this.plate.place || 'your home town'}: money there is safe from fines.`,
+        'info',
+        6000,
+      );
       return;
     }
-    if (this.bankWay) {
+    // on the way to pay in for the first time, the arrow stays until the cash is in
+    if (this.bankWay && this.lesson.stage !== 'go') {
       this.bankWay = false;
+      this.remindArrow = 0;
       this.guideBank(false);
       toast('The way to the bank is off.', 'info', 3000);
       return;
     }
-    // asked for: it goes before the way to a home
+    // asked for: it goes before the way to a home, whose arrow goes too
+    if (this.wayTo && this.host.game.guide && this.host.game.guide !== this.bankGuide) this.host.game.guide = null;
     this.wayTo = null;
     this.bankWay = true;
     this.bankTarget = null;
@@ -866,7 +877,7 @@ export class HomesUi {
   eventNote(home: Home): string {
     const e = this.eventOf(home);
     if (!e) return '';
-    return `Needs renovating: its rent waits until then${e.waiting ? ` (${money(e.waiting)} so far)` : ''}. A package from any station renovates it`;
+    return `Needs renovating: its rent waits until then${e.waiting ? ` (${money(e.waiting)} so far)` : ''}. A package from any station in its part of town renovates it`;
   }
 
   /** A day's rent of the homes with something open goes to wait at them. Returns how much. */
@@ -941,7 +952,8 @@ export class HomesUi {
     const lot = this.lotOf(h);
     if (lot) this.world?.model.paintBuilding(lot.poly, h.colour ?? null);
     this.syncSpecial();
-    const extra = banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '';
+    const lost = Math.max(0, e.waiting + tip - got - Math.max(0, banked));
+    const extra = (banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '') + (lost > 0 ? ` ${money(lost)} did not fit: your cash and your bank are full.` : '');
     this.say(`${cap(this.nameOf(h))} is renovated.${e.waiting ? ` The ${money(e.waiting)} rent that waited there is yours,` : ''} ${e.waiting ? 'and the' : 'The'} tenants thank you with ${money(tip)}.${extra}`, 'good', 10000);
   }
 
@@ -1176,9 +1188,13 @@ export class HomesUi {
         else line(`Every flat is repaired: pays ${money(had.rent)} rent each day you come back. One more package from a station brings the paint for the outside.`);
         return;
       }
-      line(`Pays ${money(had.rent)} rent each day you come back.`);
+      const note = this.eventNote(had);
+      line(note ? `${note}. Then it pays ${money(had.rent)} rent each day you come back.` : `Pays ${money(had.rent)} rent each day you come back.`);
       if (had.kind === 'flat') button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
-      else this.paints(found, had);
+      else {
+        this.paints(found, had);
+        if (note) line('The colour you choose goes on once it is renovated.');
+      }
       return;
     }
     title.textContent = 'For sale';

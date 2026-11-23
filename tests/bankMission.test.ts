@@ -109,3 +109,51 @@ describe('paying in', () => {
     expect((u as unknown as { lesson: { stage: string } }).lesson.stage).toBe('done');
   });
 });
+
+describe('the arrow and the card', () => {
+  const home: Home = { id: '1', lat: 49, lon: 11, kind: 'flat', paid: 700, rent: 168, street: '', place: 'Nuremberg', at: 0 };
+  const bank = { x: 100, y: 0, rx: 100, ry: 5, mark: { remove: () => undefined } };
+  const ui = (o: Record<string, unknown>) => {
+    vi.stubGlobal('navigator', { webdriver: true });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+    const game = { cash: 1200, guide: null as null | { x: number; y: number }, job: null, delivered: 3, pos: () => [0, 0] };
+    const card = vi.fn();
+    const u: HomesUi = Object.assign(Object.create(HomesUi.prototype), {
+      host: { game, save: vi.fn(), toast: vi.fn(), card, quiet: () => false },
+      homes: { v: 1, homes: [home], paidDay: '' },
+      owned: new Map(),
+      world: {},
+      banks: [bank],
+      atPlate: true,
+      plate: { lat: 49, lon: 11, place: 'Nuremberg' },
+      saved: 0,
+      lesson: { stage: 'go', rent: true },
+      playedS: 0,
+      deliveredBefore: 3,
+      sinceRemind: 0,
+      remindArrow: 0,
+      wayTo: null,
+      bankGuide: null,
+      bankTarget: null,
+      rentLine: null,
+      lessonSaid: true,
+      ...o,
+    });
+    return { u, game, card };
+  };
+
+  it('points to the bank while the way to a home outside this part of town waits', () => {
+    // the home is not in the square being played: no lot, so it shows no arrow of its own
+    const { u, game } = ui({ wayTo: home });
+    (u as unknown as { bankTick: () => void }).bankTick();
+    expect(game.guide).toEqual({ x: 100, y: 5 });
+  });
+
+  it('asks nothing while a city is being guessed: the card would name the home town', () => {
+    const { u, card, game } = ui({ lesson: { stage: 'offer', rent: true }, playedS: 120 });
+    (u as unknown as { host: { quiet: () => boolean } }).host.quiet = () => true;
+    (u as unknown as { bankTick: () => void }).bankTick();
+    expect(card).not.toHaveBeenCalled();
+    expect(game.guide).toBeNull();
+  });
+});

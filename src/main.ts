@@ -72,7 +72,7 @@ const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
 /** things done in the game, kept with the day (`trophies.ts`) */
 const trophies = new Trophies();
 trophies.onEarned = (names) =>
-  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 5000, () => setPause(true, 'trophies'));
+  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 8000, () => setPause(true, 'trophies'));
 /** the big map is up and the game waits behind it */
 let mapOpen = false;
 /** the game waits behind the menu (`setPause`) */
@@ -198,15 +198,26 @@ function save(at?: LngLat): void {
   }
 }
 
+/** on touch screens, what the pulsing house button does: what the last line that asked for it would have done */
+let nudged: (() => void) | null = null;
+let nudgeUntil = 0;
+let nudgeT = 0;
 function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, tap?: () => void): void {
   const el = document.createElement('div');
   el.className = `toast ${kind}${tap ? ' tap' : ''}`;
   el.textContent = text;
   if (tap && document.body.classList.contains('touch')) {
-    // the steering pad lies under the lines: they take no taps, and the house button pulses instead
+    // the steering pad lies under the lines: they take no taps; the house button pulses, and does what the line would
     const b = $('btn-estate');
     b.classList.add('nudge');
-    setTimeout(() => b.classList.remove('nudge'), ms);
+    nudged = tap;
+    nudgeUntil = Math.max(nudgeUntil, performance.now() + ms);
+    clearTimeout(nudgeT);
+    nudgeT = window.setTimeout(() => {
+      b.classList.remove('nudge');
+      nudged = null;
+      nudgeUntil = 0;
+    }, nudgeUntil - performance.now());
   } else if (tap) {
     el.setAttribute('role', 'button');
     el.addEventListener('click', () => {
@@ -1348,8 +1359,14 @@ function drawEstate(): void {
   });
 }
 $('btn-estate').addEventListener('click', () => {
-  $('btn-estate').blur();
-  setPause(true, 'estate');
+  const b = $('btn-estate');
+  b.blur();
+  // pulsing for a line: where that line leads (the trophies, for a new one)
+  const go = b.classList.contains('nudge') ? nudged : null;
+  b.classList.remove('nudge');
+  nudged = null;
+  if (go) go();
+  else setPause(true, 'estate');
 });
 $('btn-homes').addEventListener('click', () => setPause(true, owned().homes.length ? 'estate' : 'trophies'));
 

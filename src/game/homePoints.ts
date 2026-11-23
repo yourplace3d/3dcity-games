@@ -44,9 +44,8 @@ export function flatsFree(points: number): number {
   return Math.floor(points / FLAT_POINTS);
 }
 
-/** "1 more delivery", "3 more deliveries": what is missing for a home that takes `need`. */
-export function missing(points: number, need: number): string {
-  const n = Math.max(0, need - points);
+/** "1 more delivery", "3 more deliveries": what is missing before a home can be bought. */
+export function deliveries(n: number): string {
   return `${n} more ${n === 1 ? 'delivery' : 'deliveries'}`;
 }
 

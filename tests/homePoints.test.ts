@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dailyReady, deliveriesFor, earn, flatsFree, missing, pointsFor, POINTS_MAX, readDaily, readPoints } from '../src/game/homePoints';
+import { dailyReady, deliveries, deliveriesFor, earn, flatsFree, pointsFor, POINTS_MAX, readDaily, readPoints } from '../src/game/homePoints';
 import { HomesUi } from '../src/homesUi';
 import { dayOf, type Home, type Lot } from '../src/game/homes';
 import { earnedBy, placeKey, readTrophies, Trophies, type Snapshot } from '../src/trophies';
@@ -19,8 +19,8 @@ describe('home points', () => {
     expect(earn(19, 5)).toBe(POINTS_MAX);
     expect(earn(4, -3)).toBe(4);
     expect(flatsFree(7)).toBe(3);
-    expect(missing(1, 2)).toBe('1 more delivery');
-    expect(missing(0, 10)).toBe('10 more deliveries');
+    expect(deliveries(1)).toBe('1 more delivery');
+    expect(deliveries(10)).toBe('10 more deliveries');
   });
 
   it('one flat or house a day is free, once a delivery has been made that day', () => {

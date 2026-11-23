@@ -66,7 +66,7 @@ export const GROUPS: Group[] = [
     colour: '#2bd4e0',
     trophies: [
       { id: 'lost', name: 'Shaken off', how: 'Lose the police', sign: '<path d="M12 40c8-14 20-18 32-16v-7l10 11-10 11v-7c-10-1-20 2-28 12z"/>' },
-      { id: 'clean', name: 'A clean run', how: 'Finish a run of three without a fine', sign: '<path d="M14 33l6-6 8 8 16-17 6 6-22 23z"/>' },
+      { id: 'clean', name: 'A clean run', how: 'Finish a run of three without being caught, wrecked or knocked out', sign: '<path d="M14 33l6-6 8 8 16-17 6 6-22 23z"/>' },
       { id: 'rush', name: 'Time to spare', how: 'Finish a rush job with 30 seconds left', sign: '<circle cx="32" cy="35" r="15" fill="none" stroke="#16181c" stroke-width="5"/><path d="M29 12h6v6h-6zM30 35V25h4v10z"/><path d="M32 33l7 5-2 3-7-5z"/>' },
       { id: 'deliveries100', name: '100 deliveries', how: 'Deliver 100 packages', sign: word('100', 22) },
     ],

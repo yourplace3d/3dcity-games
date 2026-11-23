@@ -10,7 +10,7 @@ import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHom
 import { FIXER_AFTER, FIXER_MIN, jobLines, loadReno, rentShare, storeReno, UNITS_MAX, UNITS_MIN, wantsJob, WORN, type Reno } from './game/renovation';
 import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from './game/bank';
 import { caughtCost, lessonDue, loadLesson, nearestBank, remindAt, remindDue, REMIND_ARROW_S, REMIND_GAP_S, storeLesson, type Lesson, type LessonNow } from './game/bankMission';
-import { dailyReady, deliveriesFor, earn, pointsFor, POINTS_MAX, loadDaily, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS, type Daily } from './game/homePoints';
+import { dailyReady, deliveries, deliveriesFor, earn, pointsFor, POINTS_MAX, loadDaily, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS, type Daily } from './game/homePoints';
 import { MAX_CASH } from './game/game';
 import { serviceIcon } from './game/services';
 import { pointInRing } from './geo/polygon';
@@ -22,8 +22,6 @@ const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
  * screen the lines take no taps, as the steering pad lies under them, so it is the house button.
  */
 const toMenu = () => (document.body.classList.contains('touch') ? 'Tap the house button at the top' : 'Click here');
-/** "1 more delivery", "3 more deliveries" */
-const deliveries = (n: number) => `${n} more ${n === 1 ? 'delivery' : 'deliveries'}`;
 /** how near a building one has to stop for its panel (m) */
 const BESIDE_M = 7;
 /** how near a bank one has to stop: its spot on the road, or the bank itself on foot (m) */
@@ -385,7 +383,7 @@ export class HomesUi {
       const [px, py] = game.pos();
       if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job) {
         if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.wayTo = null;
-        if (game.guide && !game.job) game.guide = null;
+        if (game.guide && game.guide !== this.bankGuide && !game.job) game.guide = null;
       } else {
         const [rx, ry] = world.roads.point(n.line, n.s);
         game.guide = { x: rx, y: ry };
@@ -620,7 +618,8 @@ export class HomesUi {
       this.bankTarget = null;
       return;
     }
-    if (this.wayTo || (game.guide && game.guide !== this.bankGuide)) return;
+    // a way to a home in this square goes first; one to a home elsewhere shows no arrow, so it does not
+    if ((this.wayTo && this.lotOf(this.wayTo)) || (game.guide && game.guide !== this.bankGuide)) return;
     if (!this.bankTarget || !this.banks.includes(this.bankTarget)) {
       const [px, py] = game.pos();
       this.bankTarget = nearestBank(this.banks, px, py);
@@ -632,6 +631,11 @@ export class HomesUi {
   private bankTick(): void {
     const { game } = this.host;
     if (!this.world || !this.homes.homes.length) return;
+    // a city being guessed: the mission's card and the reminders would name or hint at the home town
+    if (this.host.quiet?.()) {
+      this.guideBank(false);
+      return;
+    }
     const n: LessonNow = {
       today: dayOf(Date.now()),
       bankHere: this.bankHere(),
@@ -684,8 +688,8 @@ export class HomesUi {
     this.guideBank(this.remindArrow > 0 && n.bankHere && game.cash >= remindAt(this.rentPerVisit()) / 2);
   }
 
-  /** Pay the rent of a new day, once. On arrival, say so. */
-  payRent(arriving = false): number {
+  /** Pay the rent of a new day, once. On arrival, say so. `covered`: a card lies over the lines, so no way to the menu in them. */
+  payRent(arriving = false, covered = false): number {
     const today = dayOf(Date.now());
     if (!this.homes.homes.length || today === this.homes.paidDay) return 0;
     // the day counts as paid even when nothing was due (a worn-down flat), so a repair pays from tomorrow
@@ -708,13 +712,14 @@ export class HomesUi {
       // once the place's name has been read
       this.rentLine = text;
       this.rentLineT = RENT_AFTER_S;
-    } else this.sayRent(text);
+    } else if (covered) this.host.toast(text, 'good', 9000);
+    else this.sayRent(text);
     return got;
   }
 
   /** The line on rent: the first few times, with the way to the list of homes. */
   private sayRent(text: string): void {
-    let n = RENT_NOTES;
+    let n = 0;
     try {
       n = Number(localStorage.getItem(NOTES_STORE)) || 0;
     } catch {
@@ -905,7 +910,7 @@ export class HomesUi {
       const title = document.createElement('b');
       title.textContent = 'Bank';
       const p = document.createElement('p');
-      p.textContent = `You have ${money(this.saved)} here. Money in the bank is safe from fines and pays for homes in ${this.plate?.place || 'your home town'}.`;
+      p.textContent = `You have ${money(this.saved)} here. Money in the bank is safe from fines and pays for homes in ${(!this.host.quiet?.() && this.plate?.place) || 'your home town'}.`;
       const b = document.createElement('button');
       const amount = Math.min(Math.floor(game.cash), MAX_CASH - this.saved);
       b.textContent = `Pay in ${money(Math.max(0, amount))}`;
@@ -1022,7 +1027,8 @@ export class HomesUi {
    */
   offer(box: HTMLElement): void {
     const { game } = this.host;
-    const rent = this.payRent();
+    // the result card lies over the lines
+    const rent = this.payRent(false, true);
     box.replaceChildren();
     const world = this.world;
     if (!world) {

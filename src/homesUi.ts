@@ -144,6 +144,8 @@ export interface HomesHost {
   quiet?: () => boolean;
   /** something lies over the game (the menu, the big map, a card): keys do nothing to the panel under it */
   blocked?: () => boolean;
+  /** parties at the homes (`partyUi.ts`): whether one can be thrown at a home now, its button, and the card that starts it */
+  party?: { can: (home: Home) => boolean; label: (home: Home) => string; tag: () => string; offer: (home: Home) => void };
 }
 
 export class HomesUi {
@@ -217,7 +219,7 @@ export class HomesUi {
     addEventListener('keydown', (e) => {
       if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden || this.host.blocked?.()) return;
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
-      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch)')?.click();
+      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch):not(.party)')?.click();
     });
   }
 
@@ -440,7 +442,7 @@ export class HomesUi {
       }
       return;
     }
-    if (game.job) return;
+    if (game.job || game.party) return;
     this.offered = true;
     const price = Math.floor(game.cash / 10) * 10;
     this.card(
@@ -530,7 +532,7 @@ export class HomesUi {
       this.setReno({ ...r, stage: 'buy' });
       const lot = this.renoLot();
       const rest = lot ? ` Next, the rest of the building: ${units - 1} ${units - 1 === 1 ? 'flat' : 'flats'} for ${money(Math.max(0, lot.whole - first.paid))}. Stop beside it to buy.` : '';
-      this.say(`Your flat is repaired: from tomorrow it pays ${money(first.rent)} each day you come back.${rest}`, 'good', 10000);
+      this.say(`Your flat is repaired: from tomorrow it pays ${money(first.rent)} each day you come back.${rest}${this.host.party ? ' And it is ready for a party: stop beside it.' : ''}`, 'good', 10000);
     } else if (r.stage === 'rest') {
       const fixed = (r.fixed ?? 0) + 1;
       if (fixed >= units - 1) {
@@ -755,7 +757,7 @@ export class HomesUi {
       cash: game.cash,
       deliveredHere: game.delivered - Math.max(0, this.deliveredBefore),
       playedS: this.playedS,
-      busy: !!game.job || this.rentLine !== null,
+      busy: !!game.job || !!game.party || this.rentLine !== null,
     };
     const l = this.lesson;
     if (l.stage === 'go') {
@@ -931,7 +933,7 @@ export class HomesUi {
       deliveredHere: game.delivered - Math.max(0, this.deliveredBefore),
       sinceCardS: this.playedS - this.cardAtS,
       // the first-home mission has the stations' packages while it wants one
-      busy: !!game.job || this.rentLine !== null || wantsJob(this.reno),
+      busy: !!game.job || !!game.party || this.rentLine !== null || wantsJob(this.reno),
     };
     if (!eventDue(this.events, n)) return;
     const can = renovationCandidates(this.homes.homes, this.events, dayNumber(Date.now()), (h) => !!this.lotOf(h));
@@ -991,6 +993,27 @@ export class HomesUi {
       14000,
       this.host.openHomes,
     );
+  }
+
+  /**
+   * Home points from a party (`partyUi.ts`): `n` more, up to `POINTS_MAX`. A party is play, like a
+   * delivery, so after it the day's home without a realtor is there too. Returns the points added.
+   */
+  partyPoints(n: number): number {
+    const before = this.points;
+    this.daily.played = dayOf(Date.now());
+    this.setPoints(earn(this.points, n), true);
+    return this.points - before;
+  }
+
+  /** A home's building in the square being played, with its middle and outline; null when it is not in it. */
+  lotOfHome(home: Home): Lot | null {
+    return this.lotOf(home);
+  }
+
+  /** Whether a home is the first one while it is still worn down, before its flat is repaired. */
+  wornDown(home: Home): boolean {
+    return home === this.homes.homes[0] && (this.reno?.stage === 'flat' || this.reno?.stage === 'find');
   }
 
   /** Home points now: one for each delivery, up to `POINTS_MAX`. */
@@ -1123,7 +1146,7 @@ export class HomesUi {
       this.cardAtS = this.playedS;
       this.host.firstHome(describe(lot, what), money(mine.rent), worn);
     }
-    else this.host.toast(`It's yours: ${describe(lot, what)}.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} It pays ${money(mine.rent)} rent each day you come back.`, 'good', 6000);
+    else this.host.toast(`It's yours: ${describe(lot, what)}.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} It pays ${money(mine.rent)} rent each day you come back.${this.host.party ? ' Throw a party there: stop beside it.' : ''}`, 'good', 8000);
     this.shown = '';
     this.look();
     return true;
@@ -1139,8 +1162,8 @@ export class HomesUi {
       const [px, py] = game.pos();
       bank = this.banks.some((b) => Math.hypot(b.rx - px, b.ry - py) < BANK_ROAD_M || Math.hypot(b.x - px, b.y - py) < BANK_M);
       let best = BESIDE_M;
-      // on a job, only the job: nothing to buy until it is done (the owner, 23 November)
-      if (!game.job) for (const lot of world.lots) {
+      // on a job, only the job: nothing to buy until it is done (the owner, 23 November); a party alike
+      if (!game.job && !game.party) for (const lot of world.lots) {
         if (Math.abs(lot.x - px) > 120 || Math.abs(lot.y - py) > 120) continue;
         const d = distanceTo(lot, px, py);
         if (d < best) {
@@ -1150,7 +1173,7 @@ export class HomesUi {
       }
     }
     if (bank) found = null;
-    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()}` : '';
+    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()} ${this.host.party?.tag() ?? ''}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
     this.panel.hidden = !shown;
@@ -1193,6 +1216,16 @@ export class HomesUi {
       b.addEventListener('click', () => this.buy(found!, what));
       this.panel.append(b);
     };
+    // a party at this home, where one can be thrown now
+    const partyButton = (home: Home) => {
+      const party = this.host.party;
+      if (!party?.can(home)) return;
+      const b = document.createElement('button');
+      b.className = 'party';
+      b.textContent = party.label(home);
+      b.addEventListener('click', () => party.offer(home));
+      this.panel.append(b);
+    };
     const title = document.createElement('b');
     if (had) {
       title.textContent = had.kind === 'building' ? 'Your building' : had.kind === 'house' ? 'Your house' : 'Your flat';
@@ -1206,10 +1239,12 @@ export class HomesUi {
           button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
         } else if (r.stage === 'rest') line(`${1 + (r.fixed ?? 0)} of ${units} flats repaired: pays ${money(this.rentOf(had))} rent each day you come back. A package from a blinking station repairs the next.`);
         else line(`Every flat is repaired: pays ${money(had.rent)} rent each day you come back. One more package from a station brings the paint for the outside.`);
+        partyButton(had);
         return;
       }
       const note = this.eventNote(had);
       line(note ? `${note}. Then it pays ${money(had.rent)} rent each day you come back.` : `Pays ${money(had.rent)} rent each day you come back.`);
+      partyButton(had);
       if (had.kind === 'flat') button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
       else {
         this.paints(found, had);

@@ -36,6 +36,7 @@ import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } f
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
 import { JOB_OF, type JobKind } from './services';
+import { partyClock } from './party';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -95,6 +96,21 @@ export interface Job {
   hp0: number;
   /** a mission's package, going to `Game.special` */
   special?: boolean;
+  /** a party's food (`Game.party`): no pay, and the time from pickup to door is what counts */
+  party?: boolean;
+  /** the clock it started with (s) */
+  clock0?: number;
+}
+
+/**
+ * A party run (`game/party.ts`): the food is picked up at `pick` and goes to the door at `door`, on a
+ * clock that starts at the pickup. While it is on there are no other jobs and no run.
+ */
+export interface PartyRun {
+  pick: LngLat;
+  door: LngLat;
+  /** said as the food comes on board */
+  say: string;
 }
 
 export interface Hud {
@@ -103,7 +119,7 @@ export interface Hud {
   health: number;
   carHp: number | null;
   kmh: number;
-  job: { left: number; metres: number; pay: number; kind: JobKind } | null;
+  job: { left: number; metres: number; pay: number; kind: JobKind; party: boolean } | null;
   hint: string;
   /** where the arrow points: the drop-off, or the nearest job */
   target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide' } | null;
@@ -294,6 +310,10 @@ export class Game {
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
+  /** The party run being played, if any. */
+  party: PartyRun | null = null;
+  /** A party run is over: the food got to the door (and how long it took from the pickup, s), or it got cold. */
+  onPartyEnd: (done: boolean, seconds: number) => void = () => undefined;
   /**
    * A station's job is offered on a card before it is taken (the owner, 23 November): `special` is the
    * line of a mission's package, when it goes to one. Without it, a package is taken by driving onto it.
@@ -328,6 +348,7 @@ export class Game {
 
   /** No run: the open jobs from the start, as many as one likes. */
   openPlay(): void {
+    this.party = null;
     this.comeDown();
     this.declined.clear();
     this.slowSaid = false;
@@ -343,6 +364,7 @@ export class Game {
 
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
+    this.party = null;
     this.comeDown();
     this.declined.clear();
     this.slowSaid = false;
@@ -354,6 +376,20 @@ export class Game {
     this.course = { start: this.set?.start ?? this.world.proj.toLngLat(x, y), legs: [] };
     this.from = null;
     if (this.job) this.endJob(false);
+    for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
+  }
+
+  /** A party run from here: no run and no other jobs, only the food from its place to the door. */
+  startParty(p: PartyRun): void {
+    this.openPlay();
+    this.party = p;
+  }
+
+  /** The party is called off: its food and its drop-off go, and the open jobs come back. */
+  endParty(): void {
+    if (!this.party) return;
+    this.party = null;
+    if (this.job?.party) this.endJob(false);
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
   }
 
@@ -524,6 +560,7 @@ export class Game {
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
     if (this.job) this.scene.remove(this.job.to.mesh);
     this.job = null;
+    this.party = null;
     this.routeLine.visible = false;
     this.routePts = null;
     this.routeT = 0;
@@ -1441,6 +1478,16 @@ export class Game {
       j.metres = Math.hypot(x - px, y - py);
       j.left -= dt;
 
+      if (j.metres < 6.5 && j.party) {
+        // the food is at the door: no pay, and the time from the pickup is what counts
+        const seconds = Math.max(0, (j.clock0 ?? 0) - j.left);
+        this.endJob(true);
+        this.party = null;
+        this.onSound('run');
+        this.onPartyEnd(true, seconds);
+        this.onSave();
+        return;
+      }
       if (j.metres < 6.5) {
         // what comes on top: time left over, three times as much on a rush job; on a supply run a
         // fifth more for a car that took no harm
@@ -1466,13 +1513,24 @@ export class Game {
           this.onRunEnd(r.score, r.seconds);
         }
       } else if (j.left <= 0) {
-        this.onToast('Too late: the job is gone', 'bad');
         this.onSound('late');
         this.endJob(false);
+        if (j.party) {
+          this.party = null;
+          this.onPartyEnd(false, 0);
+        } else this.onToast('Too late: the job is gone', 'bad');
       }
       return;
     }
     if (!this.moved && this.speed() > 3) this.moved = true;
+    // a party: one ring, at its food place, and nothing else
+    if (this.party) {
+      if (!this.pickups.length) this.pickups.push(this.markerAt('#2bd4e0', this.party.pick));
+      const m = this.pickups[0];
+      const [x, y] = this.local(m);
+      if (Math.hypot(x - px, y - py) < 6.5) this.takeParty(m);
+      return;
+    }
     // in a run someone sent there is one package at a time, where theirs was
     const sent = this.run.over ? null : this.set?.legs[this.run.done] ?? null;
     for (let i = this.pickups.length - 1; i >= 0; i--) {
@@ -1576,6 +1634,27 @@ export class Game {
       const m = p && this.pickupAt(p);
       if (m) this.pickups.push(m);
     }
+  }
+
+  /** The party's food on board: to the door, on its clock. */
+  private takeParty(m: Marker): void {
+    const p = this.party!;
+    const w = this.world;
+    const [px, py] = this.pos();
+    const to = this.markerAt('#ffd400', p.door);
+    const f = this.fieldOf(to);
+    const [tx, ty] = this.local(to);
+    const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
+    const r = inside && f ? w.roads.route(f, px, py) : null;
+    const metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
+    const clock = partyClock(metres);
+    this.job = { to, metres, left: clock, clock0: clock, pay: 0, kind: 'plain', hp0: this.car ? this.car.hp : 100, party: true };
+    this.from = m.at;
+    this.lastFrom = m.at;
+    this.routeT = 0;
+    for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
+    this.onToast(p.say, 'info');
+    this.onSound('pickup');
   }
 
   /** Whether a package is a station's job, which is offered on a card before it is taken. */
@@ -2144,7 +2223,7 @@ export class Game {
     if (this.job) {
       const [x, y] = this.local(this.job.to);
       best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop' };
-    } else if (this.guide) {
+    } else if (this.guide && !this.party) {
       best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide' };
     } else {
       for (const m of this.pickups) {
@@ -2177,7 +2256,7 @@ export class Game {
       health: Math.max(0, this.me.hp),
       carHp: this.car ? this.car.hp : null,
       kmh: this.speed() * 3.6,
-      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind } : null,
+      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind, party: !!this.job.party } : null,
       hint,
       target,
       delivered: this.delivered,

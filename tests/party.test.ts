@@ -1,0 +1,224 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Group } from 'three';
+import { Game } from '../src/game/game';
+import { RoadNet } from '../src/game/roads';
+import { World } from '../src/game/world';
+import { foodName, occasion, packParty, partyClock, pickFood, pointsDue, readParties, readParty, PARTY_FAR, PARTY_NEAR, type SentParty } from '../src/game/party';
+
+vi.mock('three', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('three')>();
+  return {
+    ...actual,
+    WebGLRenderer: class {
+      shadowMap = {};
+      setPixelRatio() {}
+      setSize() {}
+      getContext() { return { MAX_TEXTURE_SIZE: 0, getParameter: () => 4096 }; }
+    },
+  };
+});
+
+describe('the food place of a party', () => {
+  it('is a real one at a fitting distance by road, nearest 800 m', () => {
+    const got = pickFood([
+      { metres: 300, id: 'near' },
+      { metres: 700, id: 'good' },
+      { metres: 1100, id: 'far' },
+      { metres: 820, id: 'made up', invented: true },
+    ]);
+    expect(got?.id).toBe('good');
+  });
+
+  it('a made-up one only where no real one fits', () => {
+    expect(pickFood([{ metres: 200, id: 'real' }, { metres: 900, id: 'made up', invented: true }])?.id).toBe('made up');
+  });
+
+  it('else whichever is nearest the range, and none when there is none', () => {
+    expect(pickFood([{ metres: 100, id: 'a' }, { metres: PARTY_NEAR - 50, id: 'b' }, { metres: PARTY_FAR + 400, id: 'c' }])?.id).toBe('b');
+    expect(pickFood([])).toBeNull();
+  });
+
+  it('a clock quicker than a plain job: about 110 s for 800 m', () => {
+    expect(partyClock(800)).toBe(109);
+    expect(partyClock(0)).toBe(20);
+    expect(partyClock(-5)).toBe(20);
+  });
+
+  it('words for the food and the evening', () => {
+    expect(foodName('restaurant')).toBe('the pizza');
+    expect(foodName('shop')).toBe('the drinks and snacks');
+    expect(occasion(1)).toBe('games night');
+    expect(occasion(99)).toBe('party');
+  });
+});
+
+describe('points from parties', () => {
+  it('the first party of a day pays, the next that day does not', () => {
+    const p = readParties(null);
+    expect(pointsDue(p, '2026-11-23')).toBe(true);
+    expect(pointsDue({ ...p, paid: '2026-11-23' }, '2026-11-23')).toBe(false);
+    expect(pointsDue({ ...p, paid: '2026-11-23' }, '2026-11-24')).toBe(true);
+  });
+
+  it('what is kept is read back, and anything else is dropped', () => {
+    const kept = readParties(
+      JSON.stringify({
+        paid: '2026-11-23',
+        places: { a: { food: 'shop', invented: false, shop: { lat: 49.45, lon: 11.07 }, pick: { lat: 49.4501, lon: 11.0701 } }, b: { food: 'bar', shop: {}, pick: {} } },
+        best: { a: 101.6, b: -3, c: 'x' },
+        warned: true,
+      }),
+    );
+    expect(kept.paid).toBe('2026-11-23');
+    expect(Object.keys(kept.places)).toEqual(['a']);
+    expect(kept.best).toEqual({ a: 102 });
+    expect(kept.warned).toBe(true);
+    expect(readParties('{"paid":"yesterday"}').paid).toBe('');
+    expect(readParties('not json')).toEqual({ paid: '', places: {}, best: {}, warned: false });
+  });
+});
+
+describe('a party in a link', () => {
+  const party: SentParty = {
+    name: 'Lena',
+    by: 'Lena',
+    seconds: 102,
+    place: 'Nuremberg',
+    occasion: 1,
+    food: 'restaurant',
+    invented: false,
+    home: { lat: 49.45212, lon: 11.07671 },
+    door: { lat: 49.45218, lon: 11.07655 },
+    shop: { lat: 49.45801, lon: 11.0812 },
+    pick: { lat: 49.4579, lon: 11.08111 },
+  };
+
+  it('comes back as it was sent, in letters a link carries', () => {
+    const code = packParty(party);
+    expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(readParty(code)).toEqual(party);
+  });
+
+  it('carries a friend sending their time back: still the host’s party', () => {
+    const back = readParty(packParty({ ...party, by: 'Max', seconds: 95 }));
+    expect(back?.name).toBe('Lena');
+    expect(back?.by).toBe('Max');
+    expect(back?.seconds).toBe(95);
+  });
+
+  it('is not read from anything else', () => {
+    expect(readParty('')).toBeNull();
+    expect(readParty('nonsense!')).toBeNull();
+    // a food place far from the home
+    expect(readParty(packParty({ ...party, shop: { lat: 50.5, lon: 11 } }))).toBeNull();
+    // a challenge link's code is not a party
+    const challenge = btoa(JSON.stringify([2, 'x', 1, 1, 'y', 0, 0, 0, 0, 0, 0, 'p'])).replace(/=+$/, '');
+    expect(readParty(challenge)).toBeNull();
+  });
+});
+
+describe('a party in the game', () => {
+  beforeEach(() => {
+    vi.stubGlobal('navigator', { webdriver: true });
+    vi.stubGlobal('location', { search: '' });
+    vi.stubGlobal('devicePixelRatio', 1);
+    vi.stubGlobal('ResizeObserver', class { observe() {} });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  async function playing() {
+    const w = {
+      half: 750,
+      model: { group: new Group() },
+      roads: new RoadNet([{ kind: 'minor', pts: [[-600, 0], [600, 0]], widthM: 6, bridge: false }], 750),
+      proj: { toLocal: (lon: number, lat: number): [number, number] => [lon, lat], toLngLat: (x: number, y: number) => ({ lon: x, lat: y }) },
+      free: () => true,
+      groundY: () => 0,
+      needsRecentre: () => null,
+      dispose: vi.fn(),
+      sights: [],
+      services: [],
+    } as unknown as World;
+    vi.spyOn(World, 'load').mockResolvedValue(w);
+    const g = new Game({ clientWidth: 800, clientHeight: 600 } as HTMLCanvasElement, false);
+    (g as unknown as { parkCars: () => void }).parkCars = vi.fn();
+    await g.start({ lon: 0, lat: 0 });
+    g.car = null;
+    g.me.x = 0;
+    g.me.y = 0;
+    const jobs = (dt = 0.016) => (g as unknown as { jobs: (dt: number) => void }).jobs.call(g, dt);
+    const pickups = () => (g as unknown as { pickups: Array<{ at: { lon: number; lat: number }; mesh: Group; kind?: string }> }).pickups;
+    return { g, jobs, pickups };
+  }
+
+  it('one ring at the food place, and nothing else: no run, no station', async () => {
+    const { g, jobs, pickups } = await playing();
+    g.newRun();
+    g.startParty({ pick: { lon: 400, lat: 0 }, door: { lon: -300, lat: 0 }, say: 'The pizza is on board' });
+    expect(g.run.over).toBe(true);
+    jobs();
+    jobs();
+    expect(pickups().map((m) => m.at)).toEqual([{ lon: 400, lat: 0 }]);
+    expect(g.job).toBeNull();
+  });
+
+  it('the food on board: to the door on its clock, no pay, and the time from the pickup', async () => {
+    const { g, jobs } = await playing();
+    const ended = vi.fn();
+    g.onPartyEnd = ended;
+    const cash = g.cash;
+    g.startParty({ pick: { lon: 0, lat: 0 }, door: { lon: -300, lat: 0 }, say: 'The pizza is on board' });
+    jobs();
+    jobs();
+    expect(g.job?.party).toBe(true);
+    expect(g.job?.pay).toBe(0);
+    expect(g.job?.clock0).toBe(partyClock(300));
+    expect(g.hud().job?.party).toBe(true);
+    // 30 seconds on the way, then at the door
+    jobs(30);
+    g.me.x = -300;
+    jobs();
+    expect(ended).toHaveBeenCalledOnce();
+    expect(ended.mock.calls[0][0]).toBe(true);
+    expect(ended.mock.calls[0][1]).toBeCloseTo(30, 0);
+    expect(g.cash).toBe(cash);
+    expect(g.party).toBeNull();
+    expect(g.job).toBeNull();
+  });
+
+  it('gets cold when the clock runs out', async () => {
+    const { g, jobs } = await playing();
+    const ended = vi.fn();
+    g.onPartyEnd = ended;
+    g.startParty({ pick: { lon: 0, lat: 0 }, door: { lon: -300, lat: 0 }, say: '' });
+    jobs();
+    jobs();
+    jobs(partyClock(300) + 1);
+    expect(ended).toHaveBeenCalledWith(false, 0);
+    expect(g.party).toBeNull();
+  });
+
+  it('called off, or a new run: the party is gone, with its ring', async () => {
+    const { g, jobs, pickups } = await playing();
+    g.startParty({ pick: { lon: 400, lat: 0 }, door: { lon: -300, lat: 0 }, say: '' });
+    jobs();
+    g.endParty();
+    expect(g.party).toBeNull();
+    expect(pickups()).toEqual([]);
+    g.startParty({ pick: { lon: 400, lat: 0 }, door: { lon: -300, lat: 0 }, say: '' });
+    g.newRun();
+    expect(g.party).toBeNull();
+  });
+
+  it('the arrow shows the food place, not another way the homes asked for', async () => {
+    const { g, jobs } = await playing();
+    g.guide = { x: -500, y: 0 };
+    g.startParty({ pick: { lon: 400, lat: 0 }, door: { lon: -300, lat: 0 }, say: '' });
+    jobs();
+    expect(g.hud().target?.kind).toBe('job');
+    expect(g.hud().target?.metres).toBeCloseTo(400, 0);
+  });
+});

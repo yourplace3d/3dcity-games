@@ -24,6 +24,12 @@ lives.
   card (take it or not; then only that job). Live on the owner's word ("then you can push both") after two
   code reviews: the plan, section 6b.
 
+- **Parties at the homes, to reward sharing (owner, 23 November, night):** stop beside a home you own to throw
+  a party: fetch the pizza (a restaurant) or drinks and snacks (a supermarket) from the map and bring it to the
+  door against the clock. 2 home points for the day's first party, no cash. At the end, softly: "Someone still
+  missing for tonight's party?" with a link, or "No, we're a full house". Links are neither rewarded nor
+  counted (the owner's word). Built on branch `claude/party-run`, not live: the plan, section 8.
+
 ## Where things stand
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).

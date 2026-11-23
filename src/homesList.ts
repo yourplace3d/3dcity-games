@@ -1,8 +1,7 @@
 /**
  * The player's homes, wherever they stand. A new place is not a new game: cash and homes come
- * along to every place played, so a card lists the homes by town, with what each pays, and leads to
- * one. It opens from the start screen and from the pause card once the browser owns a home (`#homes`
- * in `index.html`, wired in `main.ts`).
+ * along to every place played, so the menu's Real estate tab lists the homes by town, with what each
+ * pays, and leads to one (`#pane-estate` in `index.html`, drawn by `drawEstate` in `main.ts`).
  */
 
 import { kmBetween } from './game/bank';
@@ -100,7 +99,7 @@ export function drawHomes(
       const here = act.here(l.home);
       const go = document.createElement('button');
       go.type = 'button';
-      go.textContent = here ? 'Show the way' : 'Go there';
+      go.textContent = here ? 'On the map' : 'Go there';
       go.addEventListener('click', () => (here ? act.show(l.home) : act.go(t, l.home)));
       li.append(text, go);
       ul.append(li);
@@ -115,3 +114,4 @@ export function drawHomes(
     list.append(box);
   }
 }
+

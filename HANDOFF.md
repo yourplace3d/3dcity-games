@@ -4,6 +4,18 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
+## Right now (23 November 2026)
+
+- **The owner put street cred on the wishlist,** like the third currency: missions and learning to use the
+  bank come first, for players who come back. The plan and the brainstorm of what happens at the player's
+  homes: `docs/plan-returning-players.md`.
+- **Going live on the owner's word** ("review it and bring it live if the review passes", 23 November):
+  branch `claude/returning-players`, merged into `main` by pull request after four code reviews. In it: a
+  line on return saying what the homes paid, the mission to the bank and its reminder, ☰ as one menu
+  (❚❚, "Real estate", "Trophies") with a house button beside it, 17 trophies, and home points (a delivery
+  earns one; a flat takes 2, a house 10; one flat or house a day without a realtor, after the day's first
+  delivery). Questions still open for the owner: the plan, section 6.
+
 ## Where things stand
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).

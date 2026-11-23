@@ -114,6 +114,13 @@ export interface Hud {
   run: { n: number; of: number; score: number } | null;
 }
 
+/** What happened in play, for whoever listens (the trophies). */
+export type GameEvent =
+  | { kind: 'delivered'; job: JobKind; left: number; special: boolean }
+  | { kind: 'fined' }
+  | { kind: 'lost' }
+  | { kind: 'run'; fined: boolean };
+
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
@@ -282,6 +289,13 @@ export class Game {
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
+  /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished. */
+  readonly events: Array<(e: GameEvent) => void> = [];
+  private emit(e: GameEvent): void {
+    for (const f of this.events) f(e);
+  }
+  /** the run in which the last fine came */
+  private finedIn: unknown = null;
   /** The run being scored: deliveries done, what they earned less fines, and the time played. */
   run = { done: 0, score: 0, seconds: 0, over: false, of: RUN_JOBS };
   /** Where the run being scored has led so far, so that someone else can be sent the same run. */
@@ -1314,6 +1328,7 @@ export class Game {
       if (this.heat <= 0) {
         this.heat = 0;
         this.onToast('You lost them', 'good');
+        this.emit({ kind: 'lost' });
       }
     }
     // more heat, more police
@@ -1333,6 +1348,8 @@ export class Game {
     const cost = Math.min(this.cash, Math.max(50, Math.round((this.cash * share) / 10) * 10));
     this.cash -= cost;
     if (!this.run.over) this.run.score = Math.max(0, this.run.score - cost);
+    this.finedIn = this.run;
+    this.emit({ kind: 'fined' });
     this.heat = 0;
     this.caughtT = 0;
     this.me.hp = 100;
@@ -1417,9 +1434,11 @@ export class Game {
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
         if (j.special) this.onSpecialDone();
+        this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special });
         this.onSave();
         if (!r.over && r.done >= r.of) {
           r.over = true;
+          this.emit({ kind: 'run', fined: this.finedIn === r });
           this.onRunEnd(r.score, r.seconds);
         }
       } else if (j.left <= 0) {

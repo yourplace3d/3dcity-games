@@ -9,12 +9,19 @@ import type { World } from './game/world';
 import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHomes, type Home, type Homes, type Lot } from './game/homes';
 import { FIXER_AFTER, FIXER_MIN, jobLines, loadReno, rentShare, storeReno, UNITS_MAX, UNITS_MIN, wantsJob, WORN, type Reno } from './game/renovation';
 import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from './game/bank';
+import { caughtCost, lessonDue, loadLesson, nearestBank, remindAt, remindDue, REMIND_ARROW_S, REMIND_GAP_S, storeLesson, type Lesson, type LessonNow } from './game/bankMission';
+import { dailyReady, deliveries, deliveriesFor, earn, pointsFor, POINTS_MAX, loadDaily, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS, type Daily } from './game/homePoints';
 import { MAX_CASH } from './game/game';
 import { serviceIcon } from './game/services';
 import { pointInRing } from './geo/polygon';
 import { countPlay } from './linkCount';
 
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+/**
+ * How to get to the menu from a line over the game: with a mouse, the line itself is clicked; on a touch
+ * screen the lines take no taps, as the steering pad lies under them, so it is the house button.
+ */
+const toMenu = () => (document.body.classList.contains('touch') ? 'Tap the house button at the top' : 'Click here');
 /** how near a building one has to stop for its panel (m) */
 const BESIDE_M = 7;
 /** how near a bank one has to stop: its spot on the road, or the bank itself on foot (m) */
@@ -22,6 +29,15 @@ const BANK_ROAD_M = 9;
 const BANK_M = 14;
 /** how far from the end of a run an offer may lie (m) */
 const OFFER_M = 500;
+/** seconds of play before the rent is said, so the place's name across the screen is read first */
+const RENT_AFTER_S = 3.4;
+/** the first this many times, the line on rent says where to find the homes */
+const RENT_NOTES = 5;
+const NOTES_STORE = '3da-rentnotes';
+/** said once to a player with homes: buying now takes home points (new on 23 November 2026) */
+const POINTS_NOTE = '3da-pointsnote';
+/** seconds of play before it is said: after the place's name and the rent */
+const POINTS_NOTE_S = 9;
 
 let homeIcon: HTMLCanvasElement | null = null;
 
@@ -107,7 +123,8 @@ function describe(lot: Lot, what: 'flat' | 'house' | 'building'): string {
 
 export interface HomesHost {
   game: Game;
-  toast: (text: string, kind?: 'good' | 'bad' | 'info', ms?: number) => void;
+  /** a line over the game; with `tap`, tapping it does that */
+  toast: (text: string, kind?: 'good' | 'bad' | 'info', ms?: number, tap?: () => void) => void;
   /** keep the cash (and say that something changed, for saving online) */
   save: () => void;
   /** the name of the place being played */
@@ -116,6 +133,12 @@ export interface HomesHost {
   firstHome?: (what: string, rent: string, worn: boolean) => void;
   /** a card over the game that waits for an answer (the mission's); with no `no`, a single button */
   card?: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void) => void;
+  /** the side menu with the homes (real estate and trophies) */
+  openHomes?: () => void;
+  /** nothing may give the place away now (a city is being guessed): no way to the list of homes */
+  quiet?: () => boolean;
+  /** something lies over the game (the menu, the big map, a card): keys do nothing to the panel under it */
+  blocked?: () => boolean;
 }
 
 export class HomesUi {
@@ -149,13 +172,37 @@ export class HomesUi {
    * the rest of it, or to paint it), or a home picked from the list of homes.
    */
   private wayTo: Home | null = null;
+  /** the line on the rent of the day, waiting for the place's name to be read (`RENT_AFTER_S`) */
+  private rentLine: string | null = null;
+  private rentLineT = 0;
+  /** home points (`game/homePoints.ts`): earned by deliveries, taken by homes */
+  private points = loadPoints();
+  /** the free home of the day: when it was last taken, and the last day a delivery was made */
+  private daily: Daily = loadDaily();
+  /** the deliveries counted for points so far */
+  private counted = -1;
+  /** seconds of play left before the line on home points; null: not to be said */
+  private pointsNoteT: number | null = null;
+  /** learning to use the bank (`game/bankMission.ts`) */
+  private lesson: Lesson = loadLesson(this.saved > 0);
+  /** this visit: seconds played, the deliveries before it, the seconds since the last reminder */
+  private playedS = 0;
+  private deliveredBefore = -1;
+  private sinceRemind = REMIND_GAP_S - 60;
+  /** seconds left of the arrow to the bank after a reminder */
+  private remindArrow = 0;
+  /** the bank the arrow points at, and the point it shows (kept, so the arrow can be told from others') */
+  private bankTarget: HomesUi['banks'][number] | null = null;
+  private bankGuide: { x: number; y: number } | null = null;
+  /** the mission to the bank, said on this visit */
+  private lessonSaid = false;
 
   constructor(private readonly host: HomesHost) {
     host.game.ticks.push((dt) => this.tick(dt));
     host.game.onSpecialTaken = () => this.specialTaken();
     host.game.onSpecialDone = () => this.specialDone();
     addEventListener('keydown', (e) => {
-      if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden) return;
+      if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden || this.host.blocked?.()) return;
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
       this.panel.querySelector<HTMLButtonElement>('button:not(.swatch)')?.click();
     });
@@ -174,7 +221,42 @@ export class HomesUi {
     if (game.world !== this.world) this.enter(game.world);
     if (!this.welcomed) {
       this.welcomed = true;
+      this.deliveredBefore = game.delivered;
       this.payRent(true);
+      // a player with homes, once: buying now takes home points
+      let told = true;
+      try {
+        told = !!localStorage.getItem(POINTS_NOTE);
+      } catch {
+        /* private window: nothing kept, so nothing said */
+      }
+      if (this.homes.homes.length && !told) this.pointsNoteT = POINTS_NOTE_S;
+    }
+    this.playedS += dt;
+    this.sinceRemind += dt;
+    if (this.remindArrow > 0) this.remindArrow -= dt;
+    // a point for each delivery
+    if (this.counted < 0 || game.delivered < this.counted) this.counted = game.delivered;
+    if (game.delivered > this.counted) {
+      const more = game.delivered - this.counted;
+      this.counted = game.delivered;
+      // a delivery today: the day's free home is there
+      this.daily.played = dayOf(Date.now());
+      this.setPoints(earn(this.points, more), true);
+    }
+    if (this.rentLine !== null) {
+      this.rentLineT -= dt;
+      if (this.rentLineT <= 0) {
+        this.sayRent(this.rentLine);
+        this.rentLine = null;
+      }
+    }
+    if (this.pointsNoteT !== null) {
+      this.pointsNoteT -= dt;
+      if (this.pointsNoteT <= 0 && !game.job && !this.host.quiet?.()) {
+        this.pointsNoteT = null;
+        this.sayPointsNote();
+      }
     }
     if (this.savedEl) {
       this.savedEl.hidden = !this.plate;
@@ -186,6 +268,7 @@ export class HomesUi {
     this.lookT = 0.25;
     this.look();
     this.missionTick();
+    this.bankTick();
   }
 
   // ------------------------------------------------------------ the first home and its building
@@ -224,6 +307,12 @@ export class HomesUi {
   /** Whether a home stands in the square being played. */
   isHere(home: Home): boolean {
     return !!this.lotOf(home);
+  }
+
+  /** Where a home stands in the square being played, for the big map; null when it is not in it. */
+  spotOf(home: Home): { x: number; y: number } | null {
+    const lot = this.lotOf(home);
+    return lot ? { x: lot.x, y: lot.y } : null;
   }
 
   /** The arrow points the way to a home in the square being played, until the player gets there. */
@@ -296,7 +385,7 @@ export class HomesUi {
       const [px, py] = game.pos();
       if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job) {
         if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.wayTo = null;
-        if (game.guide && !game.job) game.guide = null;
+        if (game.guide && game.guide !== this.bankGuide && !game.job) game.guide = null;
       } else {
         const [rx, ry] = world.roads.point(n.line, n.s);
         game.guide = { x: rx, y: ry };
@@ -435,6 +524,7 @@ export class HomesUi {
     this.owned = homesIn(this.homes, world.lots, (lon, lat) => world.proj.toLocal(lon, lat));
     for (const lot of this.owned.keys()) this.marks.set(lot, world.mark(icon(), lot.x, lot.y));
     this.banks = [];
+    this.guideBank(false);
     this.showBanks();
     // the mission's area is picked again in the new square
     this.area = null;
@@ -481,14 +571,133 @@ export class HomesUi {
     this.saved += amount;
     storeSaved(this.saved);
     this.host.save();
+    this.remindArrow = 0;
+    this.sinceRemind = 0;
+    this.guideBank(false);
+    if (this.lesson.stage !== 'done') {
+      const was = this.lesson.stage;
+      this.setLesson({ stage: 'done', rent: this.lesson.rent });
+      // the mission to the bank ends with a card; paid in without being asked, a line is enough
+      if (was === 'go' && this.host.card) {
+        // the panel first: once the card is up, the game waits and the panel is not drawn again
+        this.shown = '';
+        this.look();
+        this.host.card(
+          'Your money is safe',
+          `${money(amount)} is in the bank now, ${money(this.saved)} in all. Fines only take from the cash you carry. Whenever you carry a lot of it again, you'll be reminded, and the arrow shows the way to the nearest bank.`,
+          'Keep driving',
+          '',
+          () => undefined,
+        );
+        return amount;
+      }
+    }
     this.host.toast(`${money(amount)} paid in. You have ${money(this.saved)} in the bank, safe from fines.`, 'good', 5000);
     this.shown = '';
     this.look();
     return amount;
   }
 
-  /** Pay the rent of a new day, once. On arrival, say so. */
-  payRent(arriving = false): number {
+  // ------------------------------------------------------------ learning to use the bank
+
+  private setLesson(l: Lesson): void {
+    this.lesson = l;
+    storeLesson(l);
+    this.host.save();
+  }
+
+  /** The square is in the home plate, and has a bank. */
+  private bankHere(): boolean {
+    return this.atPlate && this.banks.length > 0;
+  }
+
+  /** The arrow to the nearest bank, on or off. It gives way to the way to a home, and to any other arrow. */
+  private guideBank(on: boolean): void {
+    const { game } = this.host;
+    if (!on) {
+      if (this.bankGuide && game.guide === this.bankGuide) game.guide = null;
+      this.bankGuide = null;
+      this.bankTarget = null;
+      return;
+    }
+    // a way to a home in this square goes first; one to a home elsewhere shows no arrow, so it does not
+    if ((this.wayTo && this.lotOf(this.wayTo)) || (game.guide && game.guide !== this.bankGuide)) return;
+    if (!this.bankTarget || !this.banks.includes(this.bankTarget)) {
+      const [px, py] = game.pos();
+      this.bankTarget = nearestBank(this.banks, px, py);
+      this.bankGuide = this.bankTarget && { x: this.bankTarget.rx, y: this.bankTarget.ry };
+    }
+    if (this.bankGuide) game.guide = this.bankGuide;
+  }
+
+  /** Whether the arrow points to a bank now (another way, to a home, can have it). */
+  private bankArrow(): boolean {
+    return !!this.bankGuide && this.host.game.guide === this.bankGuide;
+  }
+
+  private bankTick(): void {
+    const { game } = this.host;
+    if (!this.world || !this.homes.homes.length) return;
+    // a city being guessed: the mission's card and the reminders would name or hint at the home town
+    if (this.host.quiet?.()) {
+      this.guideBank(false);
+      return;
+    }
+    const n: LessonNow = {
+      today: dayOf(Date.now()),
+      bankHere: this.bankHere(),
+      cash: game.cash,
+      deliveredHere: game.delivered - Math.max(0, this.deliveredBefore),
+      playedS: this.playedS,
+      busy: !!game.job || this.rentLine !== null,
+    };
+    const l = this.lesson;
+    if (l.stage === 'go') {
+      if (!n.bankHere) return;
+      // the cash went on something else: ask again another day
+      if (game.cash < 1) {
+        this.guideBank(false);
+        this.setLesson({ stage: 'offer', later: n.today, rent: true });
+        return;
+      }
+      this.guideBank(true);
+      if (!this.lessonSaid) {
+        this.lessonSaid = true;
+        this.host.toast(this.bankArrow() ? 'Mission: to the bank. The arrow shows the nearest one: stop beside it and pay in.' : 'Mission: to the bank. Stop beside one and pay in.', 'info', 7000);
+      }
+      return;
+    }
+    if (this.host.card && lessonDue(l, n)) {
+      this.lessonSaid = true;
+      const place = this.plate?.place || 'your home town';
+      this.host.card(
+        'Mission: to the bank',
+        `You carry ${money(game.cash)} in cash. If the police catch you, they take ${money(caughtCost(game.cash))} of it, and a wreck costs a share too. Money in the bank is safe from fines, and it still pays for homes in ${place}. The arrow shows the nearest bank: stop beside it and pay in.`,
+        'Show me the bank',
+        'Later',
+        (yes) => {
+          if (!yes) {
+            this.setLesson({ stage: 'offer', later: n.today, rent: true });
+            return;
+          }
+          this.setLesson({ stage: 'go', rent: true });
+          this.guideBank(true);
+        },
+      );
+      return;
+    }
+    if (remindDue(l, n, this.rentPerVisit(), this.sinceRemind)) {
+      this.sinceRemind = 0;
+      this.remindArrow = REMIND_ARROW_S;
+      this.guideBank(true);
+      this.host.toast(`You carry ${money(game.cash)}. Caught by the police, you'd lose ${money(caughtCost(game.cash))}: ${this.bankArrow() ? 'the arrow shows the nearest bank' : 'a bank keeps it safe'}.`, 'info', 9000);
+    }
+    // the reminder's arrow, for a while; a package on board has its own
+    this.guideBank(this.remindArrow > 0 && n.bankHere && game.cash >= remindAt(this.rentPerVisit()) / 2);
+  }
+
+  /** Pay the rent of a new day, once. On arrival, say so. `covered`: a card lies over the lines, so no way to the menu in them. */
+  payRent(arriving = false, covered = false): number {
     const today = dayOf(Date.now());
     if (!this.homes.homes.length || today === this.homes.paidDay) return 0;
     // the day counts as paid even when nothing was due (a worn-down flat), so a repair pays from tomorrow
@@ -503,9 +712,108 @@ export class HomesUi {
     const got = this.host.game.cash - before;
     if (got < 1) return 0;
     if (arriving) countPlay('rent');
+    // rent came in on a return: the mission to the bank may come
+    if (arriving && !this.lesson.rent) this.setLesson({ ...this.lesson, rent: true });
     const homes = this.homes.homes.length === 1 ? 'your home' : `your ${this.homes.homes.length} homes`;
-    this.host.toast(arriving ? `Welcome back. Today ${homes} paid you ${money(got)} rent.` : `A new day: ${homes} paid you ${money(got)} rent.`, 'good', 9000);
+    const text = arriving ? `Welcome back. Today ${homes} paid you ${money(got)} rent.` : `A new day: ${homes} paid you ${money(got)} rent.`;
+    if (arriving) {
+      // once the place's name has been read
+      this.rentLine = text;
+      this.rentLineT = RENT_AFTER_S;
+    } else if (covered) this.host.toast(text, 'good', 9000);
+    else this.sayRent(text);
     return got;
+  }
+
+  /** The line on rent: the first few times, with the way to the list of homes. */
+  private sayRent(text: string): void {
+    let n = 0;
+    try {
+      n = Number(localStorage.getItem(NOTES_STORE)) || 0;
+    } catch {
+      /* private window: the note every time */
+    }
+    const open = this.host.openHomes;
+    if (n >= RENT_NOTES || !open || this.host.quiet?.()) {
+      this.host.toast(text, 'good', 9000);
+      return;
+    }
+    try {
+      localStorage.setItem(NOTES_STORE, String(n + 1));
+    } catch {
+      /* as above */
+    }
+    this.host.toast(`${text} ${toMenu()} to see your homes.`, 'good', 12000, open);
+  }
+
+  // ------------------------------------------------------------ home points
+
+  /** Once, to a player with homes: what home points are, with the way to the menu. */
+  private sayPointsNote(): void {
+    try {
+      localStorage.setItem(POINTS_NOTE, '1');
+    } catch {
+      /* as above */
+    }
+    this.host.toast(
+      `New: home points. Each delivery earns one; a flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. After your first delivery each day, one ${this.housesOpen() ? 'flat or house' : 'flat'} can be bought without a realtor. ${toMenu()} to see yours.`,
+      'info',
+      14000,
+      this.host.openHomes,
+    );
+  }
+
+  /** Home points now: one for each delivery, up to `POINTS_MAX`. */
+  pointsNow(): number {
+    return this.points;
+  }
+
+  /** The free home of the day: 'ready', 'later' (after the first delivery today) or 'used'; null before the first home. */
+  dailyNow(): 'ready' | 'later' | 'used' | null {
+    if (!this.homes.homes.length) return null;
+    const today = dayOf(Date.now());
+    return this.daily.used === today ? 'used' : this.daily.played === today ? 'ready' : 'later';
+  }
+
+  /** Whether houses can be bought yet (`HOUSES_AFTER`). */
+  housesOpen(): boolean {
+    return canBuy(this.homes, 'house');
+  }
+
+  /** The line on the day's home without a realtor: there, after the first delivery, or bought. */
+  dailyLine(): string {
+    const d = this.dailyNow();
+    const what = this.housesOpen() ? 'flat or house' : 'flat';
+    if (d === 'ready') return `Today one ${what} can be bought without a realtor: no points needed.`;
+    if (d === 'later') return `After your first delivery today, one ${what} can be bought without a realtor: no points needed.`;
+    return `Today’s ${what} without a realtor is bought. Tomorrow there is another.`;
+  }
+
+  /** Points, and the day's free home, kept; `changed`: the day's free home changed even if the points did not. */
+  private setPoints(p: number, changed = false): void {
+    if (p === this.points && !changed) return;
+    this.points = p;
+    storePoints(p, this.daily);
+    this.host.save();
+    this.shown = '';
+  }
+
+  /** The points a home takes: none for the first home, nor for the rest of its building in the first-home mission. */
+  private cost(lot: Lot, what: 'flat' | 'house' | 'building'): number {
+    if (!this.homes.homes.length) return 0;
+    const had = this.homeOf(lot);
+    if (what === 'building' && had && had === this.homes.homes[0] && this.reno?.stage === 'buy') return 0;
+    return pointsFor(what, what === 'building' ? lot.units - (had ? 1 : 0) : 1);
+  }
+
+  /** Whether buying this now would take the day's free home: a flat or house that would otherwise take points. */
+  private daySpends(lot: Lot, what: 'flat' | 'house' | 'building'): boolean {
+    return what !== 'building' && this.cost(lot, what) > 0 && dailyReady(this.daily, dayOf(Date.now()));
+  }
+
+  /** Deliveries still missing before this can be bought: 0 when it can be now. */
+  private waitFor(lot: Lot, what: 'flat' | 'house' | 'building'): number {
+    return deliveriesFor(this.points, this.cost(lot, what), this.daily, dayOf(Date.now()), what !== 'building' && this.homes.homes.length > 0);
   }
 
   /** Buy a lot of the square being played. */
@@ -528,7 +836,9 @@ export class HomesUi {
     // building below what the flat cost. Credit that payment, but never refund cash on a buy.
     const price = what === 'building' ? Math.max(0, lot.whole - (had?.paid ?? 0)) : worn ? this.fixerPrice(lot) : lot.price;
     const pay = payFrom(price, game.cash, this.saved, this.atPlate);
-    if (!pay || !this.open(lot, what) || (had && what !== 'building') || had?.kind === 'building') return false;
+    const daily = this.daySpends(lot, what);
+    const need = daily ? 0 : this.cost(lot, what);
+    if (!pay || need > this.points || !this.open(lot, what) || (had && what !== 'building') || had?.kind === 'building') return false;
     const restOfReno = !!had && had === this.homes.homes[0] && this.reno?.stage === 'buy';
     // the rent so far goes out first, so the new home's rent starts now
     this.payRent();
@@ -536,6 +846,8 @@ export class HomesUi {
     const first = !this.homes.homes.length;
     if (first) this.homes.paidDay = dayOf(Date.now());
     game.cash -= pay.cash;
+    if (daily) this.daily.used = dayOf(Date.now());
+    if (need || daily) this.setPoints(this.points - need, daily);
     if (pay.saved) {
       this.saved -= pay.saved;
       storeSaved(this.saved);
@@ -555,6 +867,12 @@ export class HomesUi {
     this.host.save();
     countPlay('home', what);
     if (first) {
+      // home points were there from this player's first home: the note on them is not news
+      try {
+        localStorage.setItem(POINTS_NOTE, '1');
+      } catch {
+        /* private window */
+      }
       this.dropArea(worn ? lot : undefined);
       // a worn-down flat is repaired, building and all; any other first home has nothing to repair
       this.setReno(worn ? { stage: 'flat', units: lot.units } : { stage: 'done' });
@@ -596,7 +914,7 @@ export class HomesUi {
       }
     }
     if (bank) found = null;
-    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''}` : '';
+    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
     this.panel.hidden = !shown;
@@ -606,7 +924,7 @@ export class HomesUi {
       const title = document.createElement('b');
       title.textContent = 'Bank';
       const p = document.createElement('p');
-      p.textContent = `You have ${money(this.saved)} here. Money in the bank is safe from fines and pays for homes in ${this.plate?.place || 'your home town'}.`;
+      p.textContent = `You have ${money(this.saved)} here. Money in the bank is safe from fines and pays for homes in ${(!this.host.quiet?.() && this.plate?.place) || 'your home town'}.`;
       const b = document.createElement('button');
       const amount = Math.min(Math.floor(game.cash), MAX_CASH - this.saved);
       b.textContent = `Pay in ${money(Math.max(0, amount))}`;
@@ -625,8 +943,17 @@ export class HomesUi {
     const button = (text: string, price: number, what: 'flat' | 'house' | 'building') => {
       const b = document.createElement('button');
       const open = this.open(found!, what);
-      b.textContent = open ? `${text}  ${money(price)}` : `${text}: opens ${opensAfter(what)}`;
-      b.disabled = !open || this.budget() < price;
+      const need = this.cost(found!, what);
+      const wait = this.waitFor(found!, what);
+      const day = this.daySpends(found!, what);
+      b.textContent = !open
+        ? `${text}: opens ${opensAfter(what)}`
+        : need > POINTS_MAX && what === 'building'
+          ? `${text}: too big for now`
+          : wait
+            ? `${text}  ${money(price)}: after ${deliveries(wait)}`
+            : `${text}  ${money(price)}${day ? ' · no realtor needed' : need ? ` · ${need} points` : ''}`;
+      b.disabled = !open || wait > 0 || this.budget() < price;
       b.addEventListener('click', () => this.buy(found!, what));
       this.panel.append(b);
     };
@@ -669,6 +996,12 @@ export class HomesUi {
       button(`Buy all ${found.units}`, found.whole, 'building');
     }
     if (this.budget() < found.price) line(`You have ${money(game.cash)}${this.atPlate && this.saved ? ` and ${money(this.saved)} in the bank` : ''}.`);
+    if (this.homes.homes.length) {
+      const p = document.createElement('p');
+      p.className = 'small';
+      p.textContent = `You have ${this.points} ${this.points === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. ${this.dailyLine()}`;
+      this.panel.append(p);
+    }
   }
 
   /** For a whole house or building: the colours it can be painted, and the map's own. */
@@ -708,7 +1041,8 @@ export class HomesUi {
    */
   offer(box: HTMLElement): void {
     const { game } = this.host;
-    const rent = this.payRent();
+    // the result card lies over the lines
+    const rent = this.payRent(false, true);
     box.replaceChildren();
     const world = this.world;
     if (!world) {
@@ -732,10 +1066,10 @@ export class HomesUi {
       return;
     }
     box.hidden = false;
-    const open = (l: Lot) => canBuy(this.homes, l.kind === 'house' ? 'house' : 'flat');
-    const affordable = free.filter((l) => open(l) && l.price <= cash).sort((a, b) => b.price - a.price || Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py));
-    const pick = affordable[0];
     const what = (l: Lot) => (l.kind === 'house' ? 'house' : 'flat');
+    const open = (l: Lot) => canBuy(this.homes, what(l));
+    const affordable = free.filter((l) => open(l) && l.price <= cash && !this.waitFor(l, what(l))).sort((a, b) => b.price - a.price || Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py));
+    const pick = affordable[0];
     if (pick) {
       const head = document.createElement('b');
       head.textContent = `For sale near here: ${describe(pick, what(pick))}`;
@@ -749,9 +1083,12 @@ export class HomesUi {
       });
       box.append(b);
     } else {
-      const cheap = [...free].filter(open).sort((a, b) => a.price - b.price)[0];
+      const paid = [...free].filter((l) => open(l) && l.price <= cash).sort((a, b) => this.waitFor(a, what(a)) - this.waitFor(b, what(b)) || a.price - b.price)[0];
+      const cheap = paid ?? [...free].filter(open).sort((a, b) => a.price - b.price)[0];
       if (!cheap) return;
-      p(`The cheapest home near here is ${describe(cheap, what(cheap))}: ${money(cheap.price)}. ${money(cheap.price - cash)} more and it's yours.`);
+      const wait = this.waitFor(cheap, what(cheap));
+      if (cheap.price <= cash && wait) p(`For sale near here: ${describe(cheap, what(cheap))}, ${money(cheap.price)}. You can buy your next home after ${deliveries(wait)}.`);
+      else p(`The cheapest home near here is ${describe(cheap, what(cheap))}: ${money(cheap.price)}. ${money(cheap.price - cash)} more${wait ? ` and ${deliveries(wait)}` : ''}, and it's yours.`);
     }
     // something bigger, to aim for: the nearest house or whole building that costs more
     const goal = free

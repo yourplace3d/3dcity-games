@@ -24,6 +24,8 @@ export class Minimap {
   private baseOf: World | null = null;
   /** the place is being guessed: sights keep their star and lose their name */
   secret = false;
+  /** a point that blinks: a home picked from the side menu */
+  spot: { x: number; y: number } | null = null;
 
   /** `whole`: show the whole loaded square instead of the streets around you. */
   constructor(private readonly canvas: HTMLCanvasElement, private readonly whole = false) {
@@ -67,7 +69,8 @@ export class Minimap {
     const css = el.clientWidth;
     if (!css) return;
     const W = Math.round(css * dpr);
-    if (el.width !== W) {
+    // a new canvas is 300 × 150: square it even when its width already fits
+    if (el.width !== W || el.height !== W) {
       el.width = W;
       el.height = W;
     }
@@ -219,6 +222,21 @@ export class Minimap {
         const [sx, sy, far] = pinned(x, y);
         if (!far) dot(sx, sy, 3.5, '#ff5a4d', '#fff');
       }
+    }
+    // a home picked from the side menu: a yellow ring that pulses around it
+    if (this.spot) {
+      const [sx, sy] = pinned(this.spot.x, this.spot.y);
+      const t = (performance.now() % 1200) / 1200;
+      ctx.beginPath();
+      ctx.arc(sx, sy, (12 + 14 * t) * dpr * big, 0, Math.PI * 2);
+      ctx.lineWidth = 3 * dpr;
+      ctx.strokeStyle = `rgba(255, 212, 0, ${1 - t})`;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sx, sy, 11 * dpr * big, 0, Math.PI * 2);
+      ctx.lineWidth = 2.5 * dpr;
+      ctx.strokeStyle = '#ffd400';
+      ctx.stroke();
     }
     // you: an arrowhead the way you face
     ctx.save();

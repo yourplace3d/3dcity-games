@@ -1150,7 +1150,9 @@ export class Game {
       };
       // a train brakes for another train and for nothing else: keeping off the track is up to you
       const train = c.kind === 'train';
-      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 110 && Math.abs(o.y - c.y) < 110) gapTo(o.x, o.y, o.a + o.r, 1.5);
+      // a tram, held on its rails and never giving way, also slows for a car close beside its track
+      const wide = c.kind === 'tram' ? c.spec.wid / 2 + 1 : 1.5;
+      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 110 && Math.abs(o.y - c.y) < 110) gapTo(o.x, o.y, o.a + o.r, wide);
       if (!train) {
         for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
         if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);

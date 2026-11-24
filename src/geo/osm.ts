@@ -345,7 +345,7 @@ export function parseFeatures(res: OverpassResponse, center: LngLat): FeatureSet
     const pts = toRing(el.geometry, proj);
     if (pts.length < 2) continue;
     // a one-way street (a roundabout is one by its nature): 1 with the way's points, -1 against them
-    const ow = tags.oneway === 'yes' || tags.oneway === '1' || tags.oneway === 'true' || (tags.junction === 'roundabout' && tags.oneway !== 'no') ? 1 : tags.oneway === '-1' || tags.oneway === 'reverse' ? -1 : 0;
+    const ow = tags.oneway === '-1' || tags.oneway === 'reverse' ? -1 : tags.oneway === 'yes' || tags.oneway === '1' || tags.oneway === 'true' || (tags.junction === 'roundabout' && tags.oneway !== 'no') ? 1 : 0;
     const oneway = ow && tags.highway && lc[0] !== 'path' ? ow : 0;
     lines.push({ kind: lc[0], widthM: lc[1], pts, bridge: !!tags.bridge && tags.bridge !== 'no', ...(oneway ? { oneway } : {}) });
   }

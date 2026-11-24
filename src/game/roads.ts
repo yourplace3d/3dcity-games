@@ -330,7 +330,7 @@ export class RoadNet {
     const rails = (a: RoadLine, b: RoadLine) => (a.train && b.train) || (a.tram && b.tram);
     this.lines.forEach((l, i) => {
       if (!l.train && !l.tram) return;
-      // at its ends: a line it can go on along (at a slant), not one it only touches end on at a right angle
+      // at its ends: a line it can go on along (turning by up to 120°, `RAIL_ON`), not one that doubles back
       for (const end of [0, 1] as const) {
         const [ox, oy] = this.heading({ line: i, s: end ? l.len : 0, dir: end ? 1 : -1 });
         for (const o of l.ends[end]) {

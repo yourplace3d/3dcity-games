@@ -75,8 +75,9 @@ interface Marker {
   mesh: Group;
   /** for a package: the kind of job it is */
   kind?: JobKind;
-  /** the colour of its ring (`RING`) */
+  /** the colour of its ring (`RING`), and the one it shows this moment (green while a home waits) */
   colour?: string;
+  shown?: string;
   /** driving distances to it, in the square they were worked out for */
   field?: RouteField | null;
   fieldIn?: World;
@@ -888,6 +889,11 @@ export class Game {
         c.ahead = c.path ? [c.path.line] : [];
       }
       if (!c.path) {
+        // a tram or train with no track it can run on (a new square left it on a bit too short): it goes
+        if (want !== 'drive') {
+          this.dropCar(c);
+          return;
+        }
         c.controls.throttle = 0;
         return;
       }
@@ -1008,9 +1014,10 @@ export class Game {
       if (r.world !== this.world || (ex - c.x) * fx + (ey - c.y) * fy < 0 || Math.hypot(ex - c.x, ey - c.y) > bogie + 6) r = null;
     }
     if (!r) {
-      const n = net.nearestAlong(c.x, c.y, 8, want, fx, fy) ?? net.nearestAlong(c.x, c.y, 40, want, fx, fy);
+      const n = net.nearestAlong(c.x, c.y, 8, want, fx, fy);
       if (!n) {
-        c.rail = null;
+        // no rails of its own near (knocked far off them, or a new square): it goes rather than jump to others
+        this.dropCar(c);
         return;
       }
       const [hx, hy] = net.heading({ line: n.line, s: n.s, dir: 1 });
@@ -1034,15 +1041,15 @@ export class Game {
     if (Math.hypot(front[0] - last[0], front[1] - last[1]) > 0.3) r.trail.push(front);
     // the back bogie: on the trail, twice the bogie's reach behind the front
     let left = bogie * 2;
+    // (put on near the end of its track the trail is short, and the back bogie stays at its start: the body
+    // stays on the rails all the same; left to the steering, it drifted off them and lost them)
     let back: [number, number] = r.trail[0];
-    let found = false;
     for (let i = r.trail.length - 1; i > 0; i--) {
       const [ax, ay] = r.trail[i];
       const [bx, by] = r.trail[i - 1];
       const seg = Math.hypot(ax - bx, ay - by);
       if (seg >= left) {
         back = [ax + ((bx - ax) * left) / seg, ay + ((by - ay) * left) / seg];
-        found = true;
         // what is further back is not needed again
         if (i > 2) r.trail.splice(0, i - 2);
         break;
@@ -1050,9 +1057,6 @@ export class Game {
       left -= seg;
     }
     const th = Math.atan2(front[1] - back[1], front[0] - back[0]);
-    // put on near the end of its track the trail is short: the back bogie at its start, so the body stays on
-    // the rails (left to the steering, it drifted off them and lost them)
-    if (!found) back = r.trail[0];
     if (Math.hypot(front[0] - back[0], front[1] - back[1]) < 1) return;
     c.th = th;
     c.x = (front[0] + back[0]) / 2;
@@ -1085,7 +1089,9 @@ export class Game {
         return (ox * dx + oy * dy) / (Math.hypot(dx, dy) || 1);
       };
       net.advance(p, Math.min(1, left), want, (options, at) => {
-        const known = options.filter((o) => follow.includes(o.line) && o.line !== p.line);
+        // a followed line, where a tram can take it: at a slant at points, forwards at the end of a line
+        const onward = (o: PathState) => net.heading(o)[0] * hx + net.heading(o)[1] * hy > (at ? 0.7 : 0);
+        const known = options.filter((o) => follow.includes(o.line) && o.line !== p.line && onward(o));
         if (known.length) return known.reduce((a, b) => (score(b) > score(a) ? b : a));
         const best = options.reduce((a, b) => (score(b) > score(a) ? b : a));
         // points: carry on, unless there is no look ahead to follow and another way leads better
@@ -2165,8 +2171,14 @@ export class Game {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
       m.mesh.visible = inside;
-      if (m.kind) tintMarker(m.mesh, blink ? RING.home : m.colour ?? RING[m.kind]);
-      if (m === this.routeTo) this.routeLine.material.color.set(this.routeColour());
+      if (m.kind) {
+        const want = blink ? RING.home : m.colour ?? RING[m.kind];
+        if (m.shown !== want) {
+          tintMarker(m.mesh, want);
+          m.shown = want;
+        }
+      }
+      if (m === this.routeTo && this.routeLine.visible) this.routeLine.material.color.set(this.routeColour());
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
@@ -2228,7 +2240,7 @@ export class Game {
       }
     }
     // trams and trains lie on their rails, whatever the steering did
-    for (const c of this.cars) if (!c.gone && !c.asleep && c.driver === 'ai' && railsOf(c.kind)) this.onRails(c, dt);
+    for (const c of this.cars) if (!c.gone && !c.asleep && c.driver === 'ai' && c.hp > 0 && railsOf(c.kind)) this.onRails(c, dt);
     if (this.car && this.car.knock > 2.5) this.onSound('crash', Math.min(1, this.car.knock / 16));
     this.stepPeople(dt);
     this.bumps();

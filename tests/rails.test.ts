@@ -282,4 +282,32 @@ describe('a tram on its rails', () => {
     expect(jump).toBeLessThan(1.2);
     expect(turn).toBeLessThan(0.2);
   });
+
+  it('its front never takes a followed line that only crosses its own', async () => {
+    const { w, inside } = await world();
+    const net = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 1.6, bridge: false },
+      { kind: 'rail', pts: [[0, -300], [0, 300]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    (w as unknown as { roads: RoadNet }).roads = net;
+    const along = (inside as unknown as { alongRails: (p: { line: number; s: number; dir: 1 | -1 }, d: number, want: 'tram', toward: null, follow: number[]) => { line: number; s: number } }).alongRails;
+    // from 280 m along the first line, 40 m on, with the crossing line among those followed
+    const p = along.call(inside, { line: 0, s: 280, dir: 1 }, 40, 'tram', null, [1]);
+    expect(p.line).toBe(0);
+    expect(p.s).toBeCloseTo(320, 0);
+  });
+
+  it('a tram with no track it can run on goes, rather than stand there', async () => {
+    const { w, inside } = await world();
+    // only a bit of track too short to run on
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[0, 0], [30, 0]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    const tram = inside.addCar('tram', 15, 0, 0);
+    tram.driver = 'ai';
+    inside.drive(tram, 0.05);
+    expect(tram.gone).toBe(true);
+  });
 });

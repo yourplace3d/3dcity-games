@@ -1244,12 +1244,13 @@ export class HomesUi {
       }
       const note = this.eventNote(had);
       line(note ? `${note}. Then it pays ${money(had.rent)} rent each day you come back.` : `Pays ${money(had.rent)} rent each day you come back.`);
-      partyButton(had);
       if (had.kind === 'flat') button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
       else {
         this.paints(found, had);
         if (note) line('The colour you choose goes on once it is renovated.');
       }
+      // after the buying and the paint, so those keep their look
+      partyButton(had);
       return;
     }
     title.textContent = 'For sale';

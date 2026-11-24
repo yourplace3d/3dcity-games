@@ -300,6 +300,11 @@ function setScreen(screen: 'start' | 'play'): void {
 async function go(at: LngLat, name?: string, sent: Challenge | null = null, here = false): Promise<void> {
   if (busy) return;
   busy = true;
+  // a friend's party from the link is for its own place only: going anywhere else drops it, and the link
+  if (linkParty && (Math.abs(at.lat - linkParty.home.lat) > 1e-6 || Math.abs(at.lon - linkParty.home.lon) > 1e-6)) {
+    linkParty = null;
+    partyClosed();
+  }
   if (!dropping) endGuess();
   playingAt(at);
   status.className = 'status';
@@ -449,6 +454,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
     begin();
   } catch (err) {
     console.warn(err);
+    // the friend's party waits for its place: a retry of the same place still brings it, any other place drops it
     status.className = 'status error';
     const none = err instanceof Error && err.message === 'no roads here';
     status.textContent = navigator.onLine === false ? 'You seem to be offline.' : none ? 'There are no streets on the map right here. Try a spot nearby, or one of the cities above.' : 'That place didn’t load. Try another, or try again.';

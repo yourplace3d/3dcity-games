@@ -224,7 +224,7 @@ describe('a party in the game', () => {
     g.me.x = -300;
     jobs();
     expect(ended).toHaveBeenCalledOnce();
-    expect(ended.mock.calls[0][0]).toBe(true);
+    expect(ended.mock.calls[0][0]).toBe('done');
     expect(ended.mock.calls[0][1]).toBeCloseTo(30, 0);
     expect(g.cash).toBe(cash);
     expect(g.party).toBeNull();
@@ -247,8 +247,33 @@ describe('a party in the game', () => {
     jobs();
     jobs();
     jobs(partyClock(300) + 1);
-    expect(ended).toHaveBeenCalledWith(false, 0);
+    expect(ended).toHaveBeenCalledWith('cold', 0);
     expect(g.party).toBeNull();
+  });
+
+  it('caught with the food on board: it is lost, and the party says so', async () => {
+    const { g, jobs } = await playing();
+    const ended = vi.fn();
+    g.onPartyEnd = ended;
+    g.startParty({ pick: { lon: 0, lat: 0 }, door: { lon: -300, lat: 0 }, say: '' });
+    jobs();
+    jobs();
+    expect(g.job?.party).toBe(true);
+    (g as unknown as { fine: (title: string, share: number) => void }).fine('Caught!', 0.25);
+    expect(ended).toHaveBeenCalledWith('lost', 0);
+    expect(g.party).toBeNull();
+    expect(g.job).toBeNull();
+  });
+
+  it('caught before the pickup: nothing is lost, the party goes on', async () => {
+    const { g, jobs } = await playing();
+    const ended = vi.fn();
+    g.onPartyEnd = ended;
+    g.startParty({ pick: { lon: 400, lat: 0 }, door: { lon: -300, lat: 0 }, say: '' });
+    jobs();
+    (g as unknown as { fine: (title: string, share: number) => void }).fine('Caught!', 0.25);
+    expect(ended).not.toHaveBeenCalled();
+    expect(g.party).not.toBeNull();
   });
 
   it('called off, or a new run: the party is gone, with its ring', async () => {

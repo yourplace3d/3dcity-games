@@ -321,8 +321,11 @@ export class Game {
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
   /** The party run being played, if any. */
   party: PartyRun | null = null;
-  /** A party run is over: the food got to the door (and how long it took from the pickup, s), or it got cold. */
-  onPartyEnd: (done: boolean, seconds: number) => void = () => undefined;
+  /**
+   * A party run is over: the food got to the door (and how long it took from the pickup, s), it got cold
+   * (the clock ran out), or it was lost (the player was caught or knocked out with it on board).
+   */
+  onPartyEnd: (end: 'done' | 'cold' | 'lost', seconds: number) => void = () => undefined;
   /**
    * A station's job is offered on a card before it is taken (the owner, 23 November): `special` is the
    * line of a mission's package, when it goes to one. Without it, a package is taken by driving onto it.
@@ -1426,7 +1429,13 @@ export class Game {
     this.frozen = 1.6;
     this.onFlash(cost > 0 ? `${title}  −$${cost}` : title);
     this.onSound('fine');
+    // a party's food on board is lost with it: the party says so, and offers to fetch it again
+    const food = !!this.job?.party;
     if (this.job) this.endJob(false);
+    if (food) {
+      this.party = null;
+      this.onPartyEnd('lost', 0);
+    }
     // start again as the game began: on foot, with a parked car to take right beside you
     const p = this.toRoad(120, 320);
     if (p) {
@@ -1493,7 +1502,7 @@ export class Game {
         this.endJob(true);
         this.party = null;
         this.onSound('run');
-        this.onPartyEnd(true, seconds);
+        this.onPartyEnd('done', seconds);
         this.onSave();
         return;
       }
@@ -1526,7 +1535,7 @@ export class Game {
         this.endJob(false);
         if (j.party) {
           this.party = null;
-          this.onPartyEnd(false, 0);
+          this.onPartyEnd('cold', 0);
         } else this.onToast('Too late: the job is gone', 'bad');
       }
       return;
@@ -1882,11 +1891,12 @@ export class Game {
     }
     const c = this.car;
     const goal = this.goal();
-    // wedged on the way to a drop-off that is near (no nearer for a few seconds, however it bumps about):
-    // out of the car, and on foot (`autoWalk`)
+    // a party's food for a door up a lane too narrow for a car, and the car wedged near it (no nearer for a
+    // few seconds, however it bumps about): out of the car, and on foot (`autoWalk`). Other jobs are driven
+    // as they always were.
     const [gx, gy] = goal ? this.local(goal) : [Infinity, Infinity];
     const gd = Math.hypot(gx - c.x, gy - c.y);
-    if (!this.job || goal !== this.autoGoal || gd < this.autoBest - 1) {
+    if (!this.job?.party || !this.party?.walk || goal !== this.autoGoal || gd < this.autoBest - 1) {
       this.autoGoal = goal;
       this.autoBest = gd;
       this.autoStuck = 0;

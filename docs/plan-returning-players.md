@@ -424,6 +424,28 @@ the link made, opened in a fresh browser as the friend (1:06, "15 s faster than 
 In Nuremberg's old town the test's autopilot wedged in a lane before any party (as it does there in plain
 play too). Not tested: a real phone's share list, a real player.
 
+**Narrow lanes: walk the last bit, never far (the owner, 24 November):** "with narrow lanes it might also be
+possible to walk then instead. Just make sure it wouldn't become an endless walk." Built:
+
+- The way from the food place to the door is looked at over its last 300 m: where a car does not fit for
+  4 m or more (clear of walls by its half width and a little), the lane counts as too narrow. A corner or gate
+  post grazing the way does not count. Further out the player picks their own way, so it is not looked at.
+- A walk of up to **150 m** (`WALK_MAX`): the food still goes to the door. The card says "The lane to your
+  door is too narrow for a car: park where it gets narrow and walk the last 80 m. The clock allows for it."
+  The clock adds 6 s to get out and a second for every 6 m walked. As the car gets near, a line says "Leave
+  the car here and walk the last bit".
+- Longer than that, never an endless walk: the food goes to the corner where the car stops ("the friends
+  meet you at the corner where a car can go"), or to the street in front if a car gets nearer the home there.
+- The link carries the walk and the corner, so a friend plays the same, and a link can never ask for more
+  than 150 m.
+- Measured on real tiles, 50 to 150 flats each: Nuremberg (two spots) and Berlin, none narrow at the door;
+  Paris 1 in 50; Florence's old town, of 150 flats, 98 to the door by car, 29 with a walk (35 to 125 m), 23
+  at the corner (142 to 267 m from the building).
+- Played through in Florence (Via dei Pandolfini, walk 10 m): the line to leave the car came, the autopilot
+  got out 13 m before the door and walked, 2:10; the friend from the link the same way, 1:14.
+- The autopilot (for tests and filming) now leaves a car that gets no nearer a drop-off within 200 m for
+  4 s, and walks the rest along the road.
+
 **Questions for the owner:**
 
 1. The evenings (party, games night, film night, birthday party) and the foods (pizza; drinks and snacks):

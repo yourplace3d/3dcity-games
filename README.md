@@ -60,7 +60,9 @@ the streets, buildings, water and hills come from the same map squares as
 - **Parties.** Stop beside a home you own (or tap *Party* beside it in Real estate) to throw one: friends
   are coming over and nobody got the food. Fetch the pizza from a restaurant, or drinks and snacks from a
   supermarket, about 800 m away by road (a pink sign; made up, with a dashed ring, where the map has none
-  near), and bring it to the door before it gets cold. The clock starts at the pickup. It pays no cash: the
+  near), and bring it to the door before it gets cold. The clock starts at the pickup. Up a lane too narrow
+  for a car you park and walk the last bit, never more than 150 m (with time on the clock for it); further
+  than that, the friends meet you at the corner where a car can go. It pays no cash: the
   first party of a day pays 2 home points. Each home keeps its food place, so its party run stays the same.
   At the end, one soft question: "Someone still missing for tonight's party?", with a link to send or "No,
   we're a full house". Whoever opens the link (`?p=…`) starts at that home and fetches the same food, against

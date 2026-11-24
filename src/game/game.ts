@@ -111,6 +111,8 @@ export interface PartyRun {
   door: LngLat;
   /** said as the food comes on board */
   say: string;
+  /** the last metres to the door on foot, up a lane too narrow for a car: they get time on the clock */
+  walk?: number;
 }
 
 export interface Hud {
@@ -144,6 +146,8 @@ const OFFER_M = 14;
 const OFFER_SPEED = 1.5;
 /** how near a station, or the spot on the road beside it, counts as being at it (m) */
 const STATION_M = 35;
+/** the autopilot leaves a wedged car and walks when the drop-off is this near (m): a lane too narrow for a car */
+const WALK_AUTO_M = 200;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
 export const MAX_CASH = 1_000_000;
 /** open jobs pay more with each delivery made, up to this many */
@@ -254,6 +258,11 @@ export class Game {
   private readonly mineRing = new Mesh(new RingGeometry(3.3, 3.8, 40), new MeshBasicMaterial({ color: '#ffffff', side: DoubleSide, transparent: true, opacity: 0.85, depthWrite: false }));
   autoSpeed = 16;
   autoAvoid = true;
+  /** the autopilot's car has come no nearer its drop-off for so long (s), and it walks the rest of the way */
+  private autoStuck = 0;
+  private autoBest = Infinity;
+  private autoGoal: Marker | null = null;
+  private autoWalk = false;
   private offenceAt = 0;
   private loading = false;
   /** A city change makes any pending neighbouring square obsolete. */
@@ -1647,7 +1656,7 @@ export class Game {
     const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
     const r = inside && f ? w.roads.route(f, px, py) : null;
     const metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
-    const clock = partyClock(metres);
+    const clock = partyClock(metres, p.walk ?? 0);
     this.job = { to, metres, left: clock, clock0: clock, pay: 0, kind: 'plain', hp0: this.car ? this.car.hp : 100, party: true };
     this.from = m.at;
     this.lastFrom = m.at;
@@ -1839,6 +1848,25 @@ export class Game {
   /** Drive yourself: to the drop-off, or to the nearest job. For filming and tests. */
   private autopilot(dt: number): void {
     const w = this.world;
+    // a drop-off up a lane too narrow for the car: on foot the rest of the way, along the road
+    if (!this.car && this.autoWalk && this.job) {
+      const f = this.fieldOf(this.job.to);
+      const r = f ? w.roads.route(f, this.me.x, this.me.y, 40) : null;
+      const [gx, gy] = this.local(this.job.to);
+      let [tx, ty] = [gx, gy];
+      if (r && r.metres > 8) {
+        let left = 4;
+        for (let i = 1; i < r.pts.length; i++) {
+          const d = Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+          [tx, ty] = r.pts[i];
+          if ((left -= d) <= 0) break;
+        }
+      }
+      const d = Math.hypot(tx - this.me.x, ty - this.me.y) || 1;
+      this.walk({ moveX: (tx - this.me.x) / d, moveY: (ty - this.me.y) / d, stick: true, throttle: 0, steer: 0, brake: false, handbrake: false }, dt);
+      return;
+    }
+    if (!this.job) this.autoWalk = false;
     if (!this.car) {
       const near = this.carInReach();
       if (near && near.hp > 40) {
@@ -1854,6 +1882,21 @@ export class Game {
     }
     const c = this.car;
     const goal = this.goal();
+    // wedged on the way to a drop-off that is near (no nearer for a few seconds, however it bumps about):
+    // out of the car, and on foot (`autoWalk`)
+    const [gx, gy] = goal ? this.local(goal) : [Infinity, Infinity];
+    const gd = Math.hypot(gx - c.x, gy - c.y);
+    if (!this.job || goal !== this.autoGoal || gd < this.autoBest - 1) {
+      this.autoGoal = goal;
+      this.autoBest = gd;
+      this.autoStuck = 0;
+    } else this.autoStuck += dt;
+    if (this.autoStuck > 4 && gd < WALK_AUTO_M) {
+      this.autoStuck = 0;
+      this.action();
+      if (!this.car) this.autoWalk = true;
+      return;
+    }
     const f = goal && this.fieldOf(goal);
     const r = f ? w.roads.route(f, c.x, c.y, 90) : null;
     if (!goal || !r) {

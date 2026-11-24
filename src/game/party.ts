@@ -15,6 +15,7 @@
  * Kept in the browser under `3da-party`, so saving online carries it along.
  */
 
+import type { Pt } from '../geo/polygon';
 import type { LngLat } from '../geo/projection';
 import type { FoodKind } from './services';
 
@@ -45,9 +46,71 @@ export function occasion(n: number): string {
   return OCCASIONS[n] ?? OCCASIONS[0];
 }
 
-/** The clock (s) from the food on board to the door, for a way of `metres` by road: quicker than a plain job, not a rush job. */
-export function partyClock(metres: number): number {
-  return Math.round(20 + Math.max(0, metres) / 9);
+/**
+ * The clock (s) from the food on board to the door, for a way of `metres` by road: quicker than a plain
+ * job, not a rush job. `walk`: the last metres of it on foot, up a lane too narrow for a car; they get
+ * time to park and walk.
+ */
+export function partyClock(metres: number, walk = 0): number {
+  return Math.round(20 + Math.max(0, metres) / 9 + (walk > 0 ? 6 + walk / 6 : 0));
+}
+
+/**
+ * The longest walk a party asks for (m): from where the lane gets too narrow for a car to the door. The
+ * owner (24 November): in narrow lanes "it might also be possible to walk then instead. Just make sure it
+ * wouldn't become an endless walk." Where it would be longer, the food goes to the corner where the car
+ * stops, and the friends meet you there.
+ */
+export const WALK_MAX = 150;
+/** only this last stretch of the way to the door is looked at (m): further out the player picks their own way */
+const NARROW_LOOK = 300;
+/** samples along the way (m), and how many in a row a car must not fit at for the lane to count as too narrow */
+const NARROW_STEP = 2;
+const NARROW_RUN = 3;
+
+/**
+ * Where the way to a door gets too narrow for a car, from `pts` (the way by road from the pickup to the
+ * door) and `fits` (whether a car fits at a point, clear of walls). Null where a car gets all the way.
+ * Else: `walk`, the metres from where the car stops to the door, and `stop`, a spot on the way a few
+ * metres before the narrow part. A corner or a gate post grazing the way does not count: the car must not
+ * fit at `NARROW_RUN` samples in a row.
+ */
+export function narrowWalk(pts: Pt[], fits: (x: number, y: number) => boolean): { walk: number; stop: Pt } | null {
+  let total = 0;
+  for (let k = 1; k < pts.length; k++) total += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+  let along = 0;
+  let run = 0;
+  let runFrom = 0;
+  for (let k = 1; k < pts.length; k++) {
+    const [ax, ay] = pts[k - 1];
+    const [bx, by] = pts[k];
+    const len = Math.hypot(bx - ax, by - ay);
+    for (let s = 0; s < len; s += NARROW_STEP) {
+      const at = along + s;
+      if (total - at > NARROW_LOOK) continue;
+      if (fits(ax + ((bx - ax) * s) / len, ay + ((by - ay) * s) / len)) {
+        run = 0;
+        continue;
+      }
+      if (run++ === 0) runFrom = at;
+      if (run >= NARROW_RUN) return { walk: total - runFrom, stop: pointAt(pts, Math.max(0, runFrom - 4)) };
+    }
+    along += len;
+  }
+  return null;
+}
+
+/** The point `at` metres along a line. */
+function pointAt(pts: Pt[], at: number): Pt {
+  let left = at;
+  for (let k = 1; k < pts.length; k++) {
+    const [ax, ay] = pts[k - 1];
+    const [bx, by] = pts[k];
+    const len = Math.hypot(bx - ax, by - ay);
+    if (left <= len && len > 0) return [ax + ((bx - ax) * left) / len, ay + ((by - ay) * left) / len];
+    left -= len;
+  }
+  return pts[pts.length - 1];
 }
 
 /**
@@ -153,6 +216,10 @@ export interface SentParty {
   /** the food place's symbol, and the spot on the road where the food is picked up */
   shop: LngLat;
   pick: LngLat;
+  /** the last metres to the door on foot, up a lane too narrow for a car (0: none) */
+  walk: number;
+  /** the lanes to the door are too narrow for a car, further than `WALK_MAX`: `door` is the corner where the car stops */
+  corner: boolean;
 }
 
 /** The text that stands for a party in a link: letters, digits, `-` and `_` only. */
@@ -161,7 +228,7 @@ export function packParty(p: SentParty): string {
   const lon0 = Math.round(p.home.lon * E5);
   // every place as its distance from the home, which keeps the link short
   const pts = [p.door, p.shop, p.pick].flatMap((q) => [Math.round(q.lat * E5) - lat0, Math.round(q.lon * E5) - lon0]);
-  const json = JSON.stringify([1, p.name.slice(0, 16), p.by.slice(0, 16), Math.round(p.seconds), p.place.slice(0, 40), p.occasion, p.food === 'shop' ? 's' : 'r', p.invented ? 1 : 0, lat0, lon0, ...pts]);
+  const json = JSON.stringify([1, p.name.slice(0, 16), p.by.slice(0, 16), Math.round(p.seconds), p.place.slice(0, 40), p.occasion, p.food === 'shop' ? 's' : 'r', p.invented ? 1 : 0, Math.round(p.walk), p.corner ? 1 : 0, lat0, lon0, ...pts]);
   let bin = '';
   for (const b of new TextEncoder().encode(json)) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -172,10 +239,10 @@ export function readParty(text: string): SentParty | null {
   try {
     const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
     const a = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)))) as unknown;
-    if (!Array.isArray(a) || a[0] !== 1 || a.length !== 16) return null;
-    const [, name, by, seconds, place, occ, food, invented, ...nums] = a as unknown[];
+    if (!Array.isArray(a) || a[0] !== 1 || a.length !== 18) return null;
+    const [, name, by, seconds, place, occ, food, invented, walk, corner, ...nums] = a as unknown[];
     if (typeof name !== 'string' || typeof by !== 'string' || typeof place !== 'string' || (food !== 'r' && food !== 's')) return null;
-    if (![seconds, occ, invented, ...nums].every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+    if (![seconds, occ, invented, walk, corner, ...nums].every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [la, lo, ...d] = nums as number[];
     // the food place is within a couple of kilometres of the home
     if (Math.abs(la) > 85 * E5 || Math.abs(lo) > 180 * E5 || d.some((v) => Math.abs(v) > 0.05 * E5)) return null;
@@ -192,6 +259,9 @@ export function readParty(text: string): SentParty | null {
       door: at(0),
       shop: at(1),
       pick: at(2),
+      // never a longer walk than a party asks for, whatever a link says
+      walk: Math.max(0, Math.min(WALK_MAX, Math.round(walk as number))),
+      corner: corner === 1,
     };
   } catch {
     return null;

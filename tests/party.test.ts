@@ -3,7 +3,7 @@ import { Group } from 'three';
 import { Game } from '../src/game/game';
 import { RoadNet } from '../src/game/roads';
 import { World } from '../src/game/world';
-import { foodName, occasion, packParty, partyClock, pickFood, pointsDue, readParties, readParty, PARTY_FAR, PARTY_NEAR, type SentParty } from '../src/game/party';
+import { foodName, narrowWalk, occasion, packParty, partyClock, pickFood, pointsDue, readParties, readParty, PARTY_FAR, PARTY_NEAR, WALK_MAX, type SentParty } from '../src/game/party';
 
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>();
@@ -44,11 +44,45 @@ describe('the food place of a party', () => {
     expect(partyClock(-5)).toBe(20);
   });
 
+  it('a walk up a narrow lane gets time: to park, and to walk', () => {
+    expect(partyClock(800, 100)).toBe(Math.round(20 + 800 / 9 + 6 + 100 / 6));
+    expect(partyClock(800, 0)).toBe(partyClock(800));
+  });
+
   it('words for the food and the evening', () => {
     expect(foodName('restaurant')).toBe('the pizza');
     expect(foodName('shop')).toBe('the drinks and snacks');
     expect(occasion(1)).toBe('games night');
     expect(occasion(99)).toBe('party');
+  });
+});
+
+describe('a lane too narrow for a car', () => {
+  // the way from the pickup (x = -400) to the door (x = 0), along a street
+  const way: Array<[number, number]> = [[-400, 0], [-100, 0], [0, 0]];
+
+  it('a car gets all the way: no walk', () => {
+    expect(narrowWalk(way, () => true)).toBeNull();
+  });
+
+  it('the lane gets narrow 80 m before the door: walk 80 m, the car stops a few metres before', () => {
+    const n = narrowWalk(way, (x) => x < -80);
+    expect(n?.walk).toBeCloseTo(80, 0);
+    expect(n!.stop[0]).toBeLessThan(-80);
+    expect(n!.stop[0]).toBeGreaterThan(-90);
+  });
+
+  it('a corner grazing the way does not count: the car must not fit for a few metres', () => {
+    expect(narrowWalk(way, (x) => Math.abs(x + 50) >= 1.5)).toBeNull();
+  });
+
+  it('only the last stretch before the door is looked at: further out the player picks their own way', () => {
+    expect(narrowWalk(way, (x) => x > -380 || x < -390)).toBeNull();
+  });
+
+  it('a long narrow way says how long, so the party can use the corner instead of an endless walk', () => {
+    const n = narrowWalk(way, (x) => x < -250);
+    expect(n!.walk).toBeGreaterThan(WALK_MAX);
   });
 });
 
@@ -91,12 +125,20 @@ describe('a party in a link', () => {
     door: { lat: 49.45218, lon: 11.07655 },
     shop: { lat: 49.45801, lon: 11.0812 },
     pick: { lat: 49.4579, lon: 11.08111 },
+    walk: 0,
+    corner: false,
   };
 
   it('comes back as it was sent, in letters a link carries', () => {
     const code = packParty(party);
     expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(readParty(code)).toEqual(party);
+  });
+
+  it('carries the walk up a narrow lane, never longer than a party asks for', () => {
+    expect(readParty(packParty({ ...party, walk: 85 }))?.walk).toBe(85);
+    expect(readParty(packParty({ ...party, walk: 5000 }))?.walk).toBe(WALK_MAX);
+    expect(readParty(packParty({ ...party, corner: true }))?.corner).toBe(true);
   });
 
   it('carries a friend sending their time back: still the host’s party', () => {
@@ -187,6 +229,14 @@ describe('a party in the game', () => {
     expect(g.cash).toBe(cash);
     expect(g.party).toBeNull();
     expect(g.job).toBeNull();
+  });
+
+  it('a walk at the end: more time on the clock', async () => {
+    const { g, jobs } = await playing();
+    g.startParty({ pick: { lon: 0, lat: 0 }, door: { lon: -300, lat: 0 }, say: '', walk: 90 });
+    jobs();
+    jobs();
+    expect(g.job?.clock0).toBe(partyClock(300, 90));
   });
 
   it('gets cold when the clock runs out', async () => {

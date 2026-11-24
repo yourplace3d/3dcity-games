@@ -11,11 +11,12 @@ import { linkHome } from './challenge';
 import { homeKey } from './game/events';
 import type { Game } from './game/game';
 import { dayOf, type Home } from './game/homes';
-import { foodName, foodPlace, loadParties, occasion, OCCASIONS, packParty, PARTY_POINTS, pickFood, pointsDue, storeParties, type FoodSpot, type SentParty } from './game/party';
+import { foodName, foodPlace, loadParties, narrowWalk, occasion, OCCASIONS, packParty, PARTY_POINTS, pickFood, pointsDue, storeParties, WALK_MAX, type FoodSpot, type SentParty } from './game/party';
 import { serviceIcon } from './game/services';
 import type { World } from './game/world';
 import type { LngLat } from './geo/projection';
 import type { HomesUi } from './homesUi';
+import { isCoords } from './homesList';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
@@ -33,6 +34,8 @@ const DOOR_FAR = 200;
 const LOOK_MIN = 250;
 const LOOK_MAX = 1150;
 const LOOK_MOST = 60;
+/** a car fits where a circle this wide (m, its half width and a little) is clear of walls */
+const CAR_FIT = 1.05;
 
 export interface PartyHost {
   game: Game;
@@ -67,8 +70,21 @@ interface Playing {
   spot: FoodSpot;
   home: LngLat;
   door: LngLat;
+  /** the last metres to the door on foot, up a lane too narrow for a car (0: none) */
+  walk: number;
+  /** the lanes to the door are too narrow for a car, and further than a party asks to walk: `door` is the corner */
+  corner: boolean;
+  /** "walk from here" has been said */
+  told?: boolean;
   /** a friend's party from a link: their name and time */
   sent: SentParty | null;
+}
+
+/** How a party ends at a home whose lanes are narrow: a word for the card, one for the pickup. */
+function laneWords(walk: number, corner: boolean, whose: string): { card: string; say: string } {
+  if (corner) return { card: ` The lanes to ${whose} door are too narrow for a car, so the friends meet you at the corner where a car can go.`, say: ': the friends meet you at the corner, the lanes are too narrow for a car' };
+  if (walk) return { card: ` The lane to ${whose} door is too narrow for a car: park where it gets narrow and walk the last ${walk} m. The clock allows for it.`, say: `. Walk the last ${walk} m: the lane is too narrow for a car` };
+  return { card: '', say: '' };
 }
 
 export class PartyUi {
@@ -128,15 +144,25 @@ export class PartyUi {
     const lot = homes?.lotOfHome(home);
     if (!homes || !world || !lot || !this.can(home)) return;
     const key = homeKey(home);
-    // the lane at the door can be a yard's driveway that no road leads to: then the street in front
-    let door: { at: [number, number]; ll: LngLat } | null = null;
+    // the lane at the door can be a yard's driveway that no road leads to: then the street in front. A lane
+    // too narrow for a car is walked, up to `WALK_MAX`; further than that, the street in front if a car gets
+    // to it, else the corner nearest the home where a car can go
+    let door: { ll: LngLat; walk: number; corner: boolean } | null = null;
     let spot: FoodSpot | null = null;
     for (const d of this.doorsOf(world, lot.x, lot.y)) {
-      spot = this.foodFor(world, key, d.at);
-      if (spot) {
-        door = d;
-        break;
+      const s = this.foodFor(world, key, d.at);
+      if (!s) continue;
+      const lay = this.lay(world, d.at, s);
+      const nearer = (a: LngLat, b: LngLat) => {
+        const [ax, ay] = world.proj.toLocal(a.lon, a.lat);
+        const [bx, by] = world.proj.toLocal(b.lon, b.lat);
+        return Math.hypot(ax - lot.x, ay - lot.y) < Math.hypot(bx - lot.x, by - lot.y);
+      };
+      if (!door || (door.corner && (!lay.corner || nearer(lay.ll, door.ll)))) {
+        door = lay;
+        spot = s;
       }
+      if (!door.corner) break;
     }
     if (!door || !spot) {
       this.host.toast('No way by road from here to a place for food: try another of your homes.', 'bad', 6000);
@@ -148,9 +174,12 @@ export class PartyUi {
     const best = this.store.best[key];
     const run = !this.host.game.run.over && this.host.game.run.done > 0;
     const where = `your ${home.kind}${home.street ? ` on ${home.street}` : ''}`;
+    const lane = laneWords(door.walk, door.corner, 'your');
+    const at = door;
+    const it = spot;
     this.host.card(
       `${cap(occasion(occ))} at your ${home.kind}`,
-      `Friends are coming over tonight, and nobody got the food. Fetch ${food} from ${foodPlace(spot.food)}${spot.invented ? ' around the corner' : ''}: the pink sign, and the arrow shows the way. Then bring ${spot.food === 'shop' ? 'them' : 'it'} to your door before ${spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}: the clock starts when you pick ${spot.food === 'shop' ? 'them' : 'it'} up.` +
+      `Friends are coming over tonight, and nobody got the food. Fetch ${food} from ${foodPlace(spot.food)}${spot.invented ? ' around the corner' : ''}: the pink sign, and the arrow shows the way. Then bring ${spot.food === 'shop' ? 'them' : 'it'} to your door before ${spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}: the clock starts when you pick ${spot.food === 'shop' ? 'them' : 'it'} up.${lane.card}` +
         (due ? ` A party is worth ${PARTY_POINTS} home points, once a day.` : ` Today’s ${PARTY_POINTS} party points are yours already: this one is for fun.`) +
         (best ? ` Your best: ${clockText(best)} from pickup to door.` : '') +
         (run ? ' Your run of three stops here.' : ''),
@@ -158,7 +187,7 @@ export class PartyUi {
       'Not now',
       (yes) => {
         if (!yes || !this.can(home)) return;
-        this.begin({ key, where, whose: 'your', kind: home.kind, occasion: occ, spot, home: { lat: home.lat, lon: home.lon }, door: door.ll, sent: null });
+        this.begin({ key, where, whose: 'your', kind: home.kind, occasion: occ, spot: it, home: { lat: home.lat, lon: home.lon }, door: at.ll, walk: at.walk, corner: at.corner, sent: null });
       },
       'Party',
     );
@@ -176,12 +205,15 @@ export class PartyUi {
       spot: { food: s.food, invented: s.invented, shop: s.shop, pick: s.pick },
       home: s.home,
       door: s.door,
+      walk: s.walk,
+      corner: s.corner,
       sent: s,
     };
     const food = foodName(s.food);
+    const lane = laneWords(s.walk, s.corner, s.name ? 'their' : 'the');
     this.host.card(
       `${cap(whose)} ${occasion(s.occasion)}`,
-      `${s.name || 'Your friend'} has friends over tonight, and ${food} ${s.food === 'shop' ? 'are' : 'is'} still missing. Take a car, fetch ${s.food === 'shop' ? 'them' : 'it'} from ${foodPlace(s.food)} with the pink sign (the arrow shows the way), and bring ${s.food === 'shop' ? 'them' : 'it'} back here before ${s.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}. The clock starts at the pickup.${s.seconds ? ` ${s.by || s.name || 'Your friend'} did it in ${clockText(s.seconds)}.` : ''}`,
+      `${s.name || 'Your friend'} has friends over tonight, and ${food} ${s.food === 'shop' ? 'are' : 'is'} still missing. Take a car, fetch ${s.food === 'shop' ? 'them' : 'it'} from ${foodPlace(s.food)} with the pink sign (the arrow shows the way), and bring ${s.food === 'shop' ? 'them' : 'it'} back here before ${s.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}. The clock starts at the pickup.${lane.card}${s.seconds ? ` ${s.by || s.name || 'Your friend'} did it in ${clockText(s.seconds)}.` : ''}`,
       'Let’s go',
       '',
       () => this.begin(p),
@@ -201,8 +233,10 @@ export class PartyUi {
   private begin(p: Playing): void {
     const g = this.host.game;
     this.playing = p;
+    p.told = false;
     const food = p.spot.food === 'shop' ? 'Drinks and snacks are on board: get them' : 'The pizza is on board: get it';
-    g.startParty({ pick: p.spot.pick, door: p.door, say: `${food} to ${p.where} before ${p.spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}` });
+    const lane = laneWords(p.walk, p.corner, p.whose);
+    g.startParty({ pick: p.spot.pick, door: p.door, walk: p.walk, say: `${food} to ${p.where} before ${p.spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}${lane.say}` });
     this.markFood();
   }
 
@@ -234,6 +268,33 @@ export class PartyUi {
       return;
     }
     if (g.world !== this.markIn) this.markFood();
+    // up a narrow lane: where to leave the car, said once as the car gets there
+    const p = this.playing;
+    if (p.walk && !p.told && g.job?.party && g.car && g.world) {
+      const [dx, dy] = g.world.proj.toLocal(p.door.lon, p.door.lat);
+      const [x, y] = g.pos();
+      if (Math.hypot(dx - x, dy - y) < p.walk + 20) {
+        p.told = true;
+        this.host.toast(`Leave the car here and walk the last bit: the lane to ${p.where} is too narrow for a car.`, 'info', 6000);
+      }
+    }
+  }
+
+  /**
+   * Where the food goes at a door, for the way from its food place: the door itself; up a lane too narrow
+   * for a car, the door with the last metres on foot (`walk`), never more than `WALK_MAX`; beyond that, the
+   * corner where the car stops (`corner`).
+   */
+  private lay(world: World, door: [number, number], spot: FoodSpot): { ll: LngLat; walk: number; corner: boolean } {
+    const ll = world.proj.toLngLat(door[0], door[1]);
+    const f = world.roads.field(door[0], door[1]);
+    const [px, py] = world.proj.toLocal(spot.pick.lon, spot.pick.lat);
+    const r = f && world.roads.route(f, px, py);
+    if (!r) return { ll, walk: 0, corner: false };
+    const n = narrowWalk(r.pts, (x, y) => !world.solids.inside(x, y) && !world.solids.push({ x, y }, CAR_FIT));
+    if (!n) return { ll, walk: 0, corner: false };
+    if (n.walk <= WALK_MAX) return { ll, walk: Math.max(5, Math.round(n.walk / 5) * 5), corner: false };
+    return { ll: world.proj.toLngLat(n.stop[0], n.stop[1]), walk: 0, corner: true };
   }
 
   /** Where the food may be brought to at a home: the lane at its door, else the nearest main road. */
@@ -351,6 +412,8 @@ export class PartyUi {
       door: p.door,
       shop: p.spot.shop,
       pick: p.spot.pick,
+      walk: p.walk,
+      corner: p.corner,
     };
     this.endCard(p, text);
   }
@@ -388,7 +451,7 @@ export class PartyUi {
     const food = foodName(f.food);
     const occ = occasion(f.occasion);
     const text = f.own
-      ? `${cap(occ)} at my place in ${f.place} tonight: can you bring ${food}? I got ${f.food === 'shop' ? 'them' : 'it'} there in ${clockText(f.seconds)}.`
+      ? `${cap(occ)} at my place${f.place && !isCoords(f.place) ? ` in ${f.place}` : ''} tonight: can you bring ${food}? I got ${f.food === 'shop' ? 'them' : 'it'} there in ${clockText(f.seconds)}.`
       : `I brought ${food} to your ${occ} in ${clockText(f.seconds)}.`;
     const box = $<HTMLInputElement>('party-link');
     box.value = url;

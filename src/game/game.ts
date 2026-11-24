@@ -638,6 +638,7 @@ export class Game {
       c.lastStop = -1;
       c.rail = null;
       if (c.path) c.path = this.attach(c.x, c.y, c.th, railsOf(c.kind) ?? 'drive');
+      c.ahead = c.path ? [c.path.line] : [];
     }
     for (const p of this.people) p.path = this.attach(p.x, p.y, p.th, 'walk');
     this.parkCars(this.pos());
@@ -907,7 +908,9 @@ export class Game {
             if (want !== 'drive') {
               // trams and trains mostly carry straight on
               if (from && Math.random() > 0.08) return null;
-              const dot = (o: PathState) => net.heading(o)[0] * fx + net.heading(o)[1] * fy;
+              // by the look ahead's own direction there, which on a bend is not the body's
+              const [lx, ly] = net.heading(p);
+              const dot = (o: PathState) => net.heading(o)[0] * lx + net.heading(o)[1] * ly;
               const best = options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
               // points lead off at a slant; where two lines only cross, there is no turning (45° at most);
               // at the end of a line, on unless the only way on leads back
@@ -1005,7 +1008,7 @@ export class Game {
       if (r.world !== this.world || (ex - c.x) * fx + (ey - c.y) * fy < 0 || Math.hypot(ex - c.x, ey - c.y) > bogie + 6) r = null;
     }
     if (!r) {
-      const n = net.nearestAlong(c.x, c.y, 8, want, fx, fy);
+      const n = net.nearestAlong(c.x, c.y, 8, want, fx, fy) ?? net.nearestAlong(c.x, c.y, 40, want, fx, fy);
       if (!n) {
         c.rail = null;
         return;
@@ -1032,12 +1035,14 @@ export class Game {
     // the back bogie: on the trail, twice the bogie's reach behind the front
     let left = bogie * 2;
     let back: [number, number] = r.trail[0];
+    let found = false;
     for (let i = r.trail.length - 1; i > 0; i--) {
       const [ax, ay] = r.trail[i];
       const [bx, by] = r.trail[i - 1];
       const seg = Math.hypot(ax - bx, ay - by);
       if (seg >= left) {
         back = [ax + ((bx - ax) * left) / seg, ay + ((by - ay) * left) / seg];
+        found = true;
         // what is further back is not needed again
         if (i > 2) r.trail.splice(0, i - 2);
         break;
@@ -1045,8 +1050,10 @@ export class Game {
       left -= seg;
     }
     const th = Math.atan2(front[1] - back[1], front[0] - back[0]);
-    // put on near the end of its track, the back has no room yet: the body stays where it is till it has
-    if (Math.hypot(front[0] - back[0], front[1] - back[1]) < bogie * 1.8) return;
+    // put on near the end of its track the trail is short: the back bogie at its start, so the body stays on
+    // the rails (left to the steering, it drifted off them and lost them)
+    if (!found) back = r.trail[0];
+    if (Math.hypot(front[0] - back[0], front[1] - back[1]) < 1) return;
     c.th = th;
     c.x = (front[0] + back[0]) / 2;
     c.y = (front[1] + back[1]) / 2;
@@ -1144,7 +1151,15 @@ export class Game {
       c.stuck += dt;
       // a train that can't get on (another one coming the other way, something it can't
       // shove aside) goes back the way it came; so does a tram that meets another head on, on one track
-      const headOn = () => this.cars.some((o) => o !== c && !o.gone && railsOf(o.kind) && Math.hypot(o.x - c.x, o.y - c.y) < (c.spec.len + o.spec.len) * 0.7 && Math.cos(o.th - c.th) < -0.5);
+      const headOn = () =>
+        this.cars.some((o) => {
+          if (o === c || o.gone || !railsOf(o.kind) || Math.cos(o.th - c.th) > -0.5) return false;
+          // ahead of it, on its own track: not one passing on the track beside it
+          const dx = o.x - c.x;
+          const dy = o.y - c.y;
+          const ahead = dx * Math.cos(c.th) + dy * Math.sin(c.th);
+          return ahead > 0 && ahead < (c.spec.len + o.spec.len) * 0.7 && Math.abs(dx * Math.sin(c.th) - dy * Math.cos(c.th)) < 1.5;
+        });
       if (c.path && c.stuck > 2.5 && (c.kind === 'train' || (c.kind === 'tram' && headOn()))) {
         c.th = wrap(c.th + Math.PI);
         // from where it stands, not from the point ahead it was steering for
@@ -1843,7 +1858,8 @@ export class Game {
 
   /** The colour of the way drawn: of the ring it leads to, flashing with it; yellow to the drop-off. */
   private routeColour(): string {
-    return !this.job && this.routeTo && this.pickups.includes(this.routeTo) ? this.ringNow(this.routeTo) : this.job ? DROP : RING.plain;
+    if (this.job || !this.routeTo) return DROP;
+    return this.pickups.includes(this.routeTo) ? this.ringNow(this.routeTo) : this.routeTo.colour ?? RING.plain;
   }
 
   /** A package's colour this moment: its own, or green while a home waits for a station's package. */

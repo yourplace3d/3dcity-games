@@ -230,4 +230,56 @@ describe('a tram on its rails', () => {
     expect(worst).toBeLessThan(Math.sin((10 * Math.PI) / 180));
     expect(Math.abs(tram.y)).toBeLessThan(1);
   });
+
+  it('a tram held up does not turn round because one passes on the other track', async () => {
+    const { w, inside } = await world();
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 1.6, bridge: false },
+      { kind: 'rail', pts: [[-300, 3.2], [300, 3.2]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    const a = inside.addCar('tram', -100, 0, 0);
+    a.driver = 'ai';
+    // a car stands on its rails ahead
+    inside.addCar('sedan', -82, 0, 0);
+    const b = inside.addCar('tram', -40, 3.2, Math.PI);
+    b.driver = 'ai';
+    for (let k = 0; k < 240; k++) {
+      for (const t of [a, b]) inside.drive(t, 0.05);
+      for (const t of [a, b]) t.step(0.05, w);
+      for (const t of [a, b]) inside.onRails(t, 0.05);
+    }
+    expect(Math.cos(a.th)).toBeGreaterThan(0.9);
+  });
+
+  it('round a sharp corner the body stays on the rails', async () => {
+    const { w, roads, inside } = await world();
+    void roads;
+    const net = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [0, 0], [0, 300]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    (w as unknown as { roads: RoadNet }).roads = net;
+    const tram = inside.addCar('tram', -100, 0, 0);
+    tram.driver = 'ai';
+    let worst = 0;
+    let jump = 0;
+    let turn = 0;
+    for (let k = 0; k < 1200 && tram.y < 60; k++) {
+      const [x0, y0, th0] = [tram.x, tram.y, tram.th];
+      inside.drive(tram, 0.05);
+      tram.step(0.05, w);
+      inside.onRails(tram, 0.05);
+      // the middle of the body: on the rails, or on the chord between its bogies across the corner
+      worst = Math.max(worst, net.nearest(tram.x, tram.y, 30, 'tram')!.d);
+      // and it moves smoothly: no jumps, no sudden turns
+      jump = Math.max(jump, Math.hypot(tram.x - x0, tram.y - y0));
+      turn = Math.max(turn, Math.abs(Math.atan2(Math.sin(tram.th - th0), Math.cos(tram.th - th0))));
+    }
+    expect(tram.y).toBeGreaterThan(60);
+    // a rigid body with bogies 13.3 m apart cuts a right angle by half its bogie spacing over the diagonal
+    expect(worst).toBeLessThan(6.65 * Math.SQRT1_2 + 0.5);
+    expect(jump).toBeLessThan(1.2);
+    expect(turn).toBeLessThan(0.2);
+  });
 });

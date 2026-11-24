@@ -268,7 +268,7 @@ export class HomesUi {
     }
     if (this.pointsNoteT !== null) {
       this.pointsNoteT -= dt;
-      if (this.pointsNoteT <= 0 && !game.job && !this.host.quiet?.()) {
+      if (this.pointsNoteT <= 0 && !game.job && !game.party && !this.host.quiet?.()) {
         this.pointsNoteT = null;
         this.sayPointsNote();
       }
@@ -415,9 +415,10 @@ export class HomesUi {
       const lot = this.lotOf(this.wayTo);
       const n = lot && world.roads.nearest(lot.x, lot.y, 200, 'traffic');
       const [px, py] = game.pos();
-      if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job) {
+      // on a job or a party the arrow is theirs: the way to the home waits
+      if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job || game.party) {
         if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.wayTo = null;
-        if (game.guide && game.guide !== this.bankGuide && !game.job) game.guide = null;
+        if (game.guide && game.guide !== this.bankGuide && !game.job && !game.party) game.guide = null;
       } else {
         const [rx, ry] = world.roads.point(n.line, n.s);
         game.guide = { x: rx, y: ry };
@@ -724,7 +725,7 @@ export class HomesUi {
     this.bankTarget = null;
     this.guideBank(true);
     const { game } = this.host;
-    toast(game.job ? 'After this delivery, the arrow shows the nearest bank.' : this.bankArrow() ? 'The arrow shows the nearest bank: stop beside it and pay in.' : 'Stop beside a bank and pay in: the arrow shows it as soon as it is free.', 'info', 5000);
+    toast(game.party ? 'After the party, the arrow shows the nearest bank.' : game.job ? 'After this delivery, the arrow shows the nearest bank.' : this.bankArrow() ? 'The arrow shows the nearest bank: stop beside it and pay in.' : 'Stop beside a bank and pay in: the arrow shows it as soon as it is free.', 'info', 5000);
   }
 
   /** Whether the player has banks: a home, and so a home town. */

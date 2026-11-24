@@ -259,13 +259,16 @@ export interface SentParty {
   back: boolean;
 }
 
+/** The first `n` letters of a text, never half of one (an emoji is two units of a JavaScript string). */
+const cut = (s: string, n: number) => Array.from(s).slice(0, n).join('');
+
 /** The text that stands for a party in a link: letters, digits, `-` and `_` only. */
 export function packParty(p: SentParty): string {
   const lat0 = Math.round(p.home.lat * E5);
   const lon0 = Math.round(p.home.lon * E5);
   // every place as its distance from the home, which keeps the link short
   const pts = [p.door, p.shop, p.pick].flatMap((q) => [Math.round(q.lat * E5) - lat0, Math.round(q.lon * E5) - lon0]);
-  const json = JSON.stringify([1, p.name.slice(0, 16), p.by.slice(0, 16), Math.round(p.seconds), p.place.slice(0, 40), p.occasion, p.food === 'shop' ? 's' : 'r', p.invented ? 1 : 0, Math.round(p.walk), p.corner ? 1 : 0, p.back ? 1 : 0, lat0, lon0, ...pts]);
+  const json = JSON.stringify([1, cut(p.name, 16), cut(p.by, 16), Math.round(p.seconds), cut(p.place, 40), p.occasion, p.food === 'shop' ? 's' : 'r', p.invented ? 1 : 0, Math.round(p.walk), p.corner ? 1 : 0, p.back ? 1 : 0, lat0, lon0, ...pts]);
   let bin = '';
   for (const b of new TextEncoder().encode(json)) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -281,14 +284,15 @@ export function readParty(text: string): SentParty | null {
     if (typeof name !== 'string' || typeof by !== 'string' || typeof place !== 'string' || (food !== 'r' && food !== 's')) return null;
     if (![seconds, occ, invented, walk, corner, back, ...nums].every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [la, lo, ...d] = nums as number[];
-    // the food place is within a couple of kilometres of the home
-    if (Math.abs(la) > 85 * E5 || Math.abs(lo) > 180 * E5 || d.some((v) => Math.abs(v) > 0.05 * E5)) return null;
+    // the food place is within a couple of kilometres of the home (in longitude more degrees, far north or south)
+    const lonMax = (0.05 * E5) / Math.max(0.1, Math.cos((la / E5) * (Math.PI / 180)));
+    if (Math.abs(la) > 85 * E5 || Math.abs(lo) > 180 * E5 || d.some((v, i) => Math.abs(v) > (i % 2 ? lonMax : 0.05 * E5))) return null;
     const at = (i: number): LngLat => ({ lat: (la + d[i * 2]) / E5, lon: (lo + d[i * 2 + 1]) / E5 });
     return {
-      name: name.trim().slice(0, 16),
-      by: by.trim().slice(0, 16),
+      name: cut(name.trim(), 16),
+      by: cut(by.trim(), 16),
       seconds: Math.max(0, Math.min(3600, Math.round(seconds as number))),
-      place: place.trim().slice(0, 40),
+      place: cut(place.trim(), 40),
       occasion: OCCASIONS[occ as number] ? (occ as number) : 0,
       food: food === 's' ? 'shop' : 'restaurant',
       invented: invented === 1,

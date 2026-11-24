@@ -1877,7 +1877,13 @@ export class Game {
       this.walk({ moveX: (tx - this.me.x) / d, moveY: (ty - this.me.y) / d, stick: true, throttle: 0, steer: 0, brake: false, handbrake: false }, dt);
       return;
     }
-    if (!this.job) this.autoWalk = false;
+    if (!this.job) {
+      // a new goal starts afresh: no walking, backing up or waiting left over from the last
+      this.autoWalk = false;
+      this.autoBack = 0;
+      this.autoStuck = 0;
+      this.autoGoal = null;
+    }
     if (!this.car) {
       const near = this.carInReach();
       if (near && near.hp > 40) {

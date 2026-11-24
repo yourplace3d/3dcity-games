@@ -4,7 +4,7 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (23 November 2026)
+## Right now (24 November 2026)
 
 - **The owner put street cred on the wishlist,** like the third currency: missions and learning to use the
   bank come first, for players who come back. The plan and the brainstorm of what happens at the player's
@@ -28,7 +28,9 @@ lives.
   a party: fetch the pizza (a restaurant) or drinks and snacks (a supermarket) from the map and bring it to the
   door against the clock. 2 home points for the day's first party, no cash. At the end, softly: "Someone still
   missing for tonight's party?" with a link, or "No, we're a full house". Links are neither rewarded nor
-  counted (the owner's word). Built on branch `claude/party-run`, not live: the plan, section 8.
+  counted (the owner's word). Up a lane too narrow for a car you walk the last bit, never more than 150 m;
+  further than that the friends meet you at the corner (the owner, 24 November). Seven code reviews, live
+  on the owner's word since 24 November 2026: the plan, section 8.
 
 ## Where things stand
 

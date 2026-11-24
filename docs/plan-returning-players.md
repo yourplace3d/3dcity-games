@@ -373,7 +373,7 @@ links yet." And for the end: invite more friends to whatever the event is, or sa
 for tonight's party? Send this link, or no, we are already a full house, so it doesn't feel like pushing too
 much."
 
-**Built (branch `claude/party-run`, not live):**
+**Built (branch `claude/party-run`; live since 24 November 2026):**
 
 - **Where to start one:** the panel beside a home you own ("Throw a party · 2 home points", pink), or
   *Party* beside the home in the menu's Real estate, for homes in the part of town being played. Not at the
@@ -488,6 +488,11 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
   own, and its best time); a best time is kept only for the home's own food place; a made-up food place is
   never more than 1.6 km away by road. And a new player arriving by a party's link gets "Walk to a car and
   press E" instead of the tour of the deliveries, which says nothing true of a party.
+- The seventh found nothing important, five small points, all fixed: the way to the bank or a home asked
+  for during a party now says it comes after the party; the one-time note on home points waits for the party
+  to end; the autopilot starts each new goal afresh; party links work far north and far south; names with
+  emoji are never cut in half in a link. The branch passed, and went live on the owner's word ("review it
+  and bring it live if the review passes", 24 November).
 - Played through again after the fixes, in Berlin (host 1:03, friend 1:00, host on the friend's returned
   link 1:14, "A friend was 14 s faster") and in Florence (walk at the door, the line to leave the car at the
   lane: host 1:19, friend 1:27, host on the returned link 1:36; earlier, the card for food lost to the police). The autopilot's own driving varies from run to run in

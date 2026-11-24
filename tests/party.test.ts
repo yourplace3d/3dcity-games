@@ -200,6 +200,17 @@ describe('a party in a link', () => {
     expect(readParty(packParty({ ...party, corner: true }))?.corner).toBe(true);
   });
 
+  it('works far north, where a degree of longitude is short', () => {
+    const north = { ...party, home: { lat: 78.22, lon: 15.65 }, door: { lat: 78.22, lon: 15.65 }, shop: { lat: 78.22, lon: 15.705 }, pick: { lat: 78.22, lon: 15.704 } };
+    expect(readParty(packParty(north))?.shop.lon).toBeCloseTo(15.705, 4);
+  });
+
+  it('never cuts a name in half', () => {
+    const got = readParty(packParty({ ...party, name: 'Lena 🎉🎉', place: `${'a'.repeat(39)}🎉` }));
+    expect(got?.place).toBe(`${'a'.repeat(39)}🎉`);
+    expect(got?.name).toBe('Lena 🎉🎉');
+  });
+
   it('carries a friend sending their time back: still the host’s party', () => {
     const back = readParty(packParty({ ...party, by: 'Max', seconds: 95 }));
     expect(back?.name).toBe('Lena');

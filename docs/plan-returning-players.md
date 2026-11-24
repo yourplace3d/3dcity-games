@@ -572,6 +572,19 @@ points against it"). Counted over
 4 minutes of play each in two parts of Dresden's centre, the player walking about: of the cars seen on
 one-way streets, 19 of 41 drove against the arrow before, 0 of 38 after. Tests: `tests/oneway.test.ts`.
 
+**Reviews before going live (24 to 25 November).** The owner: "Yes review and put it live". Eleven code
+reviews of the whole branch against `main`; most important findings were in the new rails: a tram put on
+mid-bend or near points, two trams head on on one track, a tram on the parallel track taken for one head on,
+short stubs that touch long track, the front and the driver's look ahead parting at points, a wreck still held
+on its rails, a knock that pushed the tram as well. One-way streets: a sharp legal turn before a wrong-way
+straight on, wrong-way cars leaving by a street and keeping far enough over to pass. All fixed, each with a
+test (`tests/rails.test.ts`, `tests/oneway.test.ts`, `tests/roads.test.ts`; 204 tests in all). Checked in the
+browser in Dresden after each round: both ends of every tram and train within about half a metre of a rail
+(at a buffer stop a train's back may hang past the end for a moment); no car seen driving against a one-way
+street for more than a second; against `main`, three runs each, trams cover the same distance and traffic is
+the same. Roundabouts: the tiles mark them one-way (checked at Albertplatz). Browser regressions
+(`tools/ui-test.mjs`) passed.
+
 **The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
 `?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.
 Whether to turn it on for everyone is the owner's call.

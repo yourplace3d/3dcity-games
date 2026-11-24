@@ -678,8 +678,8 @@ export class Game {
   }
 
   /**
-   * The place on the network nearest to a point, facing the way `th` points. On a one-way street the
-   * wrong way, it is not turned on the spot: it leaves at the next way out (`drive`).
+   * The place on the network nearest to a point, facing the way `th` points, one-way or not (a car put
+   * on a one-way street the wrong way leaves at the next street: `drive`).
    */
   private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train'): PathState | null {
     // a tram or train: its own track, the way it faces, and none too short to run on
@@ -1027,7 +1027,8 @@ export class Game {
       }
       const [hx, hy] = net.heading({ line: n.line, s: n.s, dir: 1 });
       const mid: PathState = { line: n.line, s: n.s, dir: hx * fx + hy * fy >= 0 ? 1 : -1 };
-      const front = this.alongRails(mid, bogie, want, null);
+      // the front on the branch its driver's look ahead took, if it is just before points
+      const front = this.alongRails(mid, bogie, want, c.path ? net.point(c.path.line, c.path.s) : null, c.ahead);
       // where the front has been: the rails behind it, a metre at a time, past where the back bogie is
       let q: PathState = { ...front, dir: front.dir > 0 ? -1 : 1 };
       const trail: Array<[number, number]> = [];

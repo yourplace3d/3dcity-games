@@ -326,4 +326,29 @@ describe('a tram on its rails', () => {
     expect(p.line).toBe(1);
     expect(p.s).toBeGreaterThan(10);
   });
+
+  it('put on just before points its driver takes, it follows the branch and never turns round', async () => {
+    const { w, inside } = await world();
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 1.6, bridge: false },
+      { kind: 'rail', pts: [[0, 0], [200, 30]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    // the driver always takes points
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    const tram = inside.addCar('tram', -5, 0, 0);
+    tram.driver = 'ai';
+    let turned = false;
+    // till it is well along the branch (at its end, 200 m on, it turns round as at any end of track)
+    for (let k = 0; k < 600 && tram.x < 80; k++) {
+      inside.drive(tram, 0.05);
+      tram.step(0.05, w);
+      inside.onRails(tram, 0.05);
+      if (Math.cos(tram.th) < 0) turned = true;
+    }
+    expect(turned).toBe(false);
+    expect(tram.x).toBeGreaterThan(60);
+    // on the branch
+    expect(tram.y).toBeGreaterThan(tram.x * 0.1);
+  });
 });

@@ -23,12 +23,14 @@ the streets, buildings, water and hills come from the same map squares as
   police are about. It moves on as you do each thing, and can be skipped.
 - You start on foot beside a parked car. Walk up to any car and get in: parked ones are free, taking one
   with a driver in it is an offence.
-- **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
+- **Turquoise rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
 - **Open jobs.** A run stays three plain packages from street corners, so that runs compare. The open jobs
   are their own way to play, and a run's result also leads on to them. A short note says how to find them: a
-  blue ring waits at the nearest fuel station, fire station and police station, as often as you go there:
+  ring waits at the nearest fuel station, fire station and police station, as often as you go there, in the
+  colour of its sign: **orange** at the pump, **red** at the flame, **blue** at the badge. Stop at it and a
+  card offers the job:
   - **Supply run** (fuel station): a heavy load. The car is slower away, slower to stop and slower uphill.
     It pays a quarter more, and a fifth on top for a car without a new dent.
   - **Rush job** (fire station): a short clock, and every second left over pays three times.
@@ -64,6 +66,9 @@ the streets, buildings, water and hills come from the same map squares as
   for a car you park and walk the last bit, never more than 150 m (with time on the clock for it); further
   than that, the friends meet you at the corner where a car can go. It pays no cash: the
   first party of a day pays 2 home points. Each home keeps its food place, so its party run stays the same.
+  What is for your home has a **pink** ring: the party's food, and a station's ring flashes pink while its
+  package would go to a home of yours that needs it (`RING` in `src/game/services.ts`). Where to deliver is
+  always yellow.
   At the end, one soft question: "Someone still missing for tonight's party?", with a link to send or "No,
   we're a full house". Whoever opens the link (`?p=…`) starts at that home and fetches the same food, against
   the time in it, and can send their time back. Nothing is paid for sending, and party links are not
@@ -226,6 +231,10 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/game/roads.ts`: the road lines as a network that cars and people follow.
 - `src/game/solids.ts`: building walls (circles are pushed out of them) and the water raster.
 - `src/game/roadMesh.ts`: roads as ribbons on the terrain, sharp from close up.
+- `src/game/sharpGround.ts`: parks, gardens, woods, water and paths are painted into one picture over the
+  square (0.37 m a pixel on a computer, 0.73 m on a tablet), which the close camera stretched into soft
+  edges. A step in the ground's shader cuts each blend between two colours down to about a pixel of the
+  screen. `?try=softground` turns it off, to compare.
 - `src/game/cars.ts`: the car: how it looks, moves and collides.
 - `src/game/game.ts`: you, traffic, people, police, jobs, camera.
 - `src/game/homes.ts`: which buildings are for sale and their prices, what the player owns, and the rent.

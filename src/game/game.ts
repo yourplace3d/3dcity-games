@@ -35,7 +35,7 @@ import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
-import { JOB_OF, type JobKind } from './services';
+import { JOB_OF, RING, type JobKind } from './services';
 import { partyClock } from './party';
 
 const FOV = 42;
@@ -75,6 +75,8 @@ interface Marker {
   mesh: Group;
   /** for a package: the kind of job it is */
   kind?: JobKind;
+  /** the colour of its ring (`RING`) */
+  colour?: string;
   /** driving distances to it, in the square they were worked out for */
   field?: RouteField | null;
   fieldIn?: World;
@@ -124,7 +126,8 @@ export interface Hud {
   job: { left: number; metres: number; pay: number; kind: JobKind; party: boolean } | null;
   hint: string;
   /** where the arrow points: the drop-off, or the nearest job */
-  target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide' } | null;
+  /** where the arrow points; `colour` is the colour of the ring it points to */
+  target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide'; colour: string } | null;
   delivered: number;
   /** well-known sights in the picture, to write their names over them */
   sights: Array<{ name: string; ndcX: number; ndcY: number; metres: number | null }>;
@@ -199,6 +202,11 @@ function markerMesh(colour: string): Group {
   };
   g.add(flat(new RingGeometry(3.7, 5, 44), 0.95), flat(new CircleGeometry(3.7, 44), 0.25));
   return g;
+}
+
+/** Colour a ring made by `markerMesh` anew. */
+function tintMarker(g: Group, colour: string): void {
+  for (const c of g.children) ((c as Mesh).material as MeshBasicMaterial).color.set(colour);
 }
 
 export class Game {
@@ -310,7 +318,7 @@ export class Game {
   guide: { x: number; y: number } | null = null;
   /**
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
-   * stations blink in open play, and whichever is taken goes there, with the line for its kind.
+   * stations flash pink in open play, and whichever is taken goes there, with the line for its kind.
    */
   special: { at: LngLat; say: Record<JobKind, string> } | null = null;
   /** A package for `special` has been picked up (its kind). */
@@ -1463,8 +1471,9 @@ export class Game {
    * map) would be a ring you can see and never reach. If place after place fails, you yourself
    * stand on such a cut-off street, and a ring is laid anyway, so the game never runs dry.
    */
-  private pickupAt(p: PathState): Marker | null {
-    const m = this.newMarker('#2bd4e0', p);
+  private pickupAt(p: PathState, kind?: JobKind): Marker | null {
+    const m = this.newMarker(RING[kind ?? 'plain'], p);
+    if (kind) m.kind = kind;
     const [px, py] = this.pos();
     const f = this.fieldOf(m);
     if ((f && this.world.roads.route(f, px, py)) || this.noWay >= 40) {
@@ -1480,13 +1489,13 @@ export class Game {
     const [x, y] = this.world.roads.point(p.line, p.s);
     const mesh = markerMesh(colour);
     this.scene.add(mesh);
-    return { at: this.world.proj.toLngLat(x, y), mesh };
+    return { at: this.world.proj.toLngLat(x, y), mesh, colour };
   }
 
   private markerAt(colour: string, at: LngLat): Marker {
     const mesh = markerMesh(colour);
     this.scene.add(mesh);
-    return { at, mesh };
+    return { at, mesh, colour };
   }
 
   private jobs(dt: number): void {
@@ -1545,7 +1554,7 @@ export class Game {
     if (!this.moved && this.speed() > 3) this.moved = true;
     // a party: one ring, at its food place, and nothing else
     if (this.party) {
-      if (!this.pickups.length) this.pickups.push(this.markerAt('#2bd4e0', this.party.pick));
+      if (!this.pickups.length) this.pickups.push(this.markerAt(RING.home, this.party.pick));
       const m = this.pickups[0];
       const [x, y] = this.local(m);
       if (Math.hypot(x - px, y - py) < 6.5) this.takeParty(m);
@@ -1581,7 +1590,8 @@ export class Game {
       }
     }
     if (sent) {
-      if (!this.pickups.length) this.pickups.push(this.markerAt('#2bd4e0', sent.from));
+      // in the colour of the kind of job it was for the sender
+      if (!this.pickups.length) this.pickups.push(this.markerAt(RING[sent.kind ?? 'plain'], sent.from));
       return;
     }
     // a run is three plain packages from street corners near you, the same game for everyone, so
@@ -1617,10 +1627,9 @@ export class Game {
         const i = this.pickups.findIndex((m) => m.kind === job);
         const there = i >= 0 && Math.hypot(this.local(this.pickups[i])[0] - ax, this.local(this.pickups[i])[1] - ay) < 30;
         if (there) continue;
-        const m = this.pickupAt(at);
+        const m = this.pickupAt(at, job);
         if (m) {
           if (i >= 0) this.scene.remove(this.pickups.splice(i, 1)[0].mesh);
-          m.kind = job;
           this.pickups.push(m);
           continue;
         }
@@ -1642,11 +1651,8 @@ export class Game {
       }
       near.sort((a, b) => a.d - b.d);
       let m: Marker | null = null;
-      for (const c of near.slice(0, 4)) if ((m = this.pickupAt(c.p))) break;
-      if (m) {
-        m.kind = job;
-        this.pickups.push(m);
-      }
+      for (const c of near.slice(0, 4)) if ((m = this.pickupAt(c.p, job))) break;
+      if (m) this.pickups.push(m);
     }
     // no station in reach at all: a package from a street corner, as it always was
     if (!this.pickups.length) {
@@ -1966,12 +1972,13 @@ export class Game {
 
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
-    // a mission waits for a package from a station: those blink
+    // a home waits for a package from a station: those rings flash pink, the colour of what is for your home
     const blink = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35;
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : [])]) {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
-      m.mesh.visible = inside && !(blink && m.kind);
+      m.mesh.visible = inside;
+      if (m.kind && m.colour) tintMarker(m.mesh, blink ? RING.home : m.colour);
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
@@ -2111,7 +2118,8 @@ export class Game {
       this.routeT -= dt;
       if (this.routeT <= 0) {
         this.routeT = 0.3;
-        this.drawRoute(this.goal(), this.job ? '#ffd400' : '#2bd4e0');
+        const goal = this.goal();
+        this.drawRoute(goal, this.job ? '#ffd400' : goal?.colour ?? RING.plain);
       }
     }
     this.draw(dt);
@@ -2270,17 +2278,18 @@ export class Game {
   }
 
   /** What the little map draws: you, the rings, the way there, and the police while they're after you. */
-  mapView(): { x: number; y: number; th: number; pickups: Pt[]; drop: Pt | null; cops: Pt[]; route: Pt[] | null } {
+  mapView(): { x: number; y: number; th: number; pickups: Array<{ at: Pt; colour: string }>; drop: Pt | null; cops: Pt[]; route: Pt[] | null; routeColour: string } {
     const [x, y] = this.pos();
     return {
       x,
       y,
       // backing up, the arrowhead shows the way you are going, not the way the bonnet points
       th: this.car ? (this.car.forward < -0.5 ? this.car.th + Math.PI : this.car.th) : this.me.th,
-      pickups: this.job ? [] : this.pickups.map((m) => this.local(m)),
+      pickups: this.job ? [] : this.pickups.map((m) => ({ at: this.local(m), colour: m.colour ?? RING.plain })),
       drop: this.job ? this.local(this.job.to) : null,
       cops: this.heat > 0 ? this.cars.filter((c) => c.driver === 'cop' && !c.gone).map((c): Pt => [c.x, c.y]) : [],
       route: this.routePts,
+      routeColour: this.job ? '#ffd400' : this.goal()?.colour ?? RING.plain,
     };
   }
 
@@ -2288,22 +2297,22 @@ export class Game {
   hud(): Hud {
     const [px, py] = this.pos();
     let target: Hud['target'] = null;
-    let best: { x: number; y: number; d: number; kind: 'drop' | 'job' | 'guide' } | null = null;
+    let best: { x: number; y: number; d: number; kind: 'drop' | 'job' | 'guide'; colour: string } | null = null;
     if (this.job) {
       const [x, y] = this.local(this.job.to);
-      best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop' };
+      best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop', colour: '#ffd400' };
     } else if (this.guide && !this.party) {
-      best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide' };
+      best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide', colour: '#5fd08a' };
     } else {
       for (const m of this.pickups) {
         const [x, y] = this.local(m);
         const d = Math.hypot(x - px, y - py);
-        if (!best || d < best.d) best = { x, y, d, kind: 'job' };
+        if (!best || d < best.d) best = { x, y, d, kind: 'job', colour: m.colour ?? RING.plain };
       }
     }
     if (best) {
       const v = new Vector3(best.x, this.world.groundY(clamp(best.x, -this.world.half, this.world.half), clamp(best.y, -this.world.half, this.world.half)), -best.y).project(this.camera);
-      target = { ndcX: v.x, ndcY: v.y, metres: best.d, kind: best.kind };
+      target = { ndcX: v.x, ndcY: v.y, metres: best.d, kind: best.kind, colour: best.colour };
     }
     let hint = '';
     if (!this.car) {

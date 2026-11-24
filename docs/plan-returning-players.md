@@ -504,3 +504,46 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
    more, or other words?
 2. 2 points once a day: right, or should every home's first party of the day pay?
 3. Later: should a friend who plays a party bring something to the host (the owner said not yet)?
+
+## 9. From the owner's play in Kiel and Rio (24 November, evening)
+
+The owner: "The gardens and green are still a little unsharp. The jobs at the departments now in the same
+colour as the regular jobs seem to completely take over. The rings shouldn't have the same color … I'd even go
+for the fire dept (red ring) police (blue ring) gas station (orange ring) house jobs (? ring)." And on the
+plain packages after a run: with the new jobs from the houses "maybe they can stay out and it can continue as
+is (the three runs from the beginning)". Read as: no plain packages among the open jobs (as now), and the run
+of three at the start stays as it is.
+
+**Built (branch `claude/ring-colours`, not live):**
+
+- **A ring in the colour of who gives the job** (`RING` in `src/game/services.ts`, the colours of the signs):
+  turquoise for a plain package (the run of three, a sent run's plain legs), orange at a fuel station, red at
+  a fire station, blue at a police station. **Pink is for your home:** the party's food (whose sign was
+  already pink), and while a home of yours needs a package (the worn-down flat, a renovation), the stations'
+  rings flash pink instead of blinking out. Where to deliver stays yellow, always. A sent run's package has
+  the colour of the kind of job it was for the sender.
+- The arrow, the way on the little map, the dots on both maps and the line on the road (`G`) take the colour
+  of the ring they lead to. The start screen's legend and the big map's key show the colours; the tour says
+  "turquoise ring" (it said blue, which is now the police's); the open jobs' note and the renovation lines
+  ("their rings flash pink") say so too.
+- **Sharp green** (`src/game/sharpGround.ts`): parks, gardens, lawns, woods, water and the paths painted with
+  them are one picture over the square, 4096 px for 1.5 km on a computer and 2048 on a tablet: 0.37 or
+  0.73 m a pixel, stretched over 20 to 30 pixels of the screen from the street. Painting more finely would cost
+  memory the iPad lacks. Instead a step in the ground's shader finds where the picture blends between two
+  colours, reads the colour on either side, and cuts the blend down to about a pixel of the screen. Left soft
+  on purpose: lines about a pixel of the picture wide, spots where three colours crowd together, faint
+  shades, and the high look from above. `?try=softground` in the link turns it off, to compare.
+- **Checked in headless Chromium on real Kiel tiles** (screenshots before and after, at walking and driving
+  height, at computer and iPad size): edges of parks, lawns, paths and squares crisp; a few faint specks
+  where faint shades meet. A browser that paints the picture with only 4 samples a pixel (the test browser's
+  GPU canvas) made the half-way line wavy; averaging along the edge fixed it. The cost on a real GPU was not
+  measured: two more reads of the picture for every pixel of ground, four more at edges. The test browser draws
+  without a graphics chip and showed 5 frames in 3 s against 8 without it, at iPad size: a rough sign that
+  it is not free. On the iPad it needs the owner's eye (`?try=softground` to compare).
+- **Rings checked in the same browser:** open jobs in Kiel, an orange, a red and a blue ring at their signs,
+  the arrow blue towards the nearest (police), the little map's dots and way in the same colours. Tests:
+  `tests/rings.test.ts` (6).
+
+**The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
+`?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.
+Whether to turn it on for everyone is the owner's call.

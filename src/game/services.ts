@@ -27,6 +27,15 @@ export interface Service {
 export type JobKind = 'plain' | 'supply' | 'rush' | 'clean';
 export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rush', police: 'clean' };
 
+/**
+ * The colour of a package's ring, by who gives the job, in the colour of the giver's sign: orange at
+ * the pump, red at the flame, blue at the badge, turquoise for a plain package from a street corner.
+ * Anything for your own home is pink: a party's food, and a station's ring while its package would
+ * go to your building. Where to deliver is always yellow. All in one colour, the stations' rings
+ * took over the screen after a run and could not be told from a plain one (the owner, 24 November).
+ */
+export const RING: Record<JobKind | 'home', string> = { plain: '#2bd4e0', supply: '#ff8a1f', rush: '#ff3b30', clean: '#3d74ff', home: '#ff5cb8' };
+
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 
 /**

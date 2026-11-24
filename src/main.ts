@@ -21,7 +21,7 @@ import { drawTrophies, Trophies, type TrophyId } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
 import { wireRadio } from './radio';
-import { serviceIcon, type ServiceKind } from './game/services';
+import { RING, serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
@@ -48,6 +48,8 @@ const SAVE = 'drive-it-3d';
 
 const canvas = $<HTMLCanvasElement>('scene');
 const status = $('status');
+// the legends on the page in the colours of the rings in the game
+for (const [name, colour] of [['cyan', RING.plain], ['ring-fuel', RING.supply], ['ring-fire', RING.rush], ['ring-police', RING.clean], ['ring-home', RING.home]]) document.documentElement.style.setProperty(`--${name}`, colour);
 const small = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900;
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
 addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e.pointerType === 'touch'), true);
@@ -842,8 +844,8 @@ const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = 
     done: (h) => h.carHp !== null,
   },
   {
-    keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package. At a station’s ring, stop: a card shows the job.',
-    touch: 'Drag to steer and drive, hold the red <b>Brake</b> pedal to stop. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package. At a station’s ring, stop: a card shows the job.',
+    keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">turquoise ring</b> and drive through it to pick up a package. At a station’s ring (orange, red or blue), stop: a card shows the job.',
+    touch: 'Drag to steer and drive, hold the red <b>Brake</b> pedal to stop. Follow the arrow to a <b class="c">turquoise ring</b> and drive through it to pick up a package. At a station’s ring (orange, red or blue), stop: a card shows the job.',
     done: (h) => h.job !== null,
   },
   {
@@ -1153,6 +1155,11 @@ function paint(h: Hud): void {
     const { ndcX, ndcY } = h.target;
     const off = Math.max(Math.abs(ndcX), Math.abs(ndcY));
     arrow.className = h.target.kind;
+    // in the colour of the ring it points to: each station its own, a plain package turquoise
+    if (arrow.dataset.ring !== h.target.colour) {
+      arrow.dataset.ring = h.target.colour;
+      arrow.style.setProperty('--ring', h.target.colour);
+    }
     const margin = 46;
     if (off < 0.86) {
       arrow.style.transform = `translate(${((ndcX + 1) / 2) * w}px, ${((1 - ndcY) / 2) * hh - 46}px)`;

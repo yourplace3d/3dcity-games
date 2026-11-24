@@ -125,8 +125,7 @@ export interface Hud {
   kmh: number;
   job: { left: number; metres: number; pay: number; kind: JobKind; party: boolean } | null;
   hint: string;
-  /** where the arrow points: the drop-off, or the nearest job */
-  /** where the arrow points; `colour` is the colour of the ring it points to */
+  /** where the arrow points: the drop-off, or the nearest job; `colour` is the colour of the ring it points to */
   target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide'; colour: string } | null;
   delivered: number;
   /** well-known sights in the picture, to write their names over them */
@@ -254,9 +253,9 @@ export class Game {
   private blown: Car | null = null;
   private routeT = 0;
   private routePts: Pt[] | null = null;
-  /** the colour the way was drawn in: of the ring it leads to */
-  private routeColour = RING.plain;
-  private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
+  /** the ring the way leads to (null: the drop-off), for its colour */
+  private routeTo: Marker | null = null;
+  private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: DROP, transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
   /** drive yourself (for filming and tests), how fast, and whether to brake for what's ahead */
   auto = false;
   /** draw the way to the next ring as a line on the road; off: the arrow alone shows the direction */
@@ -677,18 +676,16 @@ export class Game {
   }
 
   /**
-   * The place on the network nearest to a point, facing the way `th` points; with `legal`, never against
-   * a one-way street.
+   * The place on the network nearest to a point, facing the way `th` points. On a one-way street the
+   * wrong way, it is not turned on the spot: it leaves at the next way out (`drive`).
    */
-  private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train', legal = false): PathState | null {
+  private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train'): PathState | null {
     // a tram or train: its own track, the way it faces, and none too short to run on
     const n = want === 'tram' || want === 'train' ? this.world.roads.nearestAlong(x, y, 60, want, Math.cos(th), Math.sin(th)) : this.world.roads.nearest(x, y, 60, want);
     if (!n) return null;
     const p: PathState = { line: n.line, s: n.s, dir: 1 };
     const [hx, hy] = this.world.roads.heading(p);
     if (hx * Math.cos(th) + hy * Math.sin(th) < 0) p.dir = -1;
-    const ow = this.world.roads.lines[n.line].oneway;
-    if (legal && ow) p.dir = ow;
     return p;
   }
 
@@ -885,7 +882,7 @@ export class Game {
       limit = toMe < 14 ? 12 + this.speed() : 33;
       c.path = this.attach(c.x, c.y, c.th, 'drive') ?? c.path;
     } else {
-      if (!c.path) c.path = this.attach(c.x, c.y, c.th, want, want === 'drive');
+      if (!c.path) c.path = this.attach(c.x, c.y, c.th, want);
       if (!c.path) {
         c.controls.throttle = 0;
         return;
@@ -915,10 +912,10 @@ export class Game {
               return hx * fx + hy * fy > -0.7;
             });
             const may = (o: PathState) => mayGo(net.lines[o.line], o.dir);
-            // going against a one-way street (turned at a dead end the map left): off it at the first way
-            // out ahead; one that would turn it round on the spot waits for the next
+            // going against a one-way street (turned at a dead end the map left): off it at the first street
+            // ahead, never into a driveway or car park, nor by turning round on the spot
             if (from && !may(from)) {
-              const out = ahead.filter(may);
+              const out = ahead.filter((o) => may(o) && net.lines[o.line].traffic);
               if (out.length) return pickOne(out);
             }
             // buses mostly carry straight on; cars turn off more often
@@ -1037,7 +1034,8 @@ export class Game {
       left -= seg;
     }
     const th = Math.atan2(front[1] - back[1], front[0] - back[0]);
-    if (Math.hypot(front[0] - back[0], front[1] - back[1]) < bogie) return;
+    // put on near the end of its track, the back has no room yet: the body stays where it is till it has
+    if (Math.hypot(front[0] - back[0], front[1] - back[1]) < bogie * 1.8) return;
     c.th = th;
     c.x = (front[0] + back[0]) / 2;
     c.y = (front[1] + back[1]) / 2;
@@ -1807,7 +1805,7 @@ export class Game {
     const p = this.party!;
     const w = this.world;
     const [px, py] = this.pos();
-    const to = this.markerAt('#ffd400', p.door);
+    const to = this.markerAt(DROP, p.door);
     const f = this.fieldOf(to);
     const [tx, ty] = this.local(to);
     const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
@@ -1821,6 +1819,11 @@ export class Game {
     for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
     this.onToast(p.say, 'info');
     this.onSound('pickup');
+  }
+
+  /** The colour of the way drawn: of the ring it leads to, flashing with it; yellow to the drop-off. */
+  private routeColour(): string {
+    return this.routeTo ? this.ringNow(this.routeTo) : DROP;
   }
 
   /** A package's colour this moment: its own, or green while a home waits for a station's package. */
@@ -1878,7 +1881,7 @@ export class Game {
     let metres = 0;
     if (leg) {
       // a run someone sent: the drop-off is where theirs was
-      marker = this.markerAt('#ffd400', leg.to);
+      marker = this.markerAt(DROP, leg.to);
       const f = this.fieldOf(marker);
       const [tx, ty] = this.local(marker);
       const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
@@ -1895,7 +1898,7 @@ export class Game {
       const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
       for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
         if (!n || marker) continue;
-        const cand = this.newMarker('#ffd400', { line: n.line, s: n.s, dir: 1 });
+        const cand = this.newMarker(DROP, { line: n.line, s: n.s, dir: 1 });
         const f = this.fieldOf(cand);
         const r = f && w.roads.route(f, px, py);
         if (r) {
@@ -1916,7 +1919,7 @@ export class Game {
       const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
       const to: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
       if (!to) continue;
-      const cand = this.newMarker('#ffd400', to);
+      const cand = this.newMarker(DROP, to);
       const f = this.fieldOf(cand);
       const r = f && w.roads.route(f, px, py);
       if (r && r.metres < 2400) {
@@ -1998,7 +2001,6 @@ export class Game {
     const r = f ? this.world.roads.route(f, px, py, 600) : null;
     // the little map always shows the way; the line on the road is a choice
     this.routePts = r && r.pts.length > 1 ? r.pts : null;
-    this.routeColour = colour;
     this.routeLine.visible = this.showRoute && !!this.routePts;
     if (!this.routeLine.visible || !r) return;
     this.routeLine.material.color.set(colour);
@@ -2104,6 +2106,9 @@ export class Game {
 
   private endJob(_done: boolean): void {
     this.routeLine.visible = false;
+    // the way to the drop-off goes with it; the next is worked out at once
+    this.routePts = null;
+    this.routeT = 0;
     if (!this.job) return;
     this.scene.remove(this.job.to.mesh);
     this.job = null;
@@ -2125,6 +2130,7 @@ export class Game {
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
       m.mesh.visible = inside;
       if (m.kind && m.colour) tintMarker(m.mesh, blink ? RING.home : m.colour);
+      if (m === this.routeTo) this.routeLine.material.color.set(this.routeColour());
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
@@ -2267,7 +2273,8 @@ export class Game {
       if (this.routeT <= 0) {
         this.routeT = 0.3;
         const goal = this.goal();
-        this.drawRoute(goal, this.job ? DROP : goal?.colour ?? RING.plain);
+        this.routeTo = this.job ? null : goal;
+        this.drawRoute(goal, this.routeColour());
       }
     }
     this.draw(dt);
@@ -2437,7 +2444,7 @@ export class Game {
       drop: this.job ? this.local(this.job.to) : null,
       cops: this.heat > 0 ? this.cars.filter((c) => c.driver === 'cop' && !c.gone).map((c): Pt => [c.x, c.y]) : [],
       route: this.routePts,
-      routeColour: this.routeColour,
+      routeColour: this.routeColour(),
     };
   }
 

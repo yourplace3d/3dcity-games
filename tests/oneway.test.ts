@@ -125,4 +125,25 @@ describe('traffic on one-way streets', () => {
       c.gone = true;
     }
   });
+
+  it('a car going the wrong way leaves by a street, not into a driveway', async () => {
+    // a one-way street east, a driveway off it to the north, a street to the south, both ahead for a car going west
+    const drive: LineFeature = { kind: 'service', pts: [[0, 0], [-60, 80]], widthM: 3.5, bridge: false };
+    const { roads, inside } = await playing([street([[-300, 0], [300, 0]], 1), drive, street([[0, 0], [-60, -80]])]);
+    const south = roads.lines.findIndex((l) => l.pts[l.pts.length - 1][1] === -80);
+    for (let trial = 0; trial < 10; trial++) {
+      const c = inside.addCar('sedan', 60, 0, Math.PI);
+      c.driver = 'ai';
+      c.path = { line: 0, s: 360, dir: -1 };
+      const went = new Set<number>();
+      for (let k = 0; k < 400; k++) {
+        inside.drive(c, 0.05);
+        c.step(0.05, (inside as unknown as { world: World }).world);
+        if (c.path) went.add(c.path.line);
+      }
+      expect(went.has(south)).toBe(true);
+      expect(went.has(1)).toBe(false);
+      c.gone = true;
+    }
+  });
 });

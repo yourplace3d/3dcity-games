@@ -947,7 +947,7 @@ export class HomesUi {
     this.cardAtS = this.playedS;
     this.card(
       `Your ${h.kind} needs renovating`,
-      `The walls of ${homeName(h)} are worn down. Until it is renovated, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${game.run.over ? ': their rings flash green now' : ': once your run is over, their rings flash green'}. Deliver it to the building, and the rent that waited is yours.`,
+      `The walls of ${homeName(h)} are worn down. Until it is renovated, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${game.run.over && lot ? ': their rings flash green now' : game.run.over ? ': their rings flash green in its part of town' : ': once your run is over, their rings flash green'}. Deliver it to the building, and the rent that waited is yours.`,
       'Got it',
       '',
       () => undefined,

@@ -36,6 +36,8 @@ const DOOR_FAR = 200;
 const LOOK_MIN = 250;
 const LOOK_MAX = 1150;
 const LOOK_MOST = 60;
+/** a made-up food place is never further than this by road (m) */
+const MADE_UP_FAR = 1600;
 /** a home's food place this near the edge of the part of town loaded now (m) is kept without checking the road to it */
 const EDGE_M = 150;
 /** a car fits where a circle this wide (m, its half width and a little) is clear of walls */
@@ -354,12 +356,16 @@ export class PartyUi {
       if (!best || (best.door.corner && (!lay.corner || nearer(lay.ll, best.door.ll)))) best = { door: lay, spot };
       if (!best.door.corner) break;
     }
-    // the home's food place, with no way to it to be seen from this part of town (it runs outside): as last
-    // worked out, else to the street in front
+    // the home's food place, and no way from it that a car can take seen from this part of town (the road to
+    // it runs outside it, say): this one party fetches from another place, and the home keeps its own, and its
+    // best time
     if (!best && kept) {
-      const d = doors[doors.length - 1];
-      if (kept.lane) best = { door: { ll: kept.lane.door, walk: kept.lane.walk, corner: kept.lane.corner, known: false }, spot: kept };
-      else if (d) best = { door: { ll: d.ll, walk: 0, corner: false, known: false }, spot: kept };
+      for (const d of doors) {
+        const f = world.roads.field(d.at[0], d.at[1]);
+        const spot = f && this.pickFoodFor(world, f, d.at);
+        const lay = f && spot ? this.lay(world, f, d.ll, spot) : null;
+        if (spot && lay) return { door: lay, spot, keep: null };
+      }
     }
     if (!best) return null;
     const { door } = best;
@@ -420,16 +426,21 @@ export class PartyUi {
       return [{ metres, invented: !!p.invented, food: p.food, shop: world.proj.toLngLat(p.x, p.y), pick: world.proj.toLngLat(rx, ry) }];
     });
     let pick = pickFood(cands);
-    // no food place on the map that a road leads to: one made up beside a street at a fitting distance
-    for (let i = 0; i < 12 && !pick; i++) {
-      const at = world.roads.randomPlace('traffic', dx, dy, i < 8 ? 500 : 250, i < 8 ? 1000 : 1400);
-      if (!at) continue;
-      const [rx, ry] = world.roads.point(at.line, at.s);
-      const metres = world.roads.route(f, rx, ry, 0)?.metres;
-      if (metres === undefined || !Number.isFinite(metres)) continue;
-      const [hx, hy] = world.roads.heading(at);
-      const side = world.roads.lines[at.line].w / 2 + 7;
-      pick = { metres, invented: true, food: 'restaurant', shop: world.proj.toLngLat(rx + hy * side, ry - hx * side), pick: world.proj.toLngLat(rx, ry) };
+    // no food place on the map that a road leads to: one made up beside a street, at a fitting distance by
+    // road (a spot across a river can be kilometres round by road)
+    if (!pick) {
+      const made: typeof cands = [];
+      for (let i = 0; i < 12; i++) {
+        const at = world.roads.randomPlace('traffic', dx, dy, i < 8 ? 500 : 250, i < 8 ? 1000 : 1400);
+        if (!at) continue;
+        const [rx, ry] = world.roads.point(at.line, at.s);
+        const metres = world.roads.route(f, rx, ry, 0)?.metres;
+        if (metres === undefined || !Number.isFinite(metres) || metres > MADE_UP_FAR) continue;
+        const [hx, hy] = world.roads.heading(at);
+        const side = world.roads.lines[at.line].w / 2 + 7;
+        made.push({ metres, invented: true, food: 'restaurant', shop: world.proj.toLngLat(rx + hy * side, ry - hx * side), pick: world.proj.toLngLat(rx, ry) });
+      }
+      pick = pickFood(made);
     }
     if (!pick) return null;
     return { food: pick.food, invented: pick.invented, shop: pick.shop, pick: pick.pick };
@@ -470,7 +481,7 @@ export class PartyUi {
       // a run to another food place than the home's own (an older link) is no best time for it
       const ownRun = (() => {
         const kept = this.store.places[key];
-        return !kept || (Math.abs(kept.pick.lat - p.spot.pick.lat) < 2e-5 && Math.abs(kept.pick.lon - p.spot.pick.lon) < 2e-5);
+        return !!kept && Math.abs(kept.pick.lat - p.spot.pick.lat) < 2e-5 && Math.abs(kept.pick.lon - p.spot.pick.lon) < 2e-5;
       })();
       const before = this.store.best[key];
       const due = pointsDue(this.store, this.today());

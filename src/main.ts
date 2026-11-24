@@ -507,12 +507,14 @@ function begin(): void {
   $('thin').hidden = true;
   setScreen('play');
   if (placeKnown) arrive();
-  // a friend's party from the link: its card, then the party
+  // a friend's party from the link: its card, then the party. Not the tour of the deliveries, which says
+  // nothing true of a party: a new player is told how to take a car once the party starts (`runOver`)
   if (linkParty && party) {
     const s = linkParty;
     linkParty = null;
     party.startSent(s);
-    if (coached()) return;
+    carHint = !coached();
+    return;
   }
   if (rival && coached()) return;
   if (secret) {
@@ -592,9 +594,15 @@ function cover(on: boolean): void {
   controls.enabled = playing && !paused && !on;
   before = 0;
 }
+/** a new player came by a party's link: how to take a car is said as the party starts */
+let carHint = false;
 /** A party has started: a run a friend sent is over, and leaves the address, so a reload does not bring it back. */
 function runOver(): void {
   rival = null;
+  if (carHint) {
+    carHint = false;
+    setTimeout(() => playing && !game?.car && toast(document.body.classList.contains('touch') ? 'Walk to a car and tap Get in' : 'Walk to a car and press E', 'info'), 600);
+  }
   if (BAKED || !new URLSearchParams(location.search).has('c')) return;
   const q = new URLSearchParams(location.search);
   q.delete('c');

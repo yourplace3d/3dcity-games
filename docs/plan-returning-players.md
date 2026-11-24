@@ -483,6 +483,11 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
   ends cleanly when a party starts (and leaves the address), and the card says so for any run; a link for the
   first flat while it is still worn down is played as a guest's; the road search runs once per door; "+1
   home point".
+- The sixth found three more, fixed: where no door can be reached by car from a home's own food place, as
+  seen from this part of town, the party now fetches from another place for that once (the home keeps its
+  own, and its best time); a best time is kept only for the home's own food place; a made-up food place is
+  never more than 1.6 km away by road. And a new player arriving by a party's link gets "Walk to a car and
+  press E" instead of the tour of the deliveries, which says nothing true of a party.
 - Played through again after the fixes, in Berlin (host 1:03, friend 1:00, host on the friend's returned
   link 1:14, "A friend was 14 s faster") and in Florence (walk at the door, the line to leave the car at the
   lane: host 1:19, friend 1:27, host on the returned link 1:36; earlier, the card for food lost to the police). The autopilot's own driving varies from run to run in

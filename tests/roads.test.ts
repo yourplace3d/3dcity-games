@@ -42,3 +42,38 @@ describe('driving routes', () => {
     expect(net.route(net.field(80, 0)!, 0, 80)).toBeNull();
   });
 });
+
+describe('railway for trains', () => {
+  const rail = (pts: LineFeature['pts'], widthM = 3): LineFeature => ({ kind: 'rail', pts, widthM, bridge: false });
+
+  it('a bit of track too short to run on gets no train, but is still track', () => {
+    // a line up for 6 m between two tunnels, and a long railway elsewhere
+    const net = new RoadNet([rail([[0, 0], [6, 0]]), rail([[-300, 100], [300, 100]])], 750);
+    const stub = net.lines.find((l) => l.len < 10)!;
+    expect(stub.train).toBe(true);
+    expect(stub.short).toBe(true);
+    let found = 0;
+    for (let k = 0; k < 50; k++) {
+      const p = net.randomPlace('train', 0, 0, 0, 600);
+      if (!p) continue;
+      found++;
+      expect(net.lines[p.line].short).toBe(false);
+    }
+    expect(found).toBeGreaterThan(0);
+    expect(net.nearest(3, 0, 20, 'train')).toBeNull();
+    expect(net.hasTrains).toBe(true);
+  });
+
+  it('short pieces joined into a long enough stretch do run', () => {
+    const pieces = Array.from({ length: 10 }, (_, i): LineFeature => rail([[i * 25, 0], [(i + 1) * 25, 0]]));
+    const net = new RoadNet(pieces, 750);
+    expect(net.lines.every((l) => !l.short)).toBe(true);
+    expect(net.nearest(30, 0, 20, 'train')).not.toBeNull();
+  });
+
+  it('a short tram siding gets no tram', () => {
+    const net = new RoadNet([rail([[0, 0], [40, 0]], 1.6), rail([[0, 200], [300, 200]], 1.6)], 750);
+    expect(net.lines.map((l) => l.short)).toEqual([true, false]);
+    expect(net.hasTrams).toBe(true);
+  });
+});

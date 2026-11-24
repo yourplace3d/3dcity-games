@@ -514,7 +514,7 @@ plain packages after a run: with the new jobs from the houses "maybe they can st
 is (the three runs from the beginning)". Read as: no plain packages among the open jobs (as now), and the run
 of three at the start stays as it is.
 
-**Built (branch `claude/ring-colours`, not live):**
+**Built (branch `claude/ring-colours`, not live; with the fix for trains below):**
 
 - **A ring in the colour of who gives the job** (`RING` in `src/game/services.ts`, the colours of the signs):
   turquoise for a plain package (the run of three, a sent run's plain legs), orange at a fuel station, red at
@@ -543,6 +543,12 @@ of three at the start stays as it is.
 - **Rings checked in the same browser:** open jobs in Kiel, an orange, a red and a blue ring at their signs,
   the arrow blue towards the nearest (police), the little map's dots and way in the same colours. Tests:
   `tests/rings.test.ts` (6).
+
+**A train going to and fro across a square in Shibuya** (the owner's screenshot, 24 November). The map has
+bits of railway 5 to 6 m long where the Keio Inokashira line comes up between tunnels, and the game put its
+25 m train on one. Now a connected stretch of track shorter than 200 m (80 m for trams) gets no train or tram;
+the bit is still drawn. In that square of Shibuya, 11 such bits (165 m of 34 km of track); the trains still
+run on the viaducts. Tests in `tests/roads.test.ts`.
 
 **The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
 `?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.

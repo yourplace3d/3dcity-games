@@ -18,6 +18,13 @@ export const SPEED_LIMIT: Record<string, number> = { motorway: 21, primary: 14, 
 const CELL = 32;
 /** Line ends this close to another line are joined to it (m). */
 const JOIN_M = 2.5;
+/**
+ * The least track a train or tram runs on (m, all of a connected stretch): a bit of track between two
+ * tunnels gets none. In Shibuya a 25 m train went to and fro across a square on 6 m of railway where a
+ * line comes up for a moment (the owner, 24 November). The bit of track is still drawn.
+ */
+const TRAIN_MIN_M = 200;
+const TRAM_MIN_M = 80;
 
 export interface Conn {
   line: number;
@@ -39,6 +46,8 @@ export interface RoadLine {
   tram: boolean;
   /** a railway track, for trains */
   train: boolean;
+  /** railway or tram track too short for a train or tram to run on (`TRAIN_MIN_M`): drawn, never used */
+  short: boolean;
   /** a stairway */
   steps: boolean;
   /** a way through a building (`passages.ts`) */
@@ -109,7 +118,7 @@ export class RoadNet {
       const len = cum[pts.length - 1];
       if (len < 2) continue;
       const id = this.lines.length;
-      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
+      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, short: false, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = this.segLine.length;
         this.segLine.push(id);
@@ -130,12 +139,13 @@ export class RoadNet {
       }
     }
     this.connect();
+    this.markShort();
     this.lines.forEach((l, i) => {
       if (l.traffic) this.trafficLines.push(i);
       if (l.walk) this.walkLines.push(i);
       if (l.drive) this.driveLines.push(i);
-      if (l.tram) this.tramLines.push(i);
-      if (l.train) this.trainLines.push(i);
+      if (l.tram && !l.short) this.tramLines.push(i);
+      if (l.train && !l.short) this.trainLines.push(i);
     });
     this.graph();
   }
@@ -303,6 +313,25 @@ export class RoadNet {
     return { pts, metres };
   }
 
+  /** Mark railway and tram track whose whole connected stretch is too short to run on (`TRAIN_MIN_M`). */
+  private markShort(): void {
+    const group = this.lines.map((_, i) => i);
+    const find = (i: number): number => {
+      while (group[i] !== i) i = group[i] = group[group[i]];
+      return i;
+    };
+    const rails = (a: RoadLine, b: RoadLine) => (a.train && b.train) || (a.tram && b.tram);
+    this.lines.forEach((l, i) => {
+      if (!l.train && !l.tram) return;
+      for (const o of [...l.ends[0], ...l.ends[1], ...l.joins]) if (rails(l, this.lines[o.line])) group[find(i)] = find(o.line);
+    });
+    const total = new Map<number, number>();
+    this.lines.forEach((l, i) => {
+      if (l.train || l.tram) total.set(find(i), (total.get(find(i)) ?? 0) + l.len);
+    });
+    for (const [i, l] of this.lines.entries()) if (l.train || l.tram) l.short = (total.get(find(i)) ?? 0) < (l.train ? TRAIN_MIN_M : TRAM_MIN_M);
+  }
+
   private connect(): void {
     this.lines.forEach((l, id) => {
       for (const end of [0, 1] as const) {
@@ -397,6 +426,7 @@ export class RoadNet {
     this.each(x, y, maxD, (line, i) => {
       const l = this.lines[line];
       if (want !== 'any' && !l[want]) return;
+      if ((want === 'train' || want === 'tram') && l.short) return;
       const n = this.project(line, i, x, y);
       if (n.d <= maxD && (!best || n.d < best.d)) best = n;
     });

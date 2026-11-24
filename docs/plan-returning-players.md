@@ -443,8 +443,29 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
   at the corner (142 to 267 m from the building).
 - Played through in Florence (Via dei Pandolfini, walk 10 m): the line to leave the car came, the autopilot
   got out 13 m before the door and walked, 2:10; the friend from the link the same way, 1:14.
-- The autopilot (for tests and filming) now leaves a car that gets no nearer a drop-off within 200 m for
-  4 s, and walks the rest along the road.
+- The autopilot (for tests and filming), on a party with a walk only, leaves a car that gets no nearer the
+  door by road for 4 s, within the walk and 80 m more, and walks the rest along the road. Other jobs are
+  driven as before.
+
+**Reviews (24 November).** Two code reviews of the branch against `main`.
+
+- The first found four important points, all fixed and checked in the browser: a friend's party from a link
+  followed the player to another city when the invited place did not load (now it stays with its place, and
+  the link leaves the address); a time sent back without a name was read as the host's own; food lost to a
+  fine was quietly replaced (now a card: "The pizza is gone … Try again?"); the autopilot walked on every
+  kind of job. And three small ones: the party button made "Buy the rest of the building" look secondary;
+  it promised points when home points were full; a note was not saved online at once.
+- The second found one important point: a home's food place was picked again (and its best time compared
+  with another route) when it lay outside the part of town loaded now. It now stays the home's; a new one
+  is picked only where the roads no longer lead to it, and then the old best time goes. Small ones, fixed
+  too: the line to leave the car now goes by the way by road, not by a street passing near; the host opening
+  a friend's returned link plays it as their own party ("A friend's time to beat: 1:04", points and best
+  time as their own); the map's restaurants are told apart in a grid, so a city centre with thousands of
+  them does not slow the next square.
+- Played through again after the fixes, in Berlin (host 1:16, friend 1:04, host on the friend's returned
+  link 1:27, "A friend was 23 s faster") and in Florence (walk 10 m, the line to leave the car at the lane,
+  1:10; the card for food lost to the police). The autopilot's own driving varies from run to run in
+  Florence's lanes and on longer ways in Berlin; real players were not tried.
 
 **Questions for the owner:**
 

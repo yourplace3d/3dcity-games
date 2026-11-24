@@ -29,9 +29,34 @@ export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rus
 
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 
+/**
+ * Points in a grid of cells, to ask what lies near a spot without going through all of them: a city centre's
+ * tiles hold thousands of restaurants, and going through every kept one for every new one took millions of steps.
+ */
+export class PointGrid<T extends { x: number; y: number }> {
+  private readonly cells = new Map<string, T[]>();
+  constructor(private readonly cell: number) {}
+  add(p: T): void {
+    const k = `${Math.floor(p.x / this.cell)},${Math.floor(p.y / this.cell)}`;
+    const list = this.cells.get(k);
+    if (list) list.push(p);
+    else this.cells.set(k, [p]);
+  }
+  /** Whether a point within `r` (no more than the cell size) passes `test`. */
+  near(x: number, y: number, r: number, test: (p: T) => boolean = () => true): boolean {
+    const cx = Math.floor(x / this.cell);
+    const cy = Math.floor(y / this.cell);
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        for (const p of this.cells.get(`${cx + dx},${cy + dy}`) ?? []) if (Math.hypot(p.x - x, p.y - y) < r && test(p)) return true;
+    return false;
+  }
+}
+
 /** Points of interest of the map tiles, by the map's sub-kind, as metres from the square's middle. */
 function readPoints<K extends string>(tiles: LoadedTile[], proj: Projector, half: number, pick: Record<string, K>): Array<{ kind: K; x: number; y: number }> {
   const out: Array<{ kind: K; x: number; y: number }> = [];
+  const kept = new PointGrid<{ kind: K; x: number; y: number }>(40);
   for (const t of tiles) {
     const layer = t.tile.layers.poi;
     if (!layer) continue;
@@ -50,8 +75,10 @@ function readPoints<K extends string>(tiles: LoadedTile[], proj: Projector, half
       const [x, y] = proj.toLocal(lon, lat);
       if (Math.abs(x) > half || Math.abs(y) > half) continue;
       // one mark for a place mapped twice (the building and its entrance, say)
-      if (out.some((o) => o.kind === kind && Math.hypot(o.x - x, o.y - y) < 40)) continue;
-      out.push({ kind, x, y });
+      if (kept.near(x, y, 40, (o) => o.kind === kind)) continue;
+      const p = { kind, x, y };
+      out.push(p);
+      kept.add(p);
     }
   }
   return out;

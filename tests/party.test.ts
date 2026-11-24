@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Group } from 'three';
 import { Game } from '../src/game/game';
+import { PointGrid } from '../src/game/services';
+import { arriveLine, backBy } from '../src/partyUi';
 import { RoadNet } from '../src/game/roads';
 import { World } from '../src/game/world';
 import { foodName, narrowWalk, occasion, packParty, partyClock, pickFood, pointsDue, readParties, readParty, PARTY_FAR, PARTY_NEAR, WALK_MAX, type SentParty } from '../src/game/party';
@@ -83,6 +85,30 @@ describe('a lane too narrow for a car', () => {
   it('a long narrow way says how long, so the party can use the corner instead of an endless walk', () => {
     const n = narrowWalk(way, (x) => x < -250);
     expect(n!.walk).toBeGreaterThan(WALK_MAX);
+  });
+});
+
+describe('a link sent back with a friend’s time', () => {
+  const base = { name: 'Lena', by: 'Lena', seconds: 100, place: 'Nuremberg', occasion: 1, food: 'restaurant' as const, invented: false, home: { lat: 49, lon: 11 }, door: { lat: 49, lon: 11 }, shop: { lat: 49, lon: 11 }, pick: { lat: 49, lon: 11 }, walk: 0, corner: false };
+  it('the host’s own invitation names no one who sent a time back', () => {
+    expect(backBy(base)).toBe('');
+    expect(arriveLine(base)).toBe('Lena’s games night: you are invited');
+  });
+  it('a friend’s time sent back: theirs to beat, never the host’s', () => {
+    expect(backBy({ ...base, by: 'a friend', seconds: 95 })).toBe('a friend');
+    expect(arriveLine({ ...base, by: 'Max', seconds: 95 })).toBe('Max’s time to beat: 1:35');
+  });
+});
+
+describe('places near a spot, from a grid', () => {
+  it('finds what lies within the distance, and only that', () => {
+    const grid = new PointGrid<{ x: number; y: number; k: string }>(60);
+    grid.add({ x: 0, y: 0, k: 'a' });
+    grid.add({ x: 59, y: 59, k: 'b' });
+    expect(grid.near(55, 55, 10)).toBe(true);
+    expect(grid.near(30, 30, 10)).toBe(false);
+    expect(grid.near(-50, 0, 60)).toBe(true);
+    expect(grid.near(-50, 0, 60, (p) => p.k === 'b')).toBe(false);
   });
 });
 

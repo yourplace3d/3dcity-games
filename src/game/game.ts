@@ -146,8 +146,8 @@ const OFFER_M = 14;
 const OFFER_SPEED = 1.5;
 /** how near a station, or the spot on the road beside it, counts as being at it (m) */
 const STATION_M = 35;
-/** the autopilot leaves a wedged car and walks when the drop-off is this near (m): a lane too narrow for a car */
-const WALK_AUTO_M = 200;
+/** the autopilot leaves a wedged car and walks when the drop-off is this much further by road than the party's walk (m) */
+const WALK_AUTO_M = 80;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
 export const MAX_CASH = 1_000_000;
 /** open jobs pay more with each delivery made, up to this many */
@@ -1891,24 +1891,23 @@ export class Game {
     }
     const c = this.car;
     const goal = this.goal();
-    // a party's food for a door up a lane too narrow for a car, and the car wedged near it (no nearer for a
-    // few seconds, however it bumps about): out of the car, and on foot (`autoWalk`). Other jobs are driven
-    // as they always were.
-    const [gx, gy] = goal ? this.local(goal) : [Infinity, Infinity];
-    const gd = Math.hypot(gx - c.x, gy - c.y);
+    const f = goal && this.fieldOf(goal);
+    const r = f ? w.roads.route(f, c.x, c.y, 90) : null;
+    // a party's food for a door up a lane too narrow for a car, and the car wedged near it (no nearer by road
+    // for a few seconds, however it bumps about, and hardly moving): out of the car, and on foot (`autoWalk`).
+    // Other jobs are driven as they always were.
+    const gd = r ? r.metres : Infinity;
     if (!this.job?.party || !this.party?.walk || goal !== this.autoGoal || gd < this.autoBest - 1) {
       this.autoGoal = goal;
       this.autoBest = gd;
       this.autoStuck = 0;
     } else this.autoStuck += dt;
-    if (this.autoStuck > 4 && gd < WALK_AUTO_M) {
+    if (this.autoStuck > 4 && gd < (this.party?.walk ?? 0) + WALK_AUTO_M && Math.abs(c.forward) < 2) {
       this.autoStuck = 0;
       this.action();
       if (!this.car) this.autoWalk = true;
       return;
     }
-    const f = goal && this.fieldOf(goal);
-    const r = f ? w.roads.route(f, c.x, c.y, 90) : null;
     if (!goal || !r) {
       c.controls.throttle = 0;
       return;

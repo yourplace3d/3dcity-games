@@ -27,7 +27,7 @@ import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
 import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
 import { carvePassagesInSteps, keepPassages, Roofs } from './passages';
-import { inventServices, readBanks, readFood, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type Service } from './services';
+import { inventServices, PointGrid, readBanks, readFood, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -495,8 +495,11 @@ export class World {
     // made up where the map has none near (a made-up one is a restaurant)
     const realFood = readFood(tiles, world.proj, 1e9);
     const madeUp = inventServices(realFood.map((f) => ({ ...f, kind: 'food' as const })), world.proj, reach, roads, ['food']).map((f): FoodPlace => ({ ...f, food: 'restaurant' }));
+    const foodKept = new PointGrid<FoodPlace>(60);
     for (const f of [...realFood.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...madeUp]) {
-      if (!world.food.some((o) => Math.hypot(o.x - f.x, o.y - f.y) < 60)) world.food.push(f);
+      if (foodKept.near(f.x, f.y, 60)) continue;
+      world.food.push(f);
+      foodKept.add(f);
     }
     // the map puts such a place on its building: the symbol lies on the roof, where it can be seen
     for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2, (x, y) => surfaceY(model, x, y)));

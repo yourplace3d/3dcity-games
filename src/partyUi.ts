@@ -81,6 +81,17 @@ interface Playing {
   sent: SentParty | null;
 }
 
+/** Who sent their time back in a link ("Max", "a friend"); '' for the host's own invitation. */
+export function backBy(s: SentParty): string {
+  return s.by && s.by !== s.name ? s.by : '';
+}
+
+/** The line under the place's name as a party's link opens. */
+export function arriveLine(s: SentParty): string {
+  const back = backBy(s);
+  return back ? `${cap(back)}’s time to beat: ${clockText(s.seconds)}` : `${s.name ? `${s.name}’s` : 'A friend’s'} ${occasion(s.occasion)}: you are invited`;
+}
+
 /** How a party ends at a home whose lanes are narrow: a word for the card, one for the pickup. */
 function laneWords(walk: number, corner: boolean, whose: string): { card: string; say: string } {
   if (corner) return { card: ` The lanes to ${whose} door are too narrow for a car, so the friends meet you at the corner where a car can go.`, say: ': the friends meet you at the corner, the lanes are too narrow for a car' };
@@ -96,10 +107,13 @@ export class PartyUi {
   private markIn: World | null = null;
   /** the party just played, to send: what goes in the link */
   private finished: (SentParty & { own: boolean }) | null = null;
+  /** the way by road to the door of a party up a narrow lane, for saying where to leave the car */
+  private doorField: { world: World; f: ReturnType<World['roads']['field']> } | null = null;
+  private laneT = 0;
 
   constructor(private readonly host: PartyHost) {
     host.game.onPartyEnd = (end, seconds) => this.ended(end, seconds);
-    host.game.ticks.push(() => this.tick());
+    host.game.ticks.push((dt) => this.tick(dt));
     $('btn-party-send').addEventListener('click', () => void this.send());
     $('btn-party-no').addEventListener('click', () => this.close());
     $('party-link').addEventListener('focus', (e) => (e.target as HTMLInputElement).select());
@@ -202,12 +216,14 @@ export class PartyUi {
 
   /** A friend's party from a link: the card, then the same run, against their time. The player starts at their home. */
   startSent(s: SentParty): void {
-    const whose = s.name ? `${s.name}’s` : 'your friend’s';
+    // the opener's own home: a friend's time sent back, played as their own party (its points and best time)
+    const mine = this.host.homes()?.mine().homes.find((h) => Math.abs(h.lat - s.home.lat) < 2e-5 && Math.abs(h.lon - s.home.lon) < 2e-5);
+    const whose = mine ? 'your' : s.name ? `${s.name}’s` : 'your friend’s';
     const p: Playing = {
-      key: null,
-      where: `${whose} place`,
+      key: mine ? homeKey(mine) : null,
+      where: mine ? `your ${mine.kind}${mine.street ? ` on ${mine.street}` : ''}` : `${whose} place`,
       whose,
-      kind: '',
+      kind: mine?.kind ?? '',
       occasion: s.occasion,
       spot: { food: s.food, invented: s.invented, shop: s.shop, pick: s.pick },
       home: s.home,
@@ -217,10 +233,16 @@ export class PartyUi {
       sent: s,
     };
     const food = foodName(s.food);
-    const lane = laneWords(s.walk, s.corner, s.name ? 'their' : 'the');
+    const it = s.food === 'shop' ? 'them' : 'it';
+    const lane = laneWords(s.walk, s.corner, mine ? 'your' : s.name ? 'their' : 'the');
+    const back = backBy(s);
+    const fetch = `fetch ${it} from ${foodPlace(s.food)} with the pink sign (the arrow shows the way), and bring ${it} ${mine ? 'to your door' : 'back here'} before ${s.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}. The clock starts at the pickup.${lane.card}`;
+    const text = back
+      ? `${cap(back)} brought ${food} to ${whose} ${occasion(s.occasion)} in ${clockText(s.seconds)}. Your turn: take a car, ${fetch}`
+      : `${s.name || 'Your friend'} has friends over tonight, and ${food} ${s.food === 'shop' ? 'are' : 'is'} still missing. Take a car, ${fetch}${s.seconds ? ` ${cap(s.by || s.name || 'your friend')} did it in ${clockText(s.seconds)}.` : ''}`;
     this.host.card(
-      `${cap(whose)} ${occasion(s.occasion)}`,
-      `${s.name || 'Your friend'} has friends over tonight, and ${food} ${s.food === 'shop' ? 'are' : 'is'} still missing. Take a car, fetch ${s.food === 'shop' ? 'them' : 'it'} from ${foodPlace(s.food)} with the pink sign (the arrow shows the way), and bring ${s.food === 'shop' ? 'them' : 'it'} back here before ${s.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}. The clock starts at the pickup.${lane.card}${s.seconds ? ` ${cap(s.by || s.name || 'your friend')} did it in ${clockText(s.seconds)}.` : ''}`,
+      mine ? `${cap(occasion(s.occasion))} at your ${mine.kind}` : `${cap(whose)} ${occasion(s.occasion)}`,
+      text + (mine && this.pays() ? ` A party is worth ${PARTY_POINTS} home points, once a day.` : ''),
       'Let’s go',
       '',
       () => this.begin(p),
@@ -266,7 +288,7 @@ export class PartyUi {
     this.playing = null;
   }
 
-  private tick(): void {
+  private tick(dt: number): void {
     const g = this.host.game;
     if (!this.playing) return;
     // gone without an end: another place loaded, or a new run
@@ -275,14 +297,21 @@ export class PartyUi {
       return;
     }
     if (g.world !== this.markIn) this.markFood();
-    // up a narrow lane: where to leave the car, said once as the car gets there
+    // up a narrow lane: where to leave the car, said once as the car gets there, by road (not from a street
+    // that only passes near), looked at twice a second
     const p = this.playing;
-    if (p.walk && !p.told && g.job?.party && g.car && g.world) {
+    this.laneT -= dt;
+    if (p.walk && !p.told && g.job?.party && g.car && g.world && this.laneT <= 0) {
+      this.laneT = 0.5;
       const [dx, dy] = g.world.proj.toLocal(p.door.lon, p.door.lat);
       const [x, y] = g.pos();
-      if (Math.hypot(dx - x, dy - y) < p.walk + 20) {
-        p.told = true;
-        this.host.toast(`Leave the car here and walk the last bit: the lane to ${p.where} is too narrow for a car.`, 'info', 6000);
+      if (Math.hypot(dx - x, dy - y) < p.walk + 40) {
+        if (this.doorField?.world !== g.world) this.doorField = { world: g.world, f: g.world.roads.field(dx, dy) };
+        const r = this.doorField.f && g.world.roads.route(this.doorField.f, x, y, 0);
+        if (r && r.metres < p.walk + 15) {
+          p.told = true;
+          this.host.toast(`Leave the car here and walk the last bit: the lane to ${p.where} is too narrow for a car.`, 'info', 6000);
+        }
       }
     }
   }
@@ -327,7 +356,12 @@ export class PartyUi {
       return world.roads.route(f, x, y, 0)?.metres ?? null;
     };
     const kept = this.store.places[key];
-    if (kept && reach(kept.pick) !== null) return kept;
+    if (kept) {
+      const [kx, ky] = world.proj.toLocal(kept.pick.lon, kept.pick.lat);
+      // outside the part of town loaded now it can't be checked: it stays the home's, as its party run
+      if (Math.abs(kx) > half || Math.abs(ky) > half) return kept;
+      if (reach(kept.pick) !== null) return kept;
+    }
     const [dx, dy] = door;
     const near = world.food
       .map((p) => ({ p, d: Math.hypot(p.x - dx, p.y - dy) }))
@@ -357,7 +391,9 @@ export class PartyUi {
     }
     if (!pick) return null;
     const spot: FoodSpot = { food: pick.food, invented: pick.invented, shop: pick.shop, pick: pick.pick };
-    this.store = { ...this.store, places: { ...this.store.places, [key]: spot } };
+    // a new food place is a new run: the best time on the old one no longer counts
+    const { [key]: _old, ...best } = this.store.best;
+    this.store = { ...this.store, places: { ...this.store.places, [key]: spot }, best: kept ? best : this.store.best };
     storeParties(this.store);
     this.host.save?.();
     return spot;
@@ -385,15 +421,16 @@ export class PartyUi {
     }
     const t = clockText(seconds);
     let text: string;
-    if (p.sent) {
-      const s = p.sent;
-      const them = s.by || s.name || 'your friend';
-      const d = seconds - s.seconds;
-      const versus = !s.seconds ? '' : Math.abs(d) < 0.5 ? `, just as fast as ${them}` : d < 0 ? `: ${gap(-d)} faster than ${them}` : `. ${cap(them)} was ${gap(d)} faster`;
+    // against the time in the link it came by
+    const s = p.sent;
+    const them = s ? s.by || s.name || 'your friend' : '';
+    const d = s ? seconds - s.seconds : 0;
+    const versus = !s?.seconds ? '' : Math.abs(d) < 0.5 ? `, just as fast as ${them}` : d < 0 ? `: ${gap(-d)} faster than ${them}` : `. ${cap(them)} was ${gap(d)} faster`;
+    if (!p.key) {
       const own = this.host.homes()?.mine().homes.length ?? 0;
       text = `${cap(food)} got there in ${t} from the pickup${versus}.${own ? '' : ' A party of your own needs a home of your own: do a couple of deliveries, and you’ll be shown a cheap flat.'}`;
     } else {
-      const key = p.key!;
+      const key = p.key;
       const before = this.store.best[key];
       const due = pointsDue(this.store, this.today());
       const added = due ? (this.host.homes()?.partyPoints(PARTY_POINTS) ?? 0) : 0;
@@ -403,10 +440,10 @@ export class PartyUi {
       this.host.save?.();
       const record = before && seconds < before - 0.5 ? ` Your best yet, ${gap(before - seconds)} faster than before.` : '';
       const points = added ? ` +${added} home points.` : due ? ' Your home points are full: spend some on a home.' : ` Today’s party points are yours already; tomorrow’s party brings ${PARTY_POINTS} more.`;
-      text = `${cap(food)} got to ${p.where} in ${t} from the pickup, ${p.spot.food === 'shop' ? 'still cold' : 'still warm'}.${record}${points}`;
+      text = `${cap(food)} got to ${p.where} in ${t} from the pickup, ${p.spot.food === 'shop' ? 'still cold' : 'still warm'}${versus}.${record}${points}`;
     }
     this.finished = {
-      own: !p.sent,
+      own: !!p.key,
       // a friend sending their time back: it stays the host's party
       name: p.sent?.name ?? '',
       by: '',
@@ -429,13 +466,14 @@ export class PartyUi {
   private endCard(p: Playing, text: string): void {
     const occ = occasion(p.occasion);
     const them = p.sent?.name || 'your friend';
-    $('party-title').textContent = p.sent ? `You brought ${foodName(p.spot.food)} to ${p.whose} ${occ}` : `${cap(occ)} can start`;
+    const guest = !p.key;
+    $('party-title').textContent = guest ? `You brought ${foodName(p.spot.food)} to ${p.whose} ${occ}` : `${cap(occ)} can start`;
     $('party-text').textContent = text;
-    $('party-ask').textContent = p.sent ? `Let ${them} know you made it?` : `Someone still missing for tonight’s ${occ}?`;
-    $('btn-party-send').textContent = p.sent ? `Send ${them} your time` : 'Send them a link';
-    $('btn-party-no').textContent = p.sent ? 'No, just keep driving' : 'No, we’re a full house';
+    $('party-ask').textContent = guest ? `Let ${them} know you made it?` : `Someone still missing for tonight’s ${occ}?`;
+    $('btn-party-send').textContent = guest ? `Send ${them} your time` : 'Send them a link';
+    $('btn-party-no').textContent = guest ? 'No, just keep driving' : 'No, we’re a full house';
     $<HTMLInputElement>('party-name').value = this.host.name();
-    $('party-note').textContent = p.sent
+    $('party-note').textContent = guest
       ? `The link is ${them}’s ${occ} again, with your time.`
       : `Whoever opens it starts at your ${p.kind} and fetches ${foodName(p.spot.food)} from the same place, against your ${clockText(this.finished?.seconds ?? 0)}.${this.store.warned ? '' : ` The link shows where your ${p.kind} is in the game.`}`;
     $('party-link').hidden = true;

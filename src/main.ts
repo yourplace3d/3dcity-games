@@ -15,8 +15,8 @@ import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
 import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
-import { PartyUi } from './partyUi';
-import { occasion, readParty, type SentParty } from './game/party';
+import { arriveLine, PartyUi } from './partyUi';
+import { readParty, type SentParty } from './game/party';
 import { drawTrophies, Trophies, type TrophyId } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
@@ -474,7 +474,7 @@ function arrive(): void {
       ? `${guessRival.name || 'Someone'} ${guessRival.points ? `knew this city after ${secs(guessRival.seconds)}: ${guessRival.points} points` : 'did not get this city'}. Same place, same four names: beat it.`
       : 'Drive around and look. Tap “Guess the city” when you know: the sooner, the more points.'
     : linkParty
-    ? `${linkParty.name ? `${linkParty.name}’s` : 'A friend’s'} ${occasion(linkParty.occasion)}: you are invited`
+    ? arriveLine(linkParty)
     : rival
     ? `${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`
     : game?.run.over

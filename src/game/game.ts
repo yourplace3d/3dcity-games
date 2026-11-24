@@ -32,7 +32,7 @@ import type { LngLat } from '../geo/projection';
 import { Car, collideCars, type CarKind } from './cars';
 import type { Input } from './input';
 import { Strip, drawnOverGround } from './roadMesh';
-import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
+import { laneOffset, mayGo, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
 import { JOB_OF, RING, type JobKind } from './services';
@@ -672,12 +672,15 @@ export class Game {
   }
 
   /** The place on the network nearest to a point, facing the way `th` points. */
-  private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train'): PathState | null {
+  /** The nearest place on the network, the way the car faces; `legal`: and never against a one-way street. */
+  private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train', legal = false): PathState | null {
     const n = this.world.roads.nearest(x, y, 60, want);
     if (!n) return null;
     const p: PathState = { line: n.line, s: n.s, dir: 1 };
     const [hx, hy] = this.world.roads.heading(p);
     if (hx * Math.cos(th) + hy * Math.sin(th) < 0) p.dir = -1;
+    const ow = this.world.roads.lines[n.line].oneway;
+    if (legal && ow) p.dir = ow;
     return p;
   }
 
@@ -826,6 +829,8 @@ export class Game {
     const p = w.roads.randomPlace(railsOf(kind) ?? 'traffic', px, py, minD, maxD);
     if (!p) return null;
     const line = w.roads.lines[p.line];
+    // on a one-way street, the way it goes
+    if (line.oneway) p.dir = line.oneway;
     // buses keep to the bigger streets
     if (kind === 'bus' && (line.kind === 'minor' || line.kind === 'motorway')) return null;
     const [x, y] = w.roads.lanePoint(p, this.lane(p, kind));
@@ -872,7 +877,7 @@ export class Game {
       limit = toMe < 14 ? 12 + this.speed() : 33;
       c.path = this.attach(c.x, c.y, c.th, 'drive') ?? c.path;
     } else {
-      if (!c.path) c.path = this.attach(c.x, c.y, c.th, want);
+      if (!c.path) c.path = this.attach(c.x, c.y, c.th, want, want === 'drive');
       if (!c.path) {
         c.controls.throttle = 0;
         return;
@@ -891,6 +896,12 @@ export class Game {
             return !from || score(best) > score(from) + 0.3 ? best : null;
           }
         : (options, from) => {
+            // going against a one-way street (turned at a dead end the map left): off it at the first way out
+            const astray = want === 'drive' && !!from && !mayGo(net.lines[from.line], from.dir);
+            if (astray) {
+              const out = options.filter((o) => mayGo(net.lines[o.line], o.dir));
+              if (out.length) return pickOne(out);
+            }
             // trams and buses mostly carry straight on; cars turn off more often
             if (from && Math.random() > (transit ? 0.08 : 0.25)) return null;
             if (want !== 'drive') {
@@ -901,8 +912,11 @@ export class Game {
               const [hx, hy] = net.heading(o);
               return hx * fx + hy * fy > -0.7;
             });
-            const real = ahead.filter((o) => net.lines[o.line].traffic);
-            const pool = real.length ? real : from ? [] : ahead.length ? ahead : options;
+            // never into a one-way street the wrong way, while there is another way on; where the map
+            // leaves none (a one-way street that ends at the edge of the square, say), on as before
+            const legal = ahead.filter((o) => mayGo(net.lines[o.line], o.dir));
+            const real = legal.filter((o) => net.lines[o.line].traffic);
+            const pool = real.length ? real : from ? [] : legal.length ? legal : ahead.length ? ahead : options;
             return pool.length ? pickOne(pool) : null;
           };
       // a tram or train aims beyond its own front, which is half its length ahead
@@ -911,6 +925,12 @@ export class Game {
       for (let k = 0; k < 30 && Math.hypot(tx - c.x, ty - c.y) < look; k++) {
         net.advance(p, 2, want, pick);
         [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
+      }
+      // turned round against a one-way street where the map leaves no way on: out of sight, the car goes
+      // (cars that drive off go too); in sight, it turns as before
+      if (want === 'drive' && c.driver === 'ai' && !mayGo(net.lines[p.line], p.dir) && toMe > this.viewR) {
+        this.dropCar(c);
+        return;
       }
       // at the end of a track a tram or train stops, waits a moment and sets off the other way
       if (want !== 'drive' && (tx - c.x) * fx + (ty - c.y) * fy < -2) {

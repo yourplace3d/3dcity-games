@@ -369,7 +369,10 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         const road = ROAD_KIND[cls];
         if (!road && !isRail) return;
         const [kind, width] = isRail ? (['rail', str(f.properties.subclass) === 'tram' ? 1.6 : 3] as [LineKind, number]) : road;
-        for (const pts of linesOf(f, toLocal)) if (pts.length >= 2) lines.push({ kind, widthM: width, pts, bridge: brunnel === 'bridge', steps: cls === 'path' && str(f.properties.subclass) === 'steps', ...(passage ? { passage } : {}) });
+        // a one-way street, for traffic: 1 with the way's points, -1 against them
+        const ow = Number(f.properties.oneway);
+        const oneway = !isRail && cls !== 'path' && (ow === 1 || ow === -1) ? (ow as 1 | -1) : undefined;
+        for (const pts of linesOf(f, toLocal)) if (pts.length >= 2) lines.push({ kind, widthM: width, pts, bridge: brunnel === 'bridge', steps: cls === 'path' && str(f.properties.subclass) === 'steps', ...(passage ? { passage } : {}), ...(oneway ? { oneway } : {}) });
       });
     }
     {

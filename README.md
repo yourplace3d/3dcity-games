@@ -253,12 +253,14 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
-  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways.
+  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways, and which streets are one-way.
   Bug fixes cover date-line tile requests, cache failure and cancellation handling, nested polygon
   holes, terrain edge patches and clipped road/bridge export heights; see the verification notes above.
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
-There are no traffic lights, level-crossing barriers or one-way streets, and bus and tram lines are not the real routes: vehicles follow
+Traffic keeps to one-way streets as the map has them (`oneway` in the map tiles; a car the map leaves at a dead end on one turns off at the
+first way out, or goes if you can't see it). You may drive any way you like, and the arrow's way does not mind one-way streets.
+There are no traffic lights or level-crossing barriers, and bus and tram lines are not the real routes: vehicles follow
 the streets and tracks and mostly carry straight on. Where a street or
 path runs through a building (gateways, archways, passages into courtyards, gates in a town wall), a corridor is
 cut through it at ground level: walls either side, the floors above as a roof you pass under, and you are drawn

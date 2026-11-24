@@ -561,6 +561,16 @@ the measure takes the wrong branch (the screenshot shows the tram on its rails).
 and trams: at worst 37° before, 7° after. Test: a tram round a 25 m bend stays within 4° (18° before),
 `tests/rails.test.ts`.
 
+**Feedback from Dresden: "Encountering traffic on one-way streets too."** The game had no one-way streets:
+traffic went both ways on each, and Dresden's big streets are mapped as two one-way carriageways. The map
+tiles say which streets are one-way (`oneway`); Dresden's centre has 54 km of them in 210 km of streets. Now
+traffic is put on one the way it goes, never turns into one the wrong way while there is another way on, and
+leaves one at the first way out if it got on wrongly (where the map leaves a one-way street at a dead end and
+the car turns round). Such a car out of sight goes, as cars that drive off do. The player may still drive
+any way, unfined, and the arrow's way does not mind one-way streets (a question for the owner). Counted over
+4 minutes of play each in two parts of Dresden's centre, the player walking about: of the cars seen on
+one-way streets, 19 of 41 drove against the arrow before, 0 of 38 after. Tests: `tests/oneway.test.ts`.
+
 **The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
 `?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.
 Whether to turn it on for everyone is the owner's call.

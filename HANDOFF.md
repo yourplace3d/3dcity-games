@@ -36,7 +36,10 @@ lives.
   colour (fuel orange, fire red, police blue, a plain package turquoise), pink for anything for your home,
   yellow to deliver; parks and gardens drawn with sharp edges by a step in the ground's shader. Branch
   `claude/ring-colours`, not live: the plan, section 9. The radio is a trial switched on per browser
-  (`?try=radio`); that is why it plays on the owner's iPad and not on the Mac.
+  (`?try=radio`); that is why it plays on the owner's iPad and not on the Mac. On the same branch, from the
+  owner's next round: home missions flash green (pink only for the party), no train on bits of track
+  shorter than 200 m (Shibuya), trams and trains on two bogies so they lie on their rails, and traffic
+  keeping to one-way streets (feedback from Dresden).
 
 ## Where things stand
 
@@ -373,7 +376,7 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
 - Traffic can queue behind a pedestrian walking in the road, and behind a stopped car; cars hesitate at some
   corners.
 - Left-hand traffic uses rough boxes of latitude and longitude; border regions can be wrong.
-- No traffic lights, no one-way streets. Sound exists since 14 November 2026 and has only been checked for
+- No traffic lights. One-way streets for traffic since 24 November (the player may drive any way). Sound exists since 14 November 2026 and has only been checked for
   which sounds fire when: nobody has listened to it in the test browser. Volumes and tones need the owner's ear.
 - Subway rides stay within the loaded square.
 - The thin-place rule counts streets across the loaded tiles, not only the square, so its numbers are loose.

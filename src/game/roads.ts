@@ -48,6 +48,8 @@ export interface RoadLine {
   train: boolean;
   /** railway or tram track too short for a train or tram to run on (`TRAIN_MIN_M`): drawn, never used */
   short: boolean;
+  /** a one-way street: traffic goes only with the points (1) or only against them (-1); 0 both ways */
+  oneway: 0 | 1 | -1;
   /** a stairway */
   steps: boolean;
   /** a way through a building (`passages.ts`) */
@@ -118,7 +120,7 @@ export class RoadNet {
       const len = cum[pts.length - 1];
       if (len < 2) continue;
       const id = this.lines.length;
-      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, short: false, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
+      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, short: false, oneway: f.oneway ?? 0, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = this.segLine.length;
         this.segLine.push(id);
@@ -564,7 +566,13 @@ function segAt(l: RoadLine, s: number): number {
   return i;
 }
 
-/** How far to the right of the centre line a car drives on a road of this width. */
+/** How far to the right of the centre line a car drives on a road of this width: on a one-way street, nearer the middle. */
 export function laneOffset(l: RoadLine): number {
+  if (l.oneway) return l.w < 7 ? 0 : Math.min(1.8, l.w * 0.15);
   return l.w < 5 ? 0.7 : Math.min(3.2, l.w * 0.25);
+}
+
+/** Whether traffic may go this way along a line: not against a one-way street. */
+export function mayGo(l: RoadLine, dir: 1 | -1): boolean {
+  return !l.oneway || l.oneway === dir;
 }

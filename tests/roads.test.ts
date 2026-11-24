@@ -60,7 +60,9 @@ describe('railway for trains', () => {
       expect(net.lines[p.line].short).toBe(false);
     }
     expect(found).toBeGreaterThan(0);
-    expect(net.nearest(3, 0, 20, 'train')).toBeNull();
+    expect(net.nearestAlong(3, 0, 20, 'train', 1, 0)).toBeNull();
+    // stops and drawing still see it
+    expect(net.nearest(3, 0, 20, 'train')).not.toBeNull();
     expect(net.hasTrains).toBe(true);
   });
 
@@ -68,7 +70,7 @@ describe('railway for trains', () => {
     const pieces = Array.from({ length: 10 }, (_, i): LineFeature => rail([[i * 25, 0], [(i + 1) * 25, 0]]));
     const net = new RoadNet(pieces, 750);
     expect(net.lines.every((l) => !l.short)).toBe(true);
-    expect(net.nearest(30, 0, 20, 'train')).not.toBeNull();
+    expect(net.nearestAlong(30, 0, 20, 'train', 1, 0)).not.toBeNull();
   });
 
   it('a short tram siding gets no tram', () => {

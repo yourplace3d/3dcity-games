@@ -453,7 +453,6 @@ export class RoadNet {
     this.each(x, y, maxD, (line, i) => {
       const l = this.lines[line];
       if (want !== 'any' && !l[want]) return;
-      if ((want === 'train' || want === 'tram') && l.short) return;
       const n = this.project(line, i, x, y);
       if (n.d <= maxD && (!best || n.d < best.d)) best = n;
     });
@@ -565,7 +564,8 @@ export class RoadNet {
         const a = rnd() * Math.PI * 2;
         const r = minD + rnd() * (maxD - minD);
         const n = this.nearest(x + Math.cos(a) * r, y + Math.sin(a) * r, 40, want);
-        if (n) place = { line: n.line, s: n.s, dir: rnd() < 0.5 ? 1 : -1 };
+        // not on a bit of track too short to run on: another spot
+        if (n && !this.lines[n.line].short) place = { line: n.line, s: n.s, dir: rnd() < 0.5 ? 1 : -1 };
       } else {
         const line = pool[Math.floor(rnd() * pool.length)];
         place = { line, s: rnd() * this.lines[line].len, dir: rnd() < 0.5 ? 1 : -1 };

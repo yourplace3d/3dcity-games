@@ -33,8 +33,8 @@ lives.
   on the owner's word since 24 November 2026: the plan, section 8.
 
 - **Ring colours and sharp green (owner, 24 November, after Kiel and Rio):** each giver's ring in its sign's
-  colour (fuel orange, fire red, police blue, a plain package turquoise), pink for anything for your home,
-  yellow to deliver; parks and gardens drawn with sharp edges by a step in the ground's shader. Branch
+  colour (fuel orange, fire red, police blue, a plain package turquoise), pink for the party's food, green
+  flashing on a station's ring while a home of yours waits for its package, yellow to deliver; parks and gardens drawn with sharp edges by a step in the ground's shader. Branch
   `claude/ring-colours`, not live: the plan, section 9. The radio is a trial switched on per browser
   (`?try=radio`); that is why it plays on the owner's iPad and not on the Mac. On the same branch, from the
   owner's next round: home missions flash green (pink only for the party), no train on bits of track

@@ -106,4 +106,23 @@ describe('traffic on one-way streets', () => {
       c.gone = true;
     }
   });
+
+  it('at the end of a street, a sharp turn the right way beats straight on the wrong way', async () => {
+    // from the west to the end of a street: on ahead is one-way towards it, back sharply is the only legal way
+    const { roads, inside } = await playing([street([[-300, 0], [0, 0]]), street([[0, 0], [250, 40]], -1), street([[0, 0], [-250, 30]], 1)]);
+    const hairpin = roads.lines.findIndex((l) => l.pts[l.pts.length - 1][0] === -250);
+    for (let trial = 0; trial < 8; trial++) {
+      const c = inside.addCar('sedan', -60, 0, 0);
+      c.driver = 'ai';
+      const went = new Set<number>();
+      for (let k = 0; k < 200; k++) {
+        inside.drive(c, 0.05);
+        c.step(0.05, (inside as unknown as { world: World }).world);
+        if (c.path) went.add(c.path.line);
+      }
+      expect(went.has(hairpin)).toBe(true);
+      expect(c.path && roads.lines[c.path.line].oneway === -1).toBe(false);
+      c.gone = true;
+    }
+  });
 });

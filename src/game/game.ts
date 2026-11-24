@@ -254,6 +254,8 @@ export class Game {
   private blown: Car | null = null;
   private routeT = 0;
   private routePts: Pt[] | null = null;
+  /** the colour the way was drawn in: of the ring it leads to */
+  private routeColour = RING.plain;
   private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
   /** drive yourself (for filming and tests), how fast, and whether to brake for what's ahead */
   auto = false;
@@ -635,6 +637,7 @@ export class Game {
     old.dispose();
     for (const c of this.cars) {
       c.lastStop = -1;
+      c.rail = null;
       if (c.path) c.path = this.attach(c.x, c.y, c.th, railsOf(c.kind) ?? 'drive');
     }
     for (const p of this.people) p.path = this.attach(p.x, p.y, p.th, 'walk');
@@ -678,7 +681,8 @@ export class Game {
    * a one-way street.
    */
   private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train', legal = false): PathState | null {
-    const n = this.world.roads.nearest(x, y, 60, want);
+    // a tram or train: its own track, the way it faces, and none too short to run on
+    const n = want === 'tram' || want === 'train' ? this.world.roads.nearestAlong(x, y, 60, want, Math.cos(th), Math.sin(th)) : this.world.roads.nearest(x, y, 60, want);
     if (!n) return null;
     const p: PathState = { line: n.line, s: n.s, dir: 1 };
     const [hx, hy] = this.world.roads.heading(p);
@@ -900,15 +904,9 @@ export class Game {
             return !from || score(best) > score(from) + 0.3 ? best : null;
           }
         : (options, from) => {
-            // going against a one-way street (turned at a dead end the map left): off it at the first way out
-            const astray = want === 'drive' && !!from && !mayGo(net.lines[from.line], from.dir);
-            if (astray) {
-              const out = options.filter((o) => mayGo(net.lines[o.line], o.dir));
-              if (out.length) return pickOne(out);
-            }
-            // trams and buses mostly carry straight on; cars turn off more often
-            if (from && Math.random() > (transit ? 0.08 : 0.25)) return null;
             if (want !== 'drive') {
+              // trams and trains mostly carry straight on
+              if (from && Math.random() > 0.08) return null;
               const dot = (o: PathState) => net.heading(o)[0] * fx + net.heading(o)[1] * fy;
               return options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
             }
@@ -916,11 +914,22 @@ export class Game {
               const [hx, hy] = net.heading(o);
               return hx * fx + hy * fy > -0.7;
             });
-            // never into a one-way street the wrong way, while there is another way on; where the map
-            // leaves none (a one-way street that ends at the edge of the square, say), on as before
-            const legal = ahead.filter((o) => mayGo(net.lines[o.line], o.dir));
+            const may = (o: PathState) => mayGo(net.lines[o.line], o.dir);
+            // going against a one-way street (turned at a dead end the map left): off it at the first way
+            // out ahead; one that would turn it round on the spot waits for the next
+            if (from && !may(from)) {
+              const out = ahead.filter(may);
+              if (out.length) return pickOne(out);
+            }
+            // buses mostly carry straight on; cars turn off more often
+            if (from && Math.random() > (transit ? 0.08 : 0.25)) return null;
+            // never into a one-way street the wrong way, while there is another way on, a sharp turn
+            // included; where the map leaves none (a one-way street that ends at the edge of the
+            // square, say), on as before
+            const legal = ahead.filter(may);
             const real = legal.filter((o) => net.lines[o.line].traffic);
-            const pool = real.length ? real : from ? [] : legal.length ? legal : ahead.length ? ahead : options;
+            const anyLegal = options.filter(may);
+            const pool = real.length ? real : from ? [] : legal.length ? legal : anyLegal.length ? anyLegal : ahead.length ? ahead : options;
             return pool.length ? pickOne(pool) : null;
           };
       // a tram or train aims beyond its own front, which is half its length ahead
@@ -970,7 +979,8 @@ export class Game {
    * headed for; the back bogie follows where the front has been; the body lies between the two. Steered
    * like a car, a 19 m tram aimed at a point inside its own length and stood across the rails on bends
    * and after points: in Dresden one tram in ten was 15° or more off its rails, at worst 70° (24 November).
-   * Speed, braking and knocks stay the car's own.
+   * Speed and braking stay the car's own, and a knock slows it, but nothing pushes it off its rails: the
+   * car that hits it takes all of the push.
    */
   private onRails(c: Car, dt: number): void {
     const net = this.world.roads;
@@ -1988,6 +1998,7 @@ export class Game {
     const r = f ? this.world.roads.route(f, px, py, 600) : null;
     // the little map always shows the way; the line on the road is a choice
     this.routePts = r && r.pts.length > 1 ? r.pts : null;
+    this.routeColour = colour;
     this.routeLine.visible = this.showRoute && !!this.routePts;
     if (!this.routeLine.visible || !r) return;
     this.routeLine.material.color.set(colour);
@@ -2426,7 +2437,7 @@ export class Game {
       drop: this.job ? this.local(this.job.to) : null,
       cops: this.heat > 0 ? this.cars.filter((c) => c.driver === 'cop' && !c.gone).map((c): Pt => [c.x, c.y]) : [],
       route: this.routePts,
-      routeColour: this.job ? DROP : this.goal()?.colour ?? RING.plain,
+      routeColour: this.routeColour,
     };
   }
 

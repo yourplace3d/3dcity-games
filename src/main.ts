@@ -58,6 +58,8 @@ let homes: HomesUi | null = null;
 let party: PartyUi | null = null;
 /** a friend's party from the link the page was opened with, until it starts */
 let linkParty: SentParty | null = null;
+/** the party of the link, for the line under the place's name, for as long as its place is played */
+let partyShown: SentParty | null = null;
 const sound = new Sound();
 let playing = false;
 let busy = false;
@@ -305,6 +307,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
     linkParty = null;
     partyClosed();
   }
+  partyShown = linkParty;
   if (!dropping) endGuess();
   playingAt(at);
   status.className = 'status';
@@ -473,20 +476,20 @@ function arrive(): void {
     ? guessRival
       ? `${guessRival.name || 'Someone'} ${guessRival.points ? `knew this city after ${secs(guessRival.seconds)}: ${guessRival.points} points` : 'did not get this city'}. Same place, same four names: beat it.`
       : 'Drive around and look. Tap “Guess the city” when you know: the sooner, the more points.'
-    : linkParty
-    ? arriveLine(linkParty)
+    : partyShown
+    ? arriveLine(partyShown)
     : rival
     ? `${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`
     : game?.run.over
       ? 'Open jobs: look for the pump, the flame and the badge'
       : `${cap(deliveries(RUN_JOBS))} make a run`;
   const el = $('arrive');
-  el.classList.toggle('sent', !!rival || (!!secret && !!guessRival));
+  el.classList.toggle('sent', !!rival || !!partyShown || (!!secret && !!guessRival));
   el.hidden = true;
   void el.offsetWidth;
   el.hidden = false;
   clearTimeout(arriveT);
-  arriveT = window.setTimeout(() => (el.hidden = true), rival || (secret && guessRival) ? 6000 : 3200);
+  arriveT = window.setTimeout(() => (el.hidden = true), rival || partyShown || (secret && guessRival) ? 6000 : 3200);
 }
 let arriveT = 0;
 

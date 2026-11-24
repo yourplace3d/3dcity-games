@@ -35,6 +35,11 @@ describe('the food place of a party', () => {
     expect(pickFood([{ metres: 200, id: 'real' }, { metres: 900, id: 'made up', invented: true }])?.id).toBe('made up');
   });
 
+  it('never one right at the door: the food would be delivered as it is picked up', () => {
+    expect(pickFood([{ metres: 10, id: 'next door' }])).toBeNull();
+    expect(pickFood([{ metres: 10, id: 'next door' }, { metres: 200, id: 'round the corner' }])?.id).toBe('round the corner');
+  });
+
   it('else whichever is nearest the range, and none when there is none', () => {
     expect(pickFood([{ metres: 100, id: 'a' }, { metres: PARTY_NEAR - 50, id: 'b' }, { metres: PARTY_FAR + 400, id: 'c' }])?.id).toBe('b');
     expect(pickFood([])).toBeNull();
@@ -85,6 +90,12 @@ describe('a lane too narrow for a car', () => {
   it('a long narrow way says how long, so the party can use the corner instead of an endless walk', () => {
     const n = narrowWalk(way, (x) => x < -250);
     expect(n!.walk).toBeGreaterThan(WALK_MAX);
+  });
+
+  it('a lane narrow for longer than the stretch looked at: the car stops where it really gets narrow, never inside it', () => {
+    const n = narrowWalk(way, (x) => x < -380);
+    expect(n!.walk).toBeGreaterThan(370);
+    expect(n!.stop[0]).toBeLessThan(-380);
   });
 });
 

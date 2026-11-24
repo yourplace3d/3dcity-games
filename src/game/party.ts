@@ -30,6 +30,8 @@ export const PARTY_POINTS = 2;
 export const PARTY_NEAR = 450;
 export const PARTY_FAR = 1200;
 const PARTY_AIM = 800;
+/** never nearer than this by road (m): the food would be at the door as soon as it is picked up */
+export const PARTY_MIN = 150;
 
 /** "the pizza", "the drinks and snacks" */
 export function foodName(food: FoodKind): string {
@@ -78,24 +80,32 @@ const NARROW_RUN = 3;
 export function narrowWalk(pts: Pt[], fits: (x: number, y: number) => boolean): { walk: number; stop: Pt } | null {
   let total = 0;
   for (let k = 1; k < pts.length; k++) total += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+  // samples along the way, from the pickup to the door: where each is, and whether a car fits there
+  const at: number[] = [];
+  const ok: boolean[] = [];
   let along = 0;
-  let run = 0;
-  let runFrom = 0;
   for (let k = 1; k < pts.length; k++) {
     const [ax, ay] = pts[k - 1];
     const [bx, by] = pts[k];
     const len = Math.hypot(bx - ax, by - ay);
     for (let s = 0; s < len; s += NARROW_STEP) {
-      const at = along + s;
-      if (total - at > NARROW_LOOK) continue;
-      if (fits(ax + ((bx - ax) * s) / len, ay + ((by - ay) * s) / len)) {
-        run = 0;
-        continue;
-      }
-      if (run++ === 0) runFrom = at;
-      if (run >= NARROW_RUN) return { walk: total - runFrom, stop: pointAt(pts, Math.max(0, runFrom - 4)) };
+      at.push(along + s);
+      ok.push(fits(ax + ((bx - ax) * s) / len, ay + ((by - ay) * s) / len));
     }
     along += len;
+  }
+  let run = 0;
+  for (let i = 0; i < at.length; i++) {
+    if (total - at[i] > NARROW_LOOK || ok[i]) {
+      run = 0;
+      continue;
+    }
+    if (++run < NARROW_RUN) continue;
+    // where the narrow part really begins, also where that is further out than the stretch looked at: the car
+    // stops before it, never inside it
+    let from = i - run + 1;
+    while (from > 0 && !ok[from - 1]) from--;
+    return { walk: total - at[from], stop: pointAt(pts, Math.max(0, at[from] - 4)) };
   }
   return null;
 }
@@ -116,9 +126,11 @@ function pointAt(pts: Pt[], at: number): Pt {
 /**
  * The food place for a home's party: of the places a road leads to from the door (`metres` by road),
  * a real one between `PARTY_NEAR` and `PARTY_FAR`, nearest `PARTY_AIM`; else a made-up one in that
- * range; else whichever is nearest that range. Null when there is none at all.
+ * range; else whichever is nearest that range, but never nearer than `PARTY_MIN`. Null when there is none
+ * (then one is made up at a fitting distance).
  */
-export function pickFood<T extends { metres: number; invented?: boolean }>(places: T[]): T | null {
+export function pickFood<T extends { metres: number; invented?: boolean }>(all: T[]): T | null {
+  const places = all.filter((p) => p.metres >= PARTY_MIN);
   const aim = (a: T, b: T) => Math.abs(a.metres - PARTY_AIM) - Math.abs(b.metres - PARTY_AIM);
   const inRange = places.filter((p) => p.metres >= PARTY_NEAR && p.metres <= PARTY_FAR);
   const real = inRange.filter((p) => !p.invented);

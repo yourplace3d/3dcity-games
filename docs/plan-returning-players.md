@@ -468,9 +468,15 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
   again; the autopilot could not get out between lane walls (it now backs up first); a party with room for
   only 1 point promised 2; a guest with the host's own name sent a link that read as the host's (the link
   now says it is a time sent back).
-- Played through again after the fixes, in Berlin (host 1:16, friend 1:04, host on the friend's returned
-  link 1:27, "A friend was 23 s faster") and in Florence (walk 10 m, the line to leave the car at the lane,
-  1:10; the card for food lost to the police). The autopilot's own driving varies from run to run in
+- The fourth found two more: a home with two possible doors could keep the food place of the door it did
+  not use (and lose its best time); a lane narrow for longer than the 300 m looked at put the corner inside
+  it. Fixed: only the door used keeps its food place; the narrow part is followed back to where it really
+  begins. Small ones fixed too: no food place nearer than 150 m by road (it would be delivered at once); the
+  invitation line stays with its place and shows as long as a sent run's; a host opening their own link is
+  spoken to as the host; a run to an older food place sets no best time.
+- Played through again after the fixes, in Berlin (host 1:00, friend 1:17, host on the friend's returned
+  link 1:11, "6 s faster than a friend") and in Florence (walk 10 m, the line to leave the car at the lane:
+  host 1:10, friend 1:46, host on the returned link 1:12; earlier, the card for food lost to the police). The autopilot's own driving varies from run to run in
   Florence's lanes and on longer ways in Berlin; real players were not tried.
 
 **Questions for the owner:**

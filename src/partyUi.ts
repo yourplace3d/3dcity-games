@@ -173,9 +173,11 @@ export class PartyUi {
     // to it, else the corner nearest the home where a car can go
     let door: { ll: LngLat; walk: number; corner: boolean; known: boolean } | null = null;
     let spot: FoodSpot | null = null;
+    let fresh = false;
     for (const d of this.doorsOf(world, lot.x, lot.y)) {
-      const s = this.foodFor(world, key, d.at);
-      if (!s) continue;
+      const found = this.foodFor(world, key, d.at);
+      if (!found) continue;
+      const s = found.spot;
       const lay = this.lay(world, d.at, s);
       const nearer = (a: LngLat, b: LngLat) => {
         const [ax, ay] = world.proj.toLocal(a.lon, a.lat);
@@ -185,6 +187,7 @@ export class PartyUi {
       if (!door || (door.corner && (!lay.corner || nearer(lay.ll, door.ll)))) {
         door = lay;
         spot = s;
+        fresh = found.fresh;
       }
       if (!door.corner) break;
     }
@@ -192,10 +195,13 @@ export class PartyUi {
       this.host.toast('No way by road from here to a place for food: try another of your homes.', 'bad', 6000);
       return;
     }
-    // what the whole way showed is kept with the home's food place, for a part of town that doesn't hold it
-    if (door.known && this.store.places[key]) {
-      const lane = { walk: door.walk, corner: door.corner, door: door.ll };
-      this.store = { ...this.store, places: { ...this.store.places, [key]: { ...this.store.places[key], lane } } };
+    // the food place of the door used is the home's from now on ("built" once); a new one is a new run, so the
+    // best time on the old one goes. What the whole way showed is kept with it, for a part of town that holds
+    // the home but not its food place.
+    if (fresh || door.known) {
+      const { [key]: _old, ...best } = this.store.best;
+      const place: FoodSpot = door.known ? { ...spot, lane: { walk: door.walk, corner: door.corner, door: door.ll } } : spot;
+      this.store = { ...this.store, places: { ...this.store.places, [key]: place }, best: fresh ? best : this.store.best };
       storeParties(this.store);
       this.host.save?.();
     }
@@ -250,7 +256,9 @@ export class PartyUi {
     const fetch = `fetch ${it} from ${foodPlace(s.food)} with the pink sign (the arrow shows the way), and bring ${it} ${mine ? 'to your door' : 'back here'} before ${s.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}. The clock starts at the pickup.${lane.card}`;
     const text = back
       ? `${cap(back)} brought ${food} to ${whose} ${occasion(s.occasion)} in ${clockText(s.seconds)}. Your turn: take a car, ${fetch}`
-      : `${s.name || 'Your friend'} has friends over tonight, and ${food} ${s.food === 'shop' ? 'are' : 'is'} still missing. Take a car, ${fetch}${s.seconds ? ` ${cap(s.by || s.name || 'your friend')} did it in ${clockText(s.seconds)}.` : ''}`;
+      : mine
+        ? `Friends are coming over tonight, and nobody got the food. Take a car, ${fetch}${s.seconds ? ` The time in this link: ${clockText(s.seconds)}.` : ''}`
+        : `${s.name || 'Your friend'} has friends over tonight, and ${food} ${s.food === 'shop' ? 'are' : 'is'} still missing. Take a car, ${fetch}${s.seconds ? ` ${cap(s.by || s.name || 'your friend')} did it in ${clockText(s.seconds)}.` : ''}`;
     this.host.card(
       mine ? `${cap(occasion(s.occasion))} at your ${mine.kind}` : `${cap(whose)} ${occasion(s.occasion)}`,
       text + (mine && this.pays() ? ` A party is worth ${this.pays()} home ${this.pays() === 1 ? 'point' : 'points'} today.` : ''),
@@ -360,7 +368,7 @@ export class PartyUi {
    * The food place of a home's party: the one kept for it, while the roads still lead there; else one
    * picked now and kept, so that the home's party run stays the same ("built" once, in the owner's word).
    */
-  private foodFor(world: World, key: string, door: [number, number]): FoodSpot | null {
+  private foodFor(world: World, key: string, door: [number, number]): { spot: FoodSpot; fresh: boolean } | null {
     const f = world.roads.field(door[0], door[1]);
     if (!f) return null;
     const half = world.half - 10;
@@ -374,8 +382,8 @@ export class PartyUi {
       const [kx, ky] = world.proj.toLocal(kept.pick.lon, kept.pick.lat);
       // outside the part of town loaded now, or so near its edge that the road to it may run outside, it
       // can't be checked: it stays the home's, as its party run
-      if (Math.abs(kx) > half - EDGE_M || Math.abs(ky) > half - EDGE_M) return kept;
-      if (reach(kept.pick) !== null) return kept;
+      if (Math.abs(kx) > half - EDGE_M || Math.abs(ky) > half - EDGE_M) return { spot: kept, fresh: false };
+      if (reach(kept.pick) !== null) return { spot: kept, fresh: false };
     }
     const [dx, dy] = door;
     const near = world.food
@@ -405,13 +413,8 @@ export class PartyUi {
       pick = { metres, invented: true, food: 'restaurant', shop: world.proj.toLngLat(rx + hy * side, ry - hx * side), pick: world.proj.toLngLat(rx, ry) };
     }
     if (!pick) return null;
-    const spot: FoodSpot = { food: pick.food, invented: pick.invented, shop: pick.shop, pick: pick.pick };
-    // a new food place is a new run: the best time on the old one no longer counts
-    const { [key]: _old, ...best } = this.store.best;
-    this.store = { ...this.store, places: { ...this.store.places, [key]: spot }, best: kept ? best : this.store.best };
-    storeParties(this.store);
-    this.host.save?.();
-    return spot;
+    // kept only for the door the party uses (`offer`)
+    return { spot: { food: pick.food, invented: pick.invented, shop: pick.shop, pick: pick.pick }, fresh: true };
   }
 
   /** The food got to the door, got cold, or was lost to a fine. */
@@ -446,14 +449,19 @@ export class PartyUi {
       text = `${cap(food)} got there in ${t} from the pickup${versus}.${own ? '' : ' A party of your own needs a home of your own: do a couple of deliveries, and you’ll be shown a cheap flat.'}`;
     } else {
       const key = p.key;
+      // a run to another food place than the home's own (an older link) is no best time for it
+      const ownRun = (() => {
+        const kept = this.store.places[key];
+        return !kept || (Math.abs(kept.pick.lat - p.spot.pick.lat) < 2e-5 && Math.abs(kept.pick.lon - p.spot.pick.lon) < 2e-5);
+      })();
       const before = this.store.best[key];
       const due = pointsDue(this.store, this.today());
       const added = due ? (this.host.homes()?.partyPoints(PARTY_POINTS) ?? 0) : 0;
       // a party pays what fits under the most points that wait, once a day; with no room it pays nothing, and the day's points wait for a later party
-      this.store = { ...this.store, paid: added ? this.today() : this.store.paid, best: { ...this.store.best, [key]: before ? Math.min(before, Math.round(seconds)) : Math.round(seconds) } };
+      this.store = { ...this.store, paid: added ? this.today() : this.store.paid, best: ownRun ? { ...this.store.best, [key]: before ? Math.min(before, Math.round(seconds)) : Math.round(seconds) } : this.store.best };
       storeParties(this.store);
       this.host.save?.();
-      const record = before && seconds < before - 0.5 ? ` Your best yet, ${gap(before - seconds)} faster than before.` : '';
+      const record = ownRun && before && seconds < before - 0.5 ? ` Your best yet, ${gap(before - seconds)} faster than before.` : '';
       const points = added ? ` +${added} home points.` : due ? ' Your home points are full: spend some on a home.' : ` Today’s party points are yours already; tomorrow’s party brings ${PARTY_POINTS} more.`;
       text = `${cap(food)} got to ${p.where} in ${t} from the pickup, ${p.spot.food === 'shop' ? 'still cold' : 'still warm'}${versus}.${record}${points}`;
     }

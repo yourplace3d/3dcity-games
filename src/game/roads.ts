@@ -25,8 +25,11 @@ const JOIN_M = 2.5;
  */
 const TRAIN_MIN_M = 200;
 const TRAM_MIN_M = 80;
-/** At the end of a line, a tram or train goes on along another only if it does not turn by more than about 80°. */
-export const RAIL_ON = 0.2;
+/**
+ * At the end of a line, a tram or train goes on along another unless that one doubles back (turns by more
+ * than 120°): a way split at a tight corner is a corner, two legs of a loop drawn apart are not.
+ */
+export const RAIL_ON = -0.5;
 
 export interface Conn {
   line: number;
@@ -338,10 +341,11 @@ export class RoadNet {
           if ((other.len - o.s > 4 && d > RAIL_ON) || (o.s > 4 && -d > RAIL_ON)) group[find(i)] = find(o.line);
         }
       }
-      // along a line: points that lead off at a slant, not a line that only crosses it
+      // along a line: points that lead off at a slant, not a line that only crosses it (where lines only
+      // touch end to end, the crossings list has them too: those are the ends' to judge)
       for (const j of l.joins) {
         const o = this.lines[j.line];
-        if (!rails(l, o)) continue;
+        if (!rails(l, o) || j.s < 1 || j.s > l.len - 1 || j.s2 < 1 || j.s2 > o.len - 1) continue;
         const [ax, ay] = this.heading({ line: i, s: j.s, dir: 1 });
         const [bx, by] = this.heading({ line: j.line, s: j.s2, dir: 1 });
         if (Math.abs(ax * bx + ay * by) > 0.7) group[find(i)] = find(j.line);

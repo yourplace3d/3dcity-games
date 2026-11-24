@@ -316,13 +316,13 @@ describe('a tram on its rails', () => {
     const net = new RoadNet([
       { kind: 'rail', pts: [[-200, 0], [0, 0]], widthM: 1.6, bridge: false },
       { kind: 'rail', pts: [[0, 0], [200, 0]], widthM: 1.6, bridge: false },
-      // a line turning off too sharply for a tram
-      { kind: 'rail', pts: [[0, 0], [8, 100]], widthM: 1.6, bridge: false },
+      // a line that doubles back, too sharp for a tram
+      { kind: 'rail', pts: [[0, 0], [-100, 30]], widthM: 1.6, bridge: false },
       { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
     ], 750);
     (w as unknown as { roads: RoadNet }).roads = net;
     const along = (inside as unknown as { alongRails: (p: { line: number; s: number; dir: 1 | -1 }, d: number, want: 'tram', toward: [number, number], follow: number[]) => { line: number; s: number } }).alongRails;
-    const p = along.call(inside, { line: 0, s: 195, dir: 1 }, 20, 'tram', [8, 100], []);
+    const p = along.call(inside, { line: 0, s: 195, dir: 1 }, 20, 'tram', [-100, 30], []);
     expect(p.line).toBe(1);
     expect(p.s).toBeGreaterThan(10);
   });
@@ -350,5 +350,22 @@ describe('a tram on its rails', () => {
     expect(tram.x).toBeGreaterThan(60);
     // on the branch
     expect(tram.y).toBeGreaterThan(tram.x * 0.1);
+  });
+
+  it('where its way is split at a tight corner, it takes the corner', async () => {
+    const { w, inside } = await world();
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [0, 0]], widthM: 1.6, bridge: false },
+      { kind: 'rail', pts: [[0, 0], [0, 300]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    const tram = inside.addCar('tram', -100, 0, 0);
+    tram.driver = 'ai';
+    for (let k = 0; k < 1200 && tram.y < 60; k++) {
+      inside.drive(tram, 0.05);
+      tram.step(0.05, w);
+      inside.onRails(tram, 0.05);
+    }
+    expect(tram.y).toBeGreaterThan(60);
   });
 });

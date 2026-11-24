@@ -95,11 +95,12 @@ describe('railway for trains', () => {
     expect(net.lines.map((l) => l.short)).toEqual([false, true]);
   });
 
-  it('a bit of track that ends on a long line at a right angle is still too short to run on', () => {
-    const net = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[0, 15], [0, 0]])], 750);
-    expect(net.lines.map((l) => l.short)).toEqual([false, true]);
-    // but one that leads on at a slant is part of it
-    const slant = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[-12, 6], [0, 0]])], 750);
-    expect(slant.lines.map((l) => l.short)).toEqual([false, false]);
+  it('a bit of track that meets the end of a long line doubling back is too short to run on; at a corner it is part of it', () => {
+    // its end on the long line's end, running back alongside it
+    const back = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[285, 5], [300, 0]])], 750);
+    expect(back.lines.map((l) => l.short)).toEqual([false, true]);
+    // a way split at a tight corner is one stretch
+    const corner = new RoadNet([rail([[-300, 0], [0, 0]]), rail([[0, 0], [0, 15]])], 750);
+    expect(corner.lines.map((l) => l.short)).toEqual([false, false]);
   });
 });

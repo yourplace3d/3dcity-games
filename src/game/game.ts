@@ -1039,7 +1039,10 @@ export class Game {
       r = { p: front, world: this.world, trail };
     }
     c.rail = r;
-    // the front on by as far as the car went, along the lines the driver's look ahead took
+    // the front on by as far as the car went, along the lines the driver's look ahead took from the front
+    // on (a line it took on an earlier lap is not a turn to take now)
+    const at = c.ahead.lastIndexOf(r.p.line);
+    if (at > 0) c.ahead.splice(0, at);
     const target = c.path ? net.point(c.path.line, c.path.s) : null;
     if (vf > 0) r.p = this.alongRails(r.p, vf * dt, want, target, c.ahead);
     const front = net.point(r.p.line, r.p.s);
@@ -1872,6 +1875,7 @@ export class Game {
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;
+    this.routePts = null;
     for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
     this.onToast(p.say, 'info');
     this.onSound('pickup');
@@ -1999,6 +2003,7 @@ export class Game {
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;
+    this.routePts = null;
     for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
     this.onToast(isSpecial ? special!.say[kind] : say, 'info');
     this.onSound('pickup');

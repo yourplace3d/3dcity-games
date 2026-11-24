@@ -977,7 +977,7 @@ export class Game {
    * like a car, a 19 m tram aimed at a point inside its own length and stood across the rails on bends
    * and after points: in Dresden one tram in ten was 15° or more off its rails, at worst 70° (24 November).
    * Speed and braking stay the car's own, and a knock slows it, but nothing pushes it off its rails: the
-   * car that hits it takes all of the push.
+   * car that hits it takes all of the push (`collideCars`).
    */
   private onRails(c: Car, dt: number): void {
     const net = this.world.roads;
@@ -1000,15 +1000,14 @@ export class Game {
       }
       const [hx, hy] = net.heading({ line: n.line, s: n.s, dir: 1 });
       const mid: PathState = { line: n.line, s: n.s, dir: hx * fx + hy * fy >= 0 ? 1 : -1 };
-      // where the front has been: the rails behind, a metre at a time
-      let q = this.alongRails({ ...mid, dir: mid.dir > 0 ? -1 : 1 }, bogie, want, null);
+      const front = this.alongRails(mid, bogie, want, null);
+      // where the front has been: the rails behind it, a metre at a time, past where the back bogie is
+      let q: PathState = { ...front, dir: front.dir > 0 ? -1 : 1 };
       const trail: Array<[number, number]> = [];
-      for (let k = 0; k < bogie * 2 + 2; k++) {
+      for (let k = 0; k < bogie * 3 + 2; k++) {
         trail.unshift(net.point(q.line, q.s));
         q = this.alongRails(q, 1, want, null);
       }
-      const front = this.alongRails(mid, bogie, want, null);
-      trail.push(net.point(front.line, front.s));
       r = { p: front, world: this.world, trail };
     }
     c.rail = r;
@@ -1823,12 +1822,12 @@ export class Game {
 
   /** The colour of the way drawn: of the ring it leads to, flashing with it; yellow to the drop-off. */
   private routeColour(): string {
-    return this.routeTo ? this.ringNow(this.routeTo) : DROP;
+    return !this.job && this.routeTo ? this.ringNow(this.routeTo) : DROP;
   }
 
   /** A package's colour this moment: its own, or green while a home waits for a station's package. */
   private ringNow(m: Marker): string {
-    return m.kind && this.flash ? RING.home : m.colour ?? RING.plain;
+    return m.kind && this.flash ? RING.home : m.colour ?? RING[m.kind ?? 'plain'];
   }
 
   /** Whether a package is a station's job, which is offered on a card before it is taken. */
@@ -2129,7 +2128,7 @@ export class Game {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
       m.mesh.visible = inside;
-      if (m.kind && m.colour) tintMarker(m.mesh, blink ? RING.home : m.colour);
+      if (m.kind) tintMarker(m.mesh, blink ? RING.home : m.colour ?? RING[m.kind]);
       if (m === this.routeTo) this.routeLine.material.color.set(this.routeColour());
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it

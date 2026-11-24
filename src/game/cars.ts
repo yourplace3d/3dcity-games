@@ -318,16 +318,18 @@ export function collideCars(p: Car, q: Car): number {
       if (overlap <= 0 || d < 1e-6) continue;
       const nx = dx / d;
       const ny = dy / d;
-      // the heavier one gives way less
-      const share = q.mass / (p.mass + q.mass);
+      // the heavier one gives way less; a tram or train on its rails not at all
+      const pFixed = !!p.rail && !q.rail;
+      const qFixed = !!q.rail && !p.rail;
+      const share = pFixed ? 0 : qFixed ? 1 : q.mass / (p.mass + q.mass);
       const h = overlap / 2;
       p.x -= nx * overlap * share;
       p.y -= ny * overlap * share;
       q.x += nx * overlap * (1 - share);
       q.y += ny * overlap * (1 - share);
       // a push at one end turns the car
-      p.th += ((pfx * -ny - pfy * -nx) * h * sp * 0.35) / p.a / (p.offs.length > 2 ? 4 : 1);
-      q.th += ((qfx * ny - qfy * nx) * h * sq * 0.35) / q.a / (q.offs.length > 2 ? 4 : 1);
+      if (!pFixed) p.th += ((pfx * -ny - pfy * -nx) * h * sp * 0.35) / p.a / (p.offs.length > 2 ? 4 : 1);
+      if (!qFixed) q.th += ((qfx * ny - qfy * nx) * h * sq * 0.35) / q.a / (q.offs.length > 2 ? 4 : 1);
       const rel = (q.vx - p.vx) * nx + (q.vy - p.vy) * ny;
       if (rel < 0) {
         const j = (-1.2 * rel) / (1 / p.mass + 1 / q.mass);

@@ -882,7 +882,10 @@ export class Game {
       limit = toMe < 14 ? 12 + this.speed() : 33;
       c.path = this.attach(c.x, c.y, c.th, 'drive') ?? c.path;
     } else {
-      if (!c.path) c.path = this.attach(c.x, c.y, c.th, want);
+      if (!c.path) {
+        c.path = this.attach(c.x, c.y, c.th, want);
+        c.ahead = c.path ? [c.path.line] : [];
+      }
       if (!c.path) {
         c.controls.throttle = 0;
         return;
@@ -906,8 +909,9 @@ export class Game {
               if (from && Math.random() > 0.08) return null;
               const dot = (o: PathState) => net.heading(o)[0] * fx + net.heading(o)[1] * fy;
               const best = options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
-              // points lead off at a slant; where two lines only cross, there is no turning (45° at most)
-              return !from || dot(best) > 0.7 ? best : null;
+              // points lead off at a slant; where two lines only cross, there is no turning (45° at most);
+              // at the end of a line, on unless the only way on leads back
+              return dot(best) > (from ? 0.7 : 0) ? best : null;
             }
             const ahead = options.filter((o) => {
               const [hx, hy] = net.heading(o);
@@ -937,6 +941,11 @@ export class Game {
       for (let k = 0; k < 30 && Math.hypot(tx - c.x, ty - c.y) < look; k++) {
         net.advance(p, 2, want, pick);
         [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
+        // a tram's front takes the branches its look ahead took
+        if (want !== 'drive' && c.ahead[c.ahead.length - 1] !== p.line) {
+          c.ahead.push(p.line);
+          if (c.ahead.length > 6) c.ahead.shift();
+        }
       }
       // turned round against a one-way street where the map leaves no way on: out of sight, the car goes
       // (cars that drive off go too); in sight, it turns as before
@@ -950,6 +959,7 @@ export class Game {
         c.vx = 0;
         c.vy = 0;
         c.dwell = 2.5;
+        c.ahead = [p.line];
       }
       const base = SPEED_LIMIT[net.lines[p.line].kind] ?? 8;
       limit = chase ? Math.min(31, base * 2.3) : c.kind === 'train' ? 19 : transit ? Math.min(base, 11) : base;
@@ -1013,9 +1023,9 @@ export class Game {
       r = { p: front, world: this.world, trail };
     }
     c.rail = r;
-    // the front on by as far as the car went, towards where the driver is headed
+    // the front on by as far as the car went, along the lines the driver's look ahead took
     const target = c.path ? net.point(c.path.line, c.path.s) : null;
-    if (vf > 0) r.p = this.alongRails(r.p, vf * dt, want, target);
+    if (vf > 0) r.p = this.alongRails(r.p, vf * dt, want, target, c.ahead);
     const front = net.point(r.p.line, r.p.s);
     const last = r.trail[r.trail.length - 1];
     if (Math.hypot(front[0] - last[0], front[1] - last[1]) > 0.3) r.trail.push(front);
@@ -1046,10 +1056,12 @@ export class Game {
   }
 
   /**
-   * A place on the rails `d` metres on from `from`: at points it takes the way that leads most towards
-   * `toward`, or with none the straightest. At the end of the track it stops there.
+   * A place on the rails `d` metres on from `from`. At points it takes a line of `follow` (the lines the
+   * driver's look ahead went along) where one leads off, else carries on; with no `follow`, the way that
+   * leads most towards `toward`, or the straightest. At the end of the track, or where the only way on
+   * leads back, it stops there.
    */
-  private alongRails(from: PathState, d: number, want: 'tram' | 'train', toward: Pt | null): PathState {
+  private alongRails(from: PathState, d: number, want: 'tram' | 'train', toward: Pt | null, follow: number[] = []): PathState {
     const net = this.world.roads;
     const p = { ...from };
     let left = d;
@@ -1066,8 +1078,13 @@ export class Game {
         return (ox * dx + oy * dy) / (Math.hypot(dx, dy) || 1);
       };
       net.advance(p, Math.min(1, left), want, (options, at) => {
+        const known = options.filter((o) => follow.includes(o.line) && o.line !== p.line);
+        if (known.length) return known.reduce((a, b) => (score(b) > score(a) ? b : a));
         const best = options.reduce((a, b) => (score(b) > score(a) ? b : a));
-        return !at || score(best) > score(at) ? best : null;
+        // points: carry on, unless there is no look ahead to follow and another way leads better
+        if (at) return !follow.length && score(best) > score(at) ? best : null;
+        const [bx, by] = net.heading(best);
+        return bx * hx + by * hy > 0 ? best : null;
       });
       if (p.line === line0 && p.dir !== dir0) {
         p.dir = dir0;
@@ -1126,11 +1143,13 @@ export class Game {
     if (c.speed < 0.5 && (want > 1 || blocked)) {
       c.stuck += dt;
       // a train that can't get on (another one coming the other way, something it can't
-      // shove aside) goes back the way it came
-      if (c.kind === 'train' && c.stuck > 2.5 && c.path) {
+      // shove aside) goes back the way it came; so does a tram that meets another head on, on one track
+      const headOn = () => this.cars.some((o) => o !== c && !o.gone && railsOf(o.kind) && Math.hypot(o.x - c.x, o.y - c.y) < (c.spec.len + o.spec.len) * 0.7 && Math.cos(o.th - c.th) < -0.5);
+      if (c.path && c.stuck > 2.5 && (c.kind === 'train' || (c.kind === 'tram' && headOn()))) {
         c.th = wrap(c.th + Math.PI);
         // from where it stands, not from the point ahead it was steering for
-        c.path = this.attach(c.x, c.y, c.th, 'train') ?? c.path;
+        c.path = this.attach(c.x, c.y, c.th, railsOf(c.kind) ?? 'train') ?? c.path;
+        c.ahead = c.path ? [c.path.line] : [];
         c.dwell = 1;
         c.stuck = 0;
         return;
@@ -1824,7 +1843,7 @@ export class Game {
 
   /** The colour of the way drawn: of the ring it leads to, flashing with it; yellow to the drop-off. */
   private routeColour(): string {
-    return !this.job && this.routeTo ? this.ringNow(this.routeTo) : DROP;
+    return !this.job && this.routeTo && this.pickups.includes(this.routeTo) ? this.ringNow(this.routeTo) : this.job ? DROP : RING.plain;
   }
 
   /** A package's colour this moment: its own, or green while a home waits for a station's package. */

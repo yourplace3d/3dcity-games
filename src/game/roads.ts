@@ -325,7 +325,15 @@ export class RoadNet {
     const rails = (a: RoadLine, b: RoadLine) => (a.train && b.train) || (a.tram && b.tram);
     this.lines.forEach((l, i) => {
       if (!l.train && !l.tram) return;
-      for (const o of [...l.ends[0], ...l.ends[1], ...l.joins]) if (rails(l, this.lines[o.line])) group[find(i)] = find(o.line);
+      for (const o of [...l.ends[0], ...l.ends[1]]) if (rails(l, this.lines[o.line])) group[find(i)] = find(o.line);
+      // along a line: points that lead off at a slant, not a line that only crosses it
+      for (const j of l.joins) {
+        const o = this.lines[j.line];
+        if (!rails(l, o)) continue;
+        const [ax, ay] = this.heading({ line: i, s: j.s, dir: 1 });
+        const [bx, by] = this.heading({ line: j.line, s: j.s2, dir: 1 });
+        if (Math.abs(ax * bx + ay * by) > 0.7) group[find(i)] = find(j.line);
+      }
     });
     const total = new Map<number, number>();
     this.lines.forEach((l, i) => {

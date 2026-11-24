@@ -129,6 +129,9 @@ export class Car {
    */
   rail: { p: PathState; world: World; trail: Array<[number, number]> } | null = null;
 
+  /** A tram or train: the lines its driver's look ahead (`path`) went along, newest last, for its front to follow. */
+  ahead: number[] = [];
+
   /** A tram or train the game holds on its rails: driven by the game, not wrecked. */
   get onRails(): boolean {
     return !!this.rail && this.driver === 'ai' && this.hp > 0;
@@ -337,14 +340,12 @@ export function collideCars(p: Car, q: Car): number {
       if (!qFixed) q.th += ((qfx * ny - qfy * nx) * h * sq * 0.35) / q.a / (q.offs.length > 2 ? 4 : 1);
       const rel = (q.vx - p.vx) * nx + (q.vy - p.vy) * ny;
       if (rel < 0) {
-        // one held on its rails bounces the other off as a wall would, and its rails see to its own speed
-        const ip = pFixed ? 0 : 1 / p.mass;
-        const iq = qFixed ? 0 : 1 / q.mass;
-        const j = (-1.2 * rel) / (ip + iq);
-        p.vx -= j * ip * nx;
-        p.vy -= j * ip * ny;
-        q.vx += j * iq * nx;
-        q.vy += j * iq * ny;
+        // by weight: a knock slows a tram or train a little too, along its rails
+        const j = (-1.2 * rel) / (1 / p.mass + 1 / q.mass);
+        p.vx -= (j / p.mass) * nx;
+        p.vy -= (j / p.mass) * ny;
+        q.vx += (j / q.mass) * nx;
+        q.vy += (j / q.mass) * ny;
         impact = Math.max(impact, -rel);
       }
     }

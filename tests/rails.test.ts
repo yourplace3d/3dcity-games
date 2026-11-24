@@ -97,7 +97,7 @@ describe('a tram on its rails', () => {
     expect(off).toBeLessThan(1);
   });
 
-  it('a car that hits it takes all of the push; a wrecked one is pushed like any car', () => {
+  it('a car that hits it takes all of the push, and the knock slows it a little; a wreck is pushed like any car', () => {
     const tram = new Car('tram');
     tram.driver = 'ai';
     tram.rail = { p: { line: 0, s: 0, dir: 1 }, world: {} as World, trail: [[0, 0]] };
@@ -106,10 +106,12 @@ describe('a tram on its rails', () => {
     car.x = 9.6;
     car.vx = -8;
     collideCars(tram, car);
-    expect([tram.x, tram.y, tram.th, tram.vx, tram.vy]).toEqual([0, 0, 0, 0, 0]);
+    expect([tram.x, tram.y, tram.th]).toEqual([0, 0, 0]);
     expect(car.x).toBeGreaterThan(9.6);
-    // bounced off as off a wall
+    // the car bounces back; the tram, far heavier, is slowed a little
     expect(car.vx).toBeGreaterThan(0);
+    expect(tram.vx).toBeLessThan(0);
+    expect(tram.vx).toBeGreaterThan(-1.5);
     tram.hp = 0;
     car.x = 9.6;
     collideCars(tram, car);
@@ -183,5 +185,49 @@ describe('a tram on its rails', () => {
     // the bend's sagitta (6.65 m bogies on a 25 m bend: under a metre)
     expect(worst).toBeLessThan(4);
     expect(off).toBeLessThan(1);
+  });
+
+  it('two trams that meet head on, on one track, do not stand there for good', async () => {
+    const { w, inside } = await world();
+    const a = inside.addCar('tram', -170, 0, 0);
+    const b = inside.addCar('tram', -110, 0, Math.PI);
+    for (const t of [a, b]) t.driver = 'ai';
+    let met = -1;
+    let travelled = 0;
+    for (let k = 0; k < 1600; k++) {
+      const before = [a.x, a.y, b.x, b.y];
+      for (const t of [a, b]) inside.drive(t, 0.05);
+      for (const t of [a, b]) t.step(0.05, w);
+      collideCars(a, b);
+      for (const t of [a, b]) inside.onRails(t, 0.05);
+      if (met < 0 && Math.hypot(a.x - b.x, a.y - b.y) < 30) met = k;
+      // once they have met, how far they go from there
+      if (met >= 0 && k > met + 100) travelled += Math.hypot(a.x - before[0], a.y - before[1]) + Math.hypot(b.x - before[2], b.y - before[3]);
+    }
+    expect(met).toBeGreaterThanOrEqual(0);
+    expect(travelled).toBeGreaterThan(80);
+  });
+
+  it('at the end of its track it stops and turns, and never doubles back onto a line that touches it', async () => {
+    const { w, inside } = await world();
+    const net = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [0, 0]], widthM: 1.6, bridge: false },
+      // a line touching its end and running back at a sharp angle, as two legs of a loop drawn apart
+      { kind: 'rail', pts: [[0, 0], [-200, 50]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    (w as unknown as { roads: RoadNet }).roads = net;
+    const tram = inside.addCar('tram', -150, 0, 0);
+    tram.driver = 'ai';
+    let worst = 0;
+    for (let k = 0; k < 900; k++) {
+      inside.drive(tram, 0.05);
+      tram.step(0.05, w);
+      inside.onRails(tram, 0.05);
+      // along the first line, one way or the other
+      worst = Math.max(worst, Math.abs(Math.sin(tram.th)));
+    }
+    expect(worst).toBeLessThan(Math.sin((10 * Math.PI) / 180));
+    expect(Math.abs(tram.y)).toBeLessThan(1);
   });
 });

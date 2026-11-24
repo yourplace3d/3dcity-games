@@ -541,7 +541,7 @@ export class HomesUi {
         this.say('Every flat is repaired. One more package from a station: paint for the outside.', 'good', 10000);
       } else {
         this.setReno({ ...r, fixed });
-        this.say(`Flat ${fixed + 1} of ${units} is repaired: it adds ${money(first.rent / units)} rent from tomorrow. The stations' rings flash green for the next.`, 'good', 9000);
+        this.say(`Flat ${fixed + 1} of ${units} is repaired: it adds ${money(first.rent / units)} rent from tomorrow. The stations’ rings flash green for the next.`, 'good', 9000);
       }
     } else if (r.stage === 'paint') {
       this.setReno({ stage: 'done' });

@@ -905,7 +905,8 @@ export class Game {
             const pool = real.length ? real : from ? [] : ahead.length ? ahead : options;
             return pool.length ? pickOne(pool) : null;
           };
-      const look = 7 + Math.abs(vf) * 0.55;
+      // a tram or train aims beyond its own front, which is half its length ahead
+      const look = (want === 'drive' ? 0 : c.spec.len * 0.5) + 7 + Math.abs(vf) * 0.55;
       [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
       for (let k = 0; k < 30 && Math.hypot(tx - c.x, ty - c.y) < look; k++) {
         net.advance(p, 2, want, pick);
@@ -938,6 +939,111 @@ export class Game {
       }
     }
     this.pilot(c, tx, ty, limit, !chase, chase, dt);
+  }
+
+  /**
+   * A tram or train on its rails: the front bogie runs along the track, taking the branch the driver is
+   * headed for; the back bogie follows where the front has been; the body lies between the two. Steered
+   * like a car, a 19 m tram aimed at a point inside its own length and stood across the rails on bends
+   * and after points: in Dresden one tram in ten was 15° or more off its rails, at worst 70° (24 November).
+   * Speed, braking and knocks stay the car's own.
+   */
+  private onRails(c: Car, dt: number): void {
+    const net = this.world.roads;
+    const want = c.kind as 'tram' | 'train';
+    const bogie = c.spec.len * 0.35;
+    const fx = Math.cos(c.th);
+    const fy = Math.sin(c.th);
+    const vf = c.vx * fx + c.vy * fy;
+    let r = c.rail;
+    if (r) {
+      // turned round at the end of the track, carried into the next square, or knocked off: on again
+      const [ex, ey] = r.trail[r.trail.length - 1];
+      if (r.world !== this.world || (ex - c.x) * fx + (ey - c.y) * fy < 0 || Math.hypot(ex - c.x, ey - c.y) > bogie + 6) r = null;
+    }
+    if (!r) {
+      const n = net.nearest(c.x, c.y, 8, want);
+      if (!n) {
+        c.rail = null;
+        return;
+      }
+      const [hx, hy] = net.heading({ line: n.line, s: n.s, dir: 1 });
+      const mid: PathState = { line: n.line, s: n.s, dir: hx * fx + hy * fy >= 0 ? 1 : -1 };
+      // where the front has been: the rails behind, a metre at a time
+      let q = this.alongRails({ ...mid, dir: mid.dir > 0 ? -1 : 1 }, bogie, want, null);
+      const trail: Array<[number, number]> = [];
+      for (let k = 0; k < bogie * 2 + 2; k++) {
+        trail.unshift(net.point(q.line, q.s));
+        q = this.alongRails(q, 1, want, null);
+      }
+      const front = this.alongRails(mid, bogie, want, null);
+      trail.push(net.point(front.line, front.s));
+      r = { p: front, world: this.world, trail };
+    }
+    c.rail = r;
+    // the front on by as far as the car went, towards where the driver is headed
+    const target = c.path ? net.point(c.path.line, c.path.s) : null;
+    if (vf > 0) r.p = this.alongRails(r.p, vf * dt, want, target);
+    const front = net.point(r.p.line, r.p.s);
+    const last = r.trail[r.trail.length - 1];
+    if (Math.hypot(front[0] - last[0], front[1] - last[1]) > 0.3) r.trail.push(front);
+    // the back bogie: on the trail, twice the bogie's reach behind the front
+    let left = bogie * 2;
+    let back: [number, number] = r.trail[0];
+    for (let i = r.trail.length - 1; i > 0; i--) {
+      const [ax, ay] = r.trail[i];
+      const [bx, by] = r.trail[i - 1];
+      const seg = Math.hypot(ax - bx, ay - by);
+      if (seg >= left) {
+        back = [ax + ((bx - ax) * left) / seg, ay + ((by - ay) * left) / seg];
+        // what is further back is not needed again
+        if (i > 2) r.trail.splice(0, i - 2);
+        break;
+      }
+      left -= seg;
+    }
+    const th = Math.atan2(front[1] - back[1], front[0] - back[0]);
+    if (Math.hypot(front[0] - back[0], front[1] - back[1]) < bogie) return;
+    c.th = th;
+    c.x = (front[0] + back[0]) / 2;
+    c.y = (front[1] + back[1]) / 2;
+    const v = Math.max(0, vf);
+    c.vx = Math.cos(th) * v;
+    c.vy = Math.sin(th) * v;
+  }
+
+  /**
+   * A place on the rails `d` metres on from `from`: at points it takes the way that leads most towards
+   * `toward`, or with none the straightest. At the end of the track it stops there.
+   */
+  private alongRails(from: PathState, d: number, want: 'tram' | 'train', toward: Pt | null): PathState {
+    const net = this.world.roads;
+    const p = { ...from };
+    let left = d;
+    for (let k = 0; k < 400 && left > 1e-3; k++) {
+      const [x0, y0] = net.point(p.line, p.s);
+      const [hx, hy] = net.heading(p);
+      const line0 = p.line;
+      const dir0 = p.dir;
+      const score = (o: PathState): number => {
+        const [ox, oy] = net.heading(o);
+        if (!toward) return ox * hx + oy * hy;
+        const dx = toward[0] - x0;
+        const dy = toward[1] - y0;
+        return (ox * dx + oy * dy) / (Math.hypot(dx, dy) || 1);
+      };
+      net.advance(p, Math.min(1, left), want, (options, at) => {
+        const best = options.reduce((a, b) => (score(b) > score(a) ? b : a));
+        return !at || score(best) > score(at) ? best : null;
+      });
+      if (p.line === line0 && p.dir !== dir0) {
+        p.dir = dir0;
+        break;
+      }
+      const [x1, y1] = net.point(p.line, p.s);
+      left -= Math.max(0.01, Math.hypot(x1 - x0, y1 - y0));
+    }
+    return p;
   }
 
   /** Work the wheel and pedals of a car towards a point, at up to `limit` m/s. */
@@ -2039,6 +2145,8 @@ export class Game {
         }
       }
     }
+    // trams and trains lie on their rails, whatever the steering did
+    for (const c of this.cars) if (!c.gone && !c.asleep && c.driver === 'ai' && railsOf(c.kind)) this.onRails(c, dt);
     if (this.car && this.car.knock > 2.5) this.onSound('crash', Math.min(1, this.car.knock / 16));
     this.stepPeople(dt);
     this.bumps();

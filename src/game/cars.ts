@@ -123,6 +123,11 @@ export class Car {
   hp = 100;
   driver: Driver = 'none';
   path: PathState | null = null;
+  /**
+   * A tram or train: where its front bogie is on the rails, the square that is in, and where the front
+   * has been (newest last), which the back bogie follows (`Game.onRails`).
+   */
+  rail: { p: PathState; world: World; trail: Array<[number, number]> } | null = null;
   readonly controls: Controls = { throttle: 0, steer: 0, handbrake: false };
   readonly spec: Spec;
   readonly mesh: Group;

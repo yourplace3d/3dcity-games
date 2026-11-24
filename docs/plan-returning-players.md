@@ -551,6 +551,16 @@ bits of railway 5 to 6 m long where the Keio Inokashira line comes up between tu
 the bit is still drawn. In that square of Shibuya, 11 such bits (165 m of 34 km of track); the trains still
 run on the viaducts. Tests in `tests/roads.test.ts`.
 
+**Feedback from Dresden (via the owner, 24 November): "The street-level train is slanted."** A tram was
+steered like a car, towards a point 7 to 15 m ahead of its middle: inside its own 19 m. On bends and after
+points it stood across its rails. Measured over 150 s of play at Postplatz: one sample in ten 15° or more off
+the rails, at worst 70°. Now the front bogie runs along the rails (at points it takes the branch the tram is
+headed for), the back bogie follows where the front has been, and the body lies between them; speed, braking
+and knocks are as before. Afterwards: one in ten under 1.7°, at worst 15°, where several tracks branch and
+the measure takes the wrong branch (the screenshot shows the tram on its rails). At the main station, trains
+and trams: at worst 37° before, 7° after. Test: a tram round a 25 m bend stays within 4° (18° before),
+`tests/rails.test.ts`.
+
 **The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
 `?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.
 Whether to turn it on for everyone is the owner's call.

@@ -149,7 +149,9 @@ the streets, buildings, water and hills come from the same map squares as
   both wait at the real stops. A bus stop is a small shelter with a sign on a post, a tram stop a platform
   beside the track. The sign is the same everywhere for now: a white bus on a blue disc, a white tram on a red one;
   no operator's own symbol is drawn (`src/game/stopShapes.ts`). Trains run on the railway tracks and
-  brake for nothing but another train: keep off the track. At the end of a track a train or tram waits a moment and goes back the way it came. A stretch of track shorter than 200 m (80 m for trams), such as a bit between two tunnels, is drawn but gets no train (`TRAIN_MIN_M` in `src/game/roads.ts`). Trains have no stations yet. You can take a bus; trams stay on their rails. A subway
+  brake for nothing but another train: keep off the track. At the end of a track a train or tram waits a moment and goes back the way it came. A stretch of track shorter than 200 m (80 m for trams), such as a bit between two tunnels, is drawn but gets no train (`TRAIN_MIN_M` in `src/game/roads.ts`). Trams and trains run on two bogies: the
+  front follows the rails, the back follows where the front has been, and the body lies between them
+  (`Game.onRails`). Trains have no stations yet. You can take a bus; trams stay on their rails. A subway
   entrance is a stairwell going down, with a sign on a post beside it (a white letter on a blue disc:
   U in Germany and Austria, M elsewhere; the game's own sign, no operator's symbol): walk in on foot and you come up at the station nearest to where you're headed. **Rides are switched
   off for now** (`SUBWAY_RIDES` in `src/game/world.ts`): on the iPad the ride did not start. The entrances and signs stay.

@@ -263,6 +263,8 @@ export class Game {
   private autoBest = Infinity;
   private autoGoal: Marker | null = null;
   private autoWalk = false;
+  /** seconds left of backing up, where there was no room to get out */
+  private autoBack = 0;
   private offenceAt = 0;
   private loading = false;
   /** A city change makes any pending neighbouring square obsolete. */
@@ -1902,10 +1904,19 @@ export class Game {
       this.autoBest = gd;
       this.autoStuck = 0;
     } else this.autoStuck += dt;
+    if (this.autoBack > 0) {
+      // no room to get out between the walls: back up a little first
+      this.autoBack -= dt;
+      c.controls.throttle = -0.6;
+      c.controls.steer = 0;
+      c.controls.handbrake = false;
+      return;
+    }
     if (this.autoStuck > 4 && gd < (this.party?.walk ?? 0) + WALK_AUTO_M && Math.abs(c.forward) < 2) {
       this.autoStuck = 0;
       this.action();
       if (!this.car) this.autoWalk = true;
+      else this.autoBack = 1.5;
       return;
     }
     if (!goal || !r) {

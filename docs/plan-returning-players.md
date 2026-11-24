@@ -447,7 +447,7 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
   door by road for 4 s, within the walk and 80 m more, and walks the rest along the road. Other jobs are
   driven as before.
 
-**Reviews (24 November).** Two code reviews of the branch against `main`.
+**Reviews (24 November).** Code reviews of the branch against `main`.
 
 - The first found four important points, all fixed and checked in the browser: a friend's party from a link
   followed the player to another city when the invited place did not load (now it stays with its place, and
@@ -462,6 +462,12 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
   a friend's returned link plays it as their own party ("A friend's time to beat: 1:04", points and best
   time as their own); the map's restaurants are told apart in a grid, so a city centre with thousands of
   them does not slow the next square.
+- The third found narrower cases, all fixed: the line to leave the car measured from an earlier party's
+  door; a home whose food place lies outside the part of town loaded now lost its walk (the end of the way
+  at the door is now kept with the food place); a food place near the edge of that part of town was picked
+  again; the autopilot could not get out between lane walls (it now backs up first); a party with room for
+  only 1 point promised 2; a guest with the host's own name sent a link that read as the host's (the link
+  now says it is a time sent back).
 - Played through again after the fixes, in Berlin (host 1:16, friend 1:04, host on the friend's returned
   link 1:27, "A friend was 23 s faster") and in Florence (walk 10 m, the line to leave the car at the lane,
   1:10; the card for food lost to the police). The autopilot's own driving varies from run to run in

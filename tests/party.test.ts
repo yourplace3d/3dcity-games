@@ -89,14 +89,20 @@ describe('a lane too narrow for a car', () => {
 });
 
 describe('a link sent back with a friend’s time', () => {
-  const base = { name: 'Lena', by: 'Lena', seconds: 100, place: 'Nuremberg', occasion: 1, food: 'restaurant' as const, invented: false, home: { lat: 49, lon: 11 }, door: { lat: 49, lon: 11 }, shop: { lat: 49, lon: 11 }, pick: { lat: 49, lon: 11 }, walk: 0, corner: false };
+  const base = { name: 'Lena', by: 'Lena', seconds: 100, place: 'Nuremberg', occasion: 1, food: 'restaurant' as const, invented: false, home: { lat: 49, lon: 11 }, door: { lat: 49, lon: 11 }, shop: { lat: 49, lon: 11 }, pick: { lat: 49, lon: 11 }, walk: 0, corner: false, back: false };
   it('the host’s own invitation names no one who sent a time back', () => {
     expect(backBy(base)).toBe('');
     expect(arriveLine(base)).toBe('Lena’s games night: you are invited');
   });
   it('a friend’s time sent back: theirs to beat, never the host’s', () => {
-    expect(backBy({ ...base, by: 'a friend', seconds: 95 })).toBe('a friend');
-    expect(arriveLine({ ...base, by: 'Max', seconds: 95 })).toBe('Max’s time to beat: 1:35');
+    expect(backBy({ ...base, by: 'a friend', seconds: 95, back: true })).toBe('a friend');
+    expect(arriveLine({ ...base, by: 'Max', seconds: 95, back: true })).toBe('Max’s time to beat: 1:35');
+  });
+
+  it('a guest with the host’s own name is still a guest: the link says so, not the names', () => {
+    expect(arriveLine({ ...base, name: 'Sam', by: 'Sam', back: true })).toBe('Sam’s time to beat: 1:40');
+    expect(readParty(packParty({ ...base, back: true }))?.back).toBe(true);
+    expect(readParty(packParty(base))?.back).toBe(false);
   });
 });
 
@@ -131,6 +137,10 @@ describe('points from parties', () => {
     );
     expect(kept.paid).toBe('2026-11-23');
     expect(Object.keys(kept.places)).toEqual(['a']);
+    expect(kept.places.a.lane).toBeUndefined();
+    const lane = readParties(JSON.stringify({ places: { a: { food: 'restaurant', shop: { lat: 1, lon: 1 }, pick: { lat: 1, lon: 1 }, lane: { walk: 900, corner: false, door: { lat: 1, lon: 1 } } } } }));
+    // a walk kept with a home is never longer than a party asks for
+    expect(lane.places.a.lane?.walk).toBe(WALK_MAX);
     expect(kept.best).toEqual({ a: 102 });
     expect(kept.warned).toBe(true);
     expect(readParties('{"paid":"yesterday"}').paid).toBe('');
@@ -153,6 +163,7 @@ describe('a party in a link', () => {
     pick: { lat: 49.4579, lon: 11.08111 },
     walk: 0,
     corner: false,
+    back: false,
   };
 
   it('comes back as it was sent, in letters a link carries', () => {

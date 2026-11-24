@@ -134,6 +134,12 @@ export interface FoodSpot {
   invented: boolean;
   shop: LngLat;
   pick: LngLat;
+  /**
+   * The end of the way at the door, as last worked out where the whole way could be looked at: the walk up
+   * a lane too narrow for a car, or the corner, and where the food goes. Kept for a part of town that holds
+   * the home but not its food place, where the way can't be looked at.
+   */
+  lane?: { walk: number; corner: boolean; door: LngLat };
 }
 
 export interface PartyStore {
@@ -162,7 +168,11 @@ export function readParties(raw: string | null): PartyStore {
       for (const [h, s] of Object.entries(k.places)) {
         const shop = point(s?.shop);
         const pick = point(s?.pick);
-        if (shop && pick && (s.food === 'restaurant' || s.food === 'shop')) places[h] = { food: s.food, invented: s.invented === true, shop, pick };
+        if (!shop || !pick || (s.food !== 'restaurant' && s.food !== 'shop')) continue;
+        const l = s.lane;
+        const door = point(l?.door);
+        const lane = l && door && typeof l.walk === 'number' && Number.isFinite(l.walk) ? { walk: Math.max(0, Math.min(WALK_MAX, Math.round(l.walk))), corner: l.corner === true, door } : undefined;
+        places[h] = { food: s.food, invented: s.invented === true, shop, pick, ...(lane ? { lane } : {}) };
       }
     }
     const best: Record<string, number> = {};
@@ -220,6 +230,8 @@ export interface SentParty {
   walk: number;
   /** the lanes to the door are too narrow for a car, further than `WALK_MAX`: `door` is the corner where the car stops */
   corner: boolean;
+  /** a guest's time sent back to the host (not the host's own invitation), whatever the names */
+  back: boolean;
 }
 
 /** The text that stands for a party in a link: letters, digits, `-` and `_` only. */
@@ -228,7 +240,7 @@ export function packParty(p: SentParty): string {
   const lon0 = Math.round(p.home.lon * E5);
   // every place as its distance from the home, which keeps the link short
   const pts = [p.door, p.shop, p.pick].flatMap((q) => [Math.round(q.lat * E5) - lat0, Math.round(q.lon * E5) - lon0]);
-  const json = JSON.stringify([1, p.name.slice(0, 16), p.by.slice(0, 16), Math.round(p.seconds), p.place.slice(0, 40), p.occasion, p.food === 'shop' ? 's' : 'r', p.invented ? 1 : 0, Math.round(p.walk), p.corner ? 1 : 0, lat0, lon0, ...pts]);
+  const json = JSON.stringify([1, p.name.slice(0, 16), p.by.slice(0, 16), Math.round(p.seconds), p.place.slice(0, 40), p.occasion, p.food === 'shop' ? 's' : 'r', p.invented ? 1 : 0, Math.round(p.walk), p.corner ? 1 : 0, p.back ? 1 : 0, lat0, lon0, ...pts]);
   let bin = '';
   for (const b of new TextEncoder().encode(json)) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -239,10 +251,10 @@ export function readParty(text: string): SentParty | null {
   try {
     const bin = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
     const a = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (ch) => ch.charCodeAt(0)))) as unknown;
-    if (!Array.isArray(a) || a[0] !== 1 || a.length !== 18) return null;
-    const [, name, by, seconds, place, occ, food, invented, walk, corner, ...nums] = a as unknown[];
+    if (!Array.isArray(a) || a[0] !== 1 || a.length !== 19) return null;
+    const [, name, by, seconds, place, occ, food, invented, walk, corner, back, ...nums] = a as unknown[];
     if (typeof name !== 'string' || typeof by !== 'string' || typeof place !== 'string' || (food !== 'r' && food !== 's')) return null;
-    if (![seconds, occ, invented, walk, corner, ...nums].every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+    if (![seconds, occ, invented, walk, corner, back, ...nums].every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [la, lo, ...d] = nums as number[];
     // the food place is within a couple of kilometres of the home
     if (Math.abs(la) > 85 * E5 || Math.abs(lo) > 180 * E5 || d.some((v) => Math.abs(v) > 0.05 * E5)) return null;
@@ -262,6 +274,7 @@ export function readParty(text: string): SentParty | null {
       // never a longer walk than a party asks for, whatever a link says
       walk: Math.max(0, Math.min(WALK_MAX, Math.round(walk as number))),
       corner: corner === 1,
+      back: back === 1,
     };
   } catch {
     return null;

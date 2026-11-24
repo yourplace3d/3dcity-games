@@ -94,4 +94,12 @@ describe('railway for trains', () => {
     const net = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[0, -5], [0, 5]])], 750);
     expect(net.lines.map((l) => l.short)).toEqual([false, true]);
   });
+
+  it('a bit of track that ends on a long line at a right angle is still too short to run on', () => {
+    const net = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[0, 15], [0, 0]])], 750);
+    expect(net.lines.map((l) => l.short)).toEqual([false, true]);
+    // but one that leads on at a slant is part of it
+    const slant = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[-12, 6], [0, 0]])], 750);
+    expect(slant.lines.map((l) => l.short)).toEqual([false, false]);
+  });
 });

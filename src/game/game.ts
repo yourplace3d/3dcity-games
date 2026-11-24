@@ -32,7 +32,7 @@ import type { LngLat } from '../geo/projection';
 import { Car, collideCars, type CarKind } from './cars';
 import type { Input } from './input';
 import { Strip, drawnOverGround } from './roadMesh';
-import { laneOffset, mayGo, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
+import { laneOffset, mayGo, RAIL_ON, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
 import { DROP, JOB_OF, RING, type JobKind } from './services';
@@ -889,8 +889,9 @@ export class Game {
         c.ahead = c.path ? [c.path.line] : [];
       }
       if (!c.path) {
-        // a tram or train with no track it can run on (a new square left it on a bit too short): it goes
-        if (want !== 'drive') {
+        // a tram or train with no track it can run on (a new square left it on a bit too short): out of
+        // sight it goes; in sight it stands till it is
+        if (want !== 'drive' && toMe > this.viewR) {
           this.dropCar(c);
           return;
         }
@@ -920,7 +921,7 @@ export class Game {
               const best = options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
               // points lead off at a slant; where two lines only cross, there is no turning (45° at most);
               // at the end of a line, on unless the only way on leads back
-              return dot(best) > (from ? 0.7 : 0) ? best : null;
+              return dot(best) > (from ? 0.7 : RAIL_ON) ? best : null;
             }
             const ahead = options.filter((o) => {
               const [hx, hy] = net.heading(o);
@@ -953,7 +954,8 @@ export class Game {
         // a tram's front takes the branches its look ahead took
         if (want !== 'drive' && c.ahead[c.ahead.length - 1] !== p.line) {
           c.ahead.push(p.line);
-          if (c.ahead.length > 6) c.ahead.shift();
+          // track split into many short pieces: enough lines for all of the look ahead and more
+          if (c.ahead.length > 32) c.ahead.shift();
         }
       }
       // turned round against a one-way street where the map leaves no way on: out of sight, the car goes
@@ -1016,8 +1018,11 @@ export class Game {
     if (!r) {
       const n = net.nearestAlong(c.x, c.y, 8, want, fx, fy);
       if (!n) {
-        // no rails of its own near (knocked far off them, or a new square): it goes rather than jump to others
-        this.dropCar(c);
+        // no rails of its own near (knocked far off them, or a new square): out of sight it goes rather than
+        // jump to others; in sight it is let go
+        const [px, py] = this.pos();
+        if (Math.hypot(c.x - px, c.y - py) > this.viewR) this.dropCar(c);
+        c.rail = null;
         return;
       }
       const [hx, hy] = net.heading({ line: n.line, s: n.s, dir: 1 });
@@ -1090,14 +1095,14 @@ export class Game {
       };
       net.advance(p, Math.min(1, left), want, (options, at) => {
         // a followed line, where a tram can take it: at a slant at points, forwards at the end of a line
-        const onward = (o: PathState) => net.heading(o)[0] * hx + net.heading(o)[1] * hy > (at ? 0.7 : 0);
+        const onward = (o: PathState) => net.heading(o)[0] * hx + net.heading(o)[1] * hy > (at ? 0.7 : RAIL_ON);
         const known = options.filter((o) => follow.includes(o.line) && o.line !== p.line && onward(o));
         if (known.length) return known.reduce((a, b) => (score(b) > score(a) ? b : a));
         const best = options.reduce((a, b) => (score(b) > score(a) ? b : a));
         // points: carry on, unless there is no look ahead to follow and another way leads better
         if (at) return !follow.length && score(best) > score(at) ? best : null;
         const [bx, by] = net.heading(best);
-        return bx * hx + by * hy > 0 ? best : null;
+        return bx * hx + by * hy > RAIL_ON ? best : null;
       });
       if (p.line === line0 && p.dir !== dir0) {
         p.dir = dir0;
@@ -1166,11 +1171,12 @@ export class Game {
           const ahead = dx * Math.cos(c.th) + dy * Math.sin(c.th);
           return ahead > 0 && ahead < (c.spec.len + o.spec.len) * 0.7 && Math.abs(dx * Math.sin(c.th) - dy * Math.cos(c.th)) < 1.5;
         });
-      if (c.path && c.stuck > 2.5 && (c.kind === 'train' || (c.kind === 'tram' && headOn()))) {
+      // from where it stands, not from the point ahead it was steering for; only where there is track to go back on
+      const back = c.path && c.stuck > 2.5 && (c.kind === 'train' || (c.kind === 'tram' && headOn())) ? this.attach(c.x, c.y, wrap(c.th + Math.PI), railsOf(c.kind) ?? 'train') : null;
+      if (back) {
         c.th = wrap(c.th + Math.PI);
-        // from where it stands, not from the point ahead it was steering for
-        c.path = this.attach(c.x, c.y, c.th, railsOf(c.kind) ?? 'train') ?? c.path;
-        c.ahead = c.path ? [c.path.line] : [];
+        c.path = back;
+        c.ahead = [back.line];
         c.dwell = 1;
         c.stuck = 0;
         return;

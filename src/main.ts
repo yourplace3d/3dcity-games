@@ -367,7 +367,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      party = new PartyUi({ game, homes: () => homes, toast, card: missionCard, cover, place: () => placeName, name: lastName, keepName, closed: partyClosed, save: () => save() });
+      party = new PartyUi({ game, homes: () => homes, toast, card: missionCard, cover, place: () => placeName, name: lastName, keepName, closed: partyClosed, save: () => save(), started: runOver });
       (window as unknown as { party: PartyUi }).party = party;
       const p = party;
       homes = new HomesUi({
@@ -591,6 +591,15 @@ function cover(on: boolean): void {
   if (game) game.held = on;
   controls.enabled = playing && !paused && !on;
   before = 0;
+}
+/** A party has started: a run a friend sent is over, and leaves the address, so a reload does not bring it back. */
+function runOver(): void {
+  rival = null;
+  if (BAKED || !new URLSearchParams(location.search).has('c')) return;
+  const q = new URLSearchParams(location.search);
+  q.delete('c');
+  const text = q.toString().replace(/=(?=&|$)/g, '');
+  history.replaceState(null, '', location.pathname + (text ? `?${text}` : '') + location.hash);
 }
 /** A party is over and its card closed: a friend's party leaves the address, so a reload is not the party again. */
 function partyClosed(): void {

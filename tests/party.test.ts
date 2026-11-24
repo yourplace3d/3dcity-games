@@ -92,6 +92,17 @@ describe('a lane too narrow for a car', () => {
     expect(n!.walk).toBeGreaterThan(WALK_MAX);
   });
 
+  it('a gate or an arch with an ordinary street after it is no walk: a car gets round it', () => {
+    expect(narrowWalk(way, (x) => x < -256 || x > -250)).toBeNull();
+    // but a lane narrow from the arch to the door is
+    expect(narrowWalk(way, (x) => x < -256)?.walk).toBeCloseTo(256, -1);
+  });
+
+  it('a little square in the middle of narrow lanes does not end the walk', () => {
+    const n = narrowWalk(way, (x) => x < -120 || (x > -80 && x < -70));
+    expect(n?.walk).toBeCloseTo(120, -1);
+  });
+
   it('a lane narrow for longer than the stretch looked at: the car stops where it really gets narrow, never inside it', () => {
     const n = narrowWalk(way, (x) => x < -380);
     expect(n!.walk).toBeGreaterThan(370);

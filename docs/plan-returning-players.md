@@ -439,8 +439,8 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
 - The link carries the walk and the corner, so a friend plays the same, and a link can never ask for more
   than 150 m.
 - Measured on real tiles, 50 to 150 flats each: Nuremberg (two spots) and Berlin, none narrow at the door;
-  Paris 1 in 50; Florence's old town, of 150 flats, 98 to the door by car, 29 with a walk (35 to 125 m), 23
-  at the corner (142 to 267 m from the building).
+  Paris 1 in 50; Florence's old town, of 150 flats, 120 to the door by car, 25 with a walk (35 to 125 m), 5
+  at the corner (209 to 244 m from the building), with the rules as they stand after the fifth review.
 - Played through in Florence (Via dei Pandolfini, walk 10 m): the line to leave the car came, the autopilot
   got out 13 m before the door and walked, 2:10; the friend from the link the same way, 1:14.
 - The autopilot (for tests and filming), on a party with a walk only, leaves a car that gets no nearer the
@@ -474,9 +474,18 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
   begins. Small ones fixed too: no food place nearer than 150 m by road (it would be delivered at once); the
   invitation line stays with its place and shows as long as a sent run's; a host opening their own link is
   spoken to as the host; a run to an older food place sets no best time.
-- Played through again after the fixes, in Berlin (host 1:00, friend 1:17, host on the friend's returned
-  link 1:11, "6 s faster than a friend") and in Florence (walk 10 m, the line to leave the car at the lane:
-  host 1:10, friend 1:46, host on the returned link 1:12; earlier, the card for food lost to the police). The autopilot's own driving varies from run to run in
+- The fifth found three more in the new narrow-lane rules, all fixed: lanes narrow all the way from the
+  food place could put the corner at the pickup (such a door is now passed over); a home's food place could
+  still be picked again where the road to it leaves the part of town loaded now, and that was kept before the
+  card was answered (now a home keeps its food place for good, and it is kept only on "Let's go"); a gate or
+  an arch on the way, with an ordinary street after it, counted as a walk to the door (now a narrow bit with
+  60 m where a car fits after it is passed over: a car gets round it). Small ones fixed: a run a friend sent
+  ends cleanly when a party starts (and leaves the address), and the card says so for any run; a link for the
+  first flat while it is still worn down is played as a guest's; the road search runs once per door; "+1
+  home point".
+- Played through again after the fixes, in Berlin (host 1:03, friend 1:00, host on the friend's returned
+  link 1:14, "A friend was 14 s faster") and in Florence (walk at the door, the line to leave the car at the
+  lane: host 1:19, friend 1:27, host on the returned link 1:36; earlier, the card for food lost to the police). The autopilot's own driving varies from run to run in
   Florence's lanes and on longer ways in Berlin; real players were not tried.
 
 **Questions for the owner:**

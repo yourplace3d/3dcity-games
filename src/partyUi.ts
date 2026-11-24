@@ -11,10 +11,11 @@ import { linkHome } from './challenge';
 import { homeKey } from './game/events';
 import type { Game } from './game/game';
 import { dayOf, type Home } from './game/homes';
-import { foodName, foodPlace, loadParties, narrowWalk, occasion, OCCASIONS, packParty, PARTY_POINTS, pickFood, pointsDue, storeParties, WALK_MAX, type FoodSpot, type SentParty } from './game/party';
+import { foodName, foodPlace, loadParties, narrowWalk, occasion, OCCASIONS, packParty, PARTY_MIN, PARTY_POINTS, pickFood, pointsDue, storeParties, WALK_MAX, type FoodSpot, type SentParty } from './game/party';
 import { serviceIcon } from './game/services';
 import { POINTS_MAX } from './game/homePoints';
 import type { World } from './game/world';
+import type { RouteField } from './game/roads';
 import type { LngLat } from './geo/projection';
 import type { HomesUi } from './homesUi';
 import { isCoords } from './homesList';
@@ -57,6 +58,16 @@ export interface PartyHost {
   closed?: () => void;
   /** something kept changed (for saving online) */
   save?: () => void;
+  /** a party has started: whatever run was on is over */
+  started?: () => void;
+}
+
+/** Where the food goes at a home: the door or the corner, the walk up a narrow lane, and whether the whole way could be seen. */
+interface Lay {
+  ll: LngLat;
+  walk: number;
+  corner: boolean;
+  known: boolean;
 }
 
 /** The party being played. */
@@ -168,49 +179,19 @@ export class PartyUi {
     const lot = homes?.lotOfHome(home);
     if (!homes || !world || !lot || !this.can(home)) return;
     const key = homeKey(home);
-    // the lane at the door can be a yard's driveway that no road leads to: then the street in front. A lane
-    // too narrow for a car is walked, up to `WALK_MAX`; further than that, the street in front if a car gets
-    // to it, else the corner nearest the home where a car can go
-    let door: { ll: LngLat; walk: number; corner: boolean; known: boolean } | null = null;
-    let spot: FoodSpot | null = null;
-    let fresh = false;
-    for (const d of this.doorsOf(world, lot.x, lot.y)) {
-      const found = this.foodFor(world, key, d.at);
-      if (!found) continue;
-      const s = found.spot;
-      const lay = this.lay(world, d.at, s);
-      const nearer = (a: LngLat, b: LngLat) => {
-        const [ax, ay] = world.proj.toLocal(a.lon, a.lat);
-        const [bx, by] = world.proj.toLocal(b.lon, b.lat);
-        return Math.hypot(ax - lot.x, ay - lot.y) < Math.hypot(bx - lot.x, by - lot.y);
-      };
-      if (!door || (door.corner && (!lay.corner || nearer(lay.ll, door.ll)))) {
-        door = lay;
-        spot = s;
-        fresh = found.fresh;
-      }
-      if (!door.corner) break;
-    }
-    if (!door || !spot) {
+    const plan = this.plan(world, key, lot);
+    if (!plan) {
       this.host.toast('No way by road from here to a place for food: try another of your homes.', 'bad', 6000);
       return;
     }
-    // the food place of the door used is the home's from now on ("built" once); a new one is a new run, so the
-    // best time on the old one goes. What the whole way showed is kept with it, for a part of town that holds
-    // the home but not its food place.
-    if (fresh || door.known) {
-      const { [key]: _old, ...best } = this.store.best;
-      const place: FoodSpot = door.known ? { ...spot, lane: { walk: door.walk, corner: door.corner, door: door.ll } } : spot;
-      this.store = { ...this.store, places: { ...this.store.places, [key]: place }, best: fresh ? best : this.store.best };
-      storeParties(this.store);
-      this.host.save?.();
-    }
+    const { door, spot } = plan;
     const occ = Math.floor(Math.random() * OCCASIONS.length);
     const food = foodName(spot.food);
     const due = pointsDue(this.store, this.today());
     const pays = this.pays();
     const best = this.store.best[key];
-    const run = !this.host.game.run.over && this.host.game.run.done > 0;
+    // a run of three under way, or one a friend sent, stops for the party
+    const run = !this.host.game.run.over;
     const where = `your ${home.kind}${home.street ? ` on ${home.street}` : ''}`;
     const lane = laneWords(door.walk, door.corner, 'your');
     const at = door;
@@ -218,13 +199,19 @@ export class PartyUi {
     this.host.card(
       `${cap(occasion(occ))} at your ${home.kind}`,
       `Friends are coming over tonight, and nobody got the food. Fetch ${food} from ${foodPlace(spot.food)}${spot.invented ? ' around the corner' : ''}: the pink sign, and the arrow shows the way. Then bring ${spot.food === 'shop' ? 'them' : 'it'} to your door before ${spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}: the clock starts when you pick ${spot.food === 'shop' ? 'them' : 'it'} up.${lane.card}` +
-        (pays === PARTY_POINTS ? ` A party is worth ${PARTY_POINTS} home points, once a day.` : pays ? ` Today it is worth ${pays} home point: your points are nearly full.` : due ? ` Your home points are full, so this one is for fun: spend some on a home, and a party pays again.` : ` Today’s ${PARTY_POINTS} party points are yours already: this one is for fun.`) +
+        (pays === PARTY_POINTS ? ` A party is worth ${PARTY_POINTS} home points, once a day.` : pays ? ` Today it is worth ${pays} home ${pays === 1 ? 'point' : 'points'}: your points are nearly full.` : due ? ` Your home points are full, so this one is for fun: spend some on a home, and a party pays again.` : ` Today’s ${PARTY_POINTS} party points are yours already: this one is for fun.`) +
         (best ? ` Your best: ${clockText(best)} from pickup to door.` : '') +
-        (run ? ' Your run of three stops here.' : ''),
+        (run ? ' The run you are on stops here.' : ''),
       'Let’s go',
       'Not now',
       (yes) => {
         if (!yes || !this.can(home)) return;
+        // the home's food place is kept as the party starts, with what the whole way showed
+        if (plan.keep) {
+          this.store = { ...this.store, places: { ...this.store.places, [key]: plan.keep } };
+          storeParties(this.store);
+          this.host.save?.();
+        }
         this.begin({ key, where, whose: 'your', kind: home.kind, occasion: occ, spot: it, home: { lat: home.lat, lon: home.lon }, door: at.ll, walk: at.walk, corner: at.corner, sent: null });
       },
       'Party',
@@ -234,7 +221,9 @@ export class PartyUi {
   /** A friend's party from a link: the card, then the same run, against their time. The player starts at their home. */
   startSent(s: SentParty): void {
     // the opener's own home: a friend's time sent back, played as their own party (its points and best time)
-    const mine = this.host.homes()?.mine().homes.find((h) => Math.abs(h.lat - s.home.lat) < 2e-5 && Math.abs(h.lon - s.home.lon) < 2e-5);
+    const homes = this.host.homes();
+    // (not the first flat while it is still worn down: no party there, as `can` says)
+    const mine = homes?.mine().homes.find((h) => Math.abs(h.lat - s.home.lat) < 2e-5 && Math.abs(h.lon - s.home.lon) < 2e-5 && !homes.wornDown(h));
     const whose = mine ? 'your' : s.name ? `${s.name}’s` : 'your friend’s';
     const p: Playing = {
       key: mine ? homeKey(mine) : null,
@@ -285,6 +274,7 @@ export class PartyUi {
     this.doorField = null;
     const food = p.spot.food === 'shop' ? 'Drinks and snacks are on board: get them' : 'The pizza is on board: get it';
     const lane = laneWords(p.walk, p.corner, p.whose);
+    this.host.started?.();
     g.startParty({ pick: p.spot.pick, door: p.door, walk: p.walk, say: `${food} to ${p.where} before ${p.spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}${lane.say}` });
     this.markFood();
   }
@@ -337,21 +327,68 @@ export class PartyUi {
   }
 
   /**
+   * The way of a home's party: its food place, and where the food goes. A home keeps its food place once one
+   * is picked ("built" once, in the owner's word): it is never picked again, wherever the part of town loaded
+   * now ends. The lane at the door can be a yard's driveway no road leads to: then the street in front. A lane
+   * too narrow for a car is walked, up to `WALK_MAX`; further than that, the street in front where a car gets
+   * nearer, else the corner nearest the home where a car can go. `keep`: what to keep with the home as the party
+   * starts (the food place, and what the whole way showed), or null.
+   */
+  private plan(world: World, key: string, lot: { x: number; y: number }): { door: Lay; spot: FoodSpot; keep: FoodSpot | null } | null {
+    const kept = this.store.places[key];
+    const doors = this.doorsOf(world, lot.x, lot.y);
+    const nearer = (a: LngLat, b: LngLat) => {
+      const [ax, ay] = world.proj.toLocal(a.lon, a.lat);
+      const [bx, by] = world.proj.toLocal(b.lon, b.lat);
+      return Math.hypot(ax - lot.x, ay - lot.y) < Math.hypot(bx - lot.x, by - lot.y);
+    };
+    let best: { door: Lay; spot: FoodSpot } | null = null;
+    for (const d of doors) {
+      // the road search from a door, once for both the food place and the way
+      const f = world.roads.field(d.at[0], d.at[1]);
+      if (!f) continue;
+      const spot = kept ?? this.pickFoodFor(world, f, d.at);
+      if (!spot) continue;
+      const lay = this.lay(world, f, d.ll, spot);
+      if (!lay) continue;
+      if (!best || (best.door.corner && (!lay.corner || nearer(lay.ll, best.door.ll)))) best = { door: lay, spot };
+      if (!best.door.corner) break;
+    }
+    // the home's food place, with no way to it to be seen from this part of town (it runs outside): as last
+    // worked out, else to the street in front
+    if (!best && kept) {
+      const d = doors[doors.length - 1];
+      if (kept.lane) best = { door: { ll: kept.lane.door, walk: kept.lane.walk, corner: kept.lane.corner, known: false }, spot: kept };
+      else if (d) best = { door: { ll: d.ll, walk: 0, corner: false, known: false }, spot: kept };
+    }
+    if (!best) return null;
+    const { door } = best;
+    const keep = door.known ? { ...best.spot, lane: { walk: door.walk, corner: door.corner, door: door.ll } } : kept ? null : best.spot;
+    return { ...best, keep };
+  }
+
+  /**
    * Where the food goes at a door, for the way from its food place: the door itself; up a lane too narrow
    * for a car, the door with the last metres on foot (`walk`), never more than `WALK_MAX`; beyond that, the
-   * corner where the car stops (`corner`).
+   * corner where the car stops (`corner`). Null where this door won't do: no road from the food place leads
+   * to it (a yard's driveway), or the car would stop right at the food place.
    */
-  private lay(world: World, door: [number, number], spot: FoodSpot): { ll: LngLat; walk: number; corner: boolean; known: boolean } {
-    const ll = world.proj.toLngLat(door[0], door[1]);
-    const f = world.roads.field(door[0], door[1]);
+  private lay(world: World, f: RouteField, door: LngLat, spot: FoodSpot): Lay | null {
     const [px, py] = world.proj.toLocal(spot.pick.lon, spot.pick.lat);
-    const inside = Math.abs(px) < world.half - 10 && Math.abs(py) < world.half - 10;
-    const r = inside && f ? world.roads.route(f, px, py) : null;
-    // the food place out of the part of town loaded now: what was found when the whole way could be looked at
-    if (!r) return spot.lane ? { ...spot.lane, ll: spot.lane.door, known: false } : { ll, walk: 0, corner: false, known: false };
+    const half = world.half - 10;
+    const inside = Math.abs(px) < half && Math.abs(py) < half;
+    const r = inside ? world.roads.route(f, px, py) : null;
+    if (!r) {
+      // well inside the part of town loaded now and no road to this door: another door
+      if (inside && Math.abs(px) < half - EDGE_M && Math.abs(py) < half - EDGE_M) return null;
+      // the food place out of it, or near its edge: as last worked out where the whole way could be seen
+      return spot.lane ? { ll: spot.lane.door, walk: spot.lane.walk, corner: spot.lane.corner, known: false } : { ll: door, walk: 0, corner: false, known: false };
+    }
     const n = narrowWalk(r.pts, (x, y) => !world.solids.inside(x, y) && !world.solids.push({ x, y }, CAR_FIT));
-    if (!n) return { ll, walk: 0, corner: false, known: true };
-    if (n.walk <= WALK_MAX) return { ll, walk: Math.max(5, Math.round(n.walk / 5) * 5), corner: false, known: true };
+    if (!n) return { ll: door, walk: 0, corner: false, known: true };
+    if (n.walk <= WALK_MAX) return { ll: door, walk: Math.max(5, Math.round(n.walk / 5) * 5), corner: false, known: true };
+    // the corner where the car stops, unless that is right at the food place: then the food would be delivered as it is picked up
+    if (r.metres - n.walk < PARTY_MIN) return null;
     return { ll: world.proj.toLngLat(n.stop[0], n.stop[1]), walk: 0, corner: true, known: true };
   }
 
@@ -364,27 +401,9 @@ export class PartyUi {
     });
   }
 
-  /**
-   * The food place of a home's party: the one kept for it, while the roads still lead there; else one
-   * picked now and kept, so that the home's party run stays the same ("built" once, in the owner's word).
-   */
-  private foodFor(world: World, key: string, door: [number, number]): { spot: FoodSpot; fresh: boolean } | null {
-    const f = world.roads.field(door[0], door[1]);
-    if (!f) return null;
+  /** A food place for a home that has none yet: of those a road leads to from the door (`f`), the best fit; else one made up. */
+  private pickFoodFor(world: World, f: RouteField, door: [number, number]): FoodSpot | null {
     const half = world.half - 10;
-    const reach = (ll: LngLat): number | null => {
-      const [x, y] = world.proj.toLocal(ll.lon, ll.lat);
-      if (Math.abs(x) > half || Math.abs(y) > half) return null;
-      return world.roads.route(f, x, y, 0)?.metres ?? null;
-    };
-    const kept = this.store.places[key];
-    if (kept) {
-      const [kx, ky] = world.proj.toLocal(kept.pick.lon, kept.pick.lat);
-      // outside the part of town loaded now, or so near its edge that the road to it may run outside, it
-      // can't be checked: it stays the home's, as its party run
-      if (Math.abs(kx) > half - EDGE_M || Math.abs(ky) > half - EDGE_M) return { spot: kept, fresh: false };
-      if (reach(kept.pick) !== null) return { spot: kept, fresh: false };
-    }
     const [dx, dy] = door;
     const near = world.food
       .map((p) => ({ p, d: Math.hypot(p.x - dx, p.y - dy) }))
@@ -413,8 +432,7 @@ export class PartyUi {
       pick = { metres, invented: true, food: 'restaurant', shop: world.proj.toLngLat(rx + hy * side, ry - hx * side), pick: world.proj.toLngLat(rx, ry) };
     }
     if (!pick) return null;
-    // kept only for the door the party uses (`offer`)
-    return { spot: { food: pick.food, invented: pick.invented, shop: pick.shop, pick: pick.pick }, fresh: true };
+    return { food: pick.food, invented: pick.invented, shop: pick.shop, pick: pick.pick };
   }
 
   /** The food got to the door, got cold, or was lost to a fine. */
@@ -462,7 +480,7 @@ export class PartyUi {
       storeParties(this.store);
       this.host.save?.();
       const record = ownRun && before && seconds < before - 0.5 ? ` Your best yet, ${gap(before - seconds)} faster than before.` : '';
-      const points = added ? ` +${added} home points.` : due ? ' Your home points are full: spend some on a home.' : ` Today’s party points are yours already; tomorrow’s party brings ${PARTY_POINTS} more.`;
+      const points = added ? ` +${added} home ${added === 1 ? 'point' : 'points'}.` : due ? ' Your home points are full: spend some on a home.' : ` Today’s party points are yours already; tomorrow’s party brings ${PARTY_POINTS} more.`;
       text = `${cap(food)} got to ${p.where} in ${t} from the pickup, ${p.spot.food === 'shop' ? 'still cold' : 'still warm'}${versus}.${record}${points}`;
     }
     this.finished = {

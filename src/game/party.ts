@@ -69,13 +69,17 @@ const NARROW_LOOK = 300;
 /** samples along the way (m), and how many in a row a car must not fit at for the lane to count as too narrow */
 const NARROW_STEP = 2;
 const NARROW_RUN = 3;
+/** a car fitting again for this many samples in a row after a narrow bit (60 m, more than a little square): a gate or an arch on the way, not a lane to the door */
+const OPEN_RUN = 30;
 
 /**
  * Where the way to a door gets too narrow for a car, from `pts` (the way by road from the pickup to the
  * door) and `fits` (whether a car fits at a point, clear of walls). Null where a car gets all the way.
  * Else: `walk`, the metres from where the car stops to the door, and `stop`, a spot on the way a few
  * metres before the narrow part. A corner or a gate post grazing the way does not count: the car must not
- * fit at `NARROW_RUN` samples in a row.
+ * fit at `NARROW_RUN` samples in a row. Nor does a gate or an arch with an ordinary street after it (the car
+ * fits again for `OPEN_RUN` samples before the door): a car gets round it, and the walk is up the lane that
+ * leads to the door.
  */
 export function narrowWalk(pts: Pt[], fits: (x: number, y: number) => boolean): { walk: number; stop: Pt } | null {
   let total = 0;
@@ -94,16 +98,25 @@ export function narrowWalk(pts: Pt[], fits: (x: number, y: number) => boolean): 
     }
     along += len;
   }
-  let run = 0;
-  for (let i = 0; i < at.length; i++) {
+  let i = 0;
+  while (i < at.length) {
     if (total - at[i] > NARROW_LOOK || ok[i]) {
-      run = 0;
+      i++;
       continue;
     }
-    if (++run < NARROW_RUN) continue;
+    // a narrow bit: samples i to j - 1
+    let j = i;
+    while (j < at.length && !ok[j]) j++;
+    let open = 0;
+    let k = j;
+    while (k < at.length && open < OPEN_RUN) open = ok[k++] ? open + 1 : 0;
+    if (j - i < NARROW_RUN || open >= OPEN_RUN) {
+      i = j;
+      continue;
+    }
     // where the narrow part really begins, also where that is further out than the stretch looked at: the car
     // stops before it, never inside it
-    let from = i - run + 1;
+    let from = i;
     while (from > 0 && !ok[from - 1]) from--;
     return { walk: total - at[from], stop: pointAt(pts, Math.max(0, at[from] - 4)) };
   }

@@ -34,8 +34,10 @@ lives.
 
 - **Ring colours and sharp green (owner, 24 November, after Kiel and Rio):** each giver's ring in its sign's
   colour (fuel orange, fire red, police blue, a plain package turquoise), pink for the party's food, green
-  flashing on a station's ring while a home of yours waits for its package, yellow to deliver; parks and gardens drawn with sharp edges by a step in the ground's shader. Branch
-  `claude/ring-colours`, not live: the plan, section 9. The radio is a trial switched on per browser
+  flashing on a station's ring while a home of yours waits for its package, yellow to deliver; parks and
+  gardens drawn with sharp edges by a step in the ground's shader. Branch `claude/ring-colours`, merged by
+  pull request #18 and put live on the owner's word ("Yes review and put it live", 24 November) after
+  thirteen code reviews: the plan, section 9. The radio is a trial switched on per browser
   (`?try=radio`); that is why it plays on the owner's iPad and not on the Mac. On the same branch, from the
   owner's next round: home missions flash green (pink only for the party), no train on bits of track
   shorter than 200 m (Shibuya), trams and trains on two bogies so they lie on their rails, and traffic

@@ -310,4 +310,20 @@ describe('a tram on its rails', () => {
     inside.drive(tram, 0.05);
     expect(tram.gone).toBe(true);
   });
+
+  it('at the end of a line it goes on along the way it can, though the driver looks off to the side', async () => {
+    const { w, inside } = await world();
+    const net = new RoadNet([
+      { kind: 'rail', pts: [[-200, 0], [0, 0]], widthM: 1.6, bridge: false },
+      { kind: 'rail', pts: [[0, 0], [200, 0]], widthM: 1.6, bridge: false },
+      // a line turning off too sharply for a tram
+      { kind: 'rail', pts: [[0, 0], [8, 100]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false },
+    ], 750);
+    (w as unknown as { roads: RoadNet }).roads = net;
+    const along = (inside as unknown as { alongRails: (p: { line: number; s: number; dir: 1 | -1 }, d: number, want: 'tram', toward: [number, number], follow: number[]) => { line: number; s: number } }).alongRails;
+    const p = along.call(inside, { line: 0, s: 195, dir: 1 }, 20, 'tram', [8, 100], []);
+    expect(p.line).toBe(1);
+    expect(p.s).toBeGreaterThan(10);
+  });
 });

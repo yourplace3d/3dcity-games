@@ -468,11 +468,13 @@ export class RoadNet {
   }
 
   /** The nearest point on a line of the wanted sort within `maxD`, or null. */
-  nearest(x: number, y: number, maxD: number, want: 'drive' | 'walk' | 'traffic' | 'tram' | 'train' | 'any' = 'any'): Near | null {
+  nearest(x: number, y: number, maxD: number, want: 'drive' | 'walk' | 'traffic' | 'tram' | 'train' | 'any' = 'any', runs = false): Near | null {
     let best: Near | null = null;
     this.each(x, y, maxD, (line, i) => {
       const l = this.lines[line];
       if (want !== 'any' && !l[want]) return;
+      // `runs`: past track too short for a train or tram to run on
+      if (runs && l.short) return;
       const n = this.project(line, i, x, y);
       if (n.d <= maxD && (!best || n.d < best.d)) best = n;
     });
@@ -583,9 +585,9 @@ export class RoadNet {
       if (maxD < 700) {
         const a = rnd() * Math.PI * 2;
         const r = minD + rnd() * (maxD - minD);
-        const n = this.nearest(x + Math.cos(a) * r, y + Math.sin(a) * r, 40, want);
-        // not on a bit of track too short to run on: another spot
-        if (n && !this.lines[n.line].short) place = { line: n.line, s: n.s, dir: rnd() < 0.5 ? 1 : -1 };
+        // for a tram or train, the nearest track it can run on, past bits too short
+        const n = this.nearest(x + Math.cos(a) * r, y + Math.sin(a) * r, 40, want, want === 'tram' || want === 'train');
+        if (n) place = { line: n.line, s: n.s, dir: rnd() < 0.5 ? 1 : -1 };
       } else {
         const line = pool[Math.floor(rnd() * pool.length)];
         place = { line, s: rnd() * this.lines[line].len, dir: rnd() < 0.5 ? 1 : -1 };

@@ -1098,11 +1098,16 @@ export class Game {
         const onward = (o: PathState) => net.heading(o)[0] * hx + net.heading(o)[1] * hy > (at ? 0.7 : RAIL_ON);
         const known = options.filter((o) => follow.includes(o.line) && o.line !== p.line && onward(o));
         if (known.length) return known.reduce((a, b) => (score(b) > score(a) ? b : a));
-        const best = options.reduce((a, b) => (score(b) > score(a) ? b : a));
-        // points: carry on, unless there is no look ahead to follow and another way leads better
-        if (at) return !follow.length && score(best) > score(at) ? best : null;
-        const [bx, by] = net.heading(best);
-        return bx * hx + by * hy > RAIL_ON ? best : null;
+        // points: carry on, unless there is no look ahead to follow and a way a tram can take leads better
+        if (at) {
+          const can = options.filter(onward);
+          if (follow.length || !can.length) return null;
+          const best = can.reduce((a, b) => (score(b) > score(a) ? b : a));
+          return score(best) > score(at) ? best : null;
+        }
+        // the end of a line: the best of the ways a tram can go on along
+        const can = options.filter(onward);
+        return can.length ? can.reduce((a, b) => (score(b) > score(a) ? b : a)) : null;
       });
       if (p.line === line0 && p.dir !== dir0) {
         p.dir = dir0;
@@ -1165,18 +1170,21 @@ export class Game {
       const headOn = () =>
         this.cars.some((o) => {
           if (o === c || o.gone || !railsOf(o.kind) || Math.cos(o.th - c.th) > -0.5) return false;
-          // ahead of it, on its own track: not one passing on the track beside it
-          const dx = o.x - c.x;
-          const dy = o.y - c.y;
-          const ahead = dx * Math.cos(c.th) + dy * Math.sin(c.th);
-          return ahead > 0 && ahead < (c.spec.len + o.spec.len) * 0.7 && Math.abs(dx * Math.sin(c.th) - dy * Math.cos(c.th)) < 1.5;
+          // ahead of it, on its own track (the line its front is on, or one its look ahead went along), not
+          // one passing on the track beside it, on a bend too
+          const line = o.rail?.p.line;
+          if (line === undefined || !c.rail || (line !== c.rail.p.line && !c.ahead.includes(line))) return false;
+          const ahead = (o.x - c.x) * Math.cos(c.th) + (o.y - c.y) * Math.sin(c.th);
+          return ahead > 0 && ahead < (c.spec.len + o.spec.len) * 0.7;
         });
       // from where it stands, not from the point ahead it was steering for; only where there is track to go back on
-      const back = c.path && c.stuck > 2.5 && (c.kind === 'train' || (c.kind === 'tram' && headOn())) ? this.attach(c.x, c.y, wrap(c.th + Math.PI), railsOf(c.kind) ?? 'train') : null;
-      if (back) {
+      const turn = !!c.path && c.stuck > 2.5 && (c.kind === 'train' || (c.kind === 'tram' && headOn()));
+      const back = turn ? this.attach(c.x, c.y, wrap(c.th + Math.PI), railsOf(c.kind) ?? 'train') : null;
+      // a train turns round even where no track is found behind it, as it always did; a tram only onto track
+      if (back || (turn && c.kind === 'train')) {
         c.th = wrap(c.th + Math.PI);
-        c.path = back;
-        c.ahead = [back.line];
+        if (back) c.path = back;
+        c.ahead = c.path ? [c.path.line] : [];
         c.dwell = 1;
         c.stuck = 0;
         return;
@@ -2188,7 +2196,9 @@ export class Game {
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
-      m.mesh.scale.set(pulse, 1, pulse);
+      // flashing for a home it is a quarter bigger too, so it shows to those who can't tell red from green
+      const grow = blink && m.kind ? 1.25 : 1;
+      m.mesh.scale.set(pulse * grow, 1, pulse * grow);
     }
   }
 

@@ -12,7 +12,8 @@
   --ring-fuel: #ff8a1f;
   --ring-fire: #ff3b30;
   --ring-police: #3d74ff;
-  --ring-home: #ff5cb8;
+  --ring-party: #ff5cb8;
+  --ring-home: #5fd08a;
   font-family: ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -129,6 +130,7 @@ button { font: inherit; cursor: pointer; }
 .dot.fuel { border-color: var(--ring-fuel); }
 .dot.fire { border-color: var(--ring-fire); }
 .dot.police { border-color: var(--ring-police); }
+.dot.party { border-color: var(--ring-party); }
 .dot.home { border-color: var(--ring-home); }
 .small { font-size: 12px; color: var(--dim) !important; }
 
@@ -172,6 +174,7 @@ body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
 #bigmap-key .dot.ring.fuel { background: var(--ring-fuel); border-color: #10161c; }
 #bigmap-key .dot.ring.fire { background: var(--ring-fire); border-color: #10161c; }
 #bigmap-key .dot.ring.police { background: var(--ring-police); border-color: #10161c; }
+#bigmap-key .dot.ring.party { background: var(--ring-party); border-color: #10161c; }
 #bigmap-key .dot.ring.home { background: var(--ring-home); border-color: #10161c; }
 #bigmap-key .dot.ring + .dot.ring { margin-left: -3px; }
 #bigmap-key .dot.sub { border-radius: 2px; }

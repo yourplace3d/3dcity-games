@@ -49,7 +49,7 @@ const SAVE = 'drive-it-3d';
 const canvas = $<HTMLCanvasElement>('scene');
 const status = $('status');
 // the legends on the page in the colours of the rings in the game
-for (const [name, colour] of [['cyan', RING.plain], ['ring-fuel', RING.supply], ['ring-fire', RING.rush], ['ring-police', RING.clean], ['ring-home', RING.home]]) document.documentElement.style.setProperty(`--${name}`, colour);
+for (const [name, colour] of [['cyan', RING.plain], ['ring-fuel', RING.supply], ['ring-fire', RING.rush], ['ring-police', RING.clean], ['ring-party', RING.party], ['ring-home', RING.home]]) document.documentElement.style.setProperty(`--${name}`, colour);
 const small = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900;
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
 addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e.pointerType === 'touch'), true);

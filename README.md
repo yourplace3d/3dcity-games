@@ -66,9 +66,9 @@ the streets, buildings, water and hills come from the same map squares as
   for a car you park and walk the last bit, never more than 150 m (with time on the clock for it); further
   than that, the friends meet you at the corner where a car can go. It pays no cash: the
   first party of a day pays 2 home points. Each home keeps its food place, so its party run stays the same.
-  What is for your home has a **pink** ring: the party's food, and a station's ring flashes pink while its
-  package would go to a home of yours that needs it (`RING` in `src/game/services.ts`). Where to deliver is
-  always yellow.
+  The party's food has a **pink** ring, as its sign. A station's ring flashes **green** (the colour of homes)
+  while its package would go to a home of yours that needs it (`RING` in `src/game/services.ts`). Where to
+  deliver is always yellow.
   At the end, one soft question: "Someone still missing for tonight's party?", with a link to send or "No,
   we're a full house". Whoever opens the link (`?p=…`) starts at that home and fetches the same food, against
   the time in it, and can send their time back. Nothing is paid for sending, and party links are not

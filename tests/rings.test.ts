@@ -89,15 +89,15 @@ describe('the rings in the game', () => {
     expect(new Set(g.mapView().pickups.map((p) => p.colour))).toEqual(new Set([RING.supply, RING.rush, RING.clean]));
   });
 
-  it('a party’s food is pink, the colour of what is for your home', async () => {
+  it('a party’s food is pink, as its sign', async () => {
     const { g, inside } = await playing();
     g.startParty({ pick: { lon: 400, lat: 0 }, door: { lon: -300, lat: 0 }, say: 'The pizza is on board' });
     inside.jobs(0.016);
-    expect(colourOf(inside.pickups[0].mesh)).toBe(RING.home);
-    expect(g.hud().target?.colour).toBe(RING.home);
+    expect(colourOf(inside.pickups[0].mesh)).toBe(RING.party);
+    expect(g.hud().target?.colour).toBe(RING.party);
   });
 
-  it('while a home waits for a station’s package, the station’s ring flashes pink instead of vanishing', async () => {
+  it('while a home waits for a station’s package, the station’s ring flashes green instead of vanishing', async () => {
     const { g, inside } = await playing([{ kind: 'fuel', x: 300, y: 8 }]);
     g.run.over = true;
     inside.jobs(1);

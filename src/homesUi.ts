@@ -947,7 +947,7 @@ export class HomesUi {
     this.cardAtS = this.playedS;
     this.card(
       `Your ${h.kind} needs renovating`,
-      `The walls of ${homeName(h)} are worn down. Until it is renovated, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${game.run.over ? ': their rings flash pink now' : ': once your run is over, their rings flash pink'}. Deliver it to the building, and the rent that waited is yours.`,
+      `The walls of ${homeName(h)} are worn down. Until it is renovated, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${game.run.over ? ': their rings flash green now' : ': once your run is over, their rings flash green'}. Deliver it to the building, and the rent that waited is yours.`,
       'Got it',
       '',
       () => undefined,
@@ -1142,7 +1142,7 @@ export class HomesUi {
       this.setReno({ ...this.reno!, stage: 'rest', fixed: 0 });
       this.wayTo = null;
       const others = lot.units - 1;
-      this.host.toast(`The whole building is yours.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the stations’ rings flash pink again, and each repaired flat adds rent.`, 'good', 10000);
+      this.host.toast(`The whole building is yours.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the stations’ rings flash green again, and each repaired flat adds rent.`, 'good', 10000);
     } else if (first && this.host.firstHome) {
       this.cardAtS = this.playedS;
       this.host.firstHome(describe(lot, what), money(mine.rent), worn);

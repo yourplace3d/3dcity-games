@@ -318,7 +318,7 @@ export class Game {
   guide: { x: number; y: number } | null = null;
   /**
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
-   * stations flash pink in open play, and whichever is taken goes there, with the line for its kind.
+   * stations flash green in open play, and whichever is taken goes there, with the line for its kind.
    */
   special: { at: LngLat; say: Record<JobKind, string> } | null = null;
   /** A package for `special` has been picked up (its kind). */
@@ -1554,7 +1554,7 @@ export class Game {
     if (!this.moved && this.speed() > 3) this.moved = true;
     // a party: one ring, at its food place, and nothing else
     if (this.party) {
-      if (!this.pickups.length) this.pickups.push(this.markerAt(RING.home, this.party.pick));
+      if (!this.pickups.length) this.pickups.push(this.markerAt(RING.party, this.party.pick));
       const m = this.pickups[0];
       const [x, y] = this.local(m);
       if (Math.hypot(x - px, y - py) < 6.5) this.takeParty(m);
@@ -1972,7 +1972,7 @@ export class Game {
 
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
-    // a home waits for a package from a station: those rings flash pink, the colour of what is for your home
+    // a home waits for a package from a station: those rings flash green, the colour of homes
     const blink = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35;
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : [])]) {
       const [x, y] = this.local(m);

@@ -518,14 +518,15 @@ of three at the start stays as it is.
 
 - **A ring in the colour of who gives the job** (`RING` in `src/game/services.ts`, the colours of the signs):
   turquoise for a plain package (the run of three, a sent run's plain legs), orange at a fuel station, red at
-  a fire station, blue at a police station. **Pink is for your home:** the party's food (whose sign was
-  already pink), and while a home of yours needs a package (the worn-down flat, a renovation), the stations'
-  rings flash pink instead of blinking out. Where to deliver stays yellow, always. A sent run's package has
+  a fire station, blue at a police station, pink for the party's food (as its sign). While a home of yours
+  needs a package (the worn-down flat, a renovation), the stations' rings flash **green**, the colour of homes
+  in the game, instead of blinking out (first pink; the owner: pink for the party is fine, "but I wouldn't put
+  it regularly for home missions"). Where to deliver stays yellow, always. A sent run's package has
   the colour of the kind of job it was for the sender.
 - The arrow, the way on the little map, the dots on both maps and the line on the road (`G`) take the colour
   of the ring they lead to. The start screen's legend and the big map's key show the colours; the tour says
   "turquoise ring" (it said blue, which is now the police's); the open jobs' note and the renovation lines
-  ("their rings flash pink") say so too.
+  ("their rings flash green") say so too.
 - **Sharp green** (`src/game/sharpGround.ts`): parks, gardens, lawns, woods, water and the paths painted with
   them are one picture over the square, 4096 px for 1.5 km on a computer and 2048 on a tablet: 0.37 or
   0.73 m a pixel, stretched over 20 to 30 pixels of the screen from the street. Painting more finely would cost

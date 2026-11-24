@@ -108,6 +108,9 @@ describe('the rings in the game', () => {
     inside.placeMarkers();
     expect(ring.mesh.visible).toBe(true);
     expect(colourOf(ring.mesh)).toBe(RING.home);
+    // and so do its dot on the maps and the arrow
+    expect(g.mapView().pickups[0].colour).toBe(RING.home);
+    expect(g.hud().target?.colour).toBe(RING.home);
     // and back to its own colour
     inside.clock = Math.PI / 2 / 7;
     inside.placeMarkers();

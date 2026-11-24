@@ -36,6 +36,8 @@ export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rus
  * the screen after a run and could not be told from a plain one (the owner, 24 November).
  */
 export const RING: Record<JobKind | 'party' | 'home', string> = { plain: '#2bd4e0', supply: '#ff8a1f', rush: '#ff3b30', clean: '#3d74ff', party: '#ff5cb8', home: '#5fd08a' };
+/** Where to deliver: the ring, the arrow and the way there. */
+export const DROP = '#ffd400';
 
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 

@@ -28,8 +28,9 @@ describe('one-way streets on the network', () => {
     expect([mayGo(a, 1), mayGo(a, -1)]).toEqual([true, false]);
     expect([mayGo(b, 1), mayGo(b, -1)]).toEqual([false, true]);
     expect([mayGo(c, 1), mayGo(c, -1)]).toEqual([true, true]);
-    expect(laneOffset(a)).toBe(0);
-    expect(laneOffset(c)).toBeGreaterThan(0);
+    // still to the right, so a car going the wrong way passes the others, but nearer the middle
+    expect(laneOffset(a)).toBeGreaterThan(0.5);
+    expect(laneOffset(a)).toBeLessThan(laneOffset(c));
   });
 });
 

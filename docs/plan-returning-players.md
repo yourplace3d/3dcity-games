@@ -521,8 +521,8 @@ of three at the start stays as it is.
   a fire station, blue at a police station, pink for the party's food (as its sign). While a home of yours
   needs a package (the worn-down flat, a renovation), the stations' rings flash **green**, the colour of homes
   in the game, instead of blinking out (first pink; the owner: pink for the party is fine, "but I wouldn't put
-  it regularly for home missions"). Where to deliver stays yellow, always. A sent run's package has
-  the colour of the kind of job it was for the sender.
+  it regularly for home missions"). Where to deliver stays yellow, always. A run's packages, a sent
+  run's too, stay turquoise: they are taken by driving through, with no card.
 - The arrow, the way on the little map, the dots on both maps and the line on the road (`G`) take the colour
   of the ring they lead to. The start screen's legend and the big map's key show the colours; the tour says
   "turquoise ring" (it said blue, which is now the police's); the open jobs' note and the renovation lines

@@ -35,7 +35,7 @@ import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, mayGo, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
-import { JOB_OF, RING, type JobKind } from './services';
+import { DROP, JOB_OF, RING, type JobKind } from './services';
 import { partyClock } from './party';
 
 const FOV = 42;
@@ -345,6 +345,8 @@ export class Game {
   private declined = new Set<Marker>();
   /** the station spot where moving a package there found no way, so it is not tried again while there */
   private triedAt: string | null = null;
+  /** the stations' rings are green this moment: a home waits for one of their packages */
+  private flash = false;
   /** "slow down at the ring" has been said */
   private slowSaid = false;
   /** the player has got going since the start: no job's card at the very start, standing where the game put them */
@@ -671,8 +673,10 @@ export class Game {
       });
   }
 
-  /** The place on the network nearest to a point, facing the way `th` points. */
-  /** The nearest place on the network, the way the car faces; `legal`: and never against a one-way street. */
+  /**
+   * The place on the network nearest to a point, facing the way `th` points; with `legal`, never against
+   * a one-way street.
+   */
   private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train', legal = false): PathState | null {
     const n = this.world.roads.nearest(x, y, 60, want);
     if (!n) return null;
@@ -982,7 +986,7 @@ export class Game {
       if (r.world !== this.world || (ex - c.x) * fx + (ey - c.y) * fy < 0 || Math.hypot(ex - c.x, ey - c.y) > bogie + 6) r = null;
     }
     if (!r) {
-      const n = net.nearest(c.x, c.y, 8, want);
+      const n = net.nearestAlong(c.x, c.y, 8, want, fx, fy);
       if (!n) {
         c.rail = null;
         return;
@@ -1716,8 +1720,8 @@ export class Game {
       }
     }
     if (sent) {
-      // in the colour of the kind of job it was for the sender
-      if (!this.pickups.length) this.pickups.push(this.markerAt(RING[sent.kind ?? 'plain'], sent.from));
+      // a run's package is taken by driving through it, whatever kind of job it was for the sender: turquoise
+      if (!this.pickups.length) this.pickups.push(this.markerAt(RING.plain, sent.from));
       return;
     }
     // a run is three plain packages from street corners near you, the same game for everyone, so
@@ -1807,6 +1811,11 @@ export class Game {
     for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
     this.onToast(p.say, 'info');
     this.onSound('pickup');
+  }
+
+  /** A package's colour this moment: its own, or green while a home waits for a station's package. */
+  private ringNow(m: Marker): string {
+    return m.kind && this.flash ? RING.home : m.colour ?? RING.plain;
   }
 
   /** Whether a package is a station's job, which is offered on a card before it is taken. */
@@ -2099,7 +2108,7 @@ export class Game {
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
     // a home waits for a package from a station: those rings flash green, the colour of homes
-    const blink = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35;
+    const blink = (this.flash = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35);
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : [])]) {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
@@ -2247,7 +2256,7 @@ export class Game {
       if (this.routeT <= 0) {
         this.routeT = 0.3;
         const goal = this.goal();
-        this.drawRoute(goal, this.job ? '#ffd400' : goal?.colour ?? RING.plain);
+        this.drawRoute(goal, this.job ? DROP : goal?.colour ?? RING.plain);
       }
     }
     this.draw(dt);
@@ -2413,11 +2422,11 @@ export class Game {
       y,
       // backing up, the arrowhead shows the way you are going, not the way the bonnet points
       th: this.car ? (this.car.forward < -0.5 ? this.car.th + Math.PI : this.car.th) : this.me.th,
-      pickups: this.job ? [] : this.pickups.map((m) => ({ at: this.local(m), colour: m.colour ?? RING.plain })),
+      pickups: this.job ? [] : this.pickups.map((m) => ({ at: this.local(m), colour: this.ringNow(m) })),
       drop: this.job ? this.local(this.job.to) : null,
       cops: this.heat > 0 ? this.cars.filter((c) => c.driver === 'cop' && !c.gone).map((c): Pt => [c.x, c.y]) : [],
       route: this.routePts,
-      routeColour: this.job ? '#ffd400' : this.goal()?.colour ?? RING.plain,
+      routeColour: this.job ? DROP : this.goal()?.colour ?? RING.plain,
     };
   }
 
@@ -2428,14 +2437,14 @@ export class Game {
     let best: { x: number; y: number; d: number; kind: 'drop' | 'job' | 'guide'; colour: string } | null = null;
     if (this.job) {
       const [x, y] = this.local(this.job.to);
-      best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop', colour: '#ffd400' };
+      best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop', colour: DROP };
     } else if (this.guide && !this.party) {
-      best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide', colour: '#5fd08a' };
+      best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide', colour: RING.home };
     } else {
       for (const m of this.pickups) {
         const [x, y] = this.local(m);
         const d = Math.hypot(x - px, y - py);
-        if (!best || d < best.d) best = { x, y, d, kind: 'job', colour: m.colour ?? RING.plain };
+        if (!best || d < best.d) best = { x, y, d, kind: 'job', colour: this.ringNow(m) };
       }
     }
     if (best) {

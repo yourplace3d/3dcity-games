@@ -422,6 +422,31 @@ export class RoadNet {
     return { line, s: l.cum[i] + Math.sqrt(L2) * t, d: Math.hypot(x - px, y - py), x: px, y: py };
   }
 
+  /**
+   * The nearest point within `maxD` on a line of the wanted sort that runs along the heading (hx, hy),
+   * either way: a line across it counts as 12 m further off. For putting a tram back on its own rails
+   * and not on a track that crosses them.
+   */
+  nearestAlong(x: number, y: number, maxD: number, want: 'tram' | 'train', hx: number, hy: number): Near | null {
+    let best: Near | null = null;
+    let bestScore = Infinity;
+    this.each(x, y, maxD, (line, i) => {
+      const l = this.lines[line];
+      if (!l[want] || l.short) return;
+      const n = this.project(line, i, x, y);
+      if (n.d > maxD) return;
+      const [ax, ay] = l.pts[i];
+      const [bx, by] = l.pts[i + 1];
+      const len = Math.hypot(bx - ax, by - ay) || 1;
+      const score = n.d + 12 * (1 - Math.abs(((bx - ax) * hx + (by - ay) * hy) / len));
+      if (score < bestScore) {
+        bestScore = score;
+        best = n;
+      }
+    });
+    return best;
+  }
+
   /** The nearest point on a line of the wanted sort within `maxD`, or null. */
   nearest(x: number, y: number, maxD: number, want: 'drive' | 'walk' | 'traffic' | 'tram' | 'train' | 'any' = 'any'): Near | null {
     let best: Near | null = null;
@@ -566,9 +591,12 @@ function segAt(l: RoadLine, s: number): number {
   return i;
 }
 
-/** How far to the right of the centre line a car drives on a road of this width: on a one-way street, nearer the middle. */
+/**
+ * How far to the right of the centre line a car drives on a road of this width: on a one-way street a
+ * little nearer the middle, but still to the right, so that a car going the wrong way passes the others.
+ */
 export function laneOffset(l: RoadLine): number {
-  if (l.oneway) return l.w < 7 ? 0 : Math.min(1.8, l.w * 0.15);
+  if (l.oneway) return l.w < 5 ? 0.7 : Math.min(1.8, l.w * 0.15);
   return l.w < 5 ? 0.7 : Math.min(3.2, l.w * 0.25);
 }
 

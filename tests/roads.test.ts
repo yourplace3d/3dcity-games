@@ -76,4 +76,15 @@ describe('railway for trains', () => {
     expect(net.lines.map((l) => l.short)).toEqual([true, false]);
     expect(net.hasTrams).toBe(true);
   });
+
+  it('back on the rails, a tram takes its own track and not one crossing it', () => {
+    // a tram track east-west, and another crossing it north-south
+    const net = new RoadNet([rail([[-300, 0], [300, 0]], 1.6), rail([[0, -300], [0, 300]], 1.6)], 750);
+    // knocked off just beside the crossing line, facing east
+    const n = net.nearestAlong(1, 4, 8, 'tram', 1, 0)!;
+    expect(net.lines[n.line].pts[0]).toEqual([-300, 0]);
+    // facing north, the crossing line is its own
+    const m = net.nearestAlong(1, 4, 8, 'tram', 0, 1)!;
+    expect(net.lines[m.line].pts[0]).toEqual([0, -300]);
+  });
 });

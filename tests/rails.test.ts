@@ -97,15 +97,44 @@ describe('a tram on its rails', () => {
     expect(off).toBeLessThan(1);
   });
 
-  it('a car that hits it takes all of the push', () => {
+  it('a car that hits it takes all of the push; a wrecked one is pushed like any car', () => {
     const tram = new Car('tram');
+    tram.driver = 'ai';
     tram.rail = { p: { line: 0, s: 0, dir: 1 }, world: {} as World, trail: [[0, 0]] };
+    // head-on into its front
     const car = new Car('sedan');
-    car.x = 3;
-    car.y = 1;
+    car.x = 9.6;
+    car.vx = -8;
     collideCars(tram, car);
-    expect([tram.x, tram.y, tram.th]).toEqual([0, 0, 0]);
-    expect(Math.hypot(car.x - 3, car.y - 1)).toBeGreaterThan(0.5);
+    expect([tram.x, tram.y, tram.th, tram.vx, tram.vy]).toEqual([0, 0, 0, 0, 0]);
+    expect(car.x).toBeGreaterThan(9.6);
+    // bounced off as off a wall
+    expect(car.vx).toBeGreaterThan(0);
+    tram.hp = 0;
+    car.x = 9.6;
+    collideCars(tram, car);
+    expect(Math.hypot(tram.x, tram.y)).toBeGreaterThan(0);
+  });
+
+  it('where two tram lines only cross, it goes straight over', async () => {
+    const { w, roads, inside } = await world();
+    // a line across the bend's straight start, at right angles
+    const cross = new RoadNet([curve(), { kind: 'rail', pts: [[-100, -100], [-100, 100]], widthM: 1.6, bridge: false }, { kind: 'minor', pts: [[-300, -150], [300, -150]], widthM: 6, bridge: false }], 750);
+    (w as unknown as { roads: RoadNet }).roads = cross;
+    void roads;
+    for (let trial = 0; trial < 30; trial++) {
+      const tram = inside.addCar('tram', -160, 0, 0);
+      tram.driver = 'ai';
+      for (let k = 0; k < 800 && tram.x < -80; k++) {
+        inside.drive(tram, 0.05);
+        tram.step(0.05, w);
+        inside.onRails(tram, 0.05);
+      }
+      // past the crossing, still on its own line
+      expect(tram.x).toBeGreaterThan(-90);
+      expect(Math.abs(tram.y)).toBeLessThan(2);
+      tram.gone = true;
+    }
   });
 
   it('round a bend, the body stays along the rails and on them', async () => {

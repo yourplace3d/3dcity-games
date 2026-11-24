@@ -550,7 +550,7 @@ function welcomeHome(what: string, rent: string, worn: boolean): void {
   controls.enabled = false;
   if (game) game.held = true;
   $('firsthome-what').textContent = worn
-    ? `It's yours: ${what}. But the colours on its walls are worn down, and it pays no rent until it is repaired: then ${rent} each day you come back to the game. Look out for the fuel, fire and police symbols: they are blinking now, and any of their jobs starts the repairs.`
+    ? `It's yours: ${what}. But the colours on its walls are worn down, and it pays no rent until it is repaired: then ${rent} each day you come back to the game. Look out for the fuel, fire and police stations: their rings flash green now, and any of their jobs starts the repairs.`
     : `It's yours: ${what}. It pays ${rent} rent each day you come back to the game.`;
   const saving = savingOn();
   $('firsthome-save').textContent = saving

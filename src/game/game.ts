@@ -853,7 +853,7 @@ export class Game {
   /** How far to the side of a line a vehicle keeps: its lane, on the side this country drives on. */
   private lane(p: PathState, kind: CarKind): number {
     if (railsOf(kind)) return 0;
-    return laneOffset(this.world.roads.lines[p.line]) * (this.world.leftHand ? -1 : 1);
+    return laneOffset(this.world.roads.lines[p.line], p.dir) * (this.world.leftHand ? -1 : 1);
   }
 
   private chasing(c: Car): boolean {
@@ -905,7 +905,9 @@ export class Game {
               // trams and trains mostly carry straight on
               if (from && Math.random() > 0.08) return null;
               const dot = (o: PathState) => net.heading(o)[0] * fx + net.heading(o)[1] * fy;
-              return options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
+              const best = options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
+              // points lead off at a slant; where two lines only cross, there is no turning (45° at most)
+              return !from || dot(best) > 0.7 ? best : null;
             }
             const ahead = options.filter((o) => {
               const [hx, hy] = net.heading(o);
@@ -2218,7 +2220,10 @@ export class Game {
       } else if (c.driver === 'ai' || c.driver === 'cop') {
         const limit = this.chasing(c) ? 420 : this.viewR + 190;
         if (far > limit || Math.abs(c.x) > w.half - 8 || Math.abs(c.y) > w.half - 8 || (c.hp <= 0 && far > this.viewR + 20)) this.dropCar(c);
-        else if (c.hp <= 0) c.driver = 'none';
+        else if (c.hp <= 0) {
+          c.driver = 'none';
+          c.rail = null;
+        }
       }
     }
     if (this.sinking) this.sink(dt);

@@ -592,11 +592,13 @@ function segAt(l: RoadLine, s: number): number {
 }
 
 /**
- * How far to the right of the centre line a car drives on a road of this width: on a one-way street a
- * little nearer the middle, but still to the right, so that a car going the wrong way passes the others.
+ * How far to the right of the centre line a car drives on a road of this width, going `dir`: on a
+ * one-way street the right way a little nearer the middle; the wrong way, far enough over to pass the
+ * cars coming the right way.
  */
-export function laneOffset(l: RoadLine): number {
-  if (l.oneway) return l.w < 5 ? 0.7 : Math.min(1.8, l.w * 0.15);
+export function laneOffset(l: RoadLine, dir: 1 | -1 = 1): number {
+  if (l.oneway && l.oneway === dir) return l.w < 5 ? 0.7 : Math.min(1.8, l.w * 0.15);
+  if (l.oneway) return l.w < 5 ? 1.2 : Math.max(1.5, Math.min(3.2, l.w * 0.25));
   return l.w < 5 ? 0.7 : Math.min(3.2, l.w * 0.25);
 }
 

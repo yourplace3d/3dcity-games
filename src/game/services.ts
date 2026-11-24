@@ -27,6 +27,18 @@ export interface Service {
 export type JobKind = 'plain' | 'supply' | 'rush' | 'clean';
 export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rush', police: 'clean' };
 
+/**
+ * The colour of a package's ring, by who gives the job, in the colour of the giver's sign: orange at
+ * the pump, red at the flame, blue at the badge, turquoise for a plain package from a street corner.
+ * A party's food is pink, as its sign. While a home of yours waits for a package (a repair), the
+ * stations' rings flash green, the colour of homes in the game (pink was for the party alone, the
+ * owner said). Where to deliver is always yellow. All in one colour, the stations' rings took over
+ * the screen after a run and could not be told from a plain one (the owner, 24 November).
+ */
+export const RING: Record<JobKind | 'party' | 'home', string> = { plain: '#2bd4e0', supply: '#ff8a1f', rush: '#ff3b30', clean: '#3d74ff', party: '#ff5cb8', home: '#5fd08a' };
+/** Where to deliver: the ring, the arrow and the way there. */
+export const DROP = '#ffd400';
+
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 
 /**

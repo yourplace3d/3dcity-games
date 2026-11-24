@@ -23,12 +23,14 @@ the streets, buildings, water and hills come from the same map squares as
   police are about. It moves on as you do each thing, and can be skipped.
 - You start on foot beside a parked car. Walk up to any car and get in: parked ones are free, taking one
   with a driver in it is an offence.
-- **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
+- **Turquoise rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
 - **Open jobs.** A run stays three plain packages from street corners, so that runs compare. The open jobs
   are their own way to play, and a run's result also leads on to them. A short note says how to find them: a
-  blue ring waits at the nearest fuel station, fire station and police station, as often as you go there:
+  ring waits at the nearest fuel station, fire station and police station, as often as you go there, in the
+  colour of its sign: **orange** at the pump, **red** at the flame, **blue** at the badge. Stop at it and a
+  card offers the job:
   - **Supply run** (fuel station): a heavy load. The car is slower away, slower to stop and slower uphill.
     It pays a quarter more, and a fifth on top for a car without a new dent.
   - **Rush job** (fire station): a short clock, and every second left over pays three times.
@@ -64,6 +66,9 @@ the streets, buildings, water and hills come from the same map squares as
   for a car you park and walk the last bit, never more than 150 m (with time on the clock for it); further
   than that, the friends meet you at the corner where a car can go. It pays no cash: the
   first party of a day pays 2 home points. Each home keeps its food place, so its party run stays the same.
+  The party's food has a **pink** ring, as its sign. A station's ring flashes **green** (the colour of homes)
+  while its package would go to a home of yours that needs it (`RING` in `src/game/services.ts`). Where to
+  deliver is always yellow.
   At the end, one soft question: "Someone still missing for tonight's party?", with a link to send or "No,
   we're a full house". Whoever opens the link (`?p=…`) starts at that home and fetches the same food, against
   the time in it, and can send their time back. Nothing is paid for sending, and party links are not
@@ -144,7 +149,9 @@ the streets, buildings, water and hills come from the same map squares as
   both wait at the real stops. A bus stop is a small shelter with a sign on a post, a tram stop a platform
   beside the track. The sign is the same everywhere for now: a white bus on a blue disc, a white tram on a red one;
   no operator's own symbol is drawn (`src/game/stopShapes.ts`). Trains run on the railway tracks and
-  brake for nothing but another train: keep off the track. At the end of a track a train or tram waits a moment and goes back the way it came. Trains have no stations yet. You can take a bus; trams stay on their rails. A subway
+  brake for nothing but another train: keep off the track. At the end of a track a train or tram waits a moment and goes back the way it came. A stretch of track shorter than 200 m (80 m for trams), such as a bit between two tunnels, is drawn but gets no train (`TRAIN_MIN_M` in `src/game/roads.ts`). Trams and trains run on two bogies: the
+  front follows the rails, the back follows where the front has been, and the body lies between them
+  (`Game.onRails`). Trains have no stations yet. You can take a bus; trams stay on their rails. A subway
   entrance is a stairwell going down, with a sign on a post beside it (a white letter on a blue disc:
   U in Germany and Austria, M elsewhere; the game's own sign, no operator's symbol): walk in on foot and you come up at the station nearest to where you're headed. **Rides are switched
   off for now** (`SUBWAY_RIDES` in `src/game/world.ts`): on the iPad the ride did not start. The entrances and signs stay.
@@ -226,6 +233,10 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/game/roads.ts`: the road lines as a network that cars and people follow.
 - `src/game/solids.ts`: building walls (circles are pushed out of them) and the water raster.
 - `src/game/roadMesh.ts`: roads as ribbons on the terrain, sharp from close up.
+- `src/game/sharpGround.ts`: parks, gardens, woods, water and paths are painted into one picture over the
+  square (0.37 m a pixel on a computer, 0.73 m on a tablet), which the close camera stretched into soft
+  edges. A step in the ground's shader cuts each blend between two colours down to about a pixel of the
+  screen. `?try=softground` turns it off, to compare.
 - `src/game/cars.ts`: the car: how it looks, moves and collides.
 - `src/game/game.ts`: you, traffic, people, police, jobs, camera.
 - `src/game/homes.ts`: which buildings are for sale and their prices, what the player owns, and the rent.
@@ -242,12 +253,14 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
-  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways.
+  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways, and which streets are one-way.
   Bug fixes cover date-line tile requests, cache failure and cancellation handling, nested polygon
   holes, terrain edge patches and clipped road/bridge export heights; see the verification notes above.
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
-There are no traffic lights, level-crossing barriers or one-way streets, and bus and tram lines are not the real routes: vehicles follow
+Traffic keeps to one-way streets as the map has them (`oneway` in the map tiles; a car the map leaves at a dead end on one turns off at the
+first way out, or goes if you can't see it). You may drive any way you like, and the arrow's way does not mind one-way streets.
+There are no traffic lights or level-crossing barriers, and bus and tram lines are not the real routes: vehicles follow
 the streets and tracks and mostly carry straight on. Where a street or
 path runs through a building (gateways, archways, passages into courtyards, gates in a town wall), a corridor is
 cut through it at ground level: walls either side, the floors above as a roof you pass under, and you are drawn

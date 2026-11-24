@@ -541,7 +541,7 @@ export class HomesUi {
         this.say('Every flat is repaired. One more package from a station: paint for the outside.', 'good', 10000);
       } else {
         this.setReno({ ...r, fixed });
-        this.say(`Flat ${fixed + 1} of ${units} is repaired: it adds ${money(first.rent / units)} rent from tomorrow. The station symbols blink for the next.`, 'good', 9000);
+        this.say(`Flat ${fixed + 1} of ${units} is repaired: it adds ${money(first.rent / units)} rent from tomorrow. The stations’ rings flash green for the next.`, 'good', 9000);
       }
     } else if (r.stage === 'paint') {
       this.setReno({ stage: 'done' });
@@ -947,7 +947,7 @@ export class HomesUi {
     this.cardAtS = this.playedS;
     this.card(
       `Your ${h.kind} needs renovating`,
-      `The walls of ${homeName(h)} are worn down. Until it is renovated, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${game.run.over ? ': the symbols blink now' : ': once your run is over, the symbols blink'}. Deliver it to the building, and the rent that waited is yours.`,
+      `The walls of ${homeName(h)} are worn down. Until it is renovated, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${game.run.over ? ': their rings flash green now' : ': once your run is over, their rings flash green'}. Deliver it to the building, and the rent that waited is yours.`,
       'Got it',
       '',
       () => undefined,
@@ -1142,7 +1142,7 @@ export class HomesUi {
       this.setReno({ ...this.reno!, stage: 'rest', fixed: 0 });
       this.wayTo = null;
       const others = lot.units - 1;
-      this.host.toast(`The whole building is yours.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the station symbols blink again, and each repaired flat adds rent.`, 'good', 10000);
+      this.host.toast(`The whole building is yours.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the stations’ rings flash green again, and each repaired flat adds rent.`, 'good', 10000);
     } else if (first && this.host.firstHome) {
       this.cardAtS = this.playedS;
       this.host.firstHome(describe(lot, what), money(mine.rent), worn);
@@ -1234,11 +1234,11 @@ export class HomesUi {
       const r = this.reno;
       if (had === this.homes.homes[0] && r && r.stage !== 'done' && r.stage !== 'find') {
         const units = r.units ?? found.units;
-        if (r.stage === 'flat') line('The walls are worn down: it pays no rent until it is repaired. Take a package from a blinking fuel, fire or police station.');
+        if (r.stage === 'flat') line('The walls are worn down: it pays no rent until it is repaired. Take a package from a fuel, fire or police station: their rings flash green.');
         else if (r.stage === 'buy') {
           line(`Repaired: pays ${money(had.rent)} rent each day you come back. The other ${units - 1 === 1 ? 'flat is' : `${units - 1} flats are`} for sale.`);
           button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
-        } else if (r.stage === 'rest') line(`${1 + (r.fixed ?? 0)} of ${units} flats repaired: pays ${money(this.rentOf(had))} rent each day you come back. A package from a blinking station repairs the next.`);
+        } else if (r.stage === 'rest') line(`${1 + (r.fixed ?? 0)} of ${units} flats repaired: pays ${money(this.rentOf(had))} rent each day you come back. A package from a station whose ring flashes green repairs the next.`);
         else line(`Every flat is repaired: pays ${money(had.rent)} rent each day you come back. One more package from a station brings the paint for the outside.`);
         partyButton(had);
         return;

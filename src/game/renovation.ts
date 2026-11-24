@@ -3,8 +3,8 @@
  *
  * 1. `find`: after two deliveries, a part of town with cheap, worn-down flats is shown. Their walls
  *    need work, so one sells for what the player has (`price`), in a building of 3 to 5 flats.
- * 2. `flat`: the flat is bought, but pays no rent until it is repaired. The packages at the fuel,
- *    fire and police stations blink: whichever is taken goes to the building, and repairs the flat.
+ * 2. `flat`: the flat is bought, but pays no rent until it is repaired. The rings at the fuel,
+ *    fire and police stations flash green: whichever is taken goes to the building, and repairs the flat.
  * 3. `buy`: the flat pays rent. The rest of the building is for sale, even before the 6th home.
  * 4. `rest`: the building is the player's. Each package to it repairs one more flat, and each
  *    repaired flat adds its share of the rent.

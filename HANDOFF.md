@@ -32,6 +32,17 @@ lives.
   further than that the friends meet you at the corner (the owner, 24 November). Seven code reviews, live
   on the owner's word since 24 November 2026: the plan, section 8.
 
+- **Ring colours and sharp green (owner, 24 November, after Kiel and Rio):** each giver's ring in its sign's
+  colour (fuel orange, fire red, police blue, a plain package turquoise), pink for the party's food, green
+  flashing on a station's ring while a home of yours waits for its package, yellow to deliver; parks and
+  gardens drawn with sharp edges by a step in the ground's shader. Branch `claude/ring-colours`, merged by
+  pull request #18 and put live on the owner's word ("Yes review and put it live", 24 November) after
+  thirteen code reviews: the plan, section 9. The radio is a trial switched on per browser
+  (`?try=radio`); that is why it plays on the owner's iPad and not on the Mac. On the same branch, from the
+  owner's next round: home missions flash green (pink only for the party), no train on bits of track
+  shorter than 200 m (Shibuya), trams and trains on two bogies so they lie on their rails, and traffic
+  keeping to one-way streets (feedback from Dresden).
+
 ## Where things stand
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).
@@ -367,7 +378,7 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
 - Traffic can queue behind a pedestrian walking in the road, and behind a stopped car; cars hesitate at some
   corners.
 - Left-hand traffic uses rough boxes of latitude and longitude; border regions can be wrong.
-- No traffic lights, no one-way streets. Sound exists since 14 November 2026 and has only been checked for
+- No traffic lights. One-way streets for traffic since 24 November (the player may drive any way). Sound exists since 14 November 2026 and has only been checked for
   which sounds fire when: nobody has listened to it in the test browser. Volumes and tones need the owner's ear.
 - Subway rides stay within the loaded square.
 - The thin-place rule counts streets across the loaded tiles, not only the square, so its numbers are loose.

@@ -15,6 +15,7 @@ import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
 import { basinMesh, takeBasins } from './basins';
 import { pitchMesh, takePitches } from './pitches';
+import { sharpenGround, softGroundWanted } from './sharpGround';
 import { deckMesh, takeDecks } from './docks';
 import type { AreaFeature } from '../geo/osm';
 import { sightsIn, type Sight } from '../landmarks';
@@ -425,6 +426,8 @@ export class World {
     // on some graphics chips it drew dark streaks that stayed put on the screen
     model.terrain.surface.castShadow = false;
     model.terrain.base.visible = false;
+    // parks, gardens and water with sharp edges, not stretched soft
+    if (!softGroundWanted()) sharpenGround(model.terrain.surface.material, texturePx);
     await breathe();
     // a trial: windows and doors on the walls
     if (windowsOn()) {

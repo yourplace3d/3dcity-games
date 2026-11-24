@@ -8,6 +8,12 @@
   --red: #ff5a4d;
   --green: #5fd38a;
   --party: #d8457f;
+  /* the rings of the jobs: set again from RING in services.ts when the page starts */
+  --ring-fuel: #ff8a1f;
+  --ring-fire: #ff3b30;
+  --ring-police: #3d74ff;
+  --ring-party: #ff5cb8;
+  --ring-home: #5fd08a;
   font-family: ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -53,7 +59,7 @@ body.touch .hint kbd { display: none; }
    dark streaks that stayed on the screen. */
 #arrow { position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; will-change: transform; pointer-events: none; }
 #arrow svg { position: absolute; width: 48px; height: 48px; left: 36px; top: 36px; transform: rotate(var(--rot, 0deg)); overflow: visible; }
-#arrow path { fill: var(--cyan); stroke: #10242a; stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke; }
+#arrow path { fill: var(--ring, var(--cyan)); stroke: #10242a; stroke-width: 1.6; stroke-linejoin: round; paint-order: stroke; }
 #arrow.drop path { fill: var(--yellow); stroke: #2a2400; }
 #arrow.guide path { fill: #5fd08a; stroke: #0f2a1a; }
 #arrow span { position: absolute; left: calc(60px + var(--lx, -24px)); top: calc(60px + var(--ly, 20px)); width: 60px; margin-left: -6px; white-space: nowrap; text-align: center; font: 700 14px/1 inherit; text-shadow: 0 1px 3px #000, 0 0 2px #000; }
@@ -121,6 +127,11 @@ button { font: inherit; cursor: pointer; }
 .keys dd { margin: 0; line-height: 1.6; }
 .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 3px solid var(--cyan); vertical-align: -1px; }
 .dot.drop { border-color: var(--yellow); }
+.dot.fuel { border-color: var(--ring-fuel); }
+.dot.fire { border-color: var(--ring-fire); }
+.dot.police { border-color: var(--ring-police); }
+.dot.party { border-color: var(--ring-party); }
+.dot.home { border-color: var(--ring-home); }
 .small { font-size: 12px; color: var(--dim) !important; }
 
 @media (max-width: 640px) {
@@ -160,6 +171,12 @@ body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
 #bigmap-key .dot.me { background: #fff; border: 0; }
 #bigmap-key .dot.ring { background: var(--cyan); border: 2px solid #0c2a2e; width: 12px; height: 12px; }
 #bigmap-key .dot.ring.drop { background: var(--yellow); border-color: #2a2400; }
+#bigmap-key .dot.ring.fuel { background: var(--ring-fuel); border-color: #10161c; }
+#bigmap-key .dot.ring.fire { background: var(--ring-fire); border-color: #10161c; }
+#bigmap-key .dot.ring.police { background: var(--ring-police); border-color: #10161c; }
+#bigmap-key .dot.ring.party { background: var(--ring-party); border-color: #10161c; }
+#bigmap-key .dot.ring.home { background: var(--ring-home); border-color: #10161c; }
+#bigmap-key .dot.ring + .dot.ring { margin-left: -3px; }
 #bigmap-key .dot.sub { border-radius: 2px; }
 #bigmap-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 #bigmap-buttons button { font: inherit; font-weight: 600; font-size: 15px; color: var(--ink); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--line); border-radius: 10px; padding: 11px 8px; min-height: 44px; cursor: pointer; }

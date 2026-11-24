@@ -504,3 +504,87 @@ possible to walk then instead. Just make sure it wouldn't become an endless walk
    more, or other words?
 2. 2 points once a day: right, or should every home's first party of the day pay?
 3. Later: should a friend who plays a party bring something to the host (the owner said not yet)?
+
+## 9. From the owner's play in Kiel and Rio (24 November, evening)
+
+The owner: "The gardens and green are still a little unsharp. The jobs at the departments now in the same
+colour as the regular jobs seem to completely take over. The rings shouldn't have the same color … I'd even go
+for the fire dept (red ring) police (blue ring) gas station (orange ring) house jobs (? ring)." And on the
+plain packages after a run: with the new jobs from the houses "maybe they can stay out and it can continue as
+is (the three runs from the beginning)". Read as: no plain packages among the open jobs (as now), and the run
+of three at the start stays as it is.
+
+**Built (branch `claude/ring-colours`, not live; with the fix for trains below):**
+
+- **A ring in the colour of who gives the job** (`RING` in `src/game/services.ts`, the colours of the signs):
+  turquoise for a plain package (the run of three, a sent run's plain legs), orange at a fuel station, red at
+  a fire station, blue at a police station, pink for the party's food (as its sign). While a home of yours
+  needs a package (the worn-down flat, a renovation), the stations' rings flash **green**, the colour of homes
+  in the game, instead of blinking out (first pink; the owner: pink for the party is fine, "but I wouldn't put
+  it regularly for home missions"). Where to deliver stays yellow, always. A run's packages, a sent
+  run's too, stay turquoise: they are taken by driving through, with no card.
+- The arrow, the way on the little map, the dots on both maps and the line on the road (`G`) take the colour
+  of the ring they lead to. The start screen's legend and the big map's key show the colours; the tour says
+  "turquoise ring" (it said blue, which is now the police's); the open jobs' note and the renovation lines
+  ("their rings flash green") say so too.
+- **Sharp green** (`src/game/sharpGround.ts`): parks, gardens, lawns, woods, water and the paths painted with
+  them are one picture over the square, 4096 px for 1.5 km on a computer and 2048 on a tablet: 0.37 or
+  0.73 m a pixel, stretched over 20 to 30 pixels of the screen from the street. Painting more finely would cost
+  memory the iPad lacks. Instead a step in the ground's shader finds where the picture blends between two
+  colours, reads the colour on either side, and cuts the blend down to about a pixel of the screen. Left soft
+  on purpose: lines about a pixel of the picture wide, spots where three colours crowd together, faint
+  shades, and the high look from above. `?try=softground` in the link turns it off, to compare.
+- **Checked in headless Chromium on real Kiel tiles** (screenshots before and after, at walking and driving
+  height, at computer and iPad size): edges of parks, lawns, paths and squares crisp; a few faint specks
+  where faint shades meet. A browser that paints the picture with only 4 samples a pixel (the test browser's
+  GPU canvas) made the half-way line wavy; averaging along the edge fixed it. The cost on a real GPU was not
+  measured: two more reads of the picture for every pixel of ground, four more at edges. The test browser draws
+  without a graphics chip and showed 5 frames in 3 s against 8 without it, at iPad size: a rough sign that
+  it is not free. On the iPad it needs the owner's eye (`?try=softground` to compare).
+- **Rings checked in the same browser:** open jobs in Kiel, an orange, a red and a blue ring at their signs,
+  the arrow blue towards the nearest (police), the little map's dots and way in the same colours. Tests:
+  `tests/rings.test.ts` (6).
+
+**A train going to and fro across a square in Shibuya** (the owner's screenshot, 24 November). The map has
+bits of railway 5 to 6 m long where the Keio Inokashira line comes up between tunnels, and the game put its
+25 m train on one. Now a connected stretch of track shorter than 200 m (80 m for trams) gets no train or tram;
+the bit is still drawn. In that square of Shibuya, 11 such bits (165 m of 34 km of track); the trains still
+run on the viaducts. Tests in `tests/roads.test.ts`.
+
+**Feedback from Dresden (via the owner, 24 November): "The street-level train is slanted."** A tram was
+steered like a car, towards a point 7 to 15 m ahead of its middle: inside its own 19 m. On bends and after
+points it stood across its rails. Measured over 150 s of play at Postplatz: one sample in ten 15° or more off
+the rails, at worst 70°. Now the front bogie runs along the rails (at points it takes the branch the tram is
+headed for), the back bogie follows where the front has been, and the body lies between them; speed, braking
+and knocks are as before. Afterwards: one in ten under 1.7°, at worst 15°, where several tracks branch and
+the measure takes the wrong branch (the screenshot shows the tram on its rails). At the main station, trains
+and trams: at worst 37° before, 7° after. Test: a tram round a 25 m bend stays within 4° (18° before),
+`tests/rails.test.ts`.
+
+**Feedback from Dresden: "Encountering traffic on one-way streets too."** The game had no one-way streets:
+traffic went both ways on each, and Dresden's big streets are mapped as two one-way carriageways. The map
+tiles say which streets are one-way (`oneway`); Dresden's centre has 54 km of them in 210 km of streets. Now
+traffic is put on one the way it goes, never turns into one the wrong way while there is another way on, and
+leaves one at the first way out if it got on wrongly (where the map leaves a one-way street at a dead end and
+the car turns round). Such a car out of sight goes, as cars that drive off do. The player may still drive
+any way, unfined, and the arrow's way does not mind one-way streets (the owner: "It's fine if the arrow
+points against it"). Counted over
+4 minutes of play each in two parts of Dresden's centre, the player walking about: of the cars seen on
+one-way streets, 19 of 41 drove against the arrow before, 0 of 38 after. Tests: `tests/oneway.test.ts`.
+
+**Reviews before going live (24 to 25 November).** The owner: "Yes review and put it live". Eleven code
+reviews of the whole branch against `main`; most important findings were in the new rails: a tram put on
+mid-bend or near points, two trams head on on one track, a tram on the parallel track taken for one head on,
+short stubs that touch long track, the front and the driver's look ahead parting at points, a wreck still held
+on its rails, a knock that pushed the tram as well. One-way streets: a sharp legal turn before a wrong-way
+straight on, wrong-way cars leaving by a street and keeping far enough over to pass. All fixed, each with a
+test (`tests/rails.test.ts`, `tests/oneway.test.ts`, `tests/roads.test.ts`; 204 tests in all). Checked in the
+browser in Dresden after each round: both ends of every tram and train within about half a metre of a rail
+(at a buffer stop a train's back may hang past the end for a moment); no car seen driving against a one-way
+street for more than a second; against `main`, three runs each, trams cover the same distance and traffic is
+the same. Roundabouts: the tiles mark them one-way (checked at Albertplatz). Browser regressions
+(`tools/ui-test.mjs`) passed.
+
+**The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
+`?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.
+Whether to turn it on for everyone is the owner's call.

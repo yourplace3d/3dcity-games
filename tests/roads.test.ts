@@ -42,3 +42,65 @@ describe('driving routes', () => {
     expect(net.route(net.field(80, 0)!, 0, 80)).toBeNull();
   });
 });
+
+describe('railway for trains', () => {
+  const rail = (pts: LineFeature['pts'], widthM = 3): LineFeature => ({ kind: 'rail', pts, widthM, bridge: false });
+
+  it('a bit of track too short to run on gets no train, but is still track', () => {
+    // a line up for 6 m between two tunnels, and a long railway elsewhere
+    const net = new RoadNet([rail([[0, 0], [6, 0]]), rail([[-300, 100], [300, 100]])], 750);
+    const stub = net.lines.find((l) => l.len < 10)!;
+    expect(stub.train).toBe(true);
+    expect(stub.short).toBe(true);
+    let found = 0;
+    for (let k = 0; k < 50; k++) {
+      const p = net.randomPlace('train', 0, 0, 0, 600);
+      if (!p) continue;
+      found++;
+      expect(net.lines[p.line].short).toBe(false);
+    }
+    expect(found).toBeGreaterThan(0);
+    expect(net.nearestAlong(3, 0, 20, 'train', 1, 0)).toBeNull();
+    // stops and drawing still see it
+    expect(net.nearest(3, 0, 20, 'train')).not.toBeNull();
+    expect(net.hasTrains).toBe(true);
+  });
+
+  it('short pieces joined into a long enough stretch do run', () => {
+    const pieces = Array.from({ length: 10 }, (_, i): LineFeature => rail([[i * 25, 0], [(i + 1) * 25, 0]]));
+    const net = new RoadNet(pieces, 750);
+    expect(net.lines.every((l) => !l.short)).toBe(true);
+    expect(net.nearestAlong(30, 0, 20, 'train', 1, 0)).not.toBeNull();
+  });
+
+  it('a short tram siding gets no tram', () => {
+    const net = new RoadNet([rail([[0, 0], [40, 0]], 1.6), rail([[0, 200], [300, 200]], 1.6)], 750);
+    expect(net.lines.map((l) => l.short)).toEqual([true, false]);
+    expect(net.hasTrams).toBe(true);
+  });
+
+  it('back on the rails, a tram takes its own track and not one crossing it', () => {
+    // a tram track east-west, and another crossing it north-south
+    const net = new RoadNet([rail([[-300, 0], [300, 0]], 1.6), rail([[0, -300], [0, 300]], 1.6)], 750);
+    // knocked off just beside the crossing line, facing east
+    const n = net.nearestAlong(1, 4, 8, 'tram', 1, 0)!;
+    expect(net.lines[n.line].pts[0]).toEqual([-300, 0]);
+    // facing north, the crossing line is its own
+    const m = net.nearestAlong(1, 4, 8, 'tram', 0, 1)!;
+    expect(net.lines[m.line].pts[0]).toEqual([0, -300]);
+  });
+
+  it('a bit of track that only crosses a long line is still too short to run on', () => {
+    const net = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[0, -5], [0, 5]])], 750);
+    expect(net.lines.map((l) => l.short)).toEqual([false, true]);
+  });
+
+  it('a bit of track that meets the end of a long line doubling back is too short to run on; at a corner it is part of it', () => {
+    // its end on the long line's end, running back alongside it
+    const back = new RoadNet([rail([[-300, 0], [300, 0]]), rail([[285, 5], [300, 0]])], 750);
+    expect(back.lines.map((l) => l.short)).toEqual([false, true]);
+    // a way split at a tight corner is one stretch
+    const corner = new RoadNet([rail([[-300, 0], [0, 0]]), rail([[0, 0], [0, 15]])], 750);
+    expect(corner.lines.map((l) => l.short)).toEqual([false, false]);
+  });
+});

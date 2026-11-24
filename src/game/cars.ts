@@ -123,6 +123,19 @@ export class Car {
   hp = 100;
   driver: Driver = 'none';
   path: PathState | null = null;
+  /**
+   * A tram or train: where its front bogie is on the rails, the square that is in, and where the front
+   * has been (newest last), which the back bogie follows (`Game.onRails`).
+   */
+  rail: { p: PathState; world: World; trail: Array<[number, number]> } | null = null;
+
+  /** A tram or train: the lines its driver's look ahead (`path`) went along, newest last, for its front to follow. */
+  ahead: number[] = [];
+
+  /** A tram or train the game holds on its rails: driven by the game, not wrecked. */
+  get onRails(): boolean {
+    return !!this.rail && this.driver === 'ai' && this.hp > 0;
+  }
   readonly controls: Controls = { throttle: 0, steer: 0, handbrake: false };
   readonly spec: Spec;
   readonly mesh: Group;
@@ -313,18 +326,21 @@ export function collideCars(p: Car, q: Car): number {
       if (overlap <= 0 || d < 1e-6) continue;
       const nx = dx / d;
       const ny = dy / d;
-      // the heavier one gives way less
-      const share = q.mass / (p.mass + q.mass);
+      // the heavier one gives way less; a tram or train held on its rails (`Game.onRails`) not at all
+      const pFixed = p.onRails && !q.onRails;
+      const qFixed = q.onRails && !p.onRails;
+      const share = pFixed ? 0 : qFixed ? 1 : q.mass / (p.mass + q.mass);
       const h = overlap / 2;
       p.x -= nx * overlap * share;
       p.y -= ny * overlap * share;
       q.x += nx * overlap * (1 - share);
       q.y += ny * overlap * (1 - share);
       // a push at one end turns the car
-      p.th += ((pfx * -ny - pfy * -nx) * h * sp * 0.35) / p.a / (p.offs.length > 2 ? 4 : 1);
-      q.th += ((qfx * ny - qfy * nx) * h * sq * 0.35) / q.a / (q.offs.length > 2 ? 4 : 1);
+      if (!pFixed) p.th += ((pfx * -ny - pfy * -nx) * h * sp * 0.35) / p.a / (p.offs.length > 2 ? 4 : 1);
+      if (!qFixed) q.th += ((qfx * ny - qfy * nx) * h * sq * 0.35) / q.a / (q.offs.length > 2 ? 4 : 1);
       const rel = (q.vx - p.vx) * nx + (q.vy - p.vy) * ny;
       if (rel < 0) {
+        // by weight: a knock slows a tram or train a little too, along its rails
         const j = (-1.2 * rel) / (1 / p.mass + 1 / q.mass);
         p.vx -= (j / p.mass) * nx;
         p.vy -= (j / p.mass) * ny;

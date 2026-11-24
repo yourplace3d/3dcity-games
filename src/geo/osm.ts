@@ -87,6 +87,8 @@ export interface LineFeature {
    * (tunnel=building_passage), kept only where it does run under buildings (`passages.ts`).
    */
   passage?: boolean;
+  /** a one-way street: traffic goes only with the points (1) or only against them (-1) */
+  oneway?: 1 | -1;
 }
 
 export interface FeatureSet {
@@ -342,7 +344,10 @@ export function parseFeatures(res: OverpassResponse, center: LngLat): FeatureSet
     if (!lc) continue;
     const pts = toRing(el.geometry, proj);
     if (pts.length < 2) continue;
-    lines.push({ kind: lc[0], widthM: lc[1], pts, bridge: !!tags.bridge && tags.bridge !== 'no' });
+    // a one-way street (a roundabout is one by its nature): 1 with the way's points, -1 against them
+    const ow = tags.oneway === '-1' || tags.oneway === 'reverse' ? -1 : tags.oneway === 'yes' || tags.oneway === '1' || tags.oneway === 'true' || (tags.junction === 'roundabout' && tags.oneway !== 'no') ? 1 : 0;
+    const oneway = ow && tags.highway && lc[0] !== 'path' ? ow : 0;
+    lines.push({ kind: lc[0], widthM: lc[1], pts, bridge: !!tags.bridge && tags.bridge !== 'no', ...(oneway ? { oneway } : {}) });
   }
   return { areas, lines, coastlines };
 }

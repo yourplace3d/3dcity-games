@@ -57,6 +57,17 @@ the streets, buildings, water and hills come from the same map squares as
   until a station's package solves it. Tapping "Bank" in the money box shows the way to the nearest bank. Cash and homes come along to every place you play: a new place is not a new game.
   Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
+- **Parties.** Stop beside a home you own (or tap *Party* beside it in Real estate) to throw one: friends
+  are coming over and nobody got the food. Fetch the pizza from a restaurant, or drinks and snacks from a
+  supermarket, about 800 m away by road (a pink sign; made up, with a dashed ring, where the map has none
+  near), and bring it to the door before it gets cold. The clock starts at the pickup. Up a lane too narrow
+  for a car you park and walk the last bit, never more than 150 m (with time on the clock for it); further
+  than that, the friends meet you at the corner where a car can go. It pays no cash: the
+  first party of a day pays 2 home points. Each home keeps its food place, so its party run stays the same.
+  At the end, one soft question: "Someone still missing for tonight's party?", with a link to send or "No,
+  we're a full house". Whoever opens the link (`?p=…`) starts at that home and fetches the same food, against
+  the time in it, and can send their time back. Nothing is paid for sending, and party links are not
+  counted (`src/game/party.ts`, `src/partyUi.ts`, kept as `3da-party`).
 - **Flats first.** A first home is a flat; houses open with your 3rd home, whole buildings with your 6th.
   A house or whole building you own can be painted, from the panel beside it. A player with no home who
   has the cash for a flat gets a private mission that shows a part of town nearby where flats are cheap.
@@ -221,6 +232,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
   `src/homesUi.ts`: the offer after a run, the panel beside a building, the roof marks and the rent on return.
   `src/homesList.ts`: the list of homes by town, in the menu. `src/game/homePoints.ts`: home points.
   `src/trophies.ts`: the trophies. `src/game/bankMission.ts`: the mission to the bank and its reminder.
+  `src/game/party.ts`: a party at a home, its food place and its link; `src/partyUi.ts`: its cards.
 - `src/addon.ts`: where an extra feature plugs in. The game loads an add-on only when it is handed its
   address (`loadAddon(address)`); on its own it loads none.
   For such a file the game can stand a car in the world, take one out, lay a ring, put a symbol on a

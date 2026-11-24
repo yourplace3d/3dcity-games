@@ -27,7 +27,7 @@ import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
 import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
 import { carvePassagesInSteps, keepPassages, Roofs } from './passages';
-import { inventServices, readBanks, readReserved, readServices, serviceIcon, type Bank, type Service } from './services';
+import { inventServices, PointGrid, readBanks, readFood, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -348,6 +348,9 @@ export class World {
   /** banks, real and made up: not drawn here; the homes put their symbol up in the player's home town */
   readonly banks: Bank[] = [];
 
+  /** restaurants and supermarkets, real and made up, where a party's food comes from: not drawn here; a party run puts up its own */
+  readonly food: FoodPlace[] = [];
+
   /** the buildings that are walls here: outline in metres from the middle of the square, and height */
   buildings: Array<{ poly: Polygon; height: number; id?: string }> = [];
 
@@ -487,6 +490,16 @@ export class World {
     const realBanks = readBanks(tiles, world.proj, 1e9);
     for (const b of [...realBanks.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(realBanks, world.proj, reach, roads, ['bank'])]) {
       if (!world.banks.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 250) && !world.services.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 70)) world.banks.push(b);
+    }
+    // restaurants and supermarkets for the parties: of several within 60 m only the first is kept, and one is
+    // made up where the map has none near (a made-up one is a restaurant)
+    const realFood = readFood(tiles, world.proj, 1e9);
+    const madeUp = inventServices(realFood.map((f) => ({ ...f, kind: 'food' as const })), world.proj, reach, roads, ['food']).map((f): FoodPlace => ({ ...f, food: 'restaurant' }));
+    const foodKept = new PointGrid<FoodPlace>(60);
+    for (const f of [...realFood.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...madeUp]) {
+      if (foodKept.near(f.x, f.y, 60)) continue;
+      world.food.push(f);
+      foodKept.add(f);
     }
     // the map puts such a place on its building: the symbol lies on the roof, where it can be seen
     for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2, (x, y) => surfaceY(model, x, y)));

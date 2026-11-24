@@ -29,9 +29,34 @@ export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rus
 
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 
+/**
+ * Points in a grid of cells, to ask what lies near a spot without going through all of them: a city centre's
+ * tiles hold thousands of restaurants, and going through every kept one for every new one took millions of steps.
+ */
+export class PointGrid<T extends { x: number; y: number }> {
+  private readonly cells = new Map<string, T[]>();
+  constructor(private readonly cell: number) {}
+  add(p: T): void {
+    const k = `${Math.floor(p.x / this.cell)},${Math.floor(p.y / this.cell)}`;
+    const list = this.cells.get(k);
+    if (list) list.push(p);
+    else this.cells.set(k, [p]);
+  }
+  /** Whether a point within `r` (no more than the cell size) passes `test`. */
+  near(x: number, y: number, r: number, test: (p: T) => boolean = () => true): boolean {
+    const cx = Math.floor(x / this.cell);
+    const cy = Math.floor(y / this.cell);
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++)
+        for (const p of this.cells.get(`${cx + dx},${cy + dy}`) ?? []) if (Math.hypot(p.x - x, p.y - y) < r && test(p)) return true;
+    return false;
+  }
+}
+
 /** Points of interest of the map tiles, by the map's sub-kind, as metres from the square's middle. */
 function readPoints<K extends string>(tiles: LoadedTile[], proj: Projector, half: number, pick: Record<string, K>): Array<{ kind: K; x: number; y: number }> {
   const out: Array<{ kind: K; x: number; y: number }> = [];
+  const kept = new PointGrid<{ kind: K; x: number; y: number }>(40);
   for (const t of tiles) {
     const layer = t.tile.layers.poi;
     if (!layer) continue;
@@ -50,8 +75,10 @@ function readPoints<K extends string>(tiles: LoadedTile[], proj: Projector, half
       const [x, y] = proj.toLocal(lon, lat);
       if (Math.abs(x) > half || Math.abs(y) > half) continue;
       // one mark for a place mapped twice (the building and its entrance, say)
-      if (out.some((o) => o.kind === kind && Math.hypot(o.x - x, o.y - y) < 40)) continue;
-      out.push({ kind, x, y });
+      if (kept.near(x, y, 40, (o) => o.kind === kind)) continue;
+      const p = { kind, x, y };
+      out.push(p);
+      kept.add(p);
     }
   }
   return out;
@@ -71,6 +98,28 @@ export interface Bank {
 
 export function readBanks(tiles: LoadedTile[], proj: Projector, half: number): Bank[] {
   return readPoints(tiles, proj, half, { bank: 'bank' as const });
+}
+
+/** Where a party's food comes from: a restaurant (or fast food) for the pizza, a supermarket (or corner shop) for drinks and snacks. */
+export type FoodKind = 'restaurant' | 'shop';
+
+/**
+ * A place to fetch food for a party (`game/party.ts`). Marked with a symbol and never named, like the
+ * stations (the owner, 14 November: restaurants and supermarkets may serve as mission places, without
+ * names). Not drawn by the world: only the one a party run uses is put up.
+ */
+export interface FoodPlace {
+  kind: 'food';
+  food: FoodKind;
+  x: number;
+  y: number;
+  invented?: boolean;
+}
+
+const FOOD: Record<string, FoodKind> = { restaurant: 'restaurant', fast_food: 'restaurant', supermarket: 'shop', convenience: 'shop' };
+
+export function readFood(tiles: LoadedTile[], proj: Projector, half: number): FoodPlace[] {
+  return readPoints(tiles, proj, half, FOOD).map((p) => ({ kind: 'food' as const, food: p.kind, x: p.x, y: p.y }));
 }
 
 /** Kinds of place the game leaves alone: never named, and for an add-on never for sale. */
@@ -105,8 +154,9 @@ function hash(a: number, b: number, c: number): number {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
 
-export type PlaceKind = ServiceKind | 'bank';
-const ORDER: PlaceKind[] = ['fuel', 'fire', 'police', 'bank'];
+export type PlaceKind = ServiceKind | 'bank' | 'food';
+// a new kind goes at the end: each kind's made-up spots are worked out from its place in this list
+const ORDER: PlaceKind[] = ['fuel', 'fire', 'police', 'bank', 'food'];
 
 /** A cell of the earth about 1.2 km across holds one made-up place of each kind, unless a real one is near. */
 const CELL_DEG = 0.011;
@@ -155,7 +205,7 @@ export function inventServices<K extends PlaceKind = ServiceKind>(
 const icons = new Map<string, HTMLCanvasElement>();
 
 /** The symbol of a kind of place: a round sign, 128 px, drawn once. A made-up place has a dashed ring. */
-export function serviceIcon(kind: PlaceKind, invented = false): HTMLCanvasElement {
+export function serviceIcon(kind: Exclude<PlaceKind, 'food'> | FoodKind, invented = false): HTMLCanvasElement {
   const had = icons.get(kind + invented);
   if (had) return had;
   const c = document.createElement('canvas');
@@ -207,6 +257,48 @@ export function serviceIcon(kind: PlaceKind, invented = false): HTMLCanvasElemen
     g.bezierCurveTo(72, 99, 56, 99, 54, 92);
     g.bezierCurveTo(51, 82, 60, 78, 64, 66);
     g.fill();
+  } else if (kind === 'restaurant') {
+    // a fork and a knife
+    disc('#d8457f');
+    g.fillStyle = '#f4f1ea';
+    g.fillRect(46, 30, 5, 22);
+    g.fillRect(55, 30, 5, 22);
+    g.fillRect(37, 30, 5, 22);
+    g.beginPath();
+    g.moveTo(37, 50);
+    g.lineTo(60, 50);
+    g.bezierCurveTo(60, 60, 54, 64, 52, 64);
+    g.lineTo(45, 64);
+    g.bezierCurveTo(43, 64, 37, 60, 37, 50);
+    g.fill();
+    g.fillRect(44, 62, 9, 38);
+    g.beginPath();
+    g.moveTo(76, 100);
+    g.lineTo(76, 30);
+    g.bezierCurveTo(90, 36, 92, 56, 88, 70);
+    g.lineTo(84, 70);
+    g.lineTo(84, 100);
+    g.closePath();
+    g.fill();
+  } else if (kind === 'shop') {
+    // a shopping basket
+    disc('#d8457f');
+    g.strokeStyle = '#f4f1ea';
+    g.lineWidth = 7;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.arc(64, 58, 20, Math.PI, 0);
+    g.stroke();
+    g.fillStyle = '#f4f1ea';
+    g.beginPath();
+    g.moveTo(30, 56);
+    g.lineTo(98, 56);
+    g.lineTo(90, 96);
+    g.lineTo(38, 96);
+    g.closePath();
+    g.fill();
+    g.fillStyle = '#d8457f';
+    for (const cx of [50, 64, 78]) g.fillRect(cx - 3, 64, 6, 24);
   } else if (kind === 'bank') {
     // a bank: a roof over three columns, on a step
     disc('#6a4fc2');

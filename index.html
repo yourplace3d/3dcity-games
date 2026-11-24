@@ -183,6 +183,20 @@
         <div class="row"><button class="primary" id="btn-mission-yes"></button><button id="btn-mission-no"></button></div>
       </div>
     </section>
+    <section id="party" class="over" hidden>
+      <div class="card">
+        <small class="kicker">Party</small>
+        <h2 id="party-title"></h2>
+        <p id="party-text"></p>
+        <div id="party-invite">
+          <p id="party-ask"></p>
+          <input id="party-name" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off" enterkeyhint="done" />
+          <div class="row"><button class="primary" id="btn-party-send"></button><button id="btn-party-no"></button></div>
+          <p class="small" id="party-note"></p>
+          <input id="party-link" type="text" readonly hidden aria-label="Link to this party" />
+        </div>
+      </div>
+    </section>
     <section id="guess" class="over" hidden>
       <div class="card">
         <h2 id="guess-title"></h2>

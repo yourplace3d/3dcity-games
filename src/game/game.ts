@@ -36,6 +36,7 @@ import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } f
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
 import { JOB_OF, type JobKind } from './services';
+import { partyClock } from './party';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -95,6 +96,23 @@ export interface Job {
   hp0: number;
   /** a mission's package, going to `Game.special` */
   special?: boolean;
+  /** a party's food (`Game.party`): no pay, and the time from pickup to door is what counts */
+  party?: boolean;
+  /** the clock it started with (s) */
+  clock0?: number;
+}
+
+/**
+ * A party run (`game/party.ts`): the food is picked up at `pick` and goes to the door at `door`, on a
+ * clock that starts at the pickup. While it is on there are no other jobs and no run.
+ */
+export interface PartyRun {
+  pick: LngLat;
+  door: LngLat;
+  /** said as the food comes on board */
+  say: string;
+  /** the last metres to the door on foot, up a lane too narrow for a car: they get time on the clock */
+  walk?: number;
 }
 
 export interface Hud {
@@ -103,7 +121,7 @@ export interface Hud {
   health: number;
   carHp: number | null;
   kmh: number;
-  job: { left: number; metres: number; pay: number; kind: JobKind } | null;
+  job: { left: number; metres: number; pay: number; kind: JobKind; party: boolean } | null;
   hint: string;
   /** where the arrow points: the drop-off, or the nearest job */
   target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide' } | null;
@@ -128,6 +146,8 @@ const OFFER_M = 14;
 const OFFER_SPEED = 1.5;
 /** how near a station, or the spot on the road beside it, counts as being at it (m) */
 const STATION_M = 35;
+/** the autopilot leaves a wedged car and walks when the drop-off is this much further by road than the party's walk (m) */
+const WALK_AUTO_M = 80;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
 export const MAX_CASH = 1_000_000;
 /** open jobs pay more with each delivery made, up to this many */
@@ -238,6 +258,13 @@ export class Game {
   private readonly mineRing = new Mesh(new RingGeometry(3.3, 3.8, 40), new MeshBasicMaterial({ color: '#ffffff', side: DoubleSide, transparent: true, opacity: 0.85, depthWrite: false }));
   autoSpeed = 16;
   autoAvoid = true;
+  /** the autopilot's car has come no nearer its drop-off for so long (s), and it walks the rest of the way */
+  private autoStuck = 0;
+  private autoBest = Infinity;
+  private autoGoal: Marker | null = null;
+  private autoWalk = false;
+  /** seconds left of backing up, where there was no room to get out */
+  private autoBack = 0;
   private offenceAt = 0;
   private loading = false;
   /** A city change makes any pending neighbouring square obsolete. */
@@ -294,6 +321,13 @@ export class Game {
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
+  /** The party run being played, if any. */
+  party: PartyRun | null = null;
+  /**
+   * A party run is over: the food got to the door (and how long it took from the pickup, s), it got cold
+   * (the clock ran out), or it was lost (the player was caught or knocked out with it on board).
+   */
+  onPartyEnd: (end: 'done' | 'cold' | 'lost', seconds: number) => void = () => undefined;
   /**
    * A station's job is offered on a card before it is taken (the owner, 23 November): `special` is the
    * line of a mission's package, when it goes to one. Without it, a package is taken by driving onto it.
@@ -328,6 +362,7 @@ export class Game {
 
   /** No run: the open jobs from the start, as many as one likes. */
   openPlay(): void {
+    this.party = null;
     this.comeDown();
     this.declined.clear();
     this.slowSaid = false;
@@ -343,6 +378,7 @@ export class Game {
 
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
+    this.party = null;
     this.comeDown();
     this.declined.clear();
     this.slowSaid = false;
@@ -354,6 +390,20 @@ export class Game {
     this.course = { start: this.set?.start ?? this.world.proj.toLngLat(x, y), legs: [] };
     this.from = null;
     if (this.job) this.endJob(false);
+    for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
+  }
+
+  /** A party run from here: no run and no other jobs, only the food from its place to the door. */
+  startParty(p: PartyRun): void {
+    this.openPlay();
+    this.party = p;
+  }
+
+  /** The party is called off: its food and its drop-off go, and the open jobs come back. */
+  endParty(): void {
+    if (!this.party) return;
+    this.party = null;
+    if (this.job?.party) this.endJob(false);
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
   }
 
@@ -524,6 +574,7 @@ export class Game {
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
     if (this.job) this.scene.remove(this.job.to.mesh);
     this.job = null;
+    this.party = null;
     this.routeLine.visible = false;
     this.routePts = null;
     this.routeT = 0;
@@ -1380,7 +1431,13 @@ export class Game {
     this.frozen = 1.6;
     this.onFlash(cost > 0 ? `${title}  −$${cost}` : title);
     this.onSound('fine');
+    // a party's food on board is lost with it: the party says so, and offers to fetch it again
+    const food = !!this.job?.party;
     if (this.job) this.endJob(false);
+    if (food) {
+      this.party = null;
+      this.onPartyEnd('lost', 0);
+    }
     // start again as the game began: on foot, with a parked car to take right beside you
     const p = this.toRoad(120, 320);
     if (p) {
@@ -1441,6 +1498,16 @@ export class Game {
       j.metres = Math.hypot(x - px, y - py);
       j.left -= dt;
 
+      if (j.metres < 6.5 && j.party) {
+        // the food is at the door: no pay, and the time from the pickup is what counts
+        const seconds = Math.max(0, (j.clock0 ?? 0) - j.left);
+        this.endJob(true);
+        this.party = null;
+        this.onSound('run');
+        this.onPartyEnd('done', seconds);
+        this.onSave();
+        return;
+      }
       if (j.metres < 6.5) {
         // what comes on top: time left over, three times as much on a rush job; on a supply run a
         // fifth more for a car that took no harm
@@ -1466,13 +1533,24 @@ export class Game {
           this.onRunEnd(r.score, r.seconds);
         }
       } else if (j.left <= 0) {
-        this.onToast('Too late: the job is gone', 'bad');
         this.onSound('late');
         this.endJob(false);
+        if (j.party) {
+          this.party = null;
+          this.onPartyEnd('cold', 0);
+        } else this.onToast('Too late: the job is gone', 'bad');
       }
       return;
     }
     if (!this.moved && this.speed() > 3) this.moved = true;
+    // a party: one ring, at its food place, and nothing else
+    if (this.party) {
+      if (!this.pickups.length) this.pickups.push(this.markerAt('#2bd4e0', this.party.pick));
+      const m = this.pickups[0];
+      const [x, y] = this.local(m);
+      if (Math.hypot(x - px, y - py) < 6.5) this.takeParty(m);
+      return;
+    }
     // in a run someone sent there is one package at a time, where theirs was
     const sent = this.run.over ? null : this.set?.legs[this.run.done] ?? null;
     for (let i = this.pickups.length - 1; i >= 0; i--) {
@@ -1576,6 +1654,27 @@ export class Game {
       const m = p && this.pickupAt(p);
       if (m) this.pickups.push(m);
     }
+  }
+
+  /** The party's food on board: to the door, on its clock. */
+  private takeParty(m: Marker): void {
+    const p = this.party!;
+    const w = this.world;
+    const [px, py] = this.pos();
+    const to = this.markerAt('#ffd400', p.door);
+    const f = this.fieldOf(to);
+    const [tx, ty] = this.local(to);
+    const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
+    const r = inside && f ? w.roads.route(f, px, py) : null;
+    const metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
+    const clock = partyClock(metres, p.walk ?? 0);
+    this.job = { to, metres, left: clock, clock0: clock, pay: 0, kind: 'plain', hp0: this.car ? this.car.hp : 100, party: true };
+    this.from = m.at;
+    this.lastFrom = m.at;
+    this.routeT = 0;
+    for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
+    this.onToast(p.say, 'info');
+    this.onSound('pickup');
   }
 
   /** Whether a package is a station's job, which is offered on a card before it is taken. */
@@ -1760,6 +1859,31 @@ export class Game {
   /** Drive yourself: to the drop-off, or to the nearest job. For filming and tests. */
   private autopilot(dt: number): void {
     const w = this.world;
+    // a drop-off up a lane too narrow for the car: on foot the rest of the way, along the road
+    if (!this.car && this.autoWalk && this.job) {
+      const f = this.fieldOf(this.job.to);
+      const r = f ? w.roads.route(f, this.me.x, this.me.y, 40) : null;
+      const [gx, gy] = this.local(this.job.to);
+      let [tx, ty] = [gx, gy];
+      if (r && r.metres > 8) {
+        let left = 4;
+        for (let i = 1; i < r.pts.length; i++) {
+          const d = Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+          [tx, ty] = r.pts[i];
+          if ((left -= d) <= 0) break;
+        }
+      }
+      const d = Math.hypot(tx - this.me.x, ty - this.me.y) || 1;
+      this.walk({ moveX: (tx - this.me.x) / d, moveY: (ty - this.me.y) / d, stick: true, throttle: 0, steer: 0, brake: false, handbrake: false }, dt);
+      return;
+    }
+    if (!this.job) {
+      // a new goal starts afresh: no walking, backing up or waiting left over from the last
+      this.autoWalk = false;
+      this.autoBack = 0;
+      this.autoStuck = 0;
+      this.autoGoal = null;
+    }
     if (!this.car) {
       const near = this.carInReach();
       if (near && near.hp > 40) {
@@ -1777,6 +1901,30 @@ export class Game {
     const goal = this.goal();
     const f = goal && this.fieldOf(goal);
     const r = f ? w.roads.route(f, c.x, c.y, 90) : null;
+    // a party's food for a door up a lane too narrow for a car, and the car wedged near it (no nearer by road
+    // for a few seconds, however it bumps about, and hardly moving): out of the car, and on foot (`autoWalk`).
+    // Other jobs are driven as they always were.
+    const gd = r ? r.metres : Infinity;
+    if (!this.job?.party || !this.party?.walk || goal !== this.autoGoal || gd < this.autoBest - 1) {
+      this.autoGoal = goal;
+      this.autoBest = gd;
+      this.autoStuck = 0;
+    } else this.autoStuck += dt;
+    if (this.autoBack > 0) {
+      // no room to get out between the walls: back up a little first
+      this.autoBack -= dt;
+      c.controls.throttle = -0.6;
+      c.controls.steer = 0;
+      c.controls.handbrake = false;
+      return;
+    }
+    if (this.autoStuck > 4 && gd < (this.party?.walk ?? 0) + WALK_AUTO_M && Math.abs(c.forward) < 2) {
+      this.autoStuck = 0;
+      this.action();
+      if (!this.car) this.autoWalk = true;
+      else this.autoBack = 1.5;
+      return;
+    }
     if (!goal || !r) {
       c.controls.throttle = 0;
       return;
@@ -2144,7 +2292,7 @@ export class Game {
     if (this.job) {
       const [x, y] = this.local(this.job.to);
       best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop' };
-    } else if (this.guide) {
+    } else if (this.guide && !this.party) {
       best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide' };
     } else {
       for (const m of this.pickups) {
@@ -2177,7 +2325,7 @@ export class Game {
       health: Math.max(0, this.me.hp),
       carHp: this.car ? this.car.hp : null,
       kmh: this.speed() * 3.6,
-      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind } : null,
+      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind, party: !!this.job.party } : null,
       hint,
       target,
       delivered: this.delivered,

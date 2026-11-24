@@ -73,7 +73,7 @@ export function homeTowns(homes: Home[], reno: Reno | null): Town[] {
 export function drawHomes(
   list: HTMLElement,
   towns: Town[],
-  act: { here: (h: Home) => boolean; show: (h: Home) => void; go: (t: Town, h: Home) => void },
+  act: { here: (h: Home) => boolean; show: (h: Home) => void; go: (t: Town, h: Home) => void; party?: (h: Home) => string | null; throwParty?: (h: Home) => void },
 ): void {
   list.replaceChildren();
   for (const t of towns) {
@@ -101,7 +101,18 @@ export function drawHomes(
       go.type = 'button';
       go.textContent = here ? 'On the map' : 'Go there';
       go.addEventListener('click', () => (here ? act.show(l.home) : act.go(t, l.home)));
-      li.append(text, go);
+      li.append(text);
+      // a party, where one can be thrown at this home now
+      const party = act.party?.(l.home);
+      if (party) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'party';
+        b.textContent = party;
+        b.addEventListener('click', () => act.throwParty?.(l.home));
+        li.append(b);
+      }
+      li.append(go);
       ul.append(li);
     }
     box.append(head, ul);

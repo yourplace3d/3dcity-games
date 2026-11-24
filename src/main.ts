@@ -15,6 +15,8 @@ import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
 import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
+import { arriveLine, PartyUi } from './partyUi';
+import { readParty, type SentParty } from './game/party';
 import { drawTrophies, Trophies, type TrophyId } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
@@ -26,7 +28,7 @@ import { areaKey, squaresAround, World } from './game/world';
 import { findPlace, nearCity, placeAt, placeFromHash } from './places';
 import { readPlayerSave } from './playerSave';
 import { newRound, packGuess, played, points, readGuess, type Round, type SentGuess } from './guess';
-import { addScore, lastName, nameScore, scores, type Score } from './scores';
+import { addScore, keepName, lastName, nameScore, scores, type Score } from './scores';
 import { BAKED } from './geo/mapCache';
 import type { LngLat } from './geo/projection';
 
@@ -52,6 +54,12 @@ addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e
 
 let game: Game | null = null;
 let homes: HomesUi | null = null;
+/** parties at the player's homes (`partyUi.ts`) */
+let party: PartyUi | null = null;
+/** a friend's party from the link the page was opened with, until it starts */
+let linkParty: SentParty | null = null;
+/** the party of the link, for the line under the place's name, for as long as its place is played */
+let partyShown: SentParty | null = null;
 const sound = new Sound();
 let playing = false;
 let busy = false;
@@ -294,6 +302,12 @@ function setScreen(screen: 'start' | 'play'): void {
 async function go(at: LngLat, name?: string, sent: Challenge | null = null, here = false): Promise<void> {
   if (busy) return;
   busy = true;
+  // a friend's party from the link is for its own place only: going anywhere else drops it, and the link
+  if (linkParty && (Math.abs(at.lat - linkParty.home.lat) > 1e-6 || Math.abs(at.lon - linkParty.home.lon) > 1e-6)) {
+    linkParty = null;
+    partyClosed();
+  }
+  partyShown = linkParty;
   if (!dropping) endGuess();
   playingAt(at);
   status.className = 'status';
@@ -353,7 +367,21 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard, openHomes: () => setPause(true, 'estate'), quiet: () => !!secret, blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden });
+      party = new PartyUi({ game, homes: () => homes, toast, card: missionCard, cover, place: () => placeName, name: lastName, keepName, closed: partyClosed, save: () => save(), started: runOver });
+      (window as unknown as { party: PartyUi }).party = party;
+      const p = party;
+      homes = new HomesUi({
+        game,
+        toast,
+        save: () => save(),
+        place: () => placeName,
+        firstHome: welcomeHome,
+        card: missionCard,
+        openHomes: () => setPause(true, 'estate'),
+        quiet: () => !!secret,
+        blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
+        party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
+      });
       (window as unknown as { homes: HomesUi }).homes = homes;
       // trophies: what happens in play, and now and then what the player has
       {
@@ -394,8 +422,9 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
     if (!dropping) trophies.visit(at.lat, at.lon);
     // which city is played; not one a Where am I? round put the player in, nor the place "Where I am" found
     if (!BAKED && !dropping && !here) countCity(at);
-    // a run a friend sent is a run, whatever the start screen is set to
-    if (sent || mode === 'run') game.newRun(sent?.course ?? null);
+    // a run a friend sent is a run, whatever the start screen is set to; a friend's party starts once the place is shown
+    if (linkParty) game.openPlay();
+    else if (sent || mode === 'run') game.newRun(sent?.course ?? null);
     else game.openPlay();
     rival = sent;
     const known = name ?? nearCity(at);
@@ -414,7 +443,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
     arrived = false;
     save(at);
     // the address would give a city to guess away
-    if (!BAKED) history.replaceState(null, '', dropping ? withoutChallenge() : `${sent ? location.search : withoutChallenge()}#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
+    if (!BAKED) history.replaceState(null, '', dropping ? withoutChallenge() : `${sent || linkParty ? location.search : withoutChallenge()}#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
     $('btn-menu').blur();
     status.textContent = '';
     // little on the map here: say so, and let them choose
@@ -428,6 +457,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
     begin();
   } catch (err) {
     console.warn(err);
+    // the friend's party waits for its place: a retry of the same place still brings it, any other place drops it
     status.className = 'status error';
     const none = err instanceof Error && err.message === 'no roads here';
     status.textContent = navigator.onLine === false ? 'You seem to be offline.' : none ? 'There are no streets on the map right here. Try a spot nearby, or one of the cities above.' : 'That place didn’t load. Try another, or try again.';
@@ -446,18 +476,20 @@ function arrive(): void {
     ? guessRival
       ? `${guessRival.name || 'Someone'} ${guessRival.points ? `knew this city after ${secs(guessRival.seconds)}: ${guessRival.points} points` : 'did not get this city'}. Same place, same four names: beat it.`
       : 'Drive around and look. Tap “Guess the city” when you know: the sooner, the more points.'
+    : partyShown
+    ? arriveLine(partyShown)
     : rival
     ? `${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`
     : game?.run.over
       ? 'Open jobs: look for the pump, the flame and the badge'
       : `${cap(deliveries(RUN_JOBS))} make a run`;
   const el = $('arrive');
-  el.classList.toggle('sent', !!rival || (!!secret && !!guessRival));
+  el.classList.toggle('sent', !!rival || !!partyShown || (!!secret && !!guessRival));
   el.hidden = true;
   void el.offsetWidth;
   el.hidden = false;
   clearTimeout(arriveT);
-  arriveT = window.setTimeout(() => (el.hidden = true), rival || (secret && guessRival) ? 6000 : 3200);
+  arriveT = window.setTimeout(() => (el.hidden = true), rival || partyShown || (secret && guessRival) ? 6000 : 3200);
 }
 let arriveT = 0;
 
@@ -466,6 +498,7 @@ function withoutChallenge(): string {
   const q = new URLSearchParams(location.search);
   q.delete('c');
   q.delete('g');
+  q.delete('p');
   const text = q.toString().replace(/=(?=&|$)/g, '');
   return location.pathname + (text ? `?${text}` : '');
 }
@@ -474,6 +507,15 @@ function begin(): void {
   $('thin').hidden = true;
   setScreen('play');
   if (placeKnown) arrive();
+  // a friend's party from the link: its card, then the party. Not the tour of the deliveries, which says
+  // nothing true of a party: a new player is told how to take a car once the party starts (`runOver`)
+  if (linkParty && party) {
+    const s = linkParty;
+    linkParty = null;
+    party.startSent(s);
+    carHint = !coached();
+    return;
+  }
   if (rival && coached()) return;
   if (secret) {
     // someone who came by a friend's link may never have played: say how to get going, once the sign has been read
@@ -521,6 +563,7 @@ let missionAnswer: ((yes: boolean) => void) | null = null;
 function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now'): void {
   welcoming = true;
   $('mission-kicker').textContent = kicker;
+  $('mission').dataset.kind = kicker === 'Party' || kicker === 'Invitation' ? 'party' : '';
   controls.enabled = false;
   // the game waits while the card is read: a package's clock too
   if (game) game.held = true;
@@ -544,6 +587,32 @@ function closeMission(yes: boolean): void {
 }
 $('btn-mission-yes').addEventListener('click', () => closeMission(true));
 $('btn-mission-no').addEventListener('click', () => closeMission(false));
+/** The game waits behind a card of its own (a party's end), or goes on. */
+function cover(on: boolean): void {
+  welcoming = on;
+  if (game) game.held = on;
+  controls.enabled = playing && !paused && !on;
+  before = 0;
+}
+/** a new player came by a party's link: how to take a car is said as the party starts */
+let carHint = false;
+/** A party has started: a run a friend sent is over, and leaves the address, so a reload does not bring it back. */
+function runOver(): void {
+  rival = null;
+  if (carHint) {
+    carHint = false;
+    setTimeout(() => playing && !game?.car && toast(document.body.classList.contains('touch') ? 'Walk to a car and tap Get in' : 'Walk to a car and press E', 'info'), 600);
+  }
+  if (BAKED || !new URLSearchParams(location.search).has('c')) return;
+  const q = new URLSearchParams(location.search);
+  q.delete('c');
+  const text = q.toString().replace(/=(?=&|$)/g, '');
+  history.replaceState(null, '', location.pathname + (text ? `?${text}` : '') + location.hash);
+}
+/** A party is over and its card closed: a friend's party leaves the address, so a reload is not the party again. */
+function partyClosed(): void {
+  if (!BAKED && new URLSearchParams(location.search).has('p')) history.replaceState(null, '', withoutChallenge() + location.hash);
+}
 function closeWelcome(): void {
   $('firsthome').hidden = true;
   welcoming = false;
@@ -1049,9 +1118,12 @@ function paint(h: Hud): void {
   $('job').hidden = !h.job;
   if (h.job) {
     $('job').classList.toggle('late', h.job.left < 10);
-    const what = { plain: 'Delivery', supply: 'Supply run', rush: 'Rush job', clean: 'Clean run' }[h.job.kind];
-    $('job').dataset.kind = h.job.kind;
-    put('job', `${h.run ? `${what} ${h.run.n}/${h.run.of}` : what} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+    $('job').dataset.kind = h.job.party ? 'party' : h.job.kind;
+    if (h.job.party) put('job', `${party?.hudLabel() ?? 'Party'} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
+    else {
+      const what = { plain: 'Delivery', supply: 'Supply run', rush: 'Rush job', clean: 'Clean run' }[h.job.kind];
+      put('job', `${h.run ? `${what} ${h.run.n}/${h.run.of}` : what} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+    }
   }
   $('hint').hidden = !h.hint;
   if (h.hint) put('hint', `<kbd>E</kbd>${h.hint}`);
@@ -1256,6 +1328,11 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
     $('pause-line').textContent = 'You are guessing a city. The points wait while you are here.';
     return;
   }
+  if (game?.party && party) {
+    $('pause-line').textContent = party.pauseLine();
+    $('btn-switch').textContent = 'Call off the party';
+    return;
+  }
   $('pause-line').textContent = jobs ? 'You are doing open jobs.' : rival ? `You are on the run ${rival.name || 'someone'} sent you.` : 'You are on a run of three deliveries.';
   $('btn-switch').textContent = jobs ? 'Start a run of three' : 'Do open jobs instead';
 }
@@ -1271,6 +1348,11 @@ $('btn-continue').addEventListener('click', () => setPause(false));
 $('pause').addEventListener('click', (e) => e.target === e.currentTarget && setPause(false));
 $('btn-switch').addEventListener('click', () => {
   if (!game) return;
+  if (game.party) {
+    setPause(false);
+    party?.callOff();
+    return;
+  }
   const toJobs = !game.run.over;
   setPause(false);
   rival = null;
@@ -1389,6 +1471,12 @@ function drawEstate(): void {
   $('btn-bank-way').hidden = !playing || !homes?.hasBanks();
   $('homes-line').textContent = n ? `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.` : 'No homes yet.';
   drawHomes($('homes-list'), towns, {
+    party: (h) => (playing && !secret && party?.can(h) ? 'Party' : null),
+    throwParty: (h) => {
+      setPause(false);
+      setScreen('play');
+      party?.offer(h);
+    },
     here: (h) => !secret && !!homes?.isHere(h),
     show: (h) => {
       setPause(false);
@@ -1567,10 +1655,15 @@ if (!BAKED) cameByVideo(new URLSearchParams(location.search));
 if (!BAKED) countVisit(new URLSearchParams(location.search));
 if (!BAKED) countTime(() => playedS);
 if (sentRun) countOpened(sentRun.course.start);
-const sentGuess = BAKED || sentRun ? null : readGuess(new URLSearchParams(location.search).get('g') ?? '');
+// a friend's party: not counted, as the owner asked (23 November): "we do not reward or count the actual played links yet"
+const sentParty = BAKED || sentRun ? null : readParty(new URLSearchParams(location.search).get('p') ?? '');
+const sentGuess = BAKED || sentRun || sentParty ? null : readGuess(new URLSearchParams(location.search).get('g') ?? '');
 if (sentGuess) countOpened(sentGuess.round.at);
 if (sentRun) void go(sentRun.course.start, sentRun.place || undefined, sentRun);
-else if (sentGuess) void drop(sentGuess);
+else if (sentParty) {
+  linkParty = sentParty;
+  void go(sentParty.home, sentParty.place || undefined);
+} else if (sentGuess) void drop(sentGuess);
 else if (fromLink) void go(fromLink);
 else if (linked) {
   $<HTMLInputElement>('q').value = linked;

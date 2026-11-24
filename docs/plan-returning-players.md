@@ -355,3 +355,152 @@ The owner: "Ok review it and bring it live if the review passes."
   is loaded leaves out the day's flat without a realtor; the menu's checks against opening over the result
   card apply only while playing (nothing opens it there today).
 - `claude/tenants` (never merged) also changes `src/homesUi.ts`: merging it later needs care.
+
+## 8. Parties at the homes: a reason to share (the owner, 23 November, night)
+
+**Why.** Sharing hardly happens. Up to 23 November the counts held 47 runs of three and 28 Where am I? rounds
+finished, and 1 link counted as made (the link counter was down from 15 to 17 November); 4 visits came in by a
+sent link.
+Only the run of three and a Where am I? round can be sent; station jobs and homes could not.
+
+**The owner's idea:** "you buy a flat and the first thing you can do on it is 'build' (first automatic, later
+literally build) an own little pickup run. A point to pick up and deliver to the home address. Let's call it
+the pizza delivery for a friends' evening or a party. You need to pick up something fast (maybe even a
+geo-logged restaurant or supermarket)." Asked whether station jobs or homes should be shareable: homes,
+through this. Then the owner's rules (23 November): "two points you gain as soon as you play the party round;
+we will see if the wording makes them already link it after… we do not reward or count the actual played
+links yet." And for the end: invite more friends to whatever the event is, or say no: "somebody missing still
+for tonight's party? Send this link, or no, we are already a full house, so it doesn't feel like pushing too
+much."
+
+**Built (branch `claude/party-run`; live since 24 November 2026):**
+
+- **Where to start one:** the panel beside a home you own ("Throw a party · 2 home points", pink), or
+  *Party* beside the home in the menu's Real estate, for homes in the part of town being played. Not at the
+  first home while its flat is still worn down (the first-home mission), not with a package on board, not in
+  Where am I?. A run of three under way stops (the card says so).
+- **The card:** "Games night at your flat. Friends are coming over tonight, and nobody got the food. Fetch
+  the pizza from the restaurant: the pink sign, and the arrow shows the way. Then bring it to your door before
+  it gets cold: the clock starts when you pick it up. A party is worth 2 home points, once a day." The evening
+  is one of party, games night, film night, birthday party, picked each time.
+- **The food place** comes from the map: restaurants and fast food (the pizza), supermarkets and corner
+  shops (drinks and snacks), a symbol and never a name, as decided on 14 November. Where the map has none
+  near, one is made up beside a street, with a dashed ring, by the stations' rule. Counted in one map tile
+  each: Nuremberg 397 restaurants and 72 supermarkets, central Berlin 212 and 16, New York 1,169 and 111,
+  Tokyo 830 and 161, a Black Forest village none. The one picked is real where it can be, 450 to 1,200 m from
+  the door by road, nearest 800 m. It is kept with the home, so each home's party run stays the same ("built"
+  once; picking the place yourself is the later step). The food goes to the street at the door; where the
+  lane at the door is a yard's driveway no road leads to, to the street in front.
+- **The clock** runs from the pickup to the door: 20 s plus a second for every 9 m by road (about 110 s for
+  800 m), quicker than a plain job, not a rush job. While it is on there are no other jobs and nothing to
+  buy, as with a station's job. ☰ says what is on and offers "Call off the party". If the clock runs out:
+  "The pizza got cold … Try again?"
+- **The pay:** no cash. The first party of a day pays 2 home points (one extra flat a day at most, like the
+  flat without a realtor); later ones that day pay nothing and say so. A party counts as the day's play, so
+  the flat without a realtor is there after it too. Each home keeps its best time.
+- **The end:** "Games night can start. The pizza got to your flat on Karl-Liebknecht-Straße in 1:21 from
+  the pickup, still warm. +2 home points." Then one question: **"Someone still missing for tonight's games
+  night?"** with a name field (optional), **"Send them a link"** and **"No, we're a full house"**. After a
+  link is sent the buttons read "Send it to someone else" and "That's everyone". The first time, a line
+  says the link shows where the flat is in the game. On a phone the phone's own share list opens.
+- **The friend's side** (`?p=…`): a card "Adam's film night. Adam has friends over tonight, and the pizza
+  is still missing. Take a car, fetch it from the restaurant with the pink sign … Adam did it in 1:21." The
+  friend starts at Adam's home, fetches from the same place, and is timed the same way. At the end: "You
+  brought the pizza to Adam's film night … 15 s faster than Adam", for a player without a home "A party of
+  your own needs a home of your own: do a couple of deliveries, and you'll be shown a cheap flat", and "Let
+  Adam know you made it?" with "Send Adam your time" or "No, just keep driving". The friend gets no points,
+  and the link leaves the address once the card is closed.
+- **Not counted, not rewarded:** no count words for party links made or opened, as asked. Visits and the
+  city played are counted as for every visit.
+- Kept under `3da-party` (the food place of each home, the day the points were last paid, best times), so
+  saving online carries it.
+
+**Tested:** 15 new tests (`tests/party.test.ts`): the food place picked, the clock, points once a day, what is
+kept, the link both ways, and the party in the game (one ring only, no pay, the time from the pickup, cold
+food, calling it off, the arrow). All 156 tests pass. Played through in headless Chromium on real Berlin map
+tiles, at desktop size and on an iPhone-sized screen: a flat bought, the party thrown from the panel and from
+Real estate, driven by the autopilot (1:21 and 1:03), +2 points, the second party of the day without points,
+the link made, opened in a fresh browser as the friend (1:06, "15 s faster than Adam"), called off from ☰.
+In Nuremberg's old town the test's autopilot wedged in a lane before any party (as it does there in plain
+play too). Not tested: a real phone's share list, a real player.
+
+**Narrow lanes: walk the last bit, never far (the owner, 24 November):** "with narrow lanes it might also be
+possible to walk then instead. Just make sure it wouldn't become an endless walk." Built:
+
+- The way from the food place to the door is looked at over its last 300 m: where a car does not fit for
+  4 m or more (clear of walls by its half width and a little), the lane counts as too narrow. A corner or gate
+  post grazing the way does not count. Further out the player picks their own way, so it is not looked at.
+- A walk of up to **150 m** (`WALK_MAX`): the food still goes to the door. The card says "The lane to your
+  door is too narrow for a car: park where it gets narrow and walk the last 80 m. The clock allows for it."
+  The clock adds 6 s to get out and a second for every 6 m walked. As the car gets near, a line says "Leave
+  the car here and walk the last bit".
+- Longer than that, never an endless walk: the food goes to the corner where the car stops ("the friends
+  meet you at the corner where a car can go"), or to the street in front if a car gets nearer the home there.
+- The link carries the walk and the corner, so a friend plays the same, and a link can never ask for more
+  than 150 m.
+- Measured on real tiles, 50 to 150 flats each: Nuremberg (two spots) and Berlin, none narrow at the door;
+  Paris 1 in 50; Florence's old town, of 150 flats, 120 to the door by car, 25 with a walk (35 to 125 m), 5
+  at the corner (209 to 244 m from the building), with the rules as they stand after the fifth review.
+- Played through in Florence (Via dei Pandolfini, walk 10 m): the line to leave the car came, the autopilot
+  got out 13 m before the door and walked, 2:10; the friend from the link the same way, 1:14.
+- The autopilot (for tests and filming), on a party with a walk only, leaves a car that gets no nearer the
+  door by road for 4 s, within the walk and 80 m more, and walks the rest along the road. Other jobs are
+  driven as before.
+
+**Reviews (24 November).** Code reviews of the branch against `main`.
+
+- The first found four important points, all fixed and checked in the browser: a friend's party from a link
+  followed the player to another city when the invited place did not load (now it stays with its place, and
+  the link leaves the address); a time sent back without a name was read as the host's own; food lost to a
+  fine was quietly replaced (now a card: "The pizza is gone … Try again?"); the autopilot walked on every
+  kind of job. And three small ones: the party button made "Buy the rest of the building" look secondary;
+  it promised points when home points were full; a note was not saved online at once.
+- The second found one important point: a home's food place was picked again (and its best time compared
+  with another route) when it lay outside the part of town loaded now. It now stays the home's; a new one
+  is picked only where the roads no longer lead to it, and then the old best time goes. Small ones, fixed
+  too: the line to leave the car now goes by the way by road, not by a street passing near; the host opening
+  a friend's returned link plays it as their own party ("A friend's time to beat: 1:04", points and best
+  time as their own); the map's restaurants are told apart in a grid, so a city centre with thousands of
+  them does not slow the next square.
+- The third found narrower cases, all fixed: the line to leave the car measured from an earlier party's
+  door; a home whose food place lies outside the part of town loaded now lost its walk (the end of the way
+  at the door is now kept with the food place); a food place near the edge of that part of town was picked
+  again; the autopilot could not get out between lane walls (it now backs up first); a party with room for
+  only 1 point promised 2; a guest with the host's own name sent a link that read as the host's (the link
+  now says it is a time sent back).
+- The fourth found two more: a home with two possible doors could keep the food place of the door it did
+  not use (and lose its best time); a lane narrow for longer than the 300 m looked at put the corner inside
+  it. Fixed: only the door used keeps its food place; the narrow part is followed back to where it really
+  begins. Small ones fixed too: no food place nearer than 150 m by road (it would be delivered at once); the
+  invitation line stays with its place and shows as long as a sent run's; a host opening their own link is
+  spoken to as the host; a run to an older food place sets no best time.
+- The fifth found three more in the new narrow-lane rules, all fixed: lanes narrow all the way from the
+  food place could put the corner at the pickup (such a door is now passed over); a home's food place could
+  still be picked again where the road to it leaves the part of town loaded now, and that was kept before the
+  card was answered (now a home keeps its food place for good, and it is kept only on "Let's go"); a gate or
+  an arch on the way, with an ordinary street after it, counted as a walk to the door (now a narrow bit with
+  60 m where a car fits after it is passed over: a car gets round it). Small ones fixed: a run a friend sent
+  ends cleanly when a party starts (and leaves the address), and the card says so for any run; a link for the
+  first flat while it is still worn down is played as a guest's; the road search runs once per door; "+1
+  home point".
+- The sixth found three more, fixed: where no door can be reached by car from a home's own food place, as
+  seen from this part of town, the party now fetches from another place for that once (the home keeps its
+  own, and its best time); a best time is kept only for the home's own food place; a made-up food place is
+  never more than 1.6 km away by road. And a new player arriving by a party's link gets "Walk to a car and
+  press E" instead of the tour of the deliveries, which says nothing true of a party.
+- The seventh found nothing important, five small points, all fixed: the way to the bank or a home asked
+  for during a party now says it comes after the party; the one-time note on home points waits for the party
+  to end; the autopilot starts each new goal afresh; party links work far north and far south; names with
+  emoji are never cut in half in a link. The branch passed, and went live on the owner's word ("review it
+  and bring it live if the review passes", 24 November).
+- Played through again after the fixes, in Berlin (host 1:03, friend 1:00, host on the friend's returned
+  link 1:14, "A friend was 14 s faster") and in Florence (walk at the door, the line to leave the car at the
+  lane: host 1:19, friend 1:27, host on the returned link 1:36; earlier, the card for food lost to the police). The autopilot's own driving varies from run to run in
+  Florence's lanes and on longer ways in Berlin; real players were not tried.
+
+**Questions for the owner:**
+
+1. The evenings (party, games night, film night, birthday party) and the foods (pizza; drinks and snacks):
+   more, or other words?
+2. 2 points once a day: right, or should every home's first party of the day pay?
+3. Later: should a friend who plays a party bring something to the host (the owner said not yet)?

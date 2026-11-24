@@ -567,7 +567,8 @@ tiles say which streets are one-way (`oneway`); Dresden's centre has 54 km of th
 traffic is put on one the way it goes, never turns into one the wrong way while there is another way on, and
 leaves one at the first way out if it got on wrongly (where the map leaves a one-way street at a dead end and
 the car turns round). Such a car out of sight goes, as cars that drive off do. The player may still drive
-any way, unfined, and the arrow's way does not mind one-way streets (a question for the owner). Counted over
+any way, unfined, and the arrow's way does not mind one-way streets (the owner: "It's fine if the arrow
+points against it"). Counted over
 4 minutes of play each in two parts of Dresden's centre, the player walking about: of the cars seen on
 one-way streets, 19 of 41 drove against the arrow before, 0 of 38 after. Tests: `tests/oneway.test.ts`.
 

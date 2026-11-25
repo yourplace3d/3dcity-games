@@ -44,8 +44,9 @@ lives.
   keeping to one-way streets (feedback from Dresden).
 - **Bridges over buildings (owner, 25 November, Edinburgh):** North Bridge ran into the roof of Waverley
   station below it, and the party's food lay on it. Street bridges up in the air now cut what they cross open
-  to the sky, with their pavements; no ring goes where a car can't stand; trains and trams pass under road
-  bridges without meeting the cars on them. Branch `claude/edinburgh-cuttings`, not live: the plan, section 10.
+  to the sky, with their pavements; no ring goes where a car can't stand; trains pass under road bridges
+  without meeting the cars and people on them. Branch `claude/edinburgh-cuttings`, four code reviews, not
+  live: the plan, section 10.
 
 ## Where things stand
 

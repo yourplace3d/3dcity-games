@@ -337,7 +337,7 @@ export class PartyUi {
    * starts (the food place, and what the whole way showed), or null.
    */
   private plan(world: World, key: string, lot: { x: number; y: number }): { door: Lay; spot: FoodSpot; keep: FoodSpot | null } | null {
-    const kept = this.store.places[key];
+    const kept = this.store.places[key] && this.standKept(world, this.store.places[key]);
     const doors = this.doorsOf(world, lot.x, lot.y);
     const nearer = (a: LngLat, b: LngLat) => {
       const [ax, ay] = world.proj.toLocal(a.lon, a.lat);
@@ -371,6 +371,21 @@ export class PartyUi {
     const { door } = best;
     const keep = door.known ? { ...best.spot, lane: { walk: door.walk, corner: door.corner, door: door.ll } } : kept ? null : best.spot;
     return { ...best, keep };
+  }
+
+  /**
+   * A home's food place kept from before, its pickup a step along the street where it lies against a wall
+   * (up to 24 m, `ringAlong`): kept so, the runs still compare. One on a street that runs into a building
+   * further than that stays as it is, and the party fetches from another place (`lay`).
+   */
+  private standKept(world: World, kept: FoodSpot): FoodSpot {
+    const [px, py] = world.proj.toLocal(kept.pick.lon, kept.pick.lat);
+    if (Math.abs(px) > world.half - 10 || Math.abs(py) > world.half - 10 || world.free(px, py, RING_CLEAR_M)) return kept;
+    const n = world.roads.nearest(px, py, 30, 'traffic');
+    const s = n && ringAlong(world.roads, (x, y, r) => world.free(x, y, r), n.line, n.s);
+    if (!n || s === null) return kept;
+    const [x, y] = world.roads.point(n.line, s);
+    return { ...kept, pick: world.proj.toLngLat(x, y) };
   }
 
   /**

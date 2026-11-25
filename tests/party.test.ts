@@ -397,6 +397,14 @@ describe('the food place of a home', () => {
     expect(plan?.spot.pick.lon).toBeCloseTo(200, 0);
   });
 
+  it('a home’s food place kept from before, its pickup against a wall: a step along the street, and kept so', () => {
+    const kept = { food: 'restaurant', invented: false, shop: { lon: 300, lat: 8 }, pick: { lon: 300, lat: 0 } };
+    const plan = planOf(world((x) => Math.abs(x - 300) > 3), { home: kept });
+    expect(Math.abs((plan?.spot.pick.lon ?? 0) - 300)).toBeGreaterThan(3);
+    expect(Math.abs((plan?.spot.pick.lon ?? 0) - 300)).toBeLessThan(10);
+    expect((plan?.keep as { pick: { lon: number } } | null)?.pick.lon).toBe(plan?.spot.pick.lon);
+  });
+
   it('a home’s food place kept from before, now in a building: this party fetches from another, and the home keeps its own', () => {
     const kept = { food: 'restaurant', invented: false, shop: { lon: 300, lat: 8 }, pick: { lon: 300, lat: 0 } };
     const plan = planOf(world((x) => x < 250 || x > 350), { home: kept });

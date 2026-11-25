@@ -622,7 +622,10 @@ was picked up on the bridge, 30 m in.
   people there, and don't wait for them; at a level crossing they meet as before. The game has no heights for vehicles: on
   `main` a train under North Bridge carried a car stopped on it 273 m along the tracks. Told from the tracks
   and streets where they meet: only where every track there is on one level, every street on the other, and
-  they cross rather than run side by side (a tram in a street under a road on stilts meets the cars as before). In Dresden, three runs
+  they cross rather than run side by side. So a railway or a station under a road bridge; but where a road
+  bridge crosses a street with tram tracks in it, the place alone can't tell the bridge from the street, and
+  a tram meets the cars there as before (as under a road on stilts along its street); and whoever walks along
+  the tracks right under a bridge is taken to be on it. In Dresden, three runs
   each against `main`: traffic the same, trams a little further (0.45 to 0.69 km against 0.25 to 0.45).
 
 Tests: `tests/passages.test.ts`, `tests/rings.test.ts`, `tests/party.test.ts`, `tests/rails.test.ts`.
@@ -640,3 +643,8 @@ A third review: seven findings, fixed: a ring in a building after many tries (th
 with nowhere to stand within 24 m gives no package, as others do), a bridge's roofed way through a tower
 keeping a building's own passages from being cut, bridges leaving the square loaded, pavements as high as
 their street, people on a bridge over the tracks, the frame's cache, a comment.
+A fourth review: a pavement's height taken from a bridge elsewhere off its street's reach, a wreck of a
+train no longer on its tracks, a home's kept food place against a wall (now a step along, and kept so):
+fixed. Left as they are, and said above: a tram in a street crossed by a road bridge, someone on the tracks
+under a bridge. The bridges take 3 to 23 ms of a square's loading (Hong Kong, Tokyo, Chongqing, Edinburgh),
+in steps of their own.

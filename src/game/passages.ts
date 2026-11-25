@@ -513,14 +513,19 @@ function* cutsInSteps(buildings: CarvableBuilding[], lines: LineFeature[], groun
       if (!besideDeck(walk, up)) return;
       // a pavement lies on its street's deck: as high as the street beside it
       const deckAt = (p: Pt) => {
-        let best = up[0].deck;
+        let best: Deck | null = null;
         let bd = Infinity;
         for (const { deck, box } of up) {
           if (p[0] < box[0] || p[0] > box[2] || p[1] < box[1] || p[1] > box[3]) continue;
           const d = distTo(p, deck.pts);
           if (d < bd) [best, bd] = [deck, d];
         }
-        return best.deckAt(p);
+        // off every street bridge's reach (a fifth of a pavement may be): the nearest of them all
+        if (!best) for (const { deck } of up) {
+          const d = distTo(p, deck.pts);
+          if (d < bd) [best, bd] = [deck, d];
+        }
+        return best ? best.deckAt(p) : walk.deckAt(p);
       };
       cutRuns(walks[k], { ...walk, deckAt }, underStreets);
     });

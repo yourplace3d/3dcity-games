@@ -1131,10 +1131,13 @@ export class Game {
    * them, and a train under North Bridge in Edinburgh carried a car stopped on it 273 m along the
    * tracks; every railway under a road bridge did the same. It is told where they meet (`at`, the road
    * vehicle by default) from the tracks and streets there (`RoadNet.crossesApart`); two on rails, or
-   * two on the road, meet as before.
+   * two on the road, meet as before. Where a road bridge crosses a street with tram tracks in it, the
+   * place alone can't tell the bridge from the street, and they meet as before; and whoever walks along
+   * the tracks right under a bridge is taken to be on it.
    */
   private apart(p: Car, q: Car, at?: [number, number]): boolean {
-    const rail = p.onRails ? p : q.onRails ? q : null;
+    // a wreck of a train lies on its tracks too
+    const rail = railsOf(p.kind) ? p : railsOf(q.kind) ? q : null;
     const road = rail === p ? q : p;
     if (!rail || railsOf(road.kind)) return false;
     const [x, y] = at ?? [road.x, road.y];
@@ -1185,11 +1188,11 @@ export class Game {
         if (o === c || o.gone || (train && o.kind !== 'train') || Math.abs(o.x - c.x) >= 110 || Math.abs(o.y - c.y) >= 110) continue;
         // a car looking at a train ahead asks where its own way meets the train; a tram, where the car is
         const ahead = Math.max(0, (o.x - c.x) * fx + (o.y - c.y) * fy);
-        if ((c.onRails || o.onRails) && this.apart(c, o, o.onRails ? [c.x + fx * ahead, c.y + fy * ahead] : [o.x, o.y])) continue;
+        if ((railsOf(c.kind) || railsOf(o.kind)) && this.apart(c, o, railsOf(o.kind) ? [c.x + fx * ahead, c.y + fy * ahead] : [o.x, o.y])) continue;
         gapTo(o.x, o.y, o.a + o.r, wide);
       }
       if (!train) {
-        const apart = (o: { x: number; y: number }) => c.onRails && Math.abs(o.x - c.x) < 60 && Math.abs(o.y - c.y) < 60 && this.passesAt(o.x, o.y, 'walk');
+        const apart = (o: { x: number; y: number }) => !!railsOf(c.kind) && Math.abs(o.x - c.x) < 60 && Math.abs(o.y - c.y) < 60 && this.passesAt(o.x, o.y, 'walk');
         for (const o of this.people) if (o.state !== 'down' && !apart(o)) gapTo(o.x, o.y, 0.4, 1.4);
         if (!this.car && c !== this.car && !apart(this.me)) gapTo(this.me.x, this.me.y, 0.4, 1.4);
       }
@@ -1375,7 +1378,7 @@ export class Game {
         return null;
       };
       // a train or tram doesn't touch whoever is on a bridge over its track, or under its bridge
-      const apart = (o: { x: number; y: number }) => c.onRails && Math.abs(o.x - c.x) <= reach && Math.abs(o.y - c.y) <= reach && this.passesAt(o.x, o.y, 'walk');
+      const apart = (o: { x: number; y: number }) => !!railsOf(c.kind) && Math.abs(o.x - c.x) <= reach && Math.abs(o.y - c.y) <= reach && this.passesAt(o.x, o.y, 'walk');
       for (const p of this.people) {
         if (apart(p)) continue;
         const n = touch(p, 0.35);
@@ -2300,7 +2303,7 @@ export class Game {
         for (let j = i + 1; j < this.cars.length; j++) {
           const q = this.cars[j];
           if (q.gone || (p.asleep && q.asleep)) continue;
-          if ((p.onRails || q.onRails) && Math.abs(p.x - q.x) < 80 && Math.abs(p.y - q.y) < 80 && this.apart(p, q)) continue;
+          if ((railsOf(p.kind) || railsOf(q.kind)) && Math.abs(p.x - q.x) < 80 && Math.abs(p.y - q.y) < 80 && this.apart(p, q)) continue;
           // whose fault a crash is: yours if you were driving into the other car
           const mine = p === this.car ? p : q === this.car ? q : null;
           let closing = 0;

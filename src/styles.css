@@ -464,3 +464,12 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #party .row { margin-top: 10px; }
 #party .kicker, #mission[data-kind='party'] .kicker { color: var(--party); }
 #job[data-kind='party'] { box-shadow: 0 0 0 2px var(--party) inset; }
+
+/* a narrow phone (360 px): the four buttons at the top a little smaller and closer, so FM stays clear of the
+   cash. Last in the sheet, after each button's own rules */
+@media (max-width: 400px) {
+  body.touch #btn-sound { font-size: 18px; padding: 10px 11px; right: calc(62px + env(safe-area-inset-right)); }
+  body.touch #btn-estate { width: 44px; height: 42px; right: calc(110px + env(safe-area-inset-right)); }
+  body.touch #btn-estate svg { width: 32px; height: 32px; }
+  body.touch #btn-radio { font-size: 13px; padding: 11px 8px; letter-spacing: 0.5px; right: calc(162px + env(safe-area-inset-right)); }
+}

@@ -101,9 +101,11 @@ describe('the radio’s button', () => {
     expect(later.get('3da-radio-on')).toBe('1');
   });
 
-  it('shows where there is no storage, as in a private window', () => {
+  it('shows where there is no storage, as in a private window, unless the address says no', () => {
     vi.stubGlobal('localStorage', { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } });
     expect(radioOn()).toBe(true);
+    vi.stubGlobal('location', { search: '?try=noradio' });
+    expect(radioOn()).toBe(false);
   });
 });
 

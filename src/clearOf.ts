@@ -59,9 +59,10 @@ export function keepClear(bar: HTMLElement, panel: HTMLElement, map: HTMLElement
   };
   // the panel's whole height, scrolled or not: its max-height is left alone, so where it scrolls to stays
   const whole = (b: Box | null): Box | null => (b ? { ...b, bottom: b.top + panel.scrollHeight + (panel.offsetHeight - panel.clientHeight) } : null);
-  let moved = false;
+  /** whether they were last moved from where the style sheet puts them */
+  let styled = false;
   const place = (): void => {
-    if (bar.hidden && panel.hidden && !moved) return;
+    if (bar.hidden && panel.hidden && !styled) return;
     // where the style sheet puts them, then moved from there
     for (const el of [bar, panel]) {
       el.style.top = '';
@@ -71,10 +72,10 @@ export function keepClear(bar: HTMLElement, panel: HTMLElement, map: HTMLElement
     panel.style.transform = '';
     const was = { bar: box(bar), panel: whole(box(panel)) };
     const { bar: b, panel: p } = clearOf(box(map), was.bar, was.panel);
-    moved = false;
+    styled = false;
     if (b && was.bar && b.top !== was.bar.top) {
       bar.style.top = `${Math.round(b.top)}px`;
-      moved = true;
+      styled = true;
     }
     if (p && was.panel) {
       if (p.top !== was.panel.top) panel.style.top = `${Math.round(p.top)}px`;
@@ -86,7 +87,7 @@ export function keepClear(bar: HTMLElement, panel: HTMLElement, map: HTMLElement
       }
       // on a low screen (a phone on its side) it scrolls rather than run off the bottom
       panel.style.maxHeight = p.bottom > innerHeight - EDGE ? `${Math.max(120, Math.round(innerHeight - EDGE - p.top))}px` : '';
-      moved = true;
+      styled = true;
     }
   };
   // once a frame at most, when the bar, the panel, the little map or the screen changes
@@ -100,7 +101,8 @@ export function keepClear(bar: HTMLElement, panel: HTMLElement, map: HTMLElement
   const watch = new MutationObserver(soon);
   for (const el of [bar, panel]) watch.observe(el, { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true, characterData: true });
   watch.observe(map, { attributes: true, attributeFilter: ['data-corner', 'style', 'hidden'] });
-  watch.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  // the body's class (the radio on, a touch screen) and its screen (back to play from a menu)
+  watch.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-screen'] });
   addEventListener('resize', soon);
   // and now and then, for what moves the little map otherwise (the screen turned, the toolbar of a phone's browser)
   setInterval(soon, 1000);

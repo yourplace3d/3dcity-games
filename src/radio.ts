@@ -45,8 +45,8 @@ interface Station {
 
 /** Whether the radio's button shows in this browser: yes, unless `?try=noradio` hid it. Reads the address once and remembers. */
 export function radioOn(): boolean {
+  const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
   try {
-    const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
     if (tries.includes('radio')) localStorage.removeItem(HIDDEN);
     if (tries.includes('noradio')) localStorage.setItem(HIDDEN, '1');
     // once, from the trial: left switched on only where the trial still was. One switched on in the trial
@@ -58,8 +58,9 @@ export function radioOn(): boolean {
     }
     return localStorage.getItem(HIDDEN) !== '1';
   } catch {
-    // no storage (a private window): the button shows, and still plays nothing until tapped
-    return true;
+    // no storage (a private window): the button shows, and still plays nothing until tapped; hidden for
+    // this visit when the address says so
+    return !tries.includes('noradio');
   }
 }
 

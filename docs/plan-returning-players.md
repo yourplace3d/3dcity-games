@@ -658,15 +658,19 @@ with `?try=radio`: the owner had it on the iPad, never on the Mac.
 
 - **For everyone:** the FM button shows for all players. Nothing plays and nothing is contacted until it is
   tapped; then the directory (Radio Browser) and the station are. `?try=noradio` hides the button in a
-  browser, until `?try=radio`; the old trial's setting is no longer read.
+  browser, until `?try=radio`; the old trial's setting is read once (to keep the radio on only where the trial
+  still had it on) and then removed.
 - **Credited** on the start screen, beside OpenStreetMap: "Radio stations found through Radio Browser
   (radio-browser.info): tapping FM connects to the station you hear." The key there says what FM does.
 - **The top right of the screen kept clear** (`src/clearOf.ts`), measured on an iPad (both ways round), a
   phone (both ways round) and a computer: on a phone the radio's bar lay over the little map; on an iPad and
   a phone on its side it hid the top line of a building's for-sale panel; and with the little map in the top
-  right corner, the panel hid it (the owner's iPad). Now, a few times a second, the bar goes under the little
-  map where it would meet it, and the panel under the bar, beside the little map where there is room, else
-  under it, scrolling on a low screen. Where nothing meets they stay where they were.
+  right corner, the panel hid it (the owner's iPad). Now, whenever one of them changes (and once a second
+  besides), the bar goes under the little map where it would meet it, and the panel under the bar, beside the
+  little map where there is room, else under it, scrolling on a low screen. Where nothing meets they stay
+  where they were. On a narrow phone (360 px) FM covered the cash: there the four buttons at the top are a
+  little smaller and closer. On the narrowest phones of all (320 px, the first iPhone SE) FM still touches
+  the cash panel by a few pixels.
 - **"next ›"** shows only while a station plays, not while the radio waits for you to get into a car.
 
 Checked in the browser with a stand-in for the directory and the stations (this session's network reaches
@@ -680,3 +684,5 @@ someone who had switched the radio on in the trial and left the trial with `?try
 come on by itself (only where the trial was still on does it now stay on); next › while looking for stations;
 the bar and panel shown a moment in the old place (now placed as soon as they change); the work done four
 times a second while nothing shows.
+A second review: FM over the cash on a 360 px phone (fixed as above), the bar placed again on coming back
+from a menu, `?try=noradio` where a browser keeps nothing, and two of these lines: fixed.

@@ -12,7 +12,7 @@ import { homeKey } from './game/events';
 import type { Game } from './game/game';
 import { dayOf, type Home } from './game/homes';
 import { foodName, foodPlace, loadParties, narrowWalk, occasion, OCCASIONS, packParty, PARTY_MIN, PARTY_POINTS, pickFood, pointsDue, storeParties, WALK_MAX, type FoodSpot, type SentParty } from './game/party';
-import { serviceIcon } from './game/services';
+import { RING_CLEAR_M, ringAlong, serviceIcon } from './game/services';
 import { POINTS_MAX } from './game/homePoints';
 import type { World } from './game/world';
 import type { RouteField } from './game/roads';
@@ -337,7 +337,7 @@ export class PartyUi {
    * starts (the food place, and what the whole way showed), or null.
    */
   private plan(world: World, key: string, lot: { x: number; y: number }): { door: Lay; spot: FoodSpot; keep: FoodSpot | null } | null {
-    const kept = this.store.places[key];
+    const kept = this.store.places[key] && this.standKept(world, this.store.places[key]);
     const doors = this.doorsOf(world, lot.x, lot.y);
     const nearer = (a: LngLat, b: LngLat) => {
       const [ax, ay] = world.proj.toLocal(a.lon, a.lat);
@@ -374,6 +374,21 @@ export class PartyUi {
   }
 
   /**
+   * A home's food place kept from before, its pickup a step along the street where it lies against a wall
+   * (up to 24 m, `ringAlong`): kept so, the runs still compare. One on a street that runs into a building
+   * further than that stays as it is, and the party fetches from another place (`lay`).
+   */
+  private standKept(world: World, kept: FoodSpot): FoodSpot {
+    const [px, py] = world.proj.toLocal(kept.pick.lon, kept.pick.lat);
+    if (Math.abs(px) > world.half - 10 || Math.abs(py) > world.half - 10 || world.free(px, py, RING_CLEAR_M)) return kept;
+    const n = world.roads.nearest(px, py, 30, 'traffic');
+    const s = n && ringAlong(world.roads, (x, y, r) => world.free(x, y, r), n.line, n.s);
+    if (!n || s === null) return kept;
+    const [x, y] = world.roads.point(n.line, s);
+    return { ...kept, pick: world.proj.toLngLat(x, y) };
+  }
+
+  /**
    * Where the food goes at a door, for the way from its food place: the door itself; up a lane too narrow
    * for a car, the door with the last metres on foot (`walk`), never more than `WALK_MAX`; beyond that, the
    * corner where the car stops (`corner`). Null where this door won't do: no road from the food place leads
@@ -383,6 +398,9 @@ export class PartyUi {
     const [px, py] = world.proj.toLocal(spot.pick.lon, spot.pick.lat);
     const half = world.half - 10;
     const inside = Math.abs(px) < half && Math.abs(py) < half;
+    // a home's food place kept from before, on a street that runs into a building: this party fetches
+    // from another place (`plan`)
+    if (inside && !world.free(px, py, RING_CLEAR_M)) return null;
     const r = inside ? world.roads.route(f, px, py) : null;
     if (!r) {
       // well inside the part of town loaded now and no road to this door: another door
@@ -419,8 +437,10 @@ export class PartyUi {
     const look = (fit.length ? fit : near).sort((a, b) => Math.abs(a.d - 650) - Math.abs(b.d - 650)).slice(0, LOOK_MOST);
     const cands = look.flatMap(({ p }) => {
       const n = world.roads.nearest(p.x, p.y, 150, 'traffic');
-      if (!n) return [];
-      const [rx, ry] = world.roads.point(n.line, n.s);
+      // where a car can stand: not on a street the map has running into a building, a step along it at most
+      const s = n && ringAlong(world.roads, (x, y, r) => world.free(x, y, r), n.line, n.s);
+      if (!n || s === null) return [];
+      const [rx, ry] = world.roads.point(n.line, s);
       const metres = world.roads.route(f, rx, ry, 0)?.metres;
       if (metres === undefined || !Number.isFinite(metres)) return [];
       return [{ metres, invented: !!p.invented, food: p.food, shop: world.proj.toLngLat(p.x, p.y), pick: world.proj.toLngLat(rx, ry) }];
@@ -433,10 +453,12 @@ export class PartyUi {
       for (let i = 0; i < 12; i++) {
         const at = world.roads.randomPlace('traffic', dx, dy, i < 8 ? 500 : 250, i < 8 ? 1000 : 1400);
         if (!at) continue;
-        const [rx, ry] = world.roads.point(at.line, at.s);
+        const s = ringAlong(world.roads, (x, y, r) => world.free(x, y, r), at.line, at.s);
+        if (s === null) continue;
+        const [rx, ry] = world.roads.point(at.line, s);
         const metres = world.roads.route(f, rx, ry, 0)?.metres;
         if (metres === undefined || !Number.isFinite(metres) || metres > MADE_UP_FAR) continue;
-        const [hx, hy] = world.roads.heading(at);
+        const [hx, hy] = world.roads.heading({ ...at, s });
         const side = world.roads.lines[at.line].w / 2 + 7;
         made.push({ metres, invented: true, food: 'restaurant', shop: world.proj.toLngLat(rx + hy * side, ry - hx * side), pick: world.proj.toLngLat(rx, ry) });
       }

@@ -588,3 +588,65 @@ the same. Roundabouts: the tiles mark them one-way (checked at Albertplatz). Bro
 **The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
 `?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.
 Whether to turn it on for everyone is the owner's call.
+
+## 10. From the owner's play in Edinburgh (25 November)
+
+**"I guess the street should go in a tunnel there. The restaurant for the party mission seems to not be
+reachable from this side. As well on foot not."** The street is North Bridge, which crosses Waverley station
+high up. The map has the station's roof below the bridge (an outline 15 m tall), but the game lays every
+street on the ground, and bridges cut nothing out of buildings: from the north end, 113 of the bridge's
+170 m ran into the station and two low buildings under it, by car and on both pavements. The party's food
+was picked up on the bridge, 30 m in.
+
+- **A street bridge up in the air cuts away what it crosses,** open to the sky along its deck (the street and
+  2 m either side), and so do its pavements (footpath bridges beside it, within 14 m nearly all the way), but
+  only what the street itself cuts. Up in the air: the ground under it lies 3 m or more below the line between
+  the heights where the whole bridge meets the ground (North Bridge: 6.6 m); a bridge the map or the tiles cut
+  in pieces, or with a side bridge joining it in the air, is measured whole. A building standing more than
+  12 m above the deck rises up through it, as the towers of Tower Bridge: the bridge goes through it under a
+  roof, as a street through a house. From above the street now crosses the station's roof, as on a photo from the air; the
+  station's tracks show under it. A footbridge on its own is left alone: walkways from house to house are
+  footpath bridges too, and on Hong Kong's slopes some lie 4 m over the line between their ends, enough to cut
+  towers open. Where a bridge ends inside a building it must be up in the air in there itself. Compared with
+  `main`, building by building: Minneapolis, Calgary, London, Paris and Lisbon unchanged; Edinburgh the
+  station and the two buildings under the bridge; Shibuya four, where the expressway crosses railway buildings
+  over Route 246; Genoa three small ones in the way of the elevated road; Hong Kong three, a slab across a main
+  road under a flyover among them. Now a car and a walker get
+  along all of North Bridge and both its pavements.
+- **No ring where a car can't stand:** run packages, station jobs, drop-offs (a mission's too) and the party's
+  food go only where a circle of 1 m is clear of walls and water, else up to 24 m along the street where it is:
+  a station's spot against its kiosk still has its package. A home's food place kept from before that turns out
+  to lie in a building: that party fetches from another place, and the home keeps its own. Replayed runs and
+  parties from a link keep the sender's places.
+- **Trains and trams pass under a road bridge,** or over a street on theirs, without meeting the cars or the
+  people there, and don't wait for them; at a level crossing they meet as before. The game has no heights for vehicles: on
+  `main` a train under North Bridge carried a car stopped on it 273 m along the tracks. Told from the tracks
+  and streets where they meet: only where every track there is on one level, every street on the other, and
+  they cross rather than run side by side. So a railway or a station under a road bridge; but where a road
+  bridge crosses a street with tram tracks in it, the place alone can't tell the bridge from the street, and
+  a tram meets the cars there as before (as under a road on stilts along its street); and whoever walks along
+  the tracks right under a bridge is taken to be on it. In Dresden, three runs
+  each against `main`: traffic the same, trams a little further (0.45 to 0.69 km against 0.25 to 0.45).
+
+Tests: `tests/passages.test.ts`, `tests/rings.test.ts`, `tests/party.test.ts`, `tests/rails.test.ts`.
+
+**Code review (25 November):** nine findings, all fixed: the level of a car told from the nearest road
+alone (a road on stilts over a tram's street), a tram and a street on one bridge, a mission's drop-off and a
+station's spot against a wall, bridges in pieces, a walkway beside a flyover through a tower, the pavement
+check's cost while a square loads, a carried-over train's track in the new square, a real food place dropped
+for one bad spot.
+A second review: seven findings, fixed but for one left as it is (a run sent by link keeps the sender's
+places, so that runs compare): towers far above a bridge, a side bridge joining in the air, a bridge drawn as
+a ring, a dense old town with no place for a ring (after many tries one goes where asked, as before), wide
+bridges, and pauses while the bridges are worked out.
+A third review: seven findings, fixed: a ring in a building after many tries (the fallback is gone: a station
+with nowhere to stand within 24 m gives no package, as others do), a bridge's roofed way through a tower
+keeping a building's own passages from being cut, bridges leaving the square loaded, pavements as high as
+their street, people on a bridge over the tracks, the frame's cache, a comment.
+A fourth review: a pavement's height taken from a bridge elsewhere off its street's reach, a wreck of a
+train no longer on its tracks, a home's kept food place against a wall (now a step along, and kept so):
+fixed. Left as they are, and said above: a tram in a street crossed by a road bridge, someone on the tracks
+under a bridge. The bridges take 3 to 23 ms of a square's loading (Hong Kong, Tokyo, Chongqing, Edinburgh),
+in steps of their own.
+
+**Going live:** on the owner's word ("Put the bridge fix live", 25 November), by pull request #19.

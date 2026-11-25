@@ -7,6 +7,14 @@
  *
  * A street wide enough for a car gets a corridor a car fits through; a footpath one wide enough to
  * walk, and for a small car to squeeze through.
+ *
+ * A bridge over a building is the other way round: the map has the building below the bridge (North
+ * Bridge in Edinburgh over the roof of Waverley station), but the game lays every street on the
+ * ground, so the building stood across it like a wall (the owner, 25 November). Where the ground
+ * under a bridge lies well below the line between its two ends, the bridge is up in the air there,
+ * and what it crosses is cut away along its deck, open to the sky: from above the street crosses the
+ * roof, as it does on a photo from the air. Only street bridges do it, and the pavements beside
+ * them; a footbridge on its own, often a walkway from house to house, leaves the houses as before.
  */
 
 import polygonClipping, { type Geom, type MultiPolygon } from 'polygon-clipping';
@@ -28,6 +36,21 @@ const OVERHEAD_M = 2.6;
 /** below this much building over the opening, the opening is left open to the sky (m) */
 const MIN_ROOF_M = 1.5;
 const CELL = 32;
+/** a bridge is up in the air where the ground under it lies this far below its deck (m): a storey */
+export const BRIDGE_OVER_M = 3;
+/** how far a bridge's deck reaches past its way on either side (m): the pavement, the parapet */
+const DECK_SIDE_M = 2;
+/** how far from the middle of a street bridge a footpath bridge may run and still be its pavement (m) */
+const PAVEMENT_M = 14;
+/**
+ * A building standing this much higher than a bridge's deck over the ground rises up through the
+ * bridge (m). The heights under a bridge are known only every 8 m or so and show its deck lower than
+ * it is: North Bridge 6.6 m over the station's tracks, under a roof of 15 m drawn from them.
+ */
+const TOWER_M = 12;
+
+/** The height of the ground at a point, as the game lays it (m). */
+export type GroundAt = (x: number, y: number) => number;
 
 export interface CarvableBuilding {
   poly: Polygon;
@@ -177,9 +200,29 @@ function goesThrough(r: Run): boolean {
   return r.depth >= Math.min(1.2, 0.3 * (r.s1 - r.s0) + 0.2);
 }
 
-/** The part of a line between two arc lengths. */
-function slice(pts: Pt[], s0: number, s1: number): Pt[] {
+/** A point `d` on past the end of a line (its last point), straight on from a metre or so before it. */
+function beyond(pts: Pt[], d: number): Pt | null {
+  const b = pts[pts.length - 1];
+  for (let i = pts.length - 2; i >= 0; i--) {
+    const a = pts[i];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    // a point a hair's breadth before the end gives no way to go on
+    if (len >= 1 || (i === 0 && len > 1e-3)) return [b[0] + ((b[0] - a[0]) / len) * d, b[1] + ((b[1] - a[1]) / len) * d];
+  }
+  return null;
+}
+
+/**
+ * The part of a line between two arc lengths. With `past`, carried on straight past the line's ends
+ * where they lie outside it: a bridge that starts right on a building's wall left a sliver of the
+ * building across the street, thinner than a hair and as tall as the building, and a car stopped at
+ * it. (Not for passages: their corridors stay as they were, and some outlines in Hong Kong could no
+ * longer be cut with the longer ones.)
+ */
+function slice(pts: Pt[], s0: number, s1: number, past = false): Pt[] {
   const out: Pt[] = [];
+  let total = 0;
+  for (let i = 0; i < pts.length - 1; i++) total += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
   let s = 0;
   const at = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   for (let i = 0; i < pts.length - 1; i++) {
@@ -193,6 +236,12 @@ function slice(pts: Pt[], s0: number, s1: number): Pt[] {
     }
     s = e;
     if (s > s1) break;
+  }
+  if (past && out.length >= 2) {
+    const before = s0 < 0 ? beyond([...pts].reverse(), -s0) : null;
+    const after = s1 > total ? beyond(pts, s1 - total) : null;
+    if (before) out.unshift(before);
+    if (after) out.push(after);
   }
   return out;
 }
@@ -247,40 +296,272 @@ export function keepPassages(lines: LineFeature[], buildings: CarvableBuilding[]
   });
 }
 
-/** For each building a street or path goes through, the corridors to cut out of it. */
-function findCuts(buildings: CarvableBuilding[], lines: LineFeature[]): Map<number, Geom[]> {
+/**
+ * What is cut out of one building: corridors under a roof, the way under a bridge, open to the sky, and
+ * the way of a bridge through a building that rises far above it, under a roof (`under`).
+ */
+interface Cut {
+  roofed: Geom[];
+  open: Geom[];
+  under: Geom[];
+}
+
+/** A bridge, as far as the game can tell how high it is. */
+interface Deck {
+  pts: Pt[];
+  /** samples along the line, with their arc length */
+  along: Array<{ p: Pt; s: number }>;
+  len: number;
+  /** the height of the deck at a point, from the heights where the whole bridge meets the ground */
+  deckAt: (p: Pt) => number;
+  /** which of the line's two ends are where the whole bridge meets the ground */
+  ends: [boolean, boolean];
+  /** the whole bridge it is a piece of */
+  whole: number;
+}
+
+/** how near the ends of two bridge lines lie when they are one bridge cut in pieces (m) */
+const JOIN_M = 1;
+
+/**
+ * Bridges joined whole where the ends of their pieces meet: the map often cuts a bridge in pieces,
+ * and the tiles cut every line at their edges, and a piece with both ends over the valley sees no drop
+ * under the line between them. The deck's height at a point comes from the heights where the whole
+ * bridge meets the ground, the nearer such end counting more: between two ends, along the straight
+ * line from one to the other.
+ */
+function wholeBridges(lines: LineFeature[], ground: GroundAt, half = Infinity, rest: LineFeature[] = []): Deck[] {
+  const parent = lines.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const endsOf = (l: LineFeature): [Pt, Pt] => [l.pts[0], l.pts[l.pts.length - 1]];
+  const cellKey = (x: number, y: number) => `${Math.floor(x / JOIN_M)},${Math.floor(y / JOIN_M)}`;
+  const cells = new Map<string, Array<[number, number]>>();
+  lines.forEach((l, i) =>
+    endsOf(l).forEach((p, e) => {
+      const k = cellKey(p[0], p[1]);
+      const list = cells.get(k);
+      if (list) list.push([i, e]);
+      else cells.set(k, [[i, e]]);
+    }),
+  );
+  const joined = lines.map((): [boolean, boolean] => [false, false]);
+  lines.forEach((l, i) =>
+    endsOf(l).forEach((p, e) => {
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          for (const [j, f] of cells.get(cellKey(p[0] + dx * JOIN_M, p[1] + dy * JOIN_M)) ?? []) {
+            // a way's own other end too: a ring closed on itself has no end on the ground
+            if (j === i && f === e) continue;
+            const q = endsOf(lines[j])[f];
+            if (Math.hypot(q[0] - p[0], q[1] - p[1]) > JOIN_M) continue;
+            joined[i][e] = true;
+            parent[find(i)] = find(j);
+          }
+    }),
+  );
+  // a piece that ends on another one partway along it, as a slip road joining a bridge in the air; or on
+  // one of `rest`, as a stair from a pavement up onto its street's bridge
+  const boxes = lines.map((l) => ringBounds(l.pts));
+  const restBoxes = rest.map((l) => ringBounds(l.pts));
+  const touches = (p: Pt, box: [number, number, number, number], pts: Pt[]) => p[0] >= box[0] - JOIN_M && p[0] <= box[2] + JOIN_M && p[1] >= box[1] - JOIN_M && p[1] <= box[3] + JOIN_M && distTo(p, pts) <= JOIN_M;
+  lines.forEach((l, i) =>
+    endsOf(l).forEach((p, e) => {
+      // where a bridge leaves the part of town loaded, it goes on beyond: not an end on the ground
+      if (Math.abs(p[0]) > half - JOIN_M * 2 || Math.abs(p[1]) > half - JOIN_M * 2) joined[i][e] = true;
+      for (let j = 0; j < lines.length && !joined[i][e]; j++) {
+        if (j === i || !touches(p, boxes[j], lines[j].pts)) continue;
+        joined[i][e] = true;
+        parent[find(i)] = find(j);
+      }
+      for (let j = 0; j < rest.length && !joined[i][e]; j++) if (touches(p, restBoxes[j], rest[j].pts)) joined[i][e] = true;
+    }),
+  );
+  const feet = new Map<number, Array<{ p: Pt; h: number }>>();
+  lines.forEach((l, i) =>
+    endsOf(l).forEach((p, e) => {
+      if (joined[i][e]) return;
+      const g = find(i);
+      const list = feet.get(g) ?? [];
+      list.push({ p, h: ground(p[0], p[1]) });
+      feet.set(g, list);
+    }),
+  );
+  return lines.map((l, i) => {
+    const along = samples(l.pts);
+    // a bridge that is a ring, with no end on the ground, is never up in the air
+    const at = feet.get(find(i)) ?? [];
+    const deckAt = (p: Pt) => {
+      let w = 0;
+      let h = 0;
+      for (const f of at) {
+        const d = Math.max(Math.hypot(f.p[0] - p[0], f.p[1] - p[1]), 0.5);
+        w += 1 / d;
+        h += f.h / d;
+      }
+      return w ? h / w : -Infinity;
+    };
+    return { pts: l.pts, along, len: along.length ? along[along.length - 1].s : 0, deckAt, ends: [!joined[i][0], !joined[i][1]], whole: find(i) };
+  });
+}
+
+/** How high a bridge's deck is over the ground between two arc lengths, at most (m). */
+function riseOver(d: Deck, s0: number, s1: number, ground: GroundAt): number {
+  let most = -Infinity;
+  for (const { p, s } of d.along) if (s >= s0 && s <= s1) most = Math.max(most, d.deckAt(p) - ground(p[0], p[1]));
+  return most;
+}
+
+/** Whether a bridge is up in the air between two arc lengths: the ground lies `BRIDGE_OVER_M` or more below its deck somewhere there. */
+function overGround(d: Deck, s0: number, s1: number, ground: GroundAt): boolean {
+  return riseOver(d, s0, s1, ground) >= BRIDGE_OVER_M;
+}
+
+/**
+ * Whether a bridge up in the air somewhere opens a building it runs into: whatever it crosses between
+ * its ends, as the heights are known only every 8 m or so, and near the ends of North Bridge they
+ * showed the ground only 2 m down, under a building of 4 m that then stood across the street. Where
+ * the bridge ends on the ground inside a building it must be up in the air in there itself, as a
+ * building at the end of a bridge stands on the bank.
+ */
+function bridgeOpens(d: Deck, r: Run, ground: GroundAt): boolean {
+  const atEnd = (r.s0 < STEP && d.ends[0]) || (r.s1 > d.len - STEP && d.ends[1]);
+  return atEnd ? overGround(d, r.s0, r.s1, ground) : true;
+}
+
+/** The distance from a point to a polyline. */
+function distTo(p: Pt, pts: Pt[]): number {
+  let best = Infinity;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i];
+    const [bx, by] = pts[i + 1];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy || 1)));
+    best = Math.min(best, Math.hypot(ax + t * dx - p[0], ay + t * dy - p[1]));
+  }
+  return best;
+}
+
+/** Whether a footpath runs beside one of the street bridges, nearly all the way: it is its pavement. */
+function besideDeck(walk: Deck, decks: Array<{ deck: Deck; box: [number, number, number, number] }>): boolean {
+  const [x0, y0, x1, y1] = ringBounds(walk.pts);
+  const near = decks.filter(({ box }) => x1 >= box[0] && x0 <= box[2] && y1 >= box[1] && y0 <= box[3]);
+  if (!near.length) return false;
+  let beside = 0;
+  for (const { p } of walk.along) {
+    if (near.some(({ deck, box }) => p[0] >= box[0] && p[0] <= box[2] && p[1] >= box[1] && p[1] <= box[3] && distTo(p, deck.pts) <= PAVEMENT_M)) beside++;
+  }
+  return beside >= walk.along.length * 0.8;
+}
+
+/**
+ * For each building a street or path goes through, the corridors to cut out of it. A bridge opens
+ * buildings only where it is a street, up in the air, or the pavement beside one, and the pavement only
+ * what its street opens: the walkways from house to house over the streets of Minneapolis, Calgary and
+ * Hong Kong are footpath bridges too, and in Hong Kong, on the slopes, some lie 4 m over the line
+ * between their ends: they would cut towers of 60 m open to the sky.
+ */
+function* cutsInSteps(buildings: CarvableBuilding[], lines: LineFeature[], ground?: GroundAt, half = Infinity): Generator<void, Map<number, Cut>> {
   const near = index(buildings);
-  const cuts = new Map<number, Geom[]>();
-  for (const l of lines) {
-    if (!OPENS.has(l.kind) || l.bridge || l.pts.length < 2) continue;
+  const cuts = new Map<number, Cut>();
+  const cutRuns = (l: LineFeature, open: Deck | null, only?: Set<number>): Set<number> => {
     const w = passageWidth(l);
+    const opened = new Set<number>();
     for (const [i, runs] of runsOf(l.pts, buildings, near)) {
       const b = buildings[i];
-      if (b.minHeight > OVERHEAD_M) continue;
+      if (b.minHeight > OVERHEAD_M || (only && !only.has(i))) continue;
       for (const r of runs) {
         if (!goesThrough(r)) continue;
+        if (open && !bridgeOpens(open, r, ground!)) continue;
+        // a building standing far above the deck rises up through it, as the towers of Tower Bridge: the
+        // bridge goes through it under a roof, as a street through a house
+        const sky = !!open && b.height <= Math.max(0, riseOver(open, r.s0, r.s1, ground!)) + TOWER_M;
         // a little past the walls on both sides, so the opening is clean
-        const part = slice(l.pts, r.s0 - STEP - 1, r.s1 + STEP + 1);
+        const part = slice(l.pts, r.s0 - STEP - 1, r.s1 + STEP + 1, sky);
         if (part.length < 2) continue;
-        const list = cuts.get(i) ?? [];
-        list.push(...band(part, w));
-        cuts.set(i, list);
+        const cut = cuts.get(i) ?? { roofed: [], open: [], under: [] };
+        // under a bridge, its whole deck: a strip of the building left standing between a street and
+        // its pavement, a line of its own, was a wall along the bridge
+        if (sky) cut.open.push(...band(part, w + 2 * DECK_SIDE_M));
+        else (open ? cut.under : cut.roofed).push(...band(part, w));
+        cuts.set(i, cut);
+        opened.add(i);
       }
     }
+    return opened;
+  };
+  for (const l of lines) if (OPENS.has(l.kind) && !l.bridge && l.pts.length >= 2) cutRuns(l, null);
+  if (!ground) return cuts;
+  yield;
+  const streets = lines.filter((l) => OPENS.has(l.kind) && l.kind !== 'path' && l.bridge && l.pts.length >= 2);
+  const up: Array<{ deck: Deck; box: [number, number, number, number] }> = [];
+  const underStreets = new Set<number>();
+  const decks = wholeBridges(streets, ground, half);
+  // a whole bridge is up in the air if it is anywhere, though not every piece of it is
+  const high = new Set(decks.filter((d) => overGround(d, 0, d.len, ground)).map((d) => d.whole));
+  decks.forEach((deck, k) => {
+    if (!high.has(deck.whole)) return;
+    const [x0, y0, x1, y1] = ringBounds(deck.pts);
+    up.push({ deck, box: [x0 - PAVEMENT_M, y0 - PAVEMENT_M, x1 + PAVEMENT_M, y1 + PAVEMENT_M] });
+    for (const i of cutRuns(streets[k], deck)) underStreets.add(i);
+  });
+  // the pavements, once the streets up in the air are known
+  yield;
+  if (up.length) {
+    const walks = lines.filter((l) => l.kind === 'path' && l.bridge && l.pts.length >= 2);
+    wholeBridges(walks, ground, half, streets).forEach((walk, k) => {
+      if (!besideDeck(walk, up)) return;
+      // a pavement lies on its street's deck: as high as the street beside it
+      const deckAt = (p: Pt) => {
+        let best: Deck | null = null;
+        let bd = Infinity;
+        for (const { deck, box } of up) {
+          if (p[0] < box[0] || p[0] > box[2] || p[1] < box[1] || p[1] > box[3]) continue;
+          const d = distTo(p, deck.pts);
+          if (d < bd) [best, bd] = [deck, d];
+        }
+        // off every street bridge's reach (a fifth of a pavement may be): the nearest of them all
+        if (!best) for (const { deck } of up) {
+          const d = distTo(p, deck.pts);
+          if (d < bd) [best, bd] = [deck, d];
+        }
+        return best ? best.deckAt(p) : walk.deckAt(p);
+      };
+      cutRuns(walks[k], { ...walk, deckAt }, underStreets);
+    });
   }
   return cuts;
 }
 
-/** One building with its corridors cut out: the solid parts and the roof over the way; null if it can't be cut. */
-function cutOne<B extends CarvableBuilding>(b: B, cut: Geom[]): B[] | null {
+/** `cutsInSteps` in one go. */
+function findCuts(buildings: CarvableBuilding[], lines: LineFeature[], ground?: GroundAt, half = Infinity): Map<number, Cut> {
+  const steps = cutsInSteps(buildings, lines, ground, half);
+  let r = steps.next();
+  while (!r.done) r = steps.next();
+  return r.value;
+}
+
+const unite = (geoms: Geom[]): MultiPolygon => polygonClipping.union(geoms[0], ...geoms.slice(1));
+
+/**
+ * One building with its corridors cut out: the solid parts and the roof over the way; null if it
+ * can't be cut. Where the clipper rejects the cut under a bridge, the passages are cut as before.
+ */
+function cutOne<B extends CarvableBuilding>(b: B, cut: Cut): B[] | null {
+  const pieces = cutAll(b, { roofed: [...cut.roofed, ...cut.under], open: cut.open });
+  return pieces || (!cut.open.length && !cut.under.length) || !cut.roofed.length ? pieces : cutAll(b, { roofed: cut.roofed, open: [] });
+}
+
+function cutAll<B extends CarvableBuilding>(b: B, cut: Pick<Cut, 'roofed' | 'open'>): B[] | null {
   let walls: Polygon[];
   let roof: Polygon[];
   try {
-    const [first, ...rest] = cut;
-    const corridor: MultiPolygon = polygonClipping.union(first, ...rest);
     const whole = toGeom(b.poly);
-    walls = fromMulti(polygonClipping.difference(whole, corridor), 0.5);
-    roof = fromMulti(polygonClipping.intersection(whole, corridor), 0.5);
+    walls = fromMulti(polygonClipping.difference(whole, unite([...cut.roofed, ...cut.open])), 0.5);
+    // the roof over a passage, but none where a bridge runs over it as well
+    let over: MultiPolygon = cut.roofed.length ? polygonClipping.intersection(whole, unite(cut.roofed)) : [];
+    if (over.length && cut.open.length) over = polygonClipping.difference(over, unite(cut.open));
+    roof = fromMulti(over, 0.5);
   } catch {
     // an outline the clipper rejects stays whole
     return null;
@@ -295,10 +576,12 @@ function cutOne<B extends CarvableBuilding>(b: B, cut: Geom[]): B[] | null {
  * The buildings with the ways through them cut out. A building no street runs through comes back as
  * it was; one with a passage comes back as pieces with the same other fields: the solid parts, and
  * the part over the passage raised to start at `PASSAGE_CLEAR_M`. `opened` lists the buildings cut.
+ * With `ground`, a bridge up in the air cuts away what it crosses; without it bridges cut nothing.
+ * `half`: half the size of the square loaded, where bridges leave it.
  * With `breathe`, the cutting stops for a frame now and then, so the game doesn't freeze.
  */
-export function carvePassages<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[]): { shapes: B[]; opened: Set<number> } {
-  const cuts = findCuts(buildings, lines);
+export function carvePassages<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[], ground?: GroundAt, half = Infinity): { shapes: B[]; opened: Set<number> } {
+  const cuts = findCuts(buildings, lines, ground, half);
   const opened = new Set<number>();
   const shapes: B[] = [];
   buildings.forEach((b, i) => {
@@ -311,8 +594,14 @@ export function carvePassages<B extends CarvableBuilding>(buildings: B[], lines:
 }
 
 /** As `carvePassages`, a frame at a time: cutting a few dozen outlines takes some tens of milliseconds. */
-export async function carvePassagesInSteps<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[], breathe: () => Promise<void>): Promise<{ shapes: B[]; opened: Set<number> }> {
-  const cuts = findCuts(buildings, lines);
+export async function carvePassagesInSteps<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[], breathe: () => Promise<void>, ground?: GroundAt, half = Infinity): Promise<{ shapes: B[]; opened: Set<number> }> {
+  const steps = cutsInSteps(buildings, lines, ground, half);
+  let step = steps.next();
+  while (!step.done) {
+    await breathe();
+    step = steps.next();
+  }
+  const cuts = step.value;
   await breathe();
   const done = new Map<number, B[]>();
   let t = performance.now();

@@ -38,6 +38,29 @@ export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rus
 export const RING: Record<JobKind | 'party' | 'home', string> = { plain: '#2bd4e0', supply: '#ff8a1f', rush: '#ff3b30', clean: '#3d74ff', party: '#ff5cb8', home: '#5fd08a' };
 /** Where to deliver: the ring, the arrow and the way there. */
 export const DROP = '#ffd400';
+/**
+ * A ring goes only where a circle this wide is clear of walls and water, about half a car (m): a
+ * street the map has running into a building is no place for one (the party's food in Edinburgh lay
+ * on North Bridge, where it ran into the roof of the station below, 25 November).
+ */
+export const RING_CLEAR_M = 1;
+
+/**
+ * Where along a street a ring can go, nearest the place asked for: that place, or up to 24 m either
+ * way along the street where a car can stand (`RING_CLEAR_M`). A station's spot on its forecourt lane
+ * drawn against the kiosk still gets its package, a step along. Null where there is no such place.
+ */
+export function ringAlong(net: RoadNet, free: (x: number, y: number, r: number) => boolean, line: number, s: number): number | null {
+  const len = net.lines[line].len;
+  for (let d = 0; d <= 24; d += 2) {
+    for (const t of d ? [s + d, s - d] : [s]) {
+      if (t < 0 || t > len) continue;
+      const [x, y] = net.point(line, t);
+      if (free(x, y, RING_CLEAR_M)) return t;
+    }
+  }
+  return null;
+}
 
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 

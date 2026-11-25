@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Group } from 'three';
 import { Game } from '../src/game/game';
 import { PointGrid } from '../src/game/services';
-import { arriveLine, backBy } from '../src/partyUi';
+import { arriveLine, backBy, PartyUi } from '../src/partyUi';
 import { RoadNet } from '../src/game/roads';
 import { World } from '../src/game/world';
 import { foodName, narrowWalk, occasion, packParty, partyClock, pickFood, pointsDue, readParties, readParty, PARTY_FAR, PARTY_NEAR, WALK_MAX, type SentParty } from '../src/game/party';
@@ -365,5 +365,50 @@ describe('a party in the game', () => {
     jobs();
     expect(g.hud().target?.kind).toBe('job');
     expect(g.hud().target?.metres).toBeCloseTo(400, 0);
+  });
+});
+
+describe('the food place of a home', () => {
+  // one street; the home at its west end, two restaurants along it
+  const world = (free: (x: number) => boolean) =>
+    ({
+      half: 750,
+      roads: new RoadNet([{ kind: 'minor', pts: [[-600, 0], [600, 0]], widthM: 6, bridge: false }], 750),
+      proj: { toLocal: (lon: number, lat: number): [number, number] => [lon, lat], toLngLat: (x: number, y: number) => ({ lon: x, lat: y }) },
+      food: [
+        { x: 300, y: 8, food: 'restaurant' },
+        { x: 200, y: 8, food: 'restaurant' },
+      ],
+      free: (x: number) => free(x),
+      solids: { inside: () => false, push: () => null },
+    }) as unknown as World;
+  const planOf = (w: World, places: Record<string, unknown> = {}) => {
+    const ui = Object.assign(Object.create(PartyUi.prototype), { store: { paid: '', places, best: {}, warned: false } });
+    return (ui as unknown as { plan: (w: World, key: string, lot: { x: number; y: number }) => { spot: { pick: { lon: number } }; keep: unknown } | null }).plan(w, 'home', { x: -500, y: 10 });
+  };
+
+  it('is the one nearest 800 m by road, where nothing stands in the way', () => {
+    expect(planOf(world(() => true))?.spot.pick.lon).toBeCloseTo(300, 0);
+  });
+
+  it('is never one whose street runs into a building', () => {
+    // the street at the first restaurant runs into a building, as North Bridge ran into Waverley station
+    const plan = planOf(world((x) => x < 250 || x > 350));
+    expect(plan?.spot.pick.lon).toBeCloseTo(200, 0);
+  });
+
+  it('a home’s food place kept from before, its pickup against a wall: a step along the street, and kept so', () => {
+    const kept = { food: 'restaurant', invented: false, shop: { lon: 300, lat: 8 }, pick: { lon: 300, lat: 0 } };
+    const plan = planOf(world((x) => Math.abs(x - 300) > 3), { home: kept });
+    expect(Math.abs((plan?.spot.pick.lon ?? 0) - 300)).toBeGreaterThan(3);
+    expect(Math.abs((plan?.spot.pick.lon ?? 0) - 300)).toBeLessThan(10);
+    expect((plan?.keep as { pick: { lon: number } } | null)?.pick.lon).toBe(plan?.spot.pick.lon);
+  });
+
+  it('a home’s food place kept from before, now in a building: this party fetches from another, and the home keeps its own', () => {
+    const kept = { food: 'restaurant', invented: false, shop: { lon: 300, lat: 8 }, pick: { lon: 300, lat: 0 } };
+    const plan = planOf(world((x) => x < 250 || x > 350), { home: kept });
+    expect(plan?.spot.pick.lon).toBeCloseTo(200, 0);
+    expect(plan?.keep).toBeNull();
   });
 });

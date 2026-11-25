@@ -162,6 +162,27 @@ describe('bridges over buildings', () => {
     expect(shapes).toEqual(houses);
   });
 
+  it('measures a bridge cut in pieces as one whole bridge', () => {
+    // the map has the bridge in three pieces; the middle one has both ends over the valley
+    const deep = (_x: number, y: number) => (Math.abs(y) < 40 ? 33 : 40);
+    const lines = [[[0, -50], [0, -30]], [[0, -30], [0, 30]], [[0, 30], [0, 50]]].map((pts) => line('primary', pts as Pt[], { bridge: true, widthM: 11 }));
+    const { shapes, opened } = carvePassages([station()], lines, deep);
+    expect(opened.has(0)).toBe(true);
+    expect(clear(new Solids(shapes), [0, -45], [0, 45], 1)).toBe(true);
+    // the middle piece alone would not have opened it
+    expect(carvePassages([station()], [lines[1]], deep).opened.size).toBe(0);
+  });
+
+  it('opens with a pavement only what its street opens: a tower beside the bridge stays', () => {
+    // a walkway beside the bridge all the way, through a tower the street itself does not cross
+    const tower = { ...box(9, -5, 16, 5, 60), id: 'tower' };
+    const lines = [line('primary', [[0, -50], [0, 50]], { bridge: true, widthM: 11 }), line('path', [[12, -50], [12, 50]], { bridge: true })];
+    const { shapes, opened } = carvePassages([station(), tower], lines, valley);
+    expect(opened.has(0)).toBe(true);
+    expect(opened.has(1)).toBe(false);
+    expect(shapes.filter((b) => b.id === 'tower')).toEqual([tower]);
+  });
+
   it('takes the roof off a passage where a bridge runs over it', () => {
     // a street goes through the station under its roof, and a bridge crosses the same stretch
     const lines = [line('service', [[-50, 0], [50, 0]]), line('minor', [[0, -50], [0, 50]], { bridge: true, widthM: 8 })];

@@ -413,6 +413,7 @@ export class World {
     const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true, id: b.id, realHeight: b.height }));
     // roofs out of the ground and the sea to sea level, before anything is built on it
     calmGround(grid, buildings, data.features.sea);
+    await breathe();
     // ways through buildings: the map's "tunnels" that stay at ground level under a building are
     // kept, and every street or path through a building has a corridor cut out of it at ground level;
     // a bridge high over the ground there cuts away what it crosses (on the ground as it is laid)

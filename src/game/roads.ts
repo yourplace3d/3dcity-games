@@ -16,6 +16,8 @@ const TRAFFIC = new Set<LineKind>(['motorway', 'primary', 'secondary', 'tertiary
 export const SPEED_LIMIT: Record<string, number> = { motorway: 21, primary: 14, secondary: 12.5, tertiary: 11, minor: 8.5, service: 5 };
 
 const CELL = 32;
+/** how far from a track's middle a car touches a train or tram on it (m): half a train, half a car's length */
+const RAIL_REACH_M = 6;
 /** Line ends this close to another line are joined to it (m). */
 const JOIN_M = 2.5;
 /**
@@ -497,6 +499,41 @@ export class RoadNet {
   /** Enough railway for a train to be worth the sight (m of track). */
   get hasTrains(): boolean {
     return this.trainLines.reduce((a, i) => a + this.lines[i].len, 0) > 400;
+  }
+
+  /**
+   * Whether tracks and a street cross here at different heights: one on a bridge over the other, as the
+   * station's tracks under North Bridge in Edinburgh. Then a train or tram and a car on the street pass
+   * here without meeting. Only where every track and every street near the point say the same: under a
+   * road on stilts that follows a street with trams in it, the street and the stilts both lie under the
+   * tram, and it meets the cars as before; and only where they cross, not where they run side by side.
+   */
+  crossesApart(x: number, y: number): boolean {
+    const near = new Map<number, { d: number; hx: number; hy: number }>();
+    this.each(x, y, 12, (line, i) => {
+      const l = this.lines[line];
+      if (!l.drive && !l.tram && !l.train) return;
+      const n = this.project(line, i, x, y);
+      const had = near.get(line);
+      if (had && had.d <= n.d) return;
+      const [ax, ay] = l.pts[i];
+      const [bx, by] = l.pts[i + 1];
+      const len = Math.hypot(bx - ax, by - ay) || 1;
+      near.set(line, { d: n.d, hx: (bx - ax) / len, hy: (by - ay) / len });
+    });
+    const rails: Array<{ up: boolean; hx: number; hy: number }> = [];
+    const streets: Array<{ up: boolean; hx: number; hy: number }> = [];
+    for (const [line, n] of near) {
+      const l = this.lines[line];
+      // a car touches a train whose middle is this near it; a car is on a street this near its middle
+      if ((l.tram || l.train) && n.d <= RAIL_REACH_M) rails.push({ up: l.bridge, ...n });
+      else if (l.drive && n.d <= l.w / 2 + 1.5) streets.push({ up: l.bridge, ...n });
+    }
+    if (!rails.length || !streets.length) return false;
+    const railUp = rails[0].up;
+    const streetUp = streets[0].up;
+    if (railUp === streetUp || rails.some((r) => r.up !== railUp) || streets.some((t) => t.up !== streetUp)) return false;
+    return rails.every((r) => streets.every((t) => Math.abs(r.hx * t.hx + r.hy * t.hy) < 0.9));
   }
 
   /** Whether a point is on a road or path (bridges count, so they carry you over water). */

@@ -599,22 +599,34 @@ street on the ground, and bridges cut nothing out of buildings: from the north e
 was picked up on the bridge, 30 m in.
 
 - **A street bridge up in the air cuts away what it crosses,** open to the sky along its deck (the street and
-  2 m either side), and so do its pavements (footpath bridges beside it, within 14 m nearly all the way). Up in
-  the air: the ground under it lies 3 m or more below the line between the heights at its two ends (North
-  Bridge: 6.6 m). From above the street now crosses the station's roof, as on a photo from the air; the
+  2 m either side), and so do its pavements (footpath bridges beside it, within 14 m nearly all the way), but
+  only what the street itself cuts. Up in the air: the ground under it lies 3 m or more below the line between
+  the heights where the whole bridge meets the ground (North Bridge: 6.6 m); a bridge the map or the tiles cut
+  in pieces is measured whole. From above the street now crosses the station's roof, as on a photo from the air; the
   station's tracks show under it. A footbridge on its own is left alone: walkways from house to house are
   footpath bridges too, and on Hong Kong's slopes some lie 4 m over the line between their ends, enough to cut
   towers open. Where a bridge ends inside a building it must be up in the air in there itself. Compared with
-  `main`, building by building: Hong Kong, Minneapolis, Calgary, London, Paris and Lisbon unchanged; Edinburgh
-  the station and the two buildings under the bridge; Shibuya four, where the expressway crosses railway
-  buildings over Route 246; Genoa three small ones in the way of the elevated road. Now a car and a walker get
+  `main`, building by building: Minneapolis, Calgary, London, Paris and Lisbon unchanged; Edinburgh the
+  station and the two buildings under the bridge; Shibuya four, where the expressway crosses railway buildings
+  over Route 246; Genoa three small ones in the way of the elevated road; Hong Kong two, a slab across a main
+  road under a flyover among them. Now a car and a walker get
   along all of North Bridge and both its pavements.
-- **No ring where a car can't stand:** run packages, station jobs, drop-offs and the party's food go only where
-  a circle of 1 m is clear of walls and water. A home's food place kept from before that turns out to lie in a
-  building: that party fetches from another place, and the home keeps its own.
+- **No ring where a car can't stand:** run packages, station jobs, drop-offs (a mission's too) and the party's
+  food go only where a circle of 1 m is clear of walls and water, else up to 24 m along the street where it is:
+  a station's spot against its kiosk still has its package. A home's food place kept from before that turns out
+  to lie in a building: that party fetches from another place, and the home keeps its own. Replayed runs and
+  parties from a link keep the sender's places.
 - **Trains and trams pass under a road bridge,** or over a street on theirs, without meeting the cars there, and
   don't wait for them; at a level crossing they meet as before. The game has no heights for vehicles: on
-  `main` a train under North Bridge carried a car stopped on it 273 m along the tracks. In Dresden, three runs
+  `main` a train under North Bridge carried a car stopped on it 273 m along the tracks. Told from the tracks
+  and streets where they meet: only where every track there is on one level, every street on the other, and
+  they cross rather than run side by side (a tram in a street under a road on stilts meets the cars as before). In Dresden, three runs
   each against `main`: traffic the same, trams a little further (0.45 to 0.69 km against 0.25 to 0.45).
 
 Tests: `tests/passages.test.ts`, `tests/rings.test.ts`, `tests/party.test.ts`, `tests/rails.test.ts`.
+
+**Code review (25 November):** nine findings, all fixed: the level of a car told from the nearest road
+alone (a road on stilts over a tram's street), a tram and a street on one bridge, a mission's drop-off and a
+station's spot against a wall, bridges in pieces, a walkway beside a flyover through a tower, the pavement
+check's cost while a square loads, a carried-over train's track in the new square, a real food place dropped
+for one bad spot.

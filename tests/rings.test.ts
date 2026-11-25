@@ -112,6 +112,17 @@ describe('the rings in the game', () => {
     expect(drops.every((x) => x < 100)).toBe(true);
   });
 
+  it('a station whose own spot lies against a wall still has its package, a step along the street', async () => {
+    // the kiosk's wall comes within a metre of the street at the station's spot
+    const { g, inside } = await playing([{ kind: 'fuel', x: 300, y: 8 }], (x) => Math.abs(x - 300) > 3);
+    g.run.over = true;
+    inside.jobs(1);
+    expect(inside.pickups.map((m) => m.kind)).toEqual(['supply']);
+    const at = (inside.pickups[0] as unknown as { at: { lon: number } }).at.lon;
+    expect(Math.abs(at - 300)).toBeGreaterThan(3);
+    expect(Math.abs(at - 300)).toBeLessThan(10);
+  });
+
   it('a party’s food is pink, as its sign', async () => {
     const { g, inside } = await playing();
     g.startParty({ pick: { lon: 400, lat: 0 }, door: { lon: -300, lat: 0 }, say: 'The pizza is on board' });

@@ -45,6 +45,23 @@ export const DROP = '#ffd400';
  */
 export const RING_CLEAR_M = 1;
 
+/**
+ * Where along a street a ring can go, nearest the place asked for: that place, or up to 24 m either
+ * way along the street where a car can stand (`RING_CLEAR_M`). A station's spot on its forecourt lane
+ * drawn against the kiosk still gets its package, a step along. Null where there is no such place.
+ */
+export function ringAlong(net: RoadNet, free: (x: number, y: number, r: number) => boolean, line: number, s: number): number | null {
+  const len = net.lines[line].len;
+  for (let d = 0; d <= 24; d += 2) {
+    for (const t of d ? [s + d, s - d] : [s]) {
+      if (t < 0 || t > len) continue;
+      const [x, y] = net.point(line, t);
+      if (free(x, y, RING_CLEAR_M)) return t;
+    }
+  }
+  return null;
+}
+
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 
 /**

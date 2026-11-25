@@ -35,7 +35,7 @@ import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, mayGo, RAIL_ON, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
-import { DROP, JOB_OF, RING, RING_CLEAR_M, type JobKind } from './services';
+import { DROP, JOB_OF, RING, ringAlong, type JobKind } from './services';
 import { partyClock } from './party';
 
 const FOV = 42;
@@ -249,8 +249,8 @@ export class Game {
   private caughtT = 0;
   /** how many places for a package in a row had no road leading to them */
   private noWay = 0;
-  /** which road vehicles are on a bridge, worked out once a frame (`apart`) */
-  private bridged = new Map<Car, boolean>();
+  /** where tracks and a street cross at different heights, by the metre, worked out once a frame (`apart`) */
+  private bridged = new Map<string, boolean>();
   /** seconds left of the car you sat in blowing up, and that car */
   private blowT = 0;
   private blown: Car | null = null;
@@ -1128,21 +1128,23 @@ export class Game {
   /**
    * Whether a vehicle on rails and one on the road pass each other at different heights, one on a
    * bridge over the other: then they neither meet nor wait for each other. The game has no heights for
-   * them, and a train under North Bridge in Edinburgh ran through the cars on it (25 November); every
-   * railway under a road bridge did the same. Two on rails, or two on the road, meet as before.
+   * them, and a train under North Bridge in Edinburgh carried a car stopped on it 273 m along the
+   * tracks; every railway under a road bridge did the same. It is told where they meet (`at`, the road
+   * vehicle by default) from the tracks and streets there (`RoadNet.crossesApart`); two on rails, or
+   * two on the road, meet as before.
    */
-  private apart(p: Car, q: Car): boolean {
+  private apart(p: Car, q: Car, at?: [number, number]): boolean {
     const rail = p.onRails ? p : q.onRails ? q : null;
     const road = rail === p ? q : p;
     if (!rail || railsOf(road.kind)) return false;
-    const net = this.world.roads;
-    let up = this.bridged.get(road);
-    if (up === undefined) {
-      const n = net.nearest(road.x, road.y, 12, 'drive');
-      up = !!n && net.lines[n.line].bridge;
-      this.bridged.set(road, up);
+    const [x, y] = at ?? [road.x, road.y];
+    const key = `${Math.round(x)},${Math.round(y)}`;
+    let apart = this.bridged.get(key);
+    if (apart === undefined) {
+      apart = this.world.roads.crossesApart(x, y);
+      this.bridged.set(key, apart);
     }
-    return (net.lines[rail.rail!.p.line]?.bridge ?? false) !== up;
+    return apart;
   }
 
   /** Work the wheel and pedals of a car towards a point, at up to `limit` m/s. */
@@ -1174,7 +1176,13 @@ export class Game {
       const train = c.kind === 'train';
       // a tram, held on its rails and never giving way, also slows for a car close beside its track
       const wide = c.kind === 'tram' ? c.spec.wid / 2 + 1 : 1.5;
-      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 110 && Math.abs(o.y - c.y) < 110 && !this.apart(c, o)) gapTo(o.x, o.y, o.a + o.r, wide);
+      for (const o of this.cars) {
+        if (o === c || o.gone || (train && o.kind !== 'train') || Math.abs(o.x - c.x) >= 110 || Math.abs(o.y - c.y) >= 110) continue;
+        // a car looking at a train ahead asks where its own way meets the train; a tram, where the car is
+        const ahead = Math.max(0, (o.x - c.x) * fx + (o.y - c.y) * fy);
+        if ((c.onRails || o.onRails) && this.apart(c, o, o.onRails ? [c.x + fx * ahead, c.y + fy * ahead] : [o.x, o.y])) continue;
+        gapTo(o.x, o.y, o.a + o.r, wide);
+      }
       if (!train) {
         for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
         if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);
@@ -1692,11 +1700,11 @@ export class Game {
    * map) would be a ring you can see and never reach. If place after place fails, you yourself
    * stand on such a cut-off street, and a ring is laid anyway, so the game never runs dry.
    */
-  private pickupAt(p: PathState, kind?: JobKind): Marker | null {
+  private pickupAt(at: PathState, kind?: JobKind): Marker | null {
     // never where a car can't stand: a street the map has running into a building (North Bridge in
-    // Edinburgh ran into the roof of the station below it)
-    const [x, y] = this.world.roads.point(p.line, p.s);
-    if (!this.world.free(x, y, RING_CLEAR_M)) return null;
+    // Edinburgh ran into the roof of the station below it); a step along it, where that is near
+    const p = this.standOn(at);
+    if (!p) return null;
     const m = this.newMarker(RING[kind ?? 'plain'], p);
     if (kind) m.kind = kind;
     const [px, py] = this.pos();
@@ -1708,6 +1716,12 @@ export class Game {
     this.noWay++;
     this.scene.remove(m.mesh);
     return null;
+  }
+
+  /** The place along its street nearest `p` where a ring can go (`ringAlong`), or null. */
+  private standOn(p: PathState): PathState | null {
+    const s = ringAlong(this.world.roads, (x, y, r) => this.world.free(x, y, r), p.line, p.s);
+    return s === null ? null : { ...p, s };
   }
 
   private newMarker(colour: string, p: PathState): Marker {
@@ -1986,8 +2000,9 @@ export class Game {
       // road: the lane at the door can be a yard's driveway that no road leads to
       const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
       for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
-        if (!n || marker) continue;
-        const cand = this.newMarker(DROP, { line: n.line, s: n.s, dir: 1 });
+        const at = n && !marker ? this.standOn({ line: n.line, s: n.s, dir: 1 }) : null;
+        if (!at) continue;
+        const cand = this.newMarker(DROP, at);
         const f = this.fieldOf(cand);
         const r = f && w.roads.route(f, px, py);
         if (r) {
@@ -2006,10 +2021,9 @@ export class Game {
     for (let k = 0; k < 10 && !marker; k++) {
       const sight = k < 2 && sights.length ? pickOne(sights) : null;
       const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
-      const to: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
+      const place: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
+      const to = place && this.standOn(place);
       if (!to) continue;
-      const [tx, ty] = w.roads.point(to.line, to.s);
-      if (!w.free(tx, ty, RING_CLEAR_M)) continue;
       const cand = this.newMarker(DROP, to);
       const f = this.fieldOf(cand);
       const r = f && w.roads.route(f, px, py);

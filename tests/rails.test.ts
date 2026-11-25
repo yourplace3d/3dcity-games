@@ -394,7 +394,7 @@ describe('a tram on its rails', () => {
       { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 3, bridge: true },
       { kind: 'minor', pts: [[0, -100], [0, 100]], widthM: 6, bridge: false },
     ], 750);
-    (inside as unknown as { bridged: Map<Car, boolean> }).bridged.clear();
+    (inside as unknown as { bridged: Map<string, boolean> }).bridged.clear();
     train.rail = null;
     inside.onRails(train, 0.05);
     expect(apart(train, onBridge)).toBe(true);
@@ -403,5 +403,32 @@ describe('a tram on its rails', () => {
     other.driver = 'ai';
     inside.onRails(other, 0.05);
     expect(apart(train, other)).toBe(false);
+  });
+
+  it('a tram in a street under a road on stilts, or on a bridge with the street, meets the cars as before', async () => {
+    const { w, inside } = await world();
+    const apart = (p: Car, q: Car) => (inside as unknown as { apart: (p: Car, q: Car) => boolean }).apart(p, q);
+    const fresh = () => (inside as unknown as { bridged: Map<string, boolean> }).bridged.clear();
+    // the tram's street, and a road on stilts along it, its middle over the street's lanes
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 1.6, bridge: false },
+      { kind: 'minor', pts: [[-300, 0], [300, 0]], widthM: 6, bridge: false },
+      { kind: 'primary', pts: [[-300, 3], [300, 3]], widthM: 11, bridge: true },
+    ], 750);
+    const tram = inside.addCar('tram', -8, 0, 0);
+    tram.driver = 'ai';
+    inside.onRails(tram, 0.05);
+    const car = inside.addCar('sedan', 0, 2, 0);
+    car.driver = 'ai';
+    expect(apart(tram, car)).toBe(false);
+    // the tracks marked as a bridge over a culvert, the street not: they run along each other, and meet
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 1.6, bridge: true },
+      { kind: 'minor', pts: [[-300, 0], [300, 0]], widthM: 6, bridge: false },
+    ], 750);
+    fresh();
+    tram.rail = null;
+    inside.onRails(tram, 0.05);
+    expect(apart(tram, car)).toBe(false);
   });
 });

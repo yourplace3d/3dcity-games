@@ -296,37 +296,105 @@ interface Cut {
   open: Geom[];
 }
 
-/** A line's points, and samples along it with their arc length. */
-interface Ptx {
+/** A bridge, as far as the game can tell how high it is. */
+interface Deck {
   pts: Pt[];
+  /** samples along the line, with their arc length */
   along: Array<{ p: Pt; s: number }>;
   len: number;
+  /** the height of the deck at a point, from the heights where the whole bridge meets the ground */
+  deckAt: (p: Pt) => number;
+  /** which of the line's two ends are where the whole bridge meets the ground */
+  ends: [boolean, boolean];
+  /** the whole bridge it is a piece of */
+  whole: number;
 }
 
+/** how near the ends of two bridge lines lie when they are one bridge cut in pieces (m) */
+const JOIN_M = 1;
+
 /**
- * Whether a bridge is up in the air between two arc lengths: the ground lies `BRIDGE_OVER_M` or
- * more below the straight line between the heights at the bridge's two ends somewhere there.
+ * Bridges joined whole where the ends of their pieces meet: the map often cuts a bridge in pieces,
+ * and the tiles cut every line at their edges, and a piece with both ends over the valley sees no drop
+ * under the line between them. The deck's height at a point comes from the heights where the whole
+ * bridge meets the ground, the nearer such end counting more: between two ends, along the straight
+ * line from one to the other.
  */
-function overGround(pts: Ptx, s0: number, s1: number, ground: GroundAt): boolean {
-  const [a, b] = [pts.pts[0], pts.pts[pts.pts.length - 1]];
-  const h0 = ground(a[0], a[1]);
-  const h1 = ground(b[0], b[1]);
-  for (const { p, s } of pts.along) {
+function wholeBridges(lines: LineFeature[], ground: GroundAt): Deck[] {
+  const parent = lines.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  const endsOf = (l: LineFeature): [Pt, Pt] => [l.pts[0], l.pts[l.pts.length - 1]];
+  const cellKey = (x: number, y: number) => `${Math.floor(x / JOIN_M)},${Math.floor(y / JOIN_M)}`;
+  const cells = new Map<string, Array<[number, number]>>();
+  lines.forEach((l, i) =>
+    endsOf(l).forEach((p, e) => {
+      const k = cellKey(p[0], p[1]);
+      const list = cells.get(k);
+      if (list) list.push([i, e]);
+      else cells.set(k, [[i, e]]);
+    }),
+  );
+  const joined = lines.map((): [boolean, boolean] => [false, false]);
+  lines.forEach((l, i) =>
+    endsOf(l).forEach((p, e) => {
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          for (const [j, f] of cells.get(cellKey(p[0] + dx * JOIN_M, p[1] + dy * JOIN_M)) ?? []) {
+            if (j === i) continue;
+            const q = endsOf(lines[j])[f];
+            if (Math.hypot(q[0] - p[0], q[1] - p[1]) > JOIN_M) continue;
+            joined[i][e] = true;
+            parent[find(i)] = find(j);
+          }
+    }),
+  );
+  const feet = new Map<number, Array<{ p: Pt; h: number }>>();
+  lines.forEach((l, i) =>
+    endsOf(l).forEach((p, e) => {
+      if (joined[i][e]) return;
+      const g = find(i);
+      const list = feet.get(g) ?? [];
+      list.push({ p, h: ground(p[0], p[1]) });
+      feet.set(g, list);
+    }),
+  );
+  return lines.map((l, i) => {
+    const along = samples(l.pts);
+    // a bridge that is a ring, with no end on the ground, is never up in the air
+    const at = feet.get(find(i)) ?? [];
+    const deckAt = (p: Pt) => {
+      let w = 0;
+      let h = 0;
+      for (const f of at) {
+        const d = Math.max(Math.hypot(f.p[0] - p[0], f.p[1] - p[1]), 0.5);
+        w += 1 / d;
+        h += f.h / d;
+      }
+      return w ? h / w : -Infinity;
+    };
+    return { pts: l.pts, along, len: along.length ? along[along.length - 1].s : 0, deckAt, ends: [!joined[i][0], !joined[i][1]], whole: find(i) };
+  });
+}
+
+/** Whether a bridge is up in the air between two arc lengths: the ground lies `BRIDGE_OVER_M` or more below its deck somewhere there. */
+function overGround(d: Deck, s0: number, s1: number, ground: GroundAt): boolean {
+  for (const { p, s } of d.along) {
     if (s < s0 || s > s1) continue;
-    if (h0 + ((h1 - h0) * s) / Math.max(pts.len, 1e-6) - ground(p[0], p[1]) >= BRIDGE_OVER_M) return true;
+    if (d.deckAt(p) - ground(p[0], p[1]) >= BRIDGE_OVER_M) return true;
   }
   return false;
 }
 
 /**
- * Whether a bridge opens a building it runs into, when it is up in the air somewhere: then it opens
- * what it crosses between its ends, as the heights are known only every 8 m or so, and near the ends
- * of North Bridge they showed the ground only 2 m down, under a building of 4 m that then stood
- * across the street. Where the bridge ends inside a building it must be up in the air in there
- * itself, as a building at the end of a bridge stands on the bank.
+ * Whether a bridge up in the air somewhere opens a building it runs into: whatever it crosses between
+ * its ends, as the heights are known only every 8 m or so, and near the ends of North Bridge they
+ * showed the ground only 2 m down, under a building of 4 m that then stood across the street. Where
+ * the bridge ends on the ground inside a building it must be up in the air in there itself, as a
+ * building at the end of a bridge stands on the bank.
  */
-function bridgeOpens(pts: Ptx, r: Run, ground: GroundAt): boolean {
-  return r.s0 < STEP || r.s1 > pts.len - STEP ? overGround(pts, r.s0, r.s1, ground) : true;
+function bridgeOpens(d: Deck, r: Run, ground: GroundAt): boolean {
+  const atEnd = (r.s0 < STEP && d.ends[0]) || (r.s1 > d.len - STEP && d.ends[1]);
+  return atEnd ? overGround(d, r.s0, r.s1, ground) : true;
 }
 
 /** The distance from a point to a polyline. */
@@ -344,32 +412,33 @@ function distTo(p: Pt, pts: Pt[]): number {
 }
 
 /** Whether a footpath runs beside one of the street bridges, nearly all the way: it is its pavement. */
-function besideDeck(pts: Ptx, decks: Ptx[]): boolean {
+function besideDeck(walk: Deck, decks: Array<{ deck: Deck; box: [number, number, number, number] }>): boolean {
+  const [x0, y0, x1, y1] = ringBounds(walk.pts);
+  const near = decks.filter(({ box }) => x1 >= box[0] && x0 <= box[2] && y1 >= box[1] && y0 <= box[3]);
+  if (!near.length) return false;
   let beside = 0;
-  for (const { p } of pts.along) if (decks.some((d) => distTo(p, d.pts) <= PAVEMENT_M)) beside++;
-  return beside >= pts.along.length * 0.8;
+  for (const { p } of walk.along) {
+    if (near.some(({ deck, box }) => p[0] >= box[0] && p[0] <= box[2] && p[1] >= box[1] && p[1] <= box[3] && distTo(p, deck.pts) <= PAVEMENT_M)) beside++;
+  }
+  return beside >= walk.along.length * 0.8;
 }
-
-const sampled = (pts: Pt[]): Ptx => {
-  const along = samples(pts);
-  return { pts, along, len: along.length ? along[along.length - 1].s : 0 };
-};
 
 /**
  * For each building a street or path goes through, the corridors to cut out of it. A bridge opens
- * buildings only where it is a street, up in the air, or the pavement beside one: the walkways from
- * house to house over the streets of Minneapolis, Calgary and Hong Kong are footpath bridges too,
- * and in Hong Kong, on the slopes, some lie 4 m over the line between their ends: they would cut
- * towers of 60 m open to the sky.
+ * buildings only where it is a street, up in the air, or the pavement beside one, and the pavement only
+ * what its street opens: the walkways from house to house over the streets of Minneapolis, Calgary and
+ * Hong Kong are footpath bridges too, and in Hong Kong, on the slopes, some lie 4 m over the line
+ * between their ends: they would cut towers of 60 m open to the sky.
  */
 function findCuts(buildings: CarvableBuilding[], lines: LineFeature[], ground?: GroundAt): Map<number, Cut> {
   const near = index(buildings);
   const cuts = new Map<number, Cut>();
-  const cutRuns = (l: LineFeature, open: Ptx | null) => {
+  const cutRuns = (l: LineFeature, open: Deck | null, only?: Set<number>): Set<number> => {
     const w = passageWidth(l);
+    const opened = new Set<number>();
     for (const [i, runs] of runsOf(l.pts, buildings, near)) {
       const b = buildings[i];
-      if (b.minHeight > OVERHEAD_M) continue;
+      if (b.minHeight > OVERHEAD_M || (only && !only.has(i))) continue;
       for (const r of runs) {
         if (!goesThrough(r)) continue;
         if (open && !bridgeOpens(open, r, ground!)) continue;
@@ -382,27 +451,31 @@ function findCuts(buildings: CarvableBuilding[], lines: LineFeature[], ground?: 
         if (open) cut.open.push(...band(part, w + 2 * DECK_SIDE_M));
         else cut.roofed.push(...band(part, w));
         cuts.set(i, cut);
+        opened.add(i);
       }
     }
+    return opened;
   };
-  const decks: Ptx[] = [];
-  for (const l of lines) {
-    if (!OPENS.has(l.kind) || l.pts.length < 2) continue;
-    if (!l.bridge) cutRuns(l, null);
-    else if (ground && l.kind !== 'path') {
-      const deck = sampled(l.pts);
-      if (!overGround(deck, 0, deck.len, ground)) continue;
-      decks.push(deck);
-      cutRuns(l, deck);
-    }
-  }
+  for (const l of lines) if (OPENS.has(l.kind) && !l.bridge && l.pts.length >= 2) cutRuns(l, null);
+  if (!ground) return cuts;
+  const streets = lines.filter((l) => OPENS.has(l.kind) && l.kind !== 'path' && l.bridge && l.pts.length >= 2);
+  const up: Array<{ deck: Deck; box: [number, number, number, number] }> = [];
+  const underStreets = new Set<number>();
+  const decks = wholeBridges(streets, ground);
+  // a whole bridge is up in the air if it is anywhere, though not every piece of it is
+  const high = new Set(decks.filter((d) => overGround(d, 0, d.len, ground)).map((d) => d.whole));
+  decks.forEach((deck, k) => {
+    if (!high.has(deck.whole)) return;
+    const [x0, y0, x1, y1] = ringBounds(deck.pts);
+    up.push({ deck, box: [x0 - PAVEMENT_M, y0 - PAVEMENT_M, x1 + PAVEMENT_M, y1 + PAVEMENT_M] });
+    for (const i of cutRuns(streets[k], deck)) underStreets.add(i);
+  });
   // the pavements, once the streets up in the air are known
-  if (decks.length) {
-    for (const l of lines) {
-      if (l.kind !== 'path' || !l.bridge || l.pts.length < 2) continue;
-      const walk = sampled(l.pts);
-      if (besideDeck(walk, decks)) cutRuns(l, walk);
-    }
+  if (up.length) {
+    const walks = lines.filter((l) => l.kind === 'path' && l.bridge && l.pts.length >= 2);
+    wholeBridges(walks, ground).forEach((walk, k) => {
+      if (besideDeck(walk, up)) cutRuns(walks[k], walk, underStreets);
+    });
   }
   return cuts;
 }

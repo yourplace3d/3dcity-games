@@ -183,6 +183,33 @@ describe('bridges over buildings', () => {
     expect(shapes.filter((b) => b.id === 'tower')).toEqual([tower]);
   });
 
+  it('goes through a tower standing far above it under a roof, as Tower Bridge', () => {
+    // a river at sea level between banks of 5 m; the road runs through two towers of 40 m
+    const river = (_x: number, y: number) => (Math.abs(y) < 45 ? 0 : 5);
+    const towers = [{ ...box(-8, -25, 8, -15, 40), id: 'south' }, { ...box(-8, 15, 8, 25, 40), id: 'north' }];
+    const { shapes, opened } = carvePassages(towers, [line('primary', [[0, -60], [0, 60]], { bridge: true, widthM: 11 })], river);
+    expect(opened.size).toBe(2);
+    // a roof over the road in each tower, and the car gets through
+    expect(shapes.filter((b) => b.minHeight > 0)).toHaveLength(2);
+    expect(clear(new Solids(shapes), [0, -55], [0, 55], 1)).toBe(true);
+  });
+
+  it('measures a bridge with a side bridge joining it in the air as one', () => {
+    // the side bridge meets the main one partway along it, over the valley; the station is under the side bridge
+    const lines = [line('primary', [[-50, -60], [-50, 60]], { bridge: true, widthM: 11 }), line('minor', [[-50, 0], [60, 0]], { bridge: true })];
+    const { opened } = carvePassages([{ ...box(-20, -10, 40, 10, 15), id: 'st' }], lines, (x, y) => (Math.abs(y) < 50 && x > -60 ? 33 : 40));
+    expect(opened.has(0)).toBe(true);
+  });
+
+  it('never measures a bridge drawn as a ring as up in the air', () => {
+    // a roundabout on a bridge, drawn as one closed way over a cutting
+    const ring: Pt[] = [];
+    for (let k = 0; k <= 24; k++) ring.push([Math.cos((k / 24) * 2 * Math.PI) * 40, Math.sin((k / 24) * 2 * Math.PI) * 40]);
+    const ground = (x: number) => (x > 30 ? 40 : 30);
+    const { opened } = carvePassages([{ ...box(-45, -5, -35, 5, 6), id: 'kiosk' }], [line('minor', ring, { bridge: true })], ground);
+    expect(opened.size).toBe(0);
+  });
+
   it('takes the roof off a passage where a bridge runs over it', () => {
     // a street goes through the station under its roof, and a bridge crosses the same stretch
     const lines = [line('service', [[-50, 0], [50, 0]]), line('minor', [[0, -50], [0, 50]], { bridge: true, widthM: 8 })];

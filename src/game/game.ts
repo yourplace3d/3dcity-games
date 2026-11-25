@@ -1702,9 +1702,13 @@ export class Game {
    */
   private pickupAt(at: PathState, kind?: JobKind): Marker | null {
     // never where a car can't stand: a street the map has running into a building (North Bridge in
-    // Edinburgh ran into the roof of the station below it); a step along it, where that is near
-    const p = this.standOn(at);
-    if (!p) return null;
+    // Edinburgh ran into the roof of the station below it); a step along it, where that is near. After
+    // many tries with nowhere, it goes where asked all the same, so the game never runs dry
+    const p = this.standOn(at) ?? (this.noWay >= 40 ? at : null);
+    if (!p) {
+      this.noWay++;
+      return null;
+    }
     const m = this.newMarker(RING[kind ?? 'plain'], p);
     if (kind) m.kind = kind;
     const [px, py] = this.pos();
@@ -1983,7 +1987,8 @@ export class Game {
     let marker: Marker | null = null;
     let metres = 0;
     if (leg) {
-      // a run someone sent: the drop-off is where theirs was
+      // a run someone sent: the drop-off is where theirs was, so that runs compare (not moved off a
+      // street that runs into a building, as one laid here is)
       marker = this.markerAt(DROP, leg.to);
       const f = this.fieldOf(marker);
       const [tx, ty] = this.local(marker);

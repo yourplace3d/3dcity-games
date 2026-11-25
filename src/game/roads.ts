@@ -510,7 +510,8 @@ export class RoadNet {
    */
   crossesApart(x: number, y: number): boolean {
     const near = new Map<number, { d: number; hx: number; hy: number }>();
-    this.each(x, y, 12, (line, i) => {
+    // as far as a car on the outer lane of the widest street is from its middle
+    this.each(x, y, 20, (line, i) => {
       const l = this.lines[line];
       if (!l.drive && !l.tram && !l.train) return;
       const n = this.project(line, i, x, y);

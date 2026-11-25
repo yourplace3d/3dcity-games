@@ -602,7 +602,9 @@ was picked up on the bridge, 30 m in.
   2 m either side), and so do its pavements (footpath bridges beside it, within 14 m nearly all the way), but
   only what the street itself cuts. Up in the air: the ground under it lies 3 m or more below the line between
   the heights where the whole bridge meets the ground (North Bridge: 6.6 m); a bridge the map or the tiles cut
-  in pieces is measured whole. From above the street now crosses the station's roof, as on a photo from the air; the
+  in pieces, or with a side bridge joining it in the air, is measured whole. A building standing more than
+  12 m above the deck rises up through it, as the towers of Tower Bridge: the bridge goes through it under a
+  roof, as a street through a house. From above the street now crosses the station's roof, as on a photo from the air; the
   station's tracks show under it. A footbridge on its own is left alone: walkways from house to house are
   footpath bridges too, and on Hong Kong's slopes some lie 4 m over the line between their ends, enough to cut
   towers open. Where a bridge ends inside a building it must be up in the air in there itself. Compared with
@@ -630,3 +632,7 @@ alone (a road on stilts over a tram's street), a tram and a street on one bridge
 station's spot against a wall, bridges in pieces, a walkway beside a flyover through a tower, the pavement
 check's cost while a square loads, a carried-over train's track in the new square, a real food place dropped
 for one bad spot.
+A second review: seven findings, fixed but for one left as it is (a run sent by link keeps the sender's
+places, so that runs compare): towers far above a bridge, a side bridge joining in the air, a bridge drawn as
+a ring, a dense old town with no place for a ring (after many tries one goes where asked, as before), wide
+bridges, and pauses while the bridges are worked out.

@@ -648,3 +648,5 @@ train no longer on its tracks, a home's kept food place against a wall (now a st
 fixed. Left as they are, and said above: a tram in a street crossed by a road bridge, someone on the tracks
 under a bridge. The bridges take 3 to 23 ms of a square's loading (Hong Kong, Tokyo, Chongqing, Edinburgh),
 in steps of their own.
+
+**Going live:** on the owner's word ("Put the bridge fix live", 25 November), by pull request #19.

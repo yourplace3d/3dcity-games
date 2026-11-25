@@ -45,8 +45,9 @@ lives.
 - **Bridges over buildings (owner, 25 November, Edinburgh):** North Bridge ran into the roof of Waverley
   station below it, and the party's food lay on it. Street bridges up in the air now cut what they cross open
   to the sky, with their pavements; no ring goes where a car can't stand; trains pass under road bridges
-  without meeting the cars and people on them. Branch `claude/edinburgh-cuttings`, four code reviews, not
-  live: the plan, section 10.
+  without meeting the cars and people on them. Branch `claude/edinburgh-cuttings`, four code reviews, merged
+  by pull request #19 and put live on the owner's word ("Put the bridge fix live", 25 November): the plan,
+  section 10. Live weather (an idea from GTW, a sandbox on the real Earth) is on hold: the owner's call.
 
 ## Where things stand
 

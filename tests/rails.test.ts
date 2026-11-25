@@ -368,4 +368,40 @@ describe('a tram on its rails', () => {
     }
     expect(tram.y).toBeGreaterThan(60);
   });
+
+  it('a train under a road bridge neither meets the cars on it nor waits for them; at a level crossing it does', async () => {
+    const { w, inside } = await world();
+    const apart = (p: Car, q: Car) => (inside as unknown as { apart: (p: Car, q: Car) => boolean }).apart(p, q);
+    // the station's tracks on the ground, North Bridge over them, a street across them further on
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 3, bridge: false },
+      { kind: 'primary', pts: [[0, -100], [0, 100]], widthM: 11, bridge: true },
+      { kind: 'minor', pts: [[150, -100], [150, 100]], widthM: 6, bridge: false },
+    ], 750);
+    const train = inside.addCar('train', -2, 0, 0);
+    train.driver = 'ai';
+    inside.onRails(train, 0.05);
+    expect(train.onRails).toBe(true);
+    const onBridge = inside.addCar('sedan', 0, 1, Math.PI / 2);
+    onBridge.driver = 'ai';
+    expect(apart(train, onBridge)).toBe(true);
+    expect(apart(onBridge, train)).toBe(true);
+    const atCrossing = inside.addCar('sedan', 150, 1, Math.PI / 2);
+    atCrossing.driver = 'ai';
+    expect(apart(train, atCrossing)).toBe(false);
+    // and a railway bridge over a street: the cars under it pass beneath
+    (w as unknown as { roads: RoadNet }).roads = new RoadNet([
+      { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 3, bridge: true },
+      { kind: 'minor', pts: [[0, -100], [0, 100]], widthM: 6, bridge: false },
+    ], 750);
+    (inside as unknown as { bridged: Map<Car, boolean> }).bridged.clear();
+    train.rail = null;
+    inside.onRails(train, 0.05);
+    expect(apart(train, onBridge)).toBe(true);
+    // two trains meet as before, wherever they are
+    const other = inside.addCar('train', 40, 0, Math.PI);
+    other.driver = 'ai';
+    inside.onRails(other, 0.05);
+    expect(apart(train, other)).toBe(false);
+  });
 });

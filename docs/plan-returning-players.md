@@ -588,3 +588,33 @@ the same. Roundabouts: the tiles mark them one-way (checked at Albertplatz). Bro
 **The radio:** a trial, on in a browser once its link has `?try=radio`, and remembered there until
 `?try=noradio`. On the iPad it was switched on that way; on the Mac it never was, so there is no FM button.
 Whether to turn it on for everyone is the owner's call.
+
+## 10. From the owner's play in Edinburgh (25 November)
+
+**"I guess the street should go in a tunnel there. The restaurant for the party mission seems to not be
+reachable from this side. As well on foot not."** The street is North Bridge, which crosses Waverley station
+high up. The map has the station's roof below the bridge (an outline 15 m tall), but the game lays every
+street on the ground, and bridges cut nothing out of buildings: from the north end, 113 of the bridge's
+170 m ran into the station and two low buildings under it, by car and on both pavements. The party's food
+was picked up on the bridge, 30 m in.
+
+- **A street bridge up in the air cuts away what it crosses,** open to the sky along its deck (the street and
+  2 m either side), and so do its pavements (footpath bridges beside it, within 14 m nearly all the way). Up in
+  the air: the ground under it lies 3 m or more below the line between the heights at its two ends (North
+  Bridge: 6.6 m). From above the street now crosses the station's roof, as on a photo from the air; the
+  station's tracks show under it. A footbridge on its own is left alone: walkways from house to house are
+  footpath bridges too, and on Hong Kong's slopes some lie 4 m over the line between their ends, enough to cut
+  towers open. Where a bridge ends inside a building it must be up in the air in there itself. Compared with
+  `main`, building by building: Hong Kong, Minneapolis, Calgary, London, Paris and Lisbon unchanged; Edinburgh
+  the station and the two buildings under the bridge; Shibuya four, where the expressway crosses railway
+  buildings over Route 246; Genoa three small ones in the way of the elevated road. Now a car and a walker get
+  along all of North Bridge and both its pavements.
+- **No ring where a car can't stand:** run packages, station jobs, drop-offs and the party's food go only where
+  a circle of 1 m is clear of walls and water. A home's food place kept from before that turns out to lie in a
+  building: that party fetches from another place, and the home keeps its own.
+- **Trains and trams pass under a road bridge,** or over a street on theirs, without meeting the cars there, and
+  don't wait for them; at a level crossing they meet as before. The game has no heights for vehicles: on
+  `main` a train under North Bridge carried a car stopped on it 273 m along the tracks. In Dresden, three runs
+  each against `main`: traffic the same, trams a little further (0.45 to 0.69 km against 0.25 to 0.45).
+
+Tests: `tests/passages.test.ts`, `tests/rings.test.ts`, `tests/party.test.ts`, `tests/rails.test.ts`.

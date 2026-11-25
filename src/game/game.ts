@@ -35,7 +35,7 @@ import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, mayGo, RAIL_ON, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
-import { DROP, JOB_OF, RING, type JobKind } from './services';
+import { DROP, JOB_OF, RING, RING_CLEAR_M, type JobKind } from './services';
 import { partyClock } from './party';
 
 const FOV = 42;
@@ -249,6 +249,8 @@ export class Game {
   private caughtT = 0;
   /** how many places for a package in a row had no road leading to them */
   private noWay = 0;
+  /** which road vehicles are on a bridge, worked out once a frame (`apart`) */
+  private bridged = new Map<Car, boolean>();
   /** seconds left of the car you sat in blowing up, and that car */
   private blowT = 0;
   private blown: Car | null = null;
@@ -1123,6 +1125,26 @@ export class Game {
     return p;
   }
 
+  /**
+   * Whether a vehicle on rails and one on the road pass each other at different heights, one on a
+   * bridge over the other: then they neither meet nor wait for each other. The game has no heights for
+   * them, and a train under North Bridge in Edinburgh ran through the cars on it (25 November); every
+   * railway under a road bridge did the same. Two on rails, or two on the road, meet as before.
+   */
+  private apart(p: Car, q: Car): boolean {
+    const rail = p.onRails ? p : q.onRails ? q : null;
+    const road = rail === p ? q : p;
+    if (!rail || railsOf(road.kind)) return false;
+    const net = this.world.roads;
+    let up = this.bridged.get(road);
+    if (up === undefined) {
+      const n = net.nearest(road.x, road.y, 12, 'drive');
+      up = !!n && net.lines[n.line].bridge;
+      this.bridged.set(road, up);
+    }
+    return (net.lines[rail.rail!.p.line]?.bridge ?? false) !== up;
+  }
+
   /** Work the wheel and pedals of a car towards a point, at up to `limit` m/s. */
   private pilot(c: Car, tx: number, ty: number, limit: number, avoid: boolean, chase: boolean, dt: number): void {
     const vf = c.forward;
@@ -1152,7 +1174,7 @@ export class Game {
       const train = c.kind === 'train';
       // a tram, held on its rails and never giving way, also slows for a car close beside its track
       const wide = c.kind === 'tram' ? c.spec.wid / 2 + 1 : 1.5;
-      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 110 && Math.abs(o.y - c.y) < 110) gapTo(o.x, o.y, o.a + o.r, wide);
+      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 110 && Math.abs(o.y - c.y) < 110 && !this.apart(c, o)) gapTo(o.x, o.y, o.a + o.r, wide);
       if (!train) {
         for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
         if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);
@@ -1671,6 +1693,10 @@ export class Game {
    * stand on such a cut-off street, and a ring is laid anyway, so the game never runs dry.
    */
   private pickupAt(p: PathState, kind?: JobKind): Marker | null {
+    // never where a car can't stand: a street the map has running into a building (North Bridge in
+    // Edinburgh ran into the roof of the station below it)
+    const [x, y] = this.world.roads.point(p.line, p.s);
+    if (!this.world.free(x, y, RING_CLEAR_M)) return null;
     const m = this.newMarker(RING[kind ?? 'plain'], p);
     if (kind) m.kind = kind;
     const [px, py] = this.pos();
@@ -1982,6 +2008,8 @@ export class Game {
       const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
       const to: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
       if (!to) continue;
+      const [tx, ty] = w.roads.point(to.line, to.s);
+      if (!w.free(tx, ty, RING_CLEAR_M)) continue;
       const cand = this.newMarker(DROP, to);
       const f = this.fieldOf(cand);
       const r = f && w.roads.route(f, px, py);
@@ -2228,6 +2256,7 @@ export class Game {
     else if (this.car && !this.sinking) this.steerMine(this.car, input, dt);
     else if (this.car) Object.assign(this.car.controls, { throttle: 0, steer: 0, handbrake: false });
     else if (live) this.walk(input, dt);
+    this.bridged.clear();
     for (const c of this.cars) if (!c.gone && (c.driver === 'ai' || c.driver === 'cop')) this.drive(c, dt);
 
     let fastest = 0;
@@ -2246,6 +2275,7 @@ export class Game {
         for (let j = i + 1; j < this.cars.length; j++) {
           const q = this.cars[j];
           if (q.gone || (p.asleep && q.asleep)) continue;
+          if ((p.onRails || q.onRails) && Math.abs(p.x - q.x) < 80 && Math.abs(p.y - q.y) < 80 && this.apart(p, q)) continue;
           // whose fault a crash is: yours if you were driving into the other car
           const mine = p === this.car ? p : q === this.car ? q : null;
           let closing = 0;

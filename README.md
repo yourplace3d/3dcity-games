@@ -264,7 +264,9 @@ There are no traffic lights or level-crossing barriers, and bus and tram lines a
 the streets and tracks and mostly carry straight on. Where a street or
 path runs through a building (gateways, archways, passages into courtyards, gates in a town wall), a corridor is
 cut through it at ground level: walls either side, the floors above as a roof you pass under, and you are drawn
-over that roof while beneath it (`src/game/passages.ts`).
+over that roof while beneath it (`src/game/passages.ts`). A street bridge high over what the map has under it (North
+Bridge over Waverley station in Edinburgh) cuts that away along its deck, open to the sky, and trains under a road
+bridge pass the cars on it.
 
 `game.auto = true` in the browser console makes the game drive the jobs itself: for tests and for filming.
 

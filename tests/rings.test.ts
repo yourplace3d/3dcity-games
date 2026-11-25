@@ -40,13 +40,13 @@ describe('the rings in the game', () => {
     vi.unstubAllGlobals();
   });
 
-  async function playing(services: Array<{ kind: 'fuel' | 'fire' | 'police'; x: number; y: number }> = []) {
+  async function playing(services: Array<{ kind: 'fuel' | 'fire' | 'police'; x: number; y: number }> = [], free: (x: number, y: number) => boolean = () => true) {
     const w = {
       half: 750,
       model: { group: new Group() },
       roads: new RoadNet([{ kind: 'minor', pts: [[-600, 0], [600, 0]], widthM: 6, bridge: false }], 750),
       proj: { toLocal: (lon: number, lat: number): [number, number] => [lon, lat], toLngLat: (x: number, y: number) => ({ lon: x, lat: y }) },
-      free: () => true,
+      free,
       groundY: () => 0,
       needsRecentre: () => null,
       dispose: vi.fn(),
@@ -87,6 +87,29 @@ describe('the rings in the game', () => {
     // the arrow points to the nearest, in its colour
     expect(['#ff8a1f', '#ff3b30']).toContain(g.hud().target?.colour);
     expect(new Set(g.mapView().pickups.map((p) => p.colour))).toEqual(new Set([RING.supply, RING.rush, RING.clean]));
+  });
+
+  it('never where a building stands across the street: not a package, not a drop-off', async () => {
+    // the map has the street running into a building east of x = 100 (as North Bridge into Waverley station)
+    const { g, inside } = await playing([], (x) => x < 100);
+    g.newRun();
+    const xs: number[] = [];
+    for (let i = 0; i < 400; i++) {
+      inside.jobs(0.1);
+      for (const m of inside.pickups.splice(0)) xs.push((m as unknown as { at: { lon: number } }).at.lon);
+    }
+    expect(xs.length).toBeGreaterThan(10);
+    expect(xs.every((x) => x < 100)).toBe(true);
+    // and the drop-off of a job, the same
+    g.run.over = true;
+    const drops: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      (g as unknown as { take: (m: unknown) => void }).take((g as unknown as { markerAt: (c: string, at: { lon: number; lat: number }) => unknown }).markerAt(RING.plain, { lon: -50, lat: 0 }));
+      if (g.job) drops.push(g.job.to.at.lon);
+      g.job = null;
+    }
+    expect(drops.length).toBeGreaterThan(10);
+    expect(drops.every((x) => x < 100)).toBe(true);
   });
 
   it('a party’s food is pink, as its sign', async () => {

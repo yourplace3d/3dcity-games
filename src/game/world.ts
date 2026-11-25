@@ -6,7 +6,7 @@
 import { CanvasTexture, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three';
 import { pointInRing, ringBounds, type Polygon } from '../geo/polygon';
 import { makeProjector, type LngLat, type Projector } from '../geo/projection';
-import { loadHeightGrid } from '../geo/terrain';
+import { loadHeightGrid, sampleGrid } from '../geo/terrain';
 import { DATA_ZOOM, fetchTiles, parseTiles, tilesForSquare, type LoadedTile } from '../geo/tiles';
 import { CityModel } from '../scene/cityModel';
 import { PALETTE } from '../scene/overlay';
@@ -411,13 +411,14 @@ export class World {
     // a building with no recorded height takes its neighbours', before tall ones are squashed
     const heightCounts = localHeights(data.buildings);
     const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true, id: b.id, realHeight: b.height }));
-    // ways through buildings: the map's "tunnels" that stay at ground level under a building are
-    // kept, and every street or path through a building has a corridor cut out of it at ground level
-    data.features.lines = keepPassages(data.features.lines, buildings);
-    const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe);
-    await breathe();
     // roofs out of the ground and the sea to sea level, before anything is built on it
     calmGround(grid, buildings, data.features.sea);
+    // ways through buildings: the map's "tunnels" that stay at ground level under a building are
+    // kept, and every street or path through a building has a corridor cut out of it at ground level;
+    // a bridge high over the ground there cuts away what it crosses (on the ground as it is laid)
+    data.features.lines = keepPassages(data.features.lines, buildings);
+    const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe, (x, y) => sampleGrid(grid, x, y));
+    await breathe();
     const model = new CityModel(grid, texturePx, '#ffcc00');
     model.setExaggeration(1);
     model.showPin(false);

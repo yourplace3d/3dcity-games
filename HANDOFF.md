@@ -42,6 +42,10 @@ lives.
   owner's next round: home missions flash green (pink only for the party), no train on bits of track
   shorter than 200 m (Shibuya), trams and trains on two bogies so they lie on their rails, and traffic
   keeping to one-way streets (feedback from Dresden).
+- **Bridges over buildings (owner, 25 November, Edinburgh):** North Bridge ran into the roof of Waverley
+  station below it, and the party's food lay on it. Street bridges up in the air now cut what they cross open
+  to the sky, with their pavements; no ring goes where a car can't stand; trains and trams pass under road
+  bridges without meeting the cars on them. Branch `claude/edinburgh-cuttings`, not live: the plan, section 10.
 
 ## Where things stand
 
@@ -339,7 +343,8 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   vector tiles and AWS terrain tiles; the next square loads when you are 450 m from the centre, and everything
   near you is carried over (`Game.swap`). Loading blocks for roughly 130 ms.
 - **Streets connect where they cross**, not only where a map line ends (`RoadNet.cross`). Before this the
-  network was nearly disconnected. Bridges and the roads under them don't meet.
+  network was nearly disconnected. Bridges and the roads under them don't meet, and a train or tram doesn't
+  meet the cars on a road bridge over its track, or under its own bridge (`Game.apart`).
 - **Ways through buildings are cut out** (`passages.ts`, 19 November 2026): passages, gateways, town walls.
   Every street or footpath that goes well into a building (not one that only grazes its front) gets a corridor
   cut out at ground level: walls either side stay solid, the part above starts at 4 m and is a roof you pass
@@ -347,6 +352,9 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   squeezes through). The tiles call `tunnel=building_passage` a tunnel; ground-level "tunnels" (layer 0 or
   none) are kept when at least half of them runs under buildings. Under a roof, a yellow shape draws you on
   top of it. Homes for sale are still chosen from the buildings as before, so owned homes don't change.
+  A street bridge up in the air (the ground under it 3 m or more below the line between its ends) cuts what
+  it crosses open to the sky, with 2 m either side and its pavements (25 November, North Bridge over Waverley
+  station); a footbridge on its own cuts nothing, as walkways from house to house are footbridges too.
 - **Routes** are a shortest-path field per target (`RoadNet.field`, `RoadNet.route`). Drop-offs are only placed
   where a route exists. The distances are a `Float64Array` on purpose: with 32-bit floats the search skipped
   nodes.

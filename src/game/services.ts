@@ -38,6 +38,12 @@ export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rus
 export const RING: Record<JobKind | 'party' | 'home', string> = { plain: '#2bd4e0', supply: '#ff8a1f', rush: '#ff3b30', clean: '#3d74ff', party: '#ff5cb8', home: '#5fd08a' };
 /** Where to deliver: the ring, the arrow and the way there. */
 export const DROP = '#ffd400';
+/**
+ * A ring goes only where a circle this wide is clear of walls and water, about half a car (m): a
+ * street the map has running into a building is no place for one (the party's food in Edinburgh lay
+ * on North Bridge, where it ran into the roof of the station below, 25 November).
+ */
+export const RING_CLEAR_M = 1;
 
 const KIND: Record<string, ServiceKind> = { fuel: 'fuel', fire_station: 'fire', police: 'police' };
 

@@ -12,7 +12,7 @@ import { homeKey } from './game/events';
 import type { Game } from './game/game';
 import { dayOf, type Home } from './game/homes';
 import { foodName, foodPlace, loadParties, narrowWalk, occasion, OCCASIONS, packParty, PARTY_MIN, PARTY_POINTS, pickFood, pointsDue, storeParties, WALK_MAX, type FoodSpot, type SentParty } from './game/party';
-import { serviceIcon } from './game/services';
+import { RING_CLEAR_M, serviceIcon } from './game/services';
 import { POINTS_MAX } from './game/homePoints';
 import type { World } from './game/world';
 import type { RouteField } from './game/roads';
@@ -383,6 +383,9 @@ export class PartyUi {
     const [px, py] = world.proj.toLocal(spot.pick.lon, spot.pick.lat);
     const half = world.half - 10;
     const inside = Math.abs(px) < half && Math.abs(py) < half;
+    // a home's food place kept from before, on a street that runs into a building: this party fetches
+    // from another place (`plan`)
+    if (inside && !world.free(px, py, RING_CLEAR_M)) return null;
     const r = inside ? world.roads.route(f, px, py) : null;
     if (!r) {
       // well inside the part of town loaded now and no road to this door: another door
@@ -421,6 +424,8 @@ export class PartyUi {
       const n = world.roads.nearest(p.x, p.y, 150, 'traffic');
       if (!n) return [];
       const [rx, ry] = world.roads.point(n.line, n.s);
+      // a street the map has running into a building, where no car gets to the food
+      if (!world.free(rx, ry, RING_CLEAR_M)) return [];
       const metres = world.roads.route(f, rx, ry, 0)?.metres;
       if (metres === undefined || !Number.isFinite(metres)) return [];
       return [{ metres, invented: !!p.invented, food: p.food, shop: world.proj.toLngLat(p.x, p.y), pick: world.proj.toLngLat(rx, ry) }];
@@ -434,6 +439,7 @@ export class PartyUi {
         const at = world.roads.randomPlace('traffic', dx, dy, i < 8 ? 500 : 250, i < 8 ? 1000 : 1400);
         if (!at) continue;
         const [rx, ry] = world.roads.point(at.line, at.s);
+        if (!world.free(rx, ry, RING_CLEAR_M)) continue;
         const metres = world.roads.route(f, rx, ry, 0)?.metres;
         if (metres === undefined || !Number.isFinite(metres) || metres > MADE_UP_FAR) continue;
         const [hx, hy] = world.roads.heading(at);

@@ -18,8 +18,10 @@
 
 /** the button hidden in this browser (`?try=noradio`) */
 const HIDDEN = '3da-no-radio';
-/** where the trial was switched on, before it was for everyone: no longer read */
+/** where the trial was switched on, before it was for everyone: read once more, and gone */
 const TRIAL = '3da-radio';
+/** the radio is for everyone in this browser: what the trial left has been looked at */
+const FOR_ALL = '3da-radio-for-all';
 /** whether the radio was left switched on: it then plays again in the next car, on the next visit too */
 const LEFT_ON = '3da-radio-on';
 /**
@@ -47,7 +49,13 @@ export function radioOn(): boolean {
     const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
     if (tries.includes('radio')) localStorage.removeItem(HIDDEN);
     if (tries.includes('noradio')) localStorage.setItem(HIDDEN, '1');
-    localStorage.removeItem(TRIAL);
+    // once, from the trial: left switched on only where the trial still was. One switched on in the trial
+    // and left with ?try=noradio would otherwise come on by itself, unasked
+    if (!localStorage.getItem(FOR_ALL)) {
+      if (localStorage.getItem(TRIAL) !== '1') localStorage.removeItem(LEFT_ON);
+      localStorage.removeItem(TRIAL);
+      localStorage.setItem(FOR_ALL, '1');
+    }
     return localStorage.getItem(HIDDEN) !== '1';
   } catch {
     // no storage (a private window): the button shows, and still plays nothing until tapped
@@ -144,10 +152,10 @@ export function wireRadio(
     }
   };
 
-  const show = (text: string): void => {
+  /** `playing`: a station is on, and next › goes to another; not while looking or waiting for a car */
+  const show = (text: string, playing = false): void => {
     nameEl.textContent = text;
-    // another station only while one plays: not while the radio waits for you to get into a car
-    nextEl.hidden = waiting || stations.length < 2;
+    nextEl.hidden = !playing || stations.length < 2;
     bar.hidden = !on;
     button.classList.toggle('on', on);
     document.body.classList.toggle('radio-on', on);
@@ -184,7 +192,7 @@ export function wireRadio(
       return;
     }
     const s = stations[at % stations.length];
-    show(label());
+    show(label(), true);
     audio.src = s.url;
     void audio.play().catch(() => undefined);
     // a station that stays silent is skipped

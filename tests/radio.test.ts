@@ -18,6 +18,7 @@ class AudioStub extends EventTarget {
 }
 let audio: AudioStub;
 let button: Element;
+let nextButton: Element;
 let doc: EventTarget & { hidden: boolean };
 let inCar: boolean;
 let say = vi.fn<(text: string, kind?: 'good' | 'bad' | 'info') => void>();
@@ -39,6 +40,7 @@ beforeEach(() => {
   button = Object.assign(new Element(), { hidden: true });
   const name = new Element();
   const next = new Element();
+  nextButton = next;
   const bar = Object.assign(new Element(), { querySelector: (selector: string) => selector === '.name' ? name : next });
   doc = Object.assign(new EventTarget(), { hidden: false, body: new Element(), createElement: () => ({ canPlayType: () => '' }) });
   const data = new Map<string, string>();
@@ -78,6 +80,27 @@ describe('the radio’s button', () => {
     expect(radioOn()).toBe(true);
   });
 
+  it('comes on by itself only where the trial had it on: not after the trial was left with ?try=noradio', () => {
+    // switched on in the trial, then the trial left: the setting to play stayed behind
+    const left = new Map([['3da-radio-on', '1']]);
+    vi.stubGlobal('localStorage', storage(left));
+    radioOn();
+    expect(left.has('3da-radio-on')).toBe(false);
+    // still in the trial, switched on: it stays on
+    const kept = new Map([['3da-radio', '1'], ['3da-radio-on', '1']]);
+    vi.stubGlobal('localStorage', storage(kept));
+    radioOn();
+    expect(kept.get('3da-radio-on')).toBe('1');
+    expect(kept.has('3da-radio')).toBe(false);
+    // and once switched on for everyone, it is remembered from visit to visit
+    const later = new Map<string, string>();
+    vi.stubGlobal('localStorage', storage(later));
+    radioOn();
+    later.set('3da-radio-on', '1');
+    radioOn();
+    expect(later.get('3da-radio-on')).toBe('1');
+  });
+
   it('shows where there is no storage, as in a private window', () => {
     vi.stubGlobal('localStorage', { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } });
     expect(radioOn()).toBe(true);
@@ -97,6 +120,19 @@ describe('car radio lifecycle', () => {
     inCar = true;
     await vi.advanceTimersByTimeAsync(400);
     expect(audio.src).toBe('https://radio.test/old/1');
+  });
+
+  it('offers next › only while a station plays: not while it looks for stations or waits for a car', async () => {
+    const pending = deferred();
+    fetchMock.mockReturnValueOnce(pending.promise);
+    click();
+    expect(nextButton.hidden).toBe(true);
+    pending.resolve(reply('town'));
+    await settle();
+    expect(nextButton.hidden).toBe(false);
+    inCar = false;
+    await vi.advanceTimersByTimeAsync(400);
+    expect(nextButton.hidden).toBe(true);
   });
 
   it('ignores the old station list after switching off and on again', async () => {

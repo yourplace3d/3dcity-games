@@ -673,3 +673,10 @@ Checked in the browser with a stand-in for the directory and the stations (this 
 neither): nothing is asked of anyone before FM is tapped; then a station plays and its name shows, next ›
 moves on, and out of the car the bar says the radio plays in a car. Tests: `tests/radio.test.ts`,
 `tests/clearOf.test.ts`.
+
+**Code review:** six findings, fixed: a for-sale panel that scrolls on a low screen jumped back to its top
+four times a second; beside the little map it stayed put on a narrow screen (centred by the style sheet);
+someone who had switched the radio on in the trial and left the trial with `?try=noradio` would have had it
+come on by itself (only where the trial was still on does it now stay on); next › while looking for stations;
+the bar and panel shown a moment in the old place (now placed as soon as they change); the work done four
+times a second while nothing shows.

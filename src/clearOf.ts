@@ -5,7 +5,7 @@
  * radio's bar lay over the little map, on an iPad it hid the panel's top line, and with the little map
  * in the top right corner the panel hid all of it (seen on the owner's iPad).
  *
- * Here, a few times a second, the bar and the panel are moved where they would meet something: the
+ * Here, whenever one of them changes, the bar and the panel are moved where they would meet something: the
  * bar below the little map; the panel below the bar, and beside the little map where there is room,
  * else below it. Where nothing is met they stay where the style sheet puts them.
  */
@@ -50,30 +50,58 @@ export function clearOf(map: Box | null, bar: Box | null, panel: Box | null): { 
   return { bar: b, panel: p };
 }
 
-/** Keep the bar and the panel clear of the little map and of each other, a few times a second. */
+/** Keep the bar and the panel clear of the little map and of each other, whenever any of them changes. */
 export function keepClear(bar: HTMLElement, panel: HTMLElement, map: HTMLElement): void {
   const box = (el: HTMLElement): Box | null => {
     if (el.hidden || !el.offsetParent) return null;
     const r = el.getBoundingClientRect();
     return r.width && r.height ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
   };
+  // the panel's whole height, scrolled or not: its max-height is left alone, so where it scrolls to stays
+  const whole = (b: Box | null): Box | null => (b ? { ...b, bottom: b.top + panel.scrollHeight + (panel.offsetHeight - panel.clientHeight) } : null);
+  let moved = false;
   const place = (): void => {
+    if (bar.hidden && panel.hidden && !moved) return;
     // where the style sheet puts them, then moved from there
     for (const el of [bar, panel]) {
       el.style.top = '';
       el.style.right = '';
     }
-    panel.style.maxHeight = '';
-    const was = { bar: box(bar), panel: box(panel) };
+    panel.style.left = '';
+    panel.style.transform = '';
+    const was = { bar: box(bar), panel: whole(box(panel)) };
     const { bar: b, panel: p } = clearOf(box(map), was.bar, was.panel);
-    if (b && was.bar && b.top !== was.bar.top) bar.style.top = `${Math.round(b.top)}px`;
+    moved = false;
+    if (b && was.bar && b.top !== was.bar.top) {
+      bar.style.top = `${Math.round(b.top)}px`;
+      moved = true;
+    }
     if (p && was.panel) {
       if (p.top !== was.panel.top) panel.style.top = `${Math.round(p.top)}px`;
-      if (p.right !== was.panel.right) panel.style.right = `${Math.round(innerWidth - p.right)}px`;
-      // moved down on a low screen (a phone on its side): it scrolls rather than run off the bottom
-      if (p.bottom > innerHeight - EDGE) panel.style.maxHeight = `${Math.max(120, Math.round(innerHeight - EDGE - p.top))}px`;
+      // beside the little map: put by its left edge, as on a phone the style sheet centres it
+      if (p.right !== was.panel.right) {
+        panel.style.left = `${Math.round(p.left)}px`;
+        panel.style.right = 'auto';
+        panel.style.transform = 'none';
+      }
+      // on a low screen (a phone on its side) it scrolls rather than run off the bottom
+      panel.style.maxHeight = p.bottom > innerHeight - EDGE ? `${Math.max(120, Math.round(innerHeight - EDGE - p.top))}px` : '';
+      moved = true;
     }
   };
-  setInterval(place, 250);
-  addEventListener('resize', place);
+  // once a frame at most, when the bar, the panel, the little map or the screen changes
+  let asked = 0;
+  const soon = (): void => {
+    if (!asked) asked = requestAnimationFrame(() => {
+      asked = 0;
+      place();
+    });
+  };
+  const watch = new MutationObserver(soon);
+  for (const el of [bar, panel]) watch.observe(el, { attributes: true, attributeFilter: ['hidden'], childList: true, subtree: true, characterData: true });
+  watch.observe(map, { attributes: true, attributeFilter: ['data-corner', 'style', 'hidden'] });
+  watch.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  addEventListener('resize', soon);
+  // and now and then, for what moves the little map otherwise (the screen turned, the toolbar of a phone's browser)
+  setInterval(soon, 1000);
 }

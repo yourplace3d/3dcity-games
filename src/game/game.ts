@@ -1138,10 +1138,15 @@ export class Game {
     const road = rail === p ? q : p;
     if (!rail || railsOf(road.kind)) return false;
     const [x, y] = at ?? [road.x, road.y];
-    const key = `${Math.round(x)},${Math.round(y)}`;
+    return this.passesAt(x, y, 'drive');
+  }
+
+  /** `RoadNet.crossesApart` for a car (`drive`) or someone on foot (`walk`), by the metre, once a frame. */
+  private passesAt(x: number, y: number, on: 'drive' | 'walk'): boolean {
+    const key = `${on}${Math.round(x)},${Math.round(y)}`;
     let apart = this.bridged.get(key);
     if (apart === undefined) {
-      apart = this.world.roads.crossesApart(x, y);
+      apart = this.world.roads.crossesApart(x, y, on);
       this.bridged.set(key, apart);
     }
     return apart;
@@ -1184,8 +1189,9 @@ export class Game {
         gapTo(o.x, o.y, o.a + o.r, wide);
       }
       if (!train) {
-        for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
-        if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);
+        const apart = (o: { x: number; y: number }) => c.onRails && Math.abs(o.x - c.x) < 60 && Math.abs(o.y - c.y) < 60 && this.passesAt(o.x, o.y, 'walk');
+        for (const o of this.people) if (o.state !== 'down' && !apart(o)) gapTo(o.x, o.y, 0.4, 1.4);
+        if (!this.car && c !== this.car && !apart(this.me)) gapTo(this.me.x, this.me.y, 0.4, 1.4);
       }
     }
     c.pushy = Math.max(0, c.pushy - dt);
@@ -1368,7 +1374,10 @@ export class Game {
         }
         return null;
       };
+      // a train or tram doesn't touch whoever is on a bridge over its track, or under its bridge
+      const apart = (o: { x: number; y: number }) => c.onRails && Math.abs(o.x - c.x) <= reach && Math.abs(o.y - c.y) <= reach && this.passesAt(o.x, o.y, 'walk');
       for (const p of this.people) {
+        if (apart(p)) continue;
         const n = touch(p, 0.35);
         if (!n || p.state === 'down') continue;
         const closing = c.vx * n[0] + c.vy * n[1];
@@ -1380,7 +1389,7 @@ export class Game {
           if (c === this.car) this.offence(1, 'You knocked someone over');
         }
       }
-      if (!this.car && this.frozen <= 0) {
+      if (!this.car && this.frozen <= 0 && !apart(this.me)) {
         const n = touch(this.me, 0.4);
         if (n) {
           const closing = c.vx * n[0] + c.vy * n[1];
@@ -1702,13 +1711,10 @@ export class Game {
    */
   private pickupAt(at: PathState, kind?: JobKind): Marker | null {
     // never where a car can't stand: a street the map has running into a building (North Bridge in
-    // Edinburgh ran into the roof of the station below it); a step along it, where that is near. After
-    // many tries with nowhere, it goes where asked all the same, so the game never runs dry
-    const p = this.standOn(at) ?? (this.noWay >= 40 ? at : null);
-    if (!p) {
-      this.noWay++;
-      return null;
-    }
+    // Edinburgh ran into the roof of the station below it); a step along it, where that is near. None
+    // within 24 m either way is rare enough that another place, or another station, gives the package
+    const p = this.standOn(at);
+    if (!p) return null;
     const m = this.newMarker(RING[kind ?? 'plain'], p);
     if (kind) m.kind = kind;
     const [px, py] = this.pos();
@@ -2267,6 +2273,7 @@ export class Game {
     }
     for (const tick of this.ticks) tick(dt);
     const w = this.world;
+    this.bridged.clear();
     this.clock += dt;
     if (this.frozen > 0) this.frozen -= dt;
     const live = this.frozen <= 0;
@@ -2275,7 +2282,6 @@ export class Game {
     else if (this.car && !this.sinking) this.steerMine(this.car, input, dt);
     else if (this.car) Object.assign(this.car.controls, { throttle: 0, steer: 0, handbrake: false });
     else if (live) this.walk(input, dt);
-    this.bridged.clear();
     for (const c of this.cars) if (!c.gone && (c.driver === 'ai' || c.driver === 'cop')) this.drive(c, dt);
 
     let fastest = 0;

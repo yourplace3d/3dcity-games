@@ -418,7 +418,7 @@ export class World {
     // kept, and every street or path through a building has a corridor cut out of it at ground level;
     // a bridge high over the ground there cuts away what it crosses (on the ground as it is laid)
     data.features.lines = keepPassages(data.features.lines, buildings);
-    const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe, (x, y) => sampleGrid(grid, x, y));
+    const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe, (x, y) => sampleGrid(grid, x, y), AREA_SIZE_M / 2);
     await breathe();
     const model = new CityModel(grid, texturePx, '#ffcc00');
     model.setExaggeration(1);

@@ -210,6 +210,24 @@ describe('bridges over buildings', () => {
     expect(opened.size).toBe(0);
   });
 
+  it('takes a bridge leaving the part of town loaded as going on, not as ending on the ground there', () => {
+    // the edge of the square loaded cuts the bridge over the valley; a shed stands at the cut end
+    const ground = (_x: number, y: number) => (y < -40 ? 40 : 33);
+    const shed = { ...box(-20, 45, 20, 65, 4), id: 'shed' };
+    const bridge = line('primary', [[0, -50], [0, 59.5]], { bridge: true, widthM: 11 });
+    expect(carvePassages([shed], [bridge], ground, 60).opened.has(0)).toBe(true);
+    // taken as ending on the ground in the valley, at the shed, it did not open it
+    expect(carvePassages([shed], [bridge], ground).opened.size).toBe(0);
+  });
+
+  it('takes a pavement that ends on its street’s bridge as high as the street', () => {
+    // a pavement off the deck and back onto it, all over the station
+    const lines = [line('primary', [[0, -50], [0, 50]], { bridge: true, widthM: 11 }), line('path', [[0, -20], [9, -16], [9, 16], [0, 20]], { bridge: true })];
+    const { shapes } = carvePassages([station()], lines, valley);
+    expect(shapes.every((b) => b.minHeight === 0)).toBe(true);
+    expect(clear(new Solids(shapes), [9, -15], [9, 15], 0.4)).toBe(true);
+  });
+
   it('takes the roof off a passage where a bridge runs over it', () => {
     // a street goes through the station under its roof, and a bridge crosses the same stretch
     const lines = [line('service', [[-50, 0], [50, 0]]), line('minor', [[0, -50], [0, 50]], { bridge: true, widthM: 8 })];

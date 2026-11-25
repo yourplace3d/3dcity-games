@@ -296,10 +296,14 @@ export function keepPassages(lines: LineFeature[], buildings: CarvableBuilding[]
   });
 }
 
-/** What is cut out of one building: corridors under a roof, and the way under a bridge, open to the sky. */
+/**
+ * What is cut out of one building: corridors under a roof, the way under a bridge, open to the sky, and
+ * the way of a bridge through a building that rises far above it, under a roof (`under`).
+ */
 interface Cut {
   roofed: Geom[];
   open: Geom[];
+  under: Geom[];
 }
 
 /** A bridge, as far as the game can tell how high it is. */
@@ -326,7 +330,7 @@ const JOIN_M = 1;
  * bridge meets the ground, the nearer such end counting more: between two ends, along the straight
  * line from one to the other.
  */
-function wholeBridges(lines: LineFeature[], ground: GroundAt): Deck[] {
+function wholeBridges(lines: LineFeature[], ground: GroundAt, half = Infinity, rest: LineFeature[] = []): Deck[] {
   const parent = lines.map((_, i) => i);
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
   const endsOf = (l: LineFeature): [Pt, Pt] => [l.pts[0], l.pts[l.pts.length - 1]];
@@ -355,18 +359,21 @@ function wholeBridges(lines: LineFeature[], ground: GroundAt): Deck[] {
           }
     }),
   );
-  // a piece that ends on another one partway along it, as a slip road joining a bridge in the air
+  // a piece that ends on another one partway along it, as a slip road joining a bridge in the air; or on
+  // one of `rest`, as a stair from a pavement up onto its street's bridge
   const boxes = lines.map((l) => ringBounds(l.pts));
+  const restBoxes = rest.map((l) => ringBounds(l.pts));
+  const touches = (p: Pt, box: [number, number, number, number], pts: Pt[]) => p[0] >= box[0] - JOIN_M && p[0] <= box[2] + JOIN_M && p[1] >= box[1] - JOIN_M && p[1] <= box[3] + JOIN_M && distTo(p, pts) <= JOIN_M;
   lines.forEach((l, i) =>
     endsOf(l).forEach((p, e) => {
-      if (joined[i][e]) return;
+      // where a bridge leaves the part of town loaded, it goes on beyond: not an end on the ground
+      if (Math.abs(p[0]) > half - JOIN_M * 2 || Math.abs(p[1]) > half - JOIN_M * 2) joined[i][e] = true;
       for (let j = 0; j < lines.length && !joined[i][e]; j++) {
-        const [x0, y0, x1, y1] = boxes[j];
-        if (j === i || p[0] < x0 - JOIN_M || p[0] > x1 + JOIN_M || p[1] < y0 - JOIN_M || p[1] > y1 + JOIN_M) continue;
-        if (distTo(p, lines[j].pts) > JOIN_M) continue;
+        if (j === i || !touches(p, boxes[j], lines[j].pts)) continue;
         joined[i][e] = true;
         parent[find(i)] = find(j);
       }
+      for (let j = 0; j < rest.length && !joined[i][e]; j++) if (touches(p, restBoxes[j], rest[j].pts)) joined[i][e] = true;
     }),
   );
   const feet = new Map<number, Array<{ p: Pt; h: number }>>();
@@ -454,7 +461,7 @@ function besideDeck(walk: Deck, decks: Array<{ deck: Deck; box: [number, number,
  * Hong Kong are footpath bridges too, and in Hong Kong, on the slopes, some lie 4 m over the line
  * between their ends: they would cut towers of 60 m open to the sky.
  */
-function* cutsInSteps(buildings: CarvableBuilding[], lines: LineFeature[], ground?: GroundAt): Generator<void, Map<number, Cut>> {
+function* cutsInSteps(buildings: CarvableBuilding[], lines: LineFeature[], ground?: GroundAt, half = Infinity): Generator<void, Map<number, Cut>> {
   const near = index(buildings);
   const cuts = new Map<number, Cut>();
   const cutRuns = (l: LineFeature, open: Deck | null, only?: Set<number>): Set<number> => {
@@ -466,16 +473,17 @@ function* cutsInSteps(buildings: CarvableBuilding[], lines: LineFeature[], groun
       for (const r of runs) {
         if (!goesThrough(r)) continue;
         if (open && !bridgeOpens(open, r, ground!)) continue;
+        // a building standing far above the deck rises up through it, as the towers of Tower Bridge: the
+        // bridge goes through it under a roof, as a street through a house
+        const sky = !!open && b.height <= Math.max(0, riseOver(open, r.s0, r.s1, ground!)) + TOWER_M;
         // a little past the walls on both sides, so the opening is clean
-        const part = slice(l.pts, r.s0 - STEP - 1, r.s1 + STEP + 1, !!open);
+        const part = slice(l.pts, r.s0 - STEP - 1, r.s1 + STEP + 1, sky);
         if (part.length < 2) continue;
-        const cut = cuts.get(i) ?? { roofed: [], open: [] };
+        const cut = cuts.get(i) ?? { roofed: [], open: [], under: [] };
         // under a bridge, its whole deck: a strip of the building left standing between a street and
-        // its pavement, a line of its own, was a wall along the bridge. A building standing far above
-        // the deck rises up through it, as the towers of Tower Bridge: the bridge goes through it under
-        // a roof, as a street through a house
-        if (open && b.height <= Math.max(0, riseOver(open, r.s0, r.s1, ground!)) + TOWER_M) cut.open.push(...band(part, w + 2 * DECK_SIDE_M));
-        else cut.roofed.push(...band(part, w));
+        // its pavement, a line of its own, was a wall along the bridge
+        if (sky) cut.open.push(...band(part, w + 2 * DECK_SIDE_M));
+        else (open ? cut.under : cut.roofed).push(...band(part, w));
         cuts.set(i, cut);
         opened.add(i);
       }
@@ -488,7 +496,7 @@ function* cutsInSteps(buildings: CarvableBuilding[], lines: LineFeature[], groun
   const streets = lines.filter((l) => OPENS.has(l.kind) && l.kind !== 'path' && l.bridge && l.pts.length >= 2);
   const up: Array<{ deck: Deck; box: [number, number, number, number] }> = [];
   const underStreets = new Set<number>();
-  const decks = wholeBridges(streets, ground);
+  const decks = wholeBridges(streets, ground, half);
   // a whole bridge is up in the air if it is anywhere, though not every piece of it is
   const high = new Set(decks.filter((d) => overGround(d, 0, d.len, ground)).map((d) => d.whole));
   decks.forEach((deck, k) => {
@@ -501,16 +509,28 @@ function* cutsInSteps(buildings: CarvableBuilding[], lines: LineFeature[], groun
   yield;
   if (up.length) {
     const walks = lines.filter((l) => l.kind === 'path' && l.bridge && l.pts.length >= 2);
-    wholeBridges(walks, ground).forEach((walk, k) => {
-      if (besideDeck(walk, up)) cutRuns(walks[k], walk, underStreets);
+    wholeBridges(walks, ground, half, streets).forEach((walk, k) => {
+      if (!besideDeck(walk, up)) return;
+      // a pavement lies on its street's deck: as high as the street beside it
+      const deckAt = (p: Pt) => {
+        let best = up[0].deck;
+        let bd = Infinity;
+        for (const { deck, box } of up) {
+          if (p[0] < box[0] || p[0] > box[2] || p[1] < box[1] || p[1] > box[3]) continue;
+          const d = distTo(p, deck.pts);
+          if (d < bd) [best, bd] = [deck, d];
+        }
+        return best.deckAt(p);
+      };
+      cutRuns(walks[k], { ...walk, deckAt }, underStreets);
     });
   }
   return cuts;
 }
 
 /** `cutsInSteps` in one go. */
-function findCuts(buildings: CarvableBuilding[], lines: LineFeature[], ground?: GroundAt): Map<number, Cut> {
-  const steps = cutsInSteps(buildings, lines, ground);
+function findCuts(buildings: CarvableBuilding[], lines: LineFeature[], ground?: GroundAt, half = Infinity): Map<number, Cut> {
+  const steps = cutsInSteps(buildings, lines, ground, half);
   let r = steps.next();
   while (!r.done) r = steps.next();
   return r.value;
@@ -523,11 +543,11 @@ const unite = (geoms: Geom[]): MultiPolygon => polygonClipping.union(geoms[0], .
  * can't be cut. Where the clipper rejects the cut under a bridge, the passages are cut as before.
  */
 function cutOne<B extends CarvableBuilding>(b: B, cut: Cut): B[] | null {
-  const pieces = cutAll(b, cut);
-  return pieces || !cut.open.length || !cut.roofed.length ? pieces : cutAll(b, { roofed: cut.roofed, open: [] });
+  const pieces = cutAll(b, { roofed: [...cut.roofed, ...cut.under], open: cut.open });
+  return pieces || (!cut.open.length && !cut.under.length) || !cut.roofed.length ? pieces : cutAll(b, { roofed: cut.roofed, open: [] });
 }
 
-function cutAll<B extends CarvableBuilding>(b: B, cut: Cut): B[] | null {
+function cutAll<B extends CarvableBuilding>(b: B, cut: Pick<Cut, 'roofed' | 'open'>): B[] | null {
   let walls: Polygon[];
   let roof: Polygon[];
   try {
@@ -552,10 +572,11 @@ function cutAll<B extends CarvableBuilding>(b: B, cut: Cut): B[] | null {
  * it was; one with a passage comes back as pieces with the same other fields: the solid parts, and
  * the part over the passage raised to start at `PASSAGE_CLEAR_M`. `opened` lists the buildings cut.
  * With `ground`, a bridge up in the air cuts away what it crosses; without it bridges cut nothing.
+ * `half`: half the size of the square loaded, where bridges leave it.
  * With `breathe`, the cutting stops for a frame now and then, so the game doesn't freeze.
  */
-export function carvePassages<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[], ground?: GroundAt): { shapes: B[]; opened: Set<number> } {
-  const cuts = findCuts(buildings, lines, ground);
+export function carvePassages<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[], ground?: GroundAt, half = Infinity): { shapes: B[]; opened: Set<number> } {
+  const cuts = findCuts(buildings, lines, ground, half);
   const opened = new Set<number>();
   const shapes: B[] = [];
   buildings.forEach((b, i) => {
@@ -568,8 +589,8 @@ export function carvePassages<B extends CarvableBuilding>(buildings: B[], lines:
 }
 
 /** As `carvePassages`, a frame at a time: cutting a few dozen outlines takes some tens of milliseconds. */
-export async function carvePassagesInSteps<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[], breathe: () => Promise<void>, ground?: GroundAt): Promise<{ shapes: B[]; opened: Set<number> }> {
-  const steps = cutsInSteps(buildings, lines, ground);
+export async function carvePassagesInSteps<B extends CarvableBuilding>(buildings: B[], lines: LineFeature[], breathe: () => Promise<void>, ground?: GroundAt, half = Infinity): Promise<{ shapes: B[]; opened: Set<number> }> {
+  const steps = cutsInSteps(buildings, lines, ground, half);
   let step = steps.next();
   while (!step.done) {
     await breathe();

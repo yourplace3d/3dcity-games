@@ -16,7 +16,7 @@ const TRAFFIC = new Set<LineKind>(['motorway', 'primary', 'secondary', 'tertiary
 export const SPEED_LIMIT: Record<string, number> = { motorway: 21, primary: 14, secondary: 12.5, tertiary: 11, minor: 8.5, service: 5 };
 
 const CELL = 32;
-/** how far from a track's middle a car touches a train or tram on it (m): half a train, half a car's length */
+/** how far across from a track's middle a car touches a train or tram on it (m): half a train's width, and half a car's length */
 const RAIL_REACH_M = 6;
 /** Line ends this close to another line are joined to it (m). */
 const JOIN_M = 2.5;
@@ -507,13 +507,14 @@ export class RoadNet {
    * here without meeting. Only where every track and every street near the point say the same: under a
    * road on stilts that follows a street with trams in it, the street and the stilts both lie under the
    * tram, and it meets the cars as before; and only where they cross, not where they run side by side.
+   * `on`: the ways a car takes (`drive`), or those someone on foot does (`walk`: a bridge's pavements too).
    */
-  crossesApart(x: number, y: number): boolean {
+  crossesApart(x: number, y: number, on: 'drive' | 'walk' = 'drive'): boolean {
     const near = new Map<number, { d: number; hx: number; hy: number }>();
     // as far as a car on the outer lane of the widest street is from its middle
     this.each(x, y, 20, (line, i) => {
       const l = this.lines[line];
-      if (!l.drive && !l.tram && !l.train) return;
+      if (!l[on] && !l.tram && !l.train) return;
       const n = this.project(line, i, x, y);
       const had = near.get(line);
       if (had && had.d <= n.d) return;
@@ -528,7 +529,7 @@ export class RoadNet {
       const l = this.lines[line];
       // a car touches a train whose middle is this near it; a car is on a street this near its middle
       if ((l.tram || l.train) && n.d <= RAIL_REACH_M) rails.push({ up: l.bridge, ...n });
-      else if (l.drive && n.d <= l.w / 2 + 1.5) streets.push({ up: l.bridge, ...n });
+      else if (l[on] && n.d <= l.w / 2 + 1.5) streets.push({ up: l.bridge, ...n });
     }
     if (!rails.length || !streets.length) return false;
     const railUp = rails[0].up;

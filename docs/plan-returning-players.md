@@ -610,7 +610,7 @@ was picked up on the bridge, 30 m in.
   towers open. Where a bridge ends inside a building it must be up in the air in there itself. Compared with
   `main`, building by building: Minneapolis, Calgary, London, Paris and Lisbon unchanged; Edinburgh the
   station and the two buildings under the bridge; Shibuya four, where the expressway crosses railway buildings
-  over Route 246; Genoa three small ones in the way of the elevated road; Hong Kong two, a slab across a main
+  over Route 246; Genoa three small ones in the way of the elevated road; Hong Kong three, a slab across a main
   road under a flyover among them. Now a car and a walker get
   along all of North Bridge and both its pavements.
 - **No ring where a car can't stand:** run packages, station jobs, drop-offs (a mission's too) and the party's
@@ -618,8 +618,8 @@ was picked up on the bridge, 30 m in.
   a station's spot against its kiosk still has its package. A home's food place kept from before that turns out
   to lie in a building: that party fetches from another place, and the home keeps its own. Replayed runs and
   parties from a link keep the sender's places.
-- **Trains and trams pass under a road bridge,** or over a street on theirs, without meeting the cars there, and
-  don't wait for them; at a level crossing they meet as before. The game has no heights for vehicles: on
+- **Trains and trams pass under a road bridge,** or over a street on theirs, without meeting the cars or the
+  people there, and don't wait for them; at a level crossing they meet as before. The game has no heights for vehicles: on
   `main` a train under North Bridge carried a car stopped on it 273 m along the tracks. Told from the tracks
   and streets where they meet: only where every track there is on one level, every street on the other, and
   they cross rather than run side by side (a tram in a street under a road on stilts meets the cars as before). In Dresden, three runs
@@ -636,3 +636,7 @@ A second review: seven findings, fixed but for one left as it is (a run sent by 
 places, so that runs compare): towers far above a bridge, a side bridge joining in the air, a bridge drawn as
 a ring, a dense old town with no place for a ring (after many tries one goes where asked, as before), wide
 bridges, and pauses while the bridges are worked out.
+A third review: seven findings, fixed: a ring in a building after many tries (the fallback is gone: a station
+with nowhere to stand within 24 m gives no package, as others do), a bridge's roofed way through a tower
+keeping a building's own passages from being cut, bridges leaving the square loaded, pavements as high as
+their street, people on a bridge over the tracks, the frame's cache, a comment.

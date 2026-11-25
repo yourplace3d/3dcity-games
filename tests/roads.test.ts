@@ -104,3 +104,30 @@ describe('railway for trains', () => {
     expect(corner.lines.map((l) => l.short)).toEqual([false, false]);
   });
 });
+
+describe('tracks and streets at different heights', () => {
+  // the station's tracks on the ground; North Bridge over them, with its pavement; a street crossing them on the level further on
+  const net = new RoadNet([
+    { kind: 'rail', pts: [[-300, 0], [300, 0]], widthM: 3, bridge: false },
+    { kind: 'primary', pts: [[0, -100], [0, 100]], widthM: 11, bridge: true },
+    { kind: 'path', pts: [[9, -100], [9, 100]], widthM: 1.8, bridge: true },
+    { kind: 'minor', pts: [[150, -100], [150, 100]], widthM: 6, bridge: false },
+  ], 750);
+
+  it('a car or someone on foot on the bridge passes over the trains', () => {
+    expect(net.crossesApart(0, 2)).toBe(true);
+    expect(net.crossesApart(9, 1, 'walk')).toBe(true);
+  });
+
+  it('not at a level crossing, and not away from the tracks', () => {
+    expect(net.crossesApart(150, 1)).toBe(false);
+    expect(net.crossesApart(150, 1, 'walk')).toBe(false);
+    expect(net.crossesApart(0, 40)).toBe(false);
+  });
+
+  it('on foot, the pavement counts, which a car does not take', () => {
+    // 9 m from the street's middle: past its lanes, on the pavement
+    expect(net.crossesApart(9, 1)).toBe(false);
+    expect(net.crossesApart(9, 1, 'walk')).toBe(true);
+  });
+});

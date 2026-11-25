@@ -316,7 +316,7 @@ html body.touch #minimap[data-corner='br'] { right: calc(150px + env(safe-area-i
 /* the subway's mark in the legends: the sign's blue disc with a dark rim, like on the maps */
 .dot.sub { border-radius: 50%; background: #1f6fd6; box-shadow: 0 0 0 2px #16181c; }
 
-/* the radio trial: a button left of pause, and a bar with the station's name under the top buttons */
+/* the radio: a button left of the others at the top, and a bar with the station's name under them */
 #btn-radio { pointer-events: auto; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(166px + env(safe-area-inset-right)); color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1.5; padding: 9px 10px; cursor: pointer; letter-spacing: 1px; }
 #btn-radio.on { color: #ffd400; border-color: #ffd400; }
 body.touch #btn-radio { font-size: 15px; padding: 13px 13px; right: calc(196px + env(safe-area-inset-right)); }
@@ -327,6 +327,7 @@ body.touch #btn-radio { font-size: 15px; padding: 13px 13px; right: calc(196px +
 body.touch #radio-bar { top: calc(132px + env(safe-area-inset-top)); font-size: 15px; }
 /* the little map, if it lives top right, makes room for the bar while the radio plays */
 html body.radio-on #minimap[data-corner='tr'] { top: calc(168px + env(safe-area-inset-top)); }
+html body.touch.radio-on #minimap[data-corner='tr'] { top: calc(184px + env(safe-area-inset-top)); }
 #account { margin: 12px 0 2px; }
 #account[hidden] { display: none; }
 #cloud-form { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 4px; }
@@ -342,6 +343,8 @@ html body.radio-on #minimap[data-corner='tr'] { top: calc(168px + env(safe-area-
 #result-home button.buy { justify-self: start; background: var(--green); color: #1c1f24; border-color: transparent; }
 #forsale { pointer-events: auto; right: calc(12px + env(safe-area-inset-right)); top: calc(170px + env(safe-area-inset-top)); width: min(320px, calc(100vw - 32px)); display: grid; gap: 6px; font-size: 14px; line-height: 1.35; }
 #forsale[hidden] { display: none; }
+/* moved down out of the way on a low screen (`clearOf.ts`), it scrolls */
+#forsale { overflow-y: auto; }
 #forsale p { margin: 0; }
 #forsale button { padding: 8px 12px; border-radius: 10px; border: 1px solid transparent; background: var(--green); color: #1c1f24; font-weight: 600; text-align: left; }
 #forsale button + button { background: #30353e; color: var(--ink); border-color: var(--line); }

@@ -37,8 +37,8 @@ lives.
   flashing on a station's ring while a home of yours waits for its package, yellow to deliver; parks and
   gardens drawn with sharp edges by a step in the ground's shader. Branch `claude/ring-colours`, merged by
   pull request #18 and put live on the owner's word ("Yes review and put it live", 24 November) after
-  thirteen code reviews: the plan, section 9. The radio is a trial switched on per browser
-  (`?try=radio`); that is why it plays on the owner's iPad and not on the Mac. On the same branch, from the
+  thirteen code reviews: the plan, section 9. The radio was then a trial switched on per browser
+  (`?try=radio`); that is why it played on the owner's iPad and not on the Mac. On the same branch, from the
   owner's next round: home missions flash green (pink only for the party), no train on bits of track
   shorter than 200 m (Shibuya), trams and trains on two bogies so they lie on their rails, and traffic
   keeping to one-way streets (feedback from Dresden).
@@ -48,6 +48,11 @@ lives.
   without meeting the cars and people on them. Branch `claude/edinburgh-cuttings`, four code reviews, merged
   by pull request #19 and put live on the owner's word ("Put the bridge fix live", 25 November): the plan,
   section 10. Live weather (an idea from GTW, a sandbox on the real Earth) is on hold: the owner's call.
+- **The radio for everyone (owner, 25 November):** "Before putting the live weather in i would put the radio
+  live for everyone." The FM button shows for all, off until tapped; Radio Browser credited on the start
+  screen; `?try=noradio` hides it. Its bar lay over the little map on phones and hid the top of the for-sale
+  panel on the iPad, and the panel hid the little map in the top right corner: now kept clear
+  (`clearOf.ts`). Branch `claude/radio-for-all`, not live: the plan, section 11.
 
 ## Where things stand
 
@@ -262,7 +267,7 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   Built on branch `claude/bank`; live since 18 November 2026. Raised by the owner for later, not built: cash not paid in
   could be lost between visits ("you got to take it there or you will start with zero when you come back").
   Also seen on the owner's iPad: the panel beside a building sits over the minimap and under the radio
-  hint, top right; not changed yet.
+  hint, top right; kept clear since 25 November (`clearOf.ts`).
 - **Flats first, painting, and the first-home mission (owner, 17 November 2026).** Asked for together:
   - *Flats first:* "First you need to buy floors/flats... the further the game the more you can buy houses
     as a whole." A first home is a flat; houses open with the 3rd home (`HOUSES_AFTER`), whole buildings

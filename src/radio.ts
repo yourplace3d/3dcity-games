@@ -1,7 +1,8 @@
 /**
- * A car radio that plays real stations of the town you drive in. A trial: switched on with
- * `?try=radio` in the address and remembered by the browser until `?try=noradio`. Without it
- * there is no button, and nothing here contacts anyone.
+ * A car radio that plays real stations of the town you drive in. For everyone since 25 November
+ * (a trial before, with `?try=radio`): an FM button, off until it is tapped, and until then nothing
+ * here contacts anyone. `?try=noradio` in the address hides the button in that browser, until
+ * `?try=radio`.
  *
  * Which stations there are comes from Radio Browser (radio-browser.info), a directory kept by
  * volunteers: the game asks it for stations near the place, the most listened to first. What is
@@ -15,7 +16,10 @@
  * within a few seconds is skipped.
  */
 
-const KEPT = '3da-radio';
+/** the button hidden in this browser (`?try=noradio`) */
+const HIDDEN = '3da-no-radio';
+/** where the trial was switched on, before it was for everyone: no longer read */
+const TRIAL = '3da-radio';
 /** whether the radio was left switched on: it then plays again in the next car, on the next visit too */
 const LEFT_ON = '3da-radio-on';
 /**
@@ -37,15 +41,17 @@ interface Station {
   url: string;
 }
 
-/** Whether the trial is on in this browser. Reads the address once and remembers. */
+/** Whether the radio's button shows in this browser: yes, unless `?try=noradio` hid it. Reads the address once and remembers. */
 export function radioOn(): boolean {
   try {
     const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
-    if (tries.includes('radio')) localStorage.setItem(KEPT, '1');
-    if (tries.includes('noradio')) localStorage.removeItem(KEPT);
-    return localStorage.getItem(KEPT) === '1';
+    if (tries.includes('radio')) localStorage.removeItem(HIDDEN);
+    if (tries.includes('noradio')) localStorage.setItem(HIDDEN, '1');
+    localStorage.removeItem(TRIAL);
+    return localStorage.getItem(HIDDEN) !== '1';
   } catch {
-    return false;
+    // no storage (a private window): the button shows, and still plays nothing until tapped
+    return true;
   }
 }
 
@@ -140,6 +146,8 @@ export function wireRadio(
 
   const show = (text: string): void => {
     nameEl.textContent = text;
+    // another station only while one plays: not while the radio waits for you to get into a car
+    nextEl.hidden = waiting || stations.length < 2;
     bar.hidden = !on;
     button.classList.toggle('on', on);
     document.body.classList.toggle('radio-on', on);

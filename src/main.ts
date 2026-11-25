@@ -21,6 +21,7 @@ import { drawTrophies, Trophies, type TrophyId } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
 import { wireRadio } from './radio';
+import { keepClear } from './clearOf';
 import { RING, serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
@@ -1677,5 +1678,7 @@ else if (linked) {
   void search(linked);
 }
 
-// a trial (`?try=radio`): a car radio with stations of the town
+// a car radio with stations of the town, for everyone (`?try=noradio` hides it in a browser)
 wireRadio($<HTMLButtonElement>('btn-radio'), $('radio-bar'), () => (game?.world ? game.world.centre : null), () => playing && !!game?.car, toast, () => !!secret);
+// its bar and a building's panel kept clear of the little map and of each other
+keepClear($('radio-bar'), $('forsale'), $('minimap'));

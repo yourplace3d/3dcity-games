@@ -650,3 +650,26 @@ under a bridge. The bridges take 3 to 23 ms of a square's loading (Hong Kong, To
 in steps of their own.
 
 **Going live:** on the owner's word ("Put the bridge fix live", 25 November), by pull request #19.
+
+## 11. The radio for everyone (the owner, 25 November)
+
+"Before putting the live weather in i would put the radio live for everyone." It was a trial, on in a browser
+with `?try=radio`: the owner had it on the iPad, never on the Mac.
+
+- **For everyone:** the FM button shows for all players. Nothing plays and nothing is contacted until it is
+  tapped; then the directory (Radio Browser) and the station are. `?try=noradio` hides the button in a
+  browser, until `?try=radio`; the old trial's setting is no longer read.
+- **Credited** on the start screen, beside OpenStreetMap: "Radio stations found through Radio Browser
+  (radio-browser.info): tapping FM connects to the station you hear." The key there says what FM does.
+- **The top right of the screen kept clear** (`src/clearOf.ts`), measured on an iPad (both ways round), a
+  phone (both ways round) and a computer: on a phone the radio's bar lay over the little map; on an iPad and
+  a phone on its side it hid the top line of a building's for-sale panel; and with the little map in the top
+  right corner, the panel hid it (the owner's iPad). Now, a few times a second, the bar goes under the little
+  map where it would meet it, and the panel under the bar, beside the little map where there is room, else
+  under it, scrolling on a low screen. Where nothing meets they stay where they were.
+- **"next ›"** shows only while a station plays, not while the radio waits for you to get into a car.
+
+Checked in the browser with a stand-in for the directory and the stations (this session's network reaches
+neither): nothing is asked of anyone before FM is tapped; then a station plays and its name shows, next ›
+moves on, and out of the car the bar says the radio plays in a car. Tests: `tests/radio.test.ts`,
+`tests/clearOf.test.ts`.

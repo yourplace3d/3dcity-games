@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { wireRadio } from '../src/radio';
+import { radioOn, wireRadio } from '../src/radio';
 
 class Element extends EventTarget {
   hidden = false;
@@ -35,12 +35,13 @@ function click(): void { button.dispatchEvent(new Event('click')); }
 beforeEach(() => {
   vi.useFakeTimers();
   audio = new AudioStub();
-  button = new Element();
+  // hidden in the page until the radio shows it
+  button = Object.assign(new Element(), { hidden: true });
   const name = new Element();
   const next = new Element();
   const bar = Object.assign(new Element(), { querySelector: (selector: string) => selector === '.name' ? name : next });
   doc = Object.assign(new EventTarget(), { hidden: false, body: new Element(), createElement: () => ({ canPlayType: () => '' }) });
-  const data = new Map([['3da-radio', '1']]);
+  const data = new Map<string, string>();
   vi.stubGlobal('document', doc);
   vi.stubGlobal('location', { search: '' });
   vi.stubGlobal('window', { setTimeout });
@@ -53,6 +54,35 @@ beforeEach(() => {
   wireRadio(button as unknown as HTMLButtonElement, bar as unknown as HTMLElement, () => ({ lat: 52, lon: 13 }), () => inCar, say);
 });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+describe('the radio’s button', () => {
+  const storage = (data: Map<string, string>) => ({ getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value), removeItem: (key: string) => data.delete(key) });
+
+  it('shows for everyone, and nothing is asked of anyone until it is tapped', async () => {
+    expect(button.hidden).toBe(false);
+    await settle();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(audio.play).not.toHaveBeenCalled();
+  });
+
+  it('is hidden in a browser by ?try=noradio, and shows again with ?try=radio', () => {
+    const data = new Map<string, string>();
+    vi.stubGlobal('localStorage', storage(data));
+    vi.stubGlobal('location', { search: '?try=noradio' });
+    expect(radioOn()).toBe(false);
+    vi.stubGlobal('location', { search: '' });
+    expect(radioOn()).toBe(false);
+    vi.stubGlobal('location', { search: '?try=radio' });
+    expect(radioOn()).toBe(true);
+    vi.stubGlobal('location', { search: '' });
+    expect(radioOn()).toBe(true);
+  });
+
+  it('shows where there is no storage, as in a private window', () => {
+    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } });
+    expect(radioOn()).toBe(true);
+  });
+});
 
 describe('car radio lifecycle', () => {
   it('does not start a station after the player exits during the directory request', async () => {

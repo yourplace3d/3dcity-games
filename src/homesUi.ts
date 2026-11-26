@@ -1024,6 +1024,8 @@ export class HomesUi {
       busy: !!game.job || !!game.party || this.rentLine !== null || wantsJob(this.reno),
     };
     if (!eventDue(this.events, n)) return;
+    // one thing at a time in a part of town: the stations' packages go to one home, and a dispute takes only one kind
+    if (this.events.open.some((e) => this.lotOf(this.homeOfEvent(e)))) return;
     const today = dayNumber(Date.now());
     const can = renovationCandidates(this.homes.homes, this.events, today, (h) => !!this.lotOf(h));
     // the tenants' dispute: once the story's chapter 8 has settled one, it comes as an event too
@@ -1066,12 +1068,13 @@ export class HomesUi {
     return (banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '') + (lost > 0 ? ` ${money(lost)} did not fit: your cash and your bank are full.` : '');
   }
 
-  /** A bill: from the cash first, then the bank, never below nothing. Returns what was paid. */
+  /** A bill: from the cash first, then, in the home town, the bank; never below nothing. Returns what was paid. */
   private charge(amount: number): number {
     const game = this.host.game;
     const cash = Math.min(Math.max(0, Math.floor(game.cash)), amount);
     game.cash -= cash;
-    const bank = Math.min(this.saved, amount - cash);
+    // the bank pays only where it can be used: in the home town
+    const bank = this.atPlate ? Math.min(this.saved, amount - cash) : 0;
     if (bank > 0) {
       this.saved -= bank;
       storeSaved(this.saved);
@@ -1152,8 +1155,9 @@ export class HomesUi {
     if (!this.world || !this.host.card || this.host.quiet?.() || this.host.blocked?.()) return false;
     if (game.job || game.party || !game.run.over || this.rentLine !== null || wantsJob(this.reno)) return false;
     if (this.events.open.some((e) => e.kind === 'dispute' && e.chapter) || this.playedS - this.cardAtS < 8) return false;
-    const open = new Set(this.events.open.map((e) => e.home));
-    const here = this.homes.homes.filter((h) => this.lotOf(h) && !open.has(homeKey(h)));
+    // one thing at a time in a part of town: a renovation open here is done first
+    if (this.events.open.some((e) => this.lotOf(this.homeOfEvent(e)))) return false;
+    const here = this.homes.homes.filter((h) => this.lotOf(h));
     const h = here.find((x) => x.kind === 'building') ?? here.find((x) => x.kind === 'house') ?? here[0];
     if (!h) return false;
     this.beginDispute(h, true);
@@ -1306,6 +1310,9 @@ export class HomesUi {
       ...this.events,
       open: this.events.open.filter((o) => o !== e),
       settled: this.events.settled + 1,
+      // the gap before the next dispute there counts from today, and nothing new begins today
+      disputed: { ...this.events.disputed, [key]: today },
+      last: dayOf(Date.now()),
       ...(agreed ? { lower: { ...this.events.lower, [key]: today + LOWER_DAYS } } : {}),
       // the tenants it went well with come to the next party there
       ...(ok && stage !== 'replace' ? { glad: [...this.events.glad.filter((g) => g !== key), key] } : {}),
@@ -1329,7 +1336,15 @@ export class HomesUi {
     const h = e && this.homeOfEvent(e);
     if (!e || !h) return;
     const key = homeKey(h);
-    this.setEvents({ ...this.events, open: this.events.open.filter((o) => o !== e), settled: this.events.settled + 1, moved: { ...this.events.moved, [key]: (this.events.moved[key] ?? 0) + 1 } });
+    this.setEvents({
+      ...this.events,
+      open: this.events.open.filter((o) => o !== e),
+      settled: this.events.settled + 1,
+      moved: { ...this.events.moved, [key]: (this.events.moved[key] ?? 0) + 1 },
+      // the gap before the next dispute there counts from today, and nothing new begins today
+      disputed: { ...this.events.disputed, [key]: dayNumber(Date.now()) },
+      last: dayOf(Date.now()),
+    });
     this.syncSpecial();
     const t = this.tenantsAt(h);
     this.host.people?.note('tenants', this.tenantsFrom(h, t), welcome(), true);

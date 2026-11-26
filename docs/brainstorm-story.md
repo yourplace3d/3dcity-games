@@ -694,3 +694,53 @@ something at stake, such as a chase. Either is fine.
   party from a link is on; the story's lines leave the house button alone; 26 more border towns named right.
 - **Not in step A:** the people's own stories (step C, with the chases and the other towns), the dispute
   (step B), the daily story (step D), "The story so far".
+
+## 16. Step B built (26 November, night; branch `claude/story-brainstorm`, not live)
+
+Chapter 8, **Landlord**, as section 8 and the owner's "4c" describe it, with the court's order. Code:
+`src/game/dispute.ts` (the rules and the words, no screen), the dispute's part of `src/homesUi.ts`, chapter 8
+in `src/game/story.ts` and `src/storyUi.ts`.
+
+- **When:** chapter 8 opens on the day after chapter 7 is done, in the home town. Once its line has been read
+  and nothing else is on (no run, no package, no card), the tenants of a home in the part of town being played
+  stop paying: a whole building first, then a house, then a flat. Away from the home town it waits there.
+- **The note** comes on a card ("A note from your tenants", headed "Chapter 8 of 8 · Landlord") with "Show
+  the way", and is kept with the messages on its green paper. The mood is the one thing left to chance.
+- **The choice** comes on a card when the player stops beside the home: "Insist on all of it", "Accept part of
+  it", or "Not now" (the mission card's new third button: it changes nothing, and the card comes again at the
+  next stop; the home's panel also has "Talk to the tenants"). The card says what each asks and what follows
+  if it goes wrong.
+- **The jobs** use the mission package of the renovations, now limited to one kind of station: only the fire
+  stations' rings flash green for the part, only the pumps' for the load, only the police's for the court's
+  order. The fitting choice: the rush job's clock ×1.4; the load half as heavy (a heavy load is now a number
+  in `Car.heavy`, 0 to 1). A package lost on the way (too late, caught, knocked out) settles the choice the bad
+  way; one put down without anything going wrong (a run started, another place loaded) can be fetched again.
+  "No new dent" is judged on the car the load came on board in: moving it to another car counts as dented.
+- **The outcomes, in numbers** (estimates, to tune from play): insisting in time, all the rent that waited and a
+  quarter of a day's rent as a tip; the court's bill, 5 days' rent, taken from the rent that waited first, then
+  the cash, then the bank (only in the home town, where the bank can be used), never below nothing; accepting part, the rent a fifth lower for the next 7 days; the
+  new boiler, 3 days' rent, taken from what waited. The court's order and the new boiler are tried again until
+  done: nothing escalates twice.
+- **The people:** the tenants are made up per home (ten kinds: a student, a couple with a baby, a retired
+  teacher, a nurse on night shifts, a musician, two flatmates, a bus driver, a cook, a young family, a
+  carpenter), with first names of the home's region that none of the story's people have, and stay until the
+  court's order brings new ones. The officer of the court's order is the story's police officer, by name, with
+  a colleague. Their notes show wherever the home is (the dispute is always in the part of town being played).
+- **They remember:** tenants with whom it went well bring dessert to the next party at their home, one line
+  at the party's end, once.
+- **The story so far:** the Story tab lists each choice and how it went, newest first.
+- **The end:** settling the first dispute, whichever way, finishes chapter 8: "Your own building in Nuremberg,
+  and tenants who know you. That's the whole story so far", and the people's stories are announced for a later
+  update. A trophy, "The whole story" (18 now). Chapter 8 is counted like the others.
+- **After chapter 8**, disputes are one of the things that happen at the homes, beside renovation, under the
+  same rules (at most one new a day, after the first delivery, at a home in the part of town being played):
+  at a home bought 3 days ago or more, with none there for 14 days, counted from the day the last was settled.
+  New: **one thing at a time in a part of town.** Nothing new begins where something is open already, and
+  chapter 8 waits for a renovation open there to be done, so the stations' packages never have two homes to go
+  to, nor a dispute's one kind of station against a renovation's any.
+- **One code review** before showing it to the owner; what it changed is in the three points just above (the
+  gap counted from the settling, the dent judged on the car of the pickup, one thing at a time in a part of
+  town) and the bank paying bills only in the home town.
+- **Tested:** unit tests (`tests/dispute.test.ts`: the rules, and the four outcomes played through the homes
+  with stand-ins); `node tools/story-test.mjs` plays chapter 8 in a browser on Nuremberg's tiles, insisting,
+  too late, through the court's order to the new tenants.

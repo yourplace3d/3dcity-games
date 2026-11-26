@@ -199,13 +199,12 @@ try {
   console.log('Chapter 8, the tenants: insisting, too late, the court\'s order and new tenants');
   await page.setViewportSize({ width: 1280, height: 800 });
   // chapter 7 done, as the mission would leave it: the whole building, every flat repaired
-  await page.evaluate(() => {
-    const h = JSON.parse(localStorage.getItem('3da-homes'));
-    h.homes[0].kind = 'building';
-    localStorage.setItem('3da-homes', JSON.stringify(h));
-    localStorage.setItem('3da-reno', JSON.stringify({ stage: 'done' }));
+  await page.evaluate(async () => {
+    const m = await import('/src/game/homes.ts');
+    homes.homes.homes[0].kind = 'building';
+    m.saveHomes(homes.homes);
+    homes.setReno({ stage: 'done' });
   });
-  await reload();
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-story')).done[7]);
   await nextDay();
   await reload();
@@ -216,6 +215,8 @@ try {
   await page.locator('#btn-mission-yes').click();
   const d = await page.evaluate(() => ({ stage: homes.dispute().stage, way: !!game.guide || !!homes.wayTo }));
   assert.equal(d.stage, 'talk');
+  // the mood is the one thing left to chance: this run, the heating
+  await page.evaluate(() => (homes.events.open.find((e) => e.kind === 'dispute').mood = 'broken'));
   // stopped beside the building: the choice, with a third button to put it off
   await page.evaluate(() => homes.talk(homes.dispute().home));
   await page.waitForFunction(() => !document.querySelector('#mission').hidden);
@@ -237,7 +238,7 @@ try {
   assert.match(await page.locator('#mission-text').textContent(), new RegExp(`${names.shield} and a colleague`));
   await shot('17-court');
   await page.locator('#btn-mission-yes').click();
-  await message('tenants', 'still no money');
+  await message('tenants', 'Still no heating');
   await shot('18-tenants-note');
   await message('shield', "court's order");
   assert.deepEqual(await page.evaluate(() => game.special.kinds), ['clean'], 'the court’s order: a clean run');

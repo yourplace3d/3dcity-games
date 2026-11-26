@@ -101,6 +101,8 @@ export interface Job {
   special?: boolean;
   /** a supply run's load is lighter: this share of a heavy load's slowing */
   light?: number;
+  /** the car the package came on board in, if any: whether the load took a dent is judged on it */
+  car0?: Car | null;
   /** a party's food (`Game.party`): no pay, and the time from pickup to door is what counts */
   party?: boolean;
   /** the clock it started with (s) */
@@ -1805,7 +1807,8 @@ export class Game {
         if (j.kind === 'supply' && this.car && this.car.hp >= j.hp0 - 1) bonus += Math.round((j.pay * 0.2) / 10) * 10;
         this.cash += j.pay + bonus;
         this.delivered++;
-        const dented = !!this.car && this.car.hp < j.hp0 - 1;
+        // a new dent on the car the load came on board in; a load moved to another car counts as dented
+        const dented = !!j.car0 && (j.car0.hp < j.hp0 - 1 || (!!this.car && this.car !== j.car0));
         const r = this.run;
         if (!r.over) {
           r.done++;
@@ -2088,7 +2091,7 @@ export class Game {
     }[kind] as [number, number, string];
     // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
     const light = isSpecial && kind === 'supply' && special!.light !== undefined ? { light: special!.light } : {};
-    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}), ...light };
+    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;

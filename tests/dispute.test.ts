@@ -61,9 +61,13 @@ describe('the dispute, as rules', () => {
         expect(['Anna', 'Thomas']).not.toContain(n);
       }
     }
-    // new tenants after the court's order: other people, as a rule
+    // new tenants after the court's order: other people, never sharing a name with those who moved out
     const many = new Set(Array.from({ length: 12 }, (_, i) => tenantsOf(home, i).names));
     expect(many.size).toBeGreaterThan(4);
+    for (let moved = 1; moved < 12; moved++) {
+      const was = tenantsOf(home, moved - 1, ['Anna']).names.split(' and ');
+      for (const n of tenantsOf(home, moved, ['Anna']).names.split(' and ')) expect(was).not.toContain(n);
+    }
   });
 
   it('the note holds the hint, and the card says what each choice asks', () => {
@@ -256,13 +260,37 @@ describe('the dispute, played at a home', () => {
     expect(said().at(-1)).toMatch(/^New tenants in your building on Königstraße: /);
   });
 
-  it('a bill takes the cash first, then the bank, never below nothing', () => {
+  it('a bill takes the cash first, then, in the home town, the bank, never below nothing', () => {
     const { u, game, call } = setup();
     game.cash = 300;
-    Object.assign(u, { saved: 1000 });
+    Object.assign(u, { saved: 1000, atPlate: false });
+    // away, the bank can't be used
+    expect(call('charge', 2500)).toBe(300);
+    expect((u as unknown as { saved: number }).saved).toBe(1000);
+    game.cash = 300;
+    Object.assign(u, { atPlate: true });
     expect(call('charge', 2500)).toBe(1300);
     expect(game.cash).toBe(0);
     expect((u as unknown as { saved: number }).saved).toBe(0);
+  });
+
+  it('the gap before the next dispute at a home counts from the day it was settled, and nothing new begins that day', () => {
+    const { game, call, events } = setup([open({ stage: 'insist' })], { disputed: { [KEY]: 1 } });
+    call('syncSpecial');
+    Object.assign(game, { special: { ...(game.special as object), at: { lat: building.lat, lon: building.lon } } });
+    call('specialTaken');
+    call('specialDone', false);
+    expect(events().disputed[KEY]).toBe(Math.floor(Date.now() / 86400000));
+    expect(events().last).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('one thing at a time in a part of town: no dispute while a renovation is open there', () => {
+    const { u, call, events } = setup([{ home: KEY, kind: 'renovate', began: '2026-11-27', waiting: 0 }], { first: 'before', settled: 1 });
+    Object.assign(u, { deliveredBefore: 39 });
+    vi.spyOn(Math, 'random').mockReturnValue(0.1);
+    call('eventTick');
+    expect(events().open).toHaveLength(1);
+    expect(call('startDispute')).toBe(false);
   });
 
   it('accepting part when money is tight: a lighter load; without a new dent, the rent a fifth lower for a week', () => {

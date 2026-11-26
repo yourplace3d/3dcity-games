@@ -128,7 +128,9 @@ function hash(s: string): number {
 export function tenantsOf(home: { key: string; lat: number; lon: number }, moved: number, avoid: string[] = []): Tenants {
   const seed = `${home.key}#${moved}`;
   const t = TENANTS[hash(seed) % TENANTS.length];
-  const names = tenantNames(home.lat, home.lon, seed, t.two ? 2 : 1, avoid);
+  // new tenants are other people than those who just moved out
+  const before = moved > 0 ? tenantsOf(home, moved - 1, avoid).names.split(' and ') : [];
+  const names = tenantNames(home.lat, home.lon, seed, t.two ? 2 : 1, [...avoid, ...before]);
   return { names: names.join(' and '), what: t.what, two: t.two };
 }
 
@@ -145,11 +147,11 @@ export function note(mood: Mood, t: Tenants, kind: 'flat' | 'house' | 'building'
 
 /** The card at the home: their words, and what each choice asks of the player. */
 export function choiceText(mood: Mood, t: Tenants, kind: 'flat' | 'house' | 'building'): string {
-  return (
-    `“${note(mood, t, kind)}” ${t.names}, ${t.what}. ` +
-    'Insist on all of it: a rush job, the part for the boiler from a fire station. In time, they pay everything; too late, and it goes to court. ' +
-    `Accept part of it: a supply run, what the ${placeWord(kind)} needs from a fuel station. With no new dent, they pay what waited, at a fifth less rent for a week; dented, the old boiler gives up for good.`
-  );
+  return [
+    `“${note(mood, t, kind)}” ${t.names}, ${t.what}.`,
+    'Insist on all of it: a rush job, the part for the boiler from a fire station. In time, they pay everything; too late, and it goes to court.',
+    `Accept part of it: a supply run, what the ${placeWord(kind)} needs from a fuel station. With no new dent, they pay what waited, at a fifth less rent for a week; dented, the old boiler gives up for good.`,
+  ].join('\n');
 }
 
 /** What a package for a dispute is, said as it is picked up: by the stage, and whether the choice fits. */
@@ -169,7 +171,10 @@ export function pickupLines(stage: Stage, mood: Mood, where: string, officer: st
 
 /** The tenants' answer, by how it went. */
 export function answer(stage: Stage, ok: boolean, mood: Mood): string {
-  if (stage === 'insist') return ok ? (mood === 'broken' ? "Warm again at last. Here's everything we owe, and a little extra." : "Here's all of it. It wasn't easy, but it's done.") : "Still no heating, and still no money. We're not paying.";
+  if (stage === 'insist') {
+    if (ok) return mood === 'broken' ? "Warm again at last. Here's everything we owe, and a little extra." : "Here's all of it. It wasn't easy, but it's done.";
+    return mood === 'broken' ? "Still no heating. We're not paying for a cold flat." : "We just can't pay all of it. We're sorry.";
+  }
   if (stage === 'accept') return ok ? "Thank you for understanding. We'll manage from here." : "The old boiler gave up this morning, for good. Nobody's fault: it was ancient.";
   if (stage === 'replace') return ok ? 'Warm and working. Thank you.' : '';
   return '';

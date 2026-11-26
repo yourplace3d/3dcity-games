@@ -455,6 +455,9 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
     if (thin) {
       $<HTMLAnchorElement>('thin-map').href = `https://www.openstreetmap.org/#map=16/${at.lat.toFixed(5)}/${at.lon.toFixed(5)}`;
       $('btn-resume').hidden = true;
+      // seen at once on any screen: the keyboard away, and the search field with the box under it at the top
+      (document.activeElement as HTMLElement | null)?.blur();
+      requestAnimationFrame(() => $('search').scrollIntoView({ block: 'start' }));
       return;
     }
     begin();

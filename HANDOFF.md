@@ -58,6 +58,11 @@ lives.
   no legal notice (Impressum) yet, though it contacts map, search and save services: for the owner, with a
   lawyer.
 
+- **Wrong way down a one-way street (owner, 26 November, from the Salzburg comment):** costs nothing by itself;
+  a police car that sees it follows you (one heat, so a clean run is gone too). Crossing one at a junction
+  doesn't count. `wrongWay` in `src/game/game.ts`, tests in `tests/oneway.test.ts`. Put live on the owner's
+  word ("Oneway streets go up too", 26 November).
+
 ## Where things stand
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).

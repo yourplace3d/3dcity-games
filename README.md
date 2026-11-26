@@ -131,7 +131,8 @@ the streets, buildings, water and hills come from the same map squares as
   is sent (`src/cloud.ts`). The card says so under the button. A saved game not played for six months is
   deleted; 20,000 saved games at most for now, 150,000 characters each (`docs/supabase/saves_limits.sql`).
 - **Heat.** Knocking people over, taking someone's car and ramming traffic or the police raise it (up to
-  four badges). More heat brings more police cars. Stay out of their sight and it cools off; stop next to
+  four badges). Driving the wrong way down a one-way street costs nothing, unless a police car sees you do
+  it: then they follow you. More heat brings more police cars. Stay out of their sight and it cools off; stop next to
   one and you're caught and fined.
 - An arrow at the edge of the screen points to the drop-off (yellow), or to the nearest package (blue).
 - **The little map can be moved:** press it and drag it to any corner; it stays there on that device. A
@@ -262,7 +263,8 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
 Traffic keeps to one-way streets as the map has them (`oneway` in the map tiles; a car the map leaves at a dead end on one turns off at the
-first way out, or goes if you can't see it). You may drive any way you like, and the arrow's way does not mind one-way streets.
+first way out, or goes if you can't see it). You may drive any way you like, and the arrow's way does not mind one-way streets; only a police car that
+sees you going the wrong way comes after you (`wrongWay` in `src/game/game.ts`).
 There are no traffic lights or level-crossing barriers, and bus and tram lines are not the real routes: vehicles follow
 the streets and tracks and mostly carry straight on. Where a street or
 path runs through a building (gateways, archways, passages into courtyards, gates in a town wall), a corridor is

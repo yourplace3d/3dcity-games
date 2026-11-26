@@ -1629,10 +1629,30 @@ export class Game {
     }
   }
 
+  /**
+   * Driving the wrong way down a one-way street costs nothing by itself; a police car that sees it
+   * follows you. Seen means as near and as clear a view as keeps a chase going (`law`).
+   */
+  private wrongWay(cops: Car[]): void {
+    const c = this.car;
+    if (!c || this.heat > 0 || c.speed < 3) return;
+    const w = this.world;
+    const n = w.roads.nearest(c.x, c.y, 12, 'drive');
+    if (!n) return;
+    const l = w.roads.lines[n.line];
+    if (!l.oneway || n.d > l.w / 2 + 1.5) return;
+    // along the street, not across it: crossing a one-way street at a junction is no offence
+    const [hx, hy] = w.roads.heading({ line: n.line, s: n.s, dir: l.oneway });
+    if ((c.vx * hx + c.vy * hy) / c.speed > -0.7) return;
+    if (!cops.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < 75 && !w.solids.blocked(o.x, o.y, c.x, c.y))) return;
+    this.offence(1, 'Wrong way down a one-way street: the police saw you');
+  }
+
   private law(dt: number): void {
     const w = this.world;
     const [px, py] = this.pos();
     const cops = this.cars.filter((c) => c.driver === 'cop' && !c.gone);
+    this.wrongWay(cops);
     if (this.heat <= 0) {
       this.caughtT = 0;
       return;

@@ -65,7 +65,7 @@ describe('traffic on one-way streets', () => {
       sights: [],
       services: [],
       stops: [],
-      solids: { push: () => null, inside: () => false },
+      solids: { push: () => null, inside: () => false, blocked: () => false },
     } as unknown as World;
     vi.spyOn(World, 'load').mockResolvedValue(w);
     const g = new Game({ clientWidth: 800, clientHeight: 600 } as HTMLCanvasElement, false);
@@ -148,5 +148,74 @@ describe('traffic on one-way streets', () => {
       expect(went.has(1)).toBe(false);
       c.gone = true;
     }
+  });
+});
+
+describe('the player on one-way streets', () => {
+  beforeEach(() => {
+    vi.stubGlobal('navigator', { webdriver: true });
+    vi.stubGlobal('location', { search: '' });
+    vi.stubGlobal('devicePixelRatio', 1);
+    vi.stubGlobal('ResizeObserver', class { observe() {} });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  /** You, driving at 10 m/s along a street one-way to the east, and maybe a police car 40 m off. */
+  async function driving(east: boolean, cop: boolean, blocked = false) {
+    const roads = new RoadNet([street([[-400, 0], [400, 0]], 1), street([[0, -400], [0, 400]])], 750);
+    const w = {
+      half: 750, model: { group: new Group() }, roads,
+      proj: { toLocal: (lon: number, lat: number): [number, number] => [lon, lat], toLngLat: (x: number, y: number) => ({ lon: x, lat: y }) },
+      free: () => true, groundY: () => 0, inWater: () => false, inStream: () => false, needsRecentre: () => null, dispose: vi.fn(),
+      sights: [], services: [], stops: [],
+      solids: { push: () => null, inside: () => false, blocked: () => blocked },
+    } as unknown as World;
+    vi.spyOn(World, 'load').mockResolvedValue(w);
+    const g = new Game({ clientWidth: 800, clientHeight: 600 } as HTMLCanvasElement, false);
+    (g as unknown as { parkCars: () => void }).parkCars = vi.fn();
+    await g.start({ lon: 0, lat: 0 });
+    for (const c of g.cars.splice(0)) c.gone = true;
+    const inside = g as unknown as { addCar: (k: string, x: number, y: number, th: number) => Car; law: (dt: number) => void };
+    const me = inside.addCar('sedan', 100, 1, east ? 0 : Math.PI);
+    me.driver = 'player';
+    me.vx = east ? 10 : -10;
+    g.car = me;
+    if (cop) inside.addCar('police', 140, -1, Math.PI).driver = 'cop';
+    return { g, inside, me };
+  }
+
+  it('costs nothing the right way, or the wrong way with no police about', async () => {
+    for (const [east, cop] of [[true, true], [false, false]] as const) {
+      const { g, inside } = await driving(east, cop);
+      inside.law(0.05);
+      expect(g.heat).toBe(0);
+    }
+  });
+
+  it('the police follow you when they see you drive the wrong way', async () => {
+    const { g, inside } = await driving(false, true);
+    inside.law(0.05);
+    expect(g.heat).toBeGreaterThan(0);
+  });
+
+  it('not when a building is between you', async () => {
+    const { g, inside } = await driving(false, true, true);
+    inside.law(0.05);
+    expect(g.heat).toBe(0);
+  });
+
+  it('crossing a one-way street at a junction is no offence', async () => {
+    const { g, inside, me } = await driving(false, true);
+    // on the two-way street going north, right at the junction
+    me.x = 0;
+    me.y = 0.5;
+    me.vx = 0;
+    me.vy = 10;
+    me.th = Math.PI / 2;
+    inside.law(0.05);
+    expect(g.heat).toBe(0);
   });
 });

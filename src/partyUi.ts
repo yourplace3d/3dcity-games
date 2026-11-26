@@ -514,7 +514,9 @@ export class PartyUi {
       this.host.save?.();
       const record = ownRun && before && seconds < before - 0.5 ? ` Your best yet, ${gap(before - seconds)} faster than before.` : '';
       const points = added ? ` +${added} home ${added === 1 ? 'point' : 'points'}.` : due ? ' Your home points are full: spend some on a home.' : ` Today’s party points are yours already; tomorrow’s party brings ${PARTY_POINTS} more.`;
-      text = `${cap(food)} got to ${p.where} in ${t} from the pickup, ${p.spot.food === 'shop' ? 'still cold' : 'still warm'}${versus}.${record}${points}`;
+      // tenants it went well with in a dispute come to the next party at their home, once
+      const guests = this.host.homes()?.guests(key) ?? '';
+      text = `${cap(food)} got to ${p.where} in ${t} from the pickup, ${p.spot.food === 'shop' ? 'still cold' : 'still warm'}${versus}.${record}${points}${guests ? ` ${guests}` : ''}`;
     }
     this.finished = {
       own: !!p.key,

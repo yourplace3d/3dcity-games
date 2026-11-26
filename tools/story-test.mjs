@@ -1,6 +1,6 @@
 // The story played through in a browser, on real map tiles (Nuremberg, then Berlin): a new player's first
 // visit to the first flat, then a chapter on each following day, the people's messages on their own papers,
-// a player who is further on, and the story waiting away from the home town.
+// a player who is further on, the story waiting away from the home town, and chapter 8's dispute.
 // Needs Playwright (see tools/ui-test.mjs). SHOTS=<folder> keeps a screenshot of each step.
 // node tools/story-test.mjs
 import assert from 'node:assert/strict';
@@ -195,6 +195,75 @@ try {
   });
   await message('flame', 'Need someone quick');
   await shot('14-phone');
+
+  console.log('Chapter 8, the tenants: insisting, too late, the court\'s order and new tenants');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  // chapter 7 done, as the mission would leave it: the whole building, every flat repaired
+  await page.evaluate(() => {
+    const h = JSON.parse(localStorage.getItem('3da-homes'));
+    h.homes[0].kind = 'building';
+    localStorage.setItem('3da-homes', JSON.stringify(h));
+    localStorage.setItem('3da-reno', JSON.stringify({ stage: 'done' }));
+  });
+  await reload();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-story')).done[7]);
+  await nextDay();
+  await reload();
+  await message('game', 'Your tenants have something to say');
+  await page.waitForFunction(() => !document.querySelector('#mission').hidden && document.querySelector('#mission-title').textContent === 'A note from your tenants', null, { timeout: 90000 });
+  assert.equal(await page.locator('#mission-kicker').textContent(), 'Chapter 8 of 8 · Landlord');
+  await shot('15-tenants-card');
+  await page.locator('#btn-mission-yes').click();
+  const d = await page.evaluate(() => ({ stage: homes.dispute().stage, way: !!game.guide || !!homes.wayTo }));
+  assert.equal(d.stage, 'talk');
+  // stopped beside the building: the choice, with a third button to put it off
+  await page.evaluate(() => homes.talk(homes.dispute().home));
+  await page.waitForFunction(() => !document.querySelector('#mission').hidden);
+  assert.equal(await page.locator('#mission-title').textContent(), 'Your tenants want to talk');
+  assert.equal(await page.locator('#btn-mission-later').isVisible(), true, 'Not now');
+  await shot('16-choice');
+  await page.locator('#btn-mission-later').click();
+  assert.equal(await page.evaluate(() => homes.dispute().stage), 'talk', 'Not now changes nothing');
+  await page.evaluate(() => homes.talk(homes.dispute().home));
+  await page.waitForFunction(() => !document.querySelector('#mission').hidden);
+  await page.locator('#btn-mission-yes').click();
+  assert.deepEqual(await page.evaluate(() => game.special.kinds), ['rush'], 'insisting: the part from a fire station');
+  // the part is taken, and comes too late
+  await page.evaluate(() => {
+    game.onSpecialTaken('rush');
+    game.onSpecialLost('late');
+  });
+  await page.waitForFunction(() => !document.querySelector('#mission').hidden && document.querySelector('#mission-title').textContent === 'The court’s order');
+  assert.match(await page.locator('#mission-text').textContent(), new RegExp(`${names.shield} and a colleague`));
+  await shot('17-court');
+  await page.locator('#btn-mission-yes').click();
+  await message('tenants', 'still no money');
+  await shot('18-tenants-note');
+  await message('shield', "court's order");
+  assert.deepEqual(await page.evaluate(() => game.special.kinds), ['clean'], 'the court’s order: a clean run');
+  // carried out by the book, then the next delivery brings new tenants
+  await page.evaluate(() => {
+    game.onSpecialTaken('clean');
+    game.delivered++;
+    game.onSpecialDone(false);
+  });
+  assert.equal(await page.evaluate(() => homes.dispute().stage), 'moving');
+  await page.evaluate(() => {
+    game.delivered++;
+    game.events.forEach((f) => f({ kind: 'delivered', job: 'plain', left: 10, special: false }));
+  });
+  await message('tenants', 'Thanks for having us');
+  await message('game', "That's the whole story so far");
+  s = await story();
+  assert.ok(s.done[8] && !s.done[8].silent, 'chapter 8 played');
+  assert.equal(s.sofar.length, 1);
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-trophies')).got.story > 0);
+  await page.keyboard.press('KeyP');
+  await page.locator('#tab-story').click();
+  assert.match(await page.locator('#pane-story').textContent(), /The whole story, played/);
+  assert.match(await page.locator('#pane-story .sofar').textContent(), /court ordered them out/);
+  await shot('19-story-tab-done');
+  await page.keyboard.press('KeyP');
 
   assert.deepEqual(errors, [], 'no errors on the page');
   console.log('Story checks passed');

@@ -99,6 +99,8 @@ export interface Job {
   hp0: number;
   /** a mission's package, going to `Game.special` */
   special?: boolean;
+  /** a supply run's load is lighter: this share of a heavy load's slowing */
+  light?: number;
   /** a party's food (`Game.party`): no pay, and the time from pickup to door is what counts */
   party?: boolean;
   /** the clock it started with (s) */
@@ -323,12 +325,19 @@ export class Game {
   /**
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
    * stations flash green in open play, and whichever is taken goes there, with the line for its kind.
+   * `kinds`: only the packages of these stations (a dispute's part comes from a fire station); `clock`:
+   * the clock is this much longer; `light`: a supply run's load slows the car this share of a heavy one's.
    */
-  special: { at: LngLat; say: Record<JobKind, string> } | null = null;
+  special: { at: LngLat; say: Record<JobKind, string>; kinds?: JobKind[]; clock?: number; light?: number } | null = null;
   /** A package for `special` has been picked up (its kind). */
   onSpecialTaken: (kind: JobKind) => void = () => undefined;
-  /** A package for `special` has been delivered. */
-  onSpecialDone: () => void = () => undefined;
+  /** A package for `special` has been delivered; `dented`: the car took harm on the way. */
+  onSpecialDone: (dented: boolean) => void = () => undefined;
+  /**
+   * A package for `special` did not get there: too late, the police caught the player or they were knocked
+   * out, a clean run was broken, or it was put down (a new run, or another place loaded).
+   */
+  onSpecialLost: (why: 'late' | 'caught' | 'offence' | 'dropped') => void = () => undefined;
   /** Something that makes a noise has happened; `strength` from 0 to 1 where it varies. */
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
@@ -386,7 +395,7 @@ export class Game {
     this.from = null;
     this.lastFrom = null;
     this.offerT = 0;
-    if (this.job) this.endJob(false);
+    if (this.job) this.endJob(false, 'dropped');
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
   }
 
@@ -403,7 +412,7 @@ export class Game {
     const [x, y] = this.pos();
     this.course = { start: this.set?.start ?? this.world.proj.toLngLat(x, y), legs: [] };
     this.from = null;
-    if (this.job) this.endJob(false);
+    if (this.job) this.endJob(false, 'dropped');
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
   }
 
@@ -1625,7 +1634,7 @@ export class Game {
     if (this.job?.kind === 'clean') {
       this.onToast('That was a clean run: the job is gone', 'bad');
       this.onSound('late');
-      this.endJob(false);
+      this.endJob(false, 'offence');
     }
   }
 
@@ -1702,7 +1711,7 @@ export class Game {
     this.onSound('fine');
     // a party's food on board is lost with it: the party says so, and offers to fetch it again
     const food = !!this.job?.party;
-    if (this.job) this.endJob(false);
+    if (this.job) this.endJob(false, 'caught');
     if (food) {
       this.party = null;
       this.onPartyEnd('lost', 0);
@@ -1796,6 +1805,7 @@ export class Game {
         if (j.kind === 'supply' && this.car && this.car.hp >= j.hp0 - 1) bonus += Math.round((j.pay * 0.2) / 10) * 10;
         this.cash += j.pay + bonus;
         this.delivered++;
+        const dented = !!this.car && this.car.hp < j.hp0 - 1;
         const r = this.run;
         if (!r.over) {
           r.done++;
@@ -1805,7 +1815,7 @@ export class Game {
         } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
-        if (j.special) this.onSpecialDone();
+        if (j.special) this.onSpecialDone(dented);
         this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special });
         this.onSave();
         if (!r.over && r.done >= r.of) {
@@ -1815,7 +1825,7 @@ export class Game {
         }
       } else if (j.left <= 0) {
         this.onSound('late');
-        this.endJob(false);
+        this.endJob(false, 'late');
         if (j.party) {
           this.party = null;
           this.onPartyEnd('cold', 0);
@@ -1964,7 +1974,7 @@ export class Game {
 
   /** A package's colour this moment: its own, or green while a home waits for a station's package. */
   private ringNow(m: Marker): string {
-    return m.kind && this.flash ? RING.home : m.colour ?? RING[m.kind ?? 'plain'];
+    return this.flash && this.wanted(m) ? RING.home : m.colour ?? RING[m.kind ?? 'plain'];
   }
 
   /** Whether a package is a station's job, which is offered on a card before it is taken. */
@@ -1987,7 +1997,7 @@ export class Game {
     this.declined.add(m);
     const kind = m.kind!;
     // the mission's package goes to its place only when that is in the part of town loaded now (`take`)
-    const sp = this.special;
+    const sp = this.special && (!this.special.kinds || this.special.kinds.includes(kind)) ? this.special : null;
     const there = sp && ((([sx, sy]) => Math.abs(sx) < this.world.half - 10 && Math.abs(sy) < this.world.half - 10)(this.world.proj.toLocal(sp.at.lon, sp.at.lat)));
     this.onOffer!(kind, there ? sp!.say[kind] : null, (yes) => {
       if (!yes) {
@@ -2027,7 +2037,7 @@ export class Game {
     }
     const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
     // a mission's package from a station: it goes to the mission's place, where a road leads there
-    const special = !leg && this.run.over && m.kind ? this.special : null;
+    const special = !leg && this.run.over && m.kind && (!this.special?.kinds || this.special.kinds.includes(m.kind)) ? this.special : null;
     if (special) {
       const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
       // the street at the door where a car may go (an old town's lanes too), else the nearest main
@@ -2077,7 +2087,8 @@ export class Game {
       clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
     }[kind] as [number, number, string];
     // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
-    this.job = { to: marker, metres, left: isSpecial ? clock + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}) };
+    const light = isSpecial && kind === 'supply' && special!.light !== undefined ? { light: special!.light } : {};
+    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}), ...light };
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;
@@ -2244,14 +2255,21 @@ export class Game {
     this.pilot(c, tx, ty, this.autoSpeed, this.autoAvoid, false, dt);
   }
 
-  private endJob(_done: boolean): void {
+  private endJob(done: boolean, why?: 'late' | 'caught' | 'offence' | 'dropped'): void {
     this.routeLine.visible = false;
     // the way to the drop-off goes with it; the next is worked out at once
     this.routePts = null;
     this.routeT = 0;
     if (!this.job) return;
+    const special = !!this.job.special;
     this.scene.remove(this.job.to.mesh);
     this.job = null;
+    if (special && !done) this.onSpecialLost(why ?? 'dropped');
+  }
+
+  /** Whether a station's package is one the mission's drop-off waits for: its ring flashes green. */
+  private wanted(m: Marker): boolean {
+    return !!m.kind && (!this.special?.kinds || this.special.kinds.includes(m.kind));
   }
 
   /** Whether the mission's drop-off is in the square being played, where a package can be taken to it. */
@@ -2270,7 +2288,7 @@ export class Game {
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
       m.mesh.visible = inside;
       if (m.kind) {
-        const want = blink ? RING.home : m.colour ?? RING[m.kind];
+        const want = blink && this.wanted(m) ? RING.home : m.colour ?? RING[m.kind];
         if (m.shown !== want) {
           tintMarker(m.mesh, want);
           m.shown = want;
@@ -2281,7 +2299,7 @@ export class Game {
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
       // flashing for a home it is a quarter bigger too, so it shows to those who can't tell red from green
-      const grow = blink && m.kind ? 1.25 : 1;
+      const grow = blink && this.wanted(m) ? 1.25 : 1;
       m.mesh.scale.set(pulse * grow, 1, pulse * grow);
     }
   }
@@ -2309,7 +2327,7 @@ export class Game {
 
     let fastest = 0;
     for (const c of this.cars) {
-      c.heavy = c === this.car && this.job?.kind === 'supply';
+      c.heavy = c === this.car && this.job?.kind === 'supply' ? (this.job.light ?? 1) : 0;
       c.knock = 0;
       fastest = Math.max(fastest, c.speed);
     }

@@ -15,7 +15,7 @@ const slope = (grade: number) =>
 function climb(kind: 'sedan' | 'van', heavy: boolean, throttle: number, grade: number, seconds = 20, back = false): { metres: number; speed: number } {
   const car = new Car(kind, '#888888');
   car.driver = 'player';
-  car.heavy = heavy;
+  car.heavy = heavy ? 1 : 0;
   car.th = back ? Math.PI : 0;
   car.controls.throttle = throttle;
   const world = slope(grade);

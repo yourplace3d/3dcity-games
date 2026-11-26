@@ -397,6 +397,12 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
         party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
         kicker: (what) => story?.kicker(what),
+        people: {
+          note: (who, from, text, strip) => story?.note(who, from, text, strip),
+          record: (text) => story?.record(text),
+          officer: () => story?.officer() ?? '',
+          names: () => story?.peopleNames() ?? [],
+        },
       });
       (window as unknown as { homes: HomesUi }).homes = homes;
       story = new StoryUi({
@@ -440,6 +446,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
             painted: mine.homes.some((h) => !!h.colour),
             towns: towns.length,
             rentPerDay: towns.reduce((n, t) => n + t.rent, 0),
+            story: !!story?.done(8),
           });
         });
       }
@@ -595,7 +602,7 @@ function welcomeHome(what: string, rent: string, worn: boolean): void {
 }
 /** A card over the game that waits for a yes or a no (the homes' mission). */
 let missionAnswer: ((yes: boolean) => void) | null = null;
-function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now'): void {
+function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now', later = ''): void {
   welcoming = true;
   $('mission-kicker').textContent = kicker;
   $('mission').dataset.kind = kicker === 'Party' || kicker === 'Invitation' ? 'party' : '';
@@ -607,10 +614,13 @@ function missionCard(title: string, text: string, yes: string, no: string, answe
   $('btn-mission-yes').textContent = yes;
   $('btn-mission-no').textContent = no;
   $('btn-mission-no').hidden = !no;
+  // a third button, which answers nothing: the card comes again another time
+  $('btn-mission-later').textContent = later;
+  $('btn-mission-later').hidden = !later;
   missionAnswer = answer;
   $('mission').hidden = false;
 }
-function closeMission(yes: boolean): void {
+function closeMission(yes: boolean | null): void {
   $('mission').hidden = true;
   welcoming = false;
   if (game) game.held = false;
@@ -618,10 +628,11 @@ function closeMission(yes: boolean): void {
   before = 0;
   const answer = missionAnswer;
   missionAnswer = null;
-  answer?.(yes);
+  if (yes !== null) answer?.(yes);
 }
 $('btn-mission-yes').addEventListener('click', () => closeMission(true));
 $('btn-mission-no').addEventListener('click', () => closeMission(false));
+$('btn-mission-later').addEventListener('click', () => closeMission(null));
 /** The game waits behind a card of its own (a party's end), or goes on. */
 function cover(on: boolean): void {
   welcoming = on;

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { addPending, advance, begin, BUILT, finished, goal, keep, met, none, noteJob, readStory, SCENES, shown, type Snapshot, type Story } from '../src/game/story';
+import { addNote, addPending, advance, begin, BUILT, finished, goal, keep, met, none, noteJob, readStory, record, SCENES, shown, type Snapshot, type Story } from '../src/game/story';
 import { namesFor } from '../src/game/names';
 
-const snap = (o: Partial<Snapshot> = {}): Snapshot => ({ delivered: 0, homes: 0, reno: null, saved: 0, partied: false, building: false, ...o });
+const snap = (o: Partial<Snapshot> = {}): Snapshot => ({ delivered: 0, homes: 0, reno: null, saved: 0, partied: false, building: false, settled: 0, dispute: null, ...o });
 const D1 = '2026-11-26';
 const D2 = '2026-11-27';
 const D3 = '2026-11-28';
@@ -84,16 +84,44 @@ describe('the story', () => {
     expect(s.opened).toBe(D1);
   });
 
-  it('finishes chapter 5 with a job of each kind, and then waits: chapter 8 is not built', () => {
+  it('finishes chapter 5 with a job of each kind; chapter 8 opens on another day and ends with a dispute settled', () => {
     let s = begin(snap({ delivered: 300, homes: 12, reno: 'done', saved: 5000, partied: true, building: true }), D1);
     const sn = snap({ delivered: 300, homes: 12, reno: 'done', saved: 5000, partied: true, building: true });
     s = noteJob(noteJob(s, 'supply'), 'rush');
     expect(play(s, sn, D1).finished).toEqual([]);
     s = noteJob(s, 'clean');
-    const r = play(s, sn, D1);
+    let r = play(s, sn, D1);
     expect(r.finished).toEqual([5]);
+    // chapters 6 and 7 were done already: chapter 8, the tenants, waits for the next day
+    expect(r.story.open).toBe(8);
+    expect(r.story.opened).toBe('');
+    r = play(r.story, sn, D3);
+    expect(r.opened).toBe(8);
+    // a dispute under way is not the end of it; settled, whichever way, it is
+    r = play(r.story, { ...sn, dispute: 'court' }, D3);
+    expect(r.finished).toEqual([]);
+    r = play(r.story, { ...sn, settled: 1 }, D3);
+    expect(r.finished).toEqual([8]);
     expect(r.story.open).toBe(BUILT + 1);
-    expect(play(r.story, sn, D3).opened).toBeNull();
+    expect(BUILT).toBe(8);
+  });
+
+  it('says what chapter 8 asks, as the dispute stands', () => {
+    const st = { ...snap({ homes: 7, building: true }), town: 'Nuremberg', buildingsAfter: 6, disputeAt: 'your building on Königstraße' };
+    expect(goal(8, st, none())).toEqual({ text: 'Your tenants have something to say: drive to one of your homes in Nuremberg.', way: 'home' });
+    expect(goal(8, { ...st, dispute: 'talk' }, none()).text).toBe('The tenants in your building on Königstraße have stopped paying: stop beside it and talk to them.');
+    expect(goal(8, { ...st, dispute: 'insist' }, none()).way).toBe('station');
+    expect(goal(8, { ...st, dispute: 'court' }, none()).text).toContain('by the book');
+    expect(goal(8, { ...st, dispute: 'moving' }, none()).way).toBeNull();
+  });
+
+  it('keeps the tenants\' notes, where they may show, and the story so far', () => {
+    let s = addNote(none(), { who: 'tenants', text: 'Can we talk?', from: 'Lena and Max · your flat', anywhere: true });
+    s = record(s, 'Königstraße: you met them halfway.', D1);
+    const back = readStory(JSON.stringify(s));
+    expect(back.pending).toEqual([{ who: 'tenants', text: 'Can we talk?', from: 'Lena and Max · your flat', anywhere: true }]);
+    expect(back.sofar).toEqual([{ day: D1, text: 'Königstraße: you met them halfway.' }]);
+    expect(readStory('{"sofar": [{"day": "x", "text": 1}], "pending": [{"who": "game", "text": "no"}]}').sofar).toEqual([]);
   });
 
   it('asks for a repaired first flat in chapter 3, and a whole building with nothing left to repair in chapter 7', () => {

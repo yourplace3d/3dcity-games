@@ -11,13 +11,15 @@
  *   counts when the chapter comes. Only the scenes wait for their day.
  * - A player who is further on starts where they are: what the browser already holds ticks chapters at
  *   once, silently (they are not counted as played).
- * - Chapter 8 (the tenants' dispute) is not built yet: the story waits after chapter 7.
+ * - Chapter 8 is the tenants' dispute (`dispute.ts`): it happens in the home town, at a home there, and is
+ *   done once it is settled, whichever way.
  *
  * Kept in the browser under `3da-story`, so saving online carries it along.
  */
 
 import type { JobKind } from './services';
 import type { Names } from './names';
+import type { Stage } from './events';
 
 const STORE = '3da-story';
 
@@ -25,17 +27,31 @@ export const CHAPTERS = ['Arrival', 'Making rent', 'A roof over your head', 'Saf
 /** chapters there are */
 export const ALL = CHAPTERS.length;
 /** chapters built so far: the rest come in an update */
-export const BUILT = 7;
+export const BUILT = 8;
 /** chapters that open as soon as the one before is done, on any day */
 export const FREE = 3;
 /** messages kept for the menu */
 export const INBOX_MAX = 24;
 /** people's messages waiting to be shown, kept so that a closed page loses none */
 export const PENDING_MAX = 12;
+/** lines kept for "The story so far" */
+export const SOFAR_MAX = 20;
 
 /** Who speaks: the game itself, or a person, each with a look of their own. */
-export type Who = 'game' | 'pump' | 'flame' | 'shield' | 'neighbour' | 'friends';
+export type Who = 'game' | 'pump' | 'flame' | 'shield' | 'neighbour' | 'friends' | 'tenants';
 export type Person = Exclude<Who, 'game'>;
+/**
+ * A person's message waiting to be shown. `from`: who it is from, where the story's names don't say it (the
+ * tenants of a home); `anywhere`: shown wherever the player is (a dispute's notes, which belong to a home
+ * in the part of town being played), not only in the home town.
+ */
+export interface Pending {
+  who: Person;
+  text: string;
+  from?: string;
+  anywhere?: boolean;
+}
+
 /** The people at the stations, by the job their station hands out. */
 export const PERSON_OF: Record<Exclude<JobKind, 'plain'>, Who> = { supply: 'pump', rush: 'flame', clean: 'shield' };
 export const STATION_JOBS: Array<Exclude<JobKind, 'plain'>> = ['supply', 'rush', 'clean'];
@@ -67,11 +83,13 @@ export interface Story {
   /** the messages, newest last */
   inbox: Message[];
   /** the people's messages still to be shown: they wait for a quiet moment, and for the home town */
-  pending: Array<{ who: Person; text: string }>;
+  pending: Pending[];
   /** the friends' messages shown so far: the three take turns */
   turn: number;
   /** the people's names, drawn once from the home town */
   names?: Names;
+  /** "The story so far": each choice made, and how it went, newest last */
+  sofar: Array<{ day: string; text: string }>;
 }
 
 /** What the game holds, as the story reads it. */
@@ -87,15 +105,19 @@ export interface Snapshot {
   partied: boolean;
   /** a whole building is owned */
   building: boolean;
+  /** tenants' disputes settled, in all */
+  settled: number;
+  /** where the open dispute stands, if one is open */
+  dispute: Stage | null;
 }
 
 const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
-const WHO: Who[] = ['game', 'pump', 'flame', 'shield', 'neighbour', 'friends'];
+const WHO: Who[] = ['game', 'pump', 'flame', 'shield', 'neighbour', 'friends', 'tenants'];
 const JOBS: JobKind[] = ['plain', 'supply', 'rush', 'clean'];
 
 /** A story that has not begun. */
 export function none(): Story {
-  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [], pending: [], turn: 0 };
+  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [], pending: [], turn: 0, sofar: [] };
 }
 
 export function readStory(raw: string | null): Story {
@@ -114,10 +136,15 @@ export function readStory(raw: string | null): Story {
       ? k.inbox.flatMap((m) => (m && WHO.includes(m.who) && typeof m.text === 'string' && typeof m.from === 'string' && isDay(m.day) ? [{ who: m.who, from: m.from.slice(0, 80), text: m.text.slice(0, 400), day: m.day }] : [])).slice(-INBOX_MAX)
       : [];
     const pending = Array.isArray(k.pending)
-      ? (k.pending as Array<{ who?: unknown; text?: unknown } | null>)
-          .flatMap((m) => (m && typeof m.who === 'string' && m.who !== 'game' && WHO.includes(m.who as Who) && typeof m.text === 'string' ? [{ who: m.who as Person, text: m.text.slice(0, 400) }] : []))
+      ? (k.pending as Array<{ who?: unknown; text?: unknown; from?: unknown; anywhere?: unknown } | null>)
+          .flatMap((m): Pending[] =>
+            m && typeof m.who === 'string' && m.who !== 'game' && WHO.includes(m.who as Who) && typeof m.text === 'string'
+              ? [{ who: m.who as Person, text: m.text.slice(0, 400), ...(typeof m.from === 'string' && m.from ? { from: m.from.slice(0, 80) } : {}), ...(m.anywhere === true ? { anywhere: true } : {}) }]
+              : [],
+          )
           .slice(-PENDING_MAX)
       : [];
+    const sofar = Array.isArray(k.sofar) ? k.sofar.flatMap((l) => (l && isDay(l.day) && typeof l.text === 'string' ? [{ day: l.day, text: l.text.slice(0, 200) }] : [])).slice(-SOFAR_MAX) : [];
     const names = readNames(k.names);
     return {
       open,
@@ -131,6 +158,7 @@ export function readStory(raw: string | null): Story {
       pending,
       turn: typeof k.turn === 'number' && Number.isInteger(k.turn) && k.turn >= 0 ? k.turn % 3 : 0,
       ...(names ? { names } : {}),
+      sofar,
     };
   } catch {
     return none();
@@ -179,6 +207,9 @@ export function finished(n: number, s: Snapshot, story: Story): boolean {
     case 7:
       // a whole building, and nothing left to repair at the first one
       return s.building && (s.reno === null || s.reno === 'done');
+    case 8:
+      // a dispute settled, whichever way it went
+      return s.settled >= 1;
     default:
       return false;
   }
@@ -260,6 +291,16 @@ export function addPending(story: Story, lines: Array<[Who, string]>): Story {
   return add.length ? { ...story, pending: [...story.pending, ...add].slice(-PENDING_MAX) } : story;
 }
 
+/** A note from a person who isn't one of the story's names (the tenants), or that shows anywhere. */
+export function addNote(story: Story, p: Pending): Story {
+  return { ...story, pending: [...story.pending, p].slice(-PENDING_MAX) };
+}
+
+/** A line for "The story so far". */
+export function record(story: Story, text: string, day: string): Story {
+  return { ...story, sofar: [...story.sofar, { day, text }].slice(-SOFAR_MAX) };
+}
+
 /** A person's message has been shown: it no longer waits. */
 export function shown(story: Story, who: Person, text: string): Story {
   const i = story.pending.findIndex((m) => m.who === who && m.text === text);
@@ -296,6 +337,8 @@ export function sender(who: Who, names: Names | undefined): string {
       return `${names.neighbour} · your neighbour`;
     case 'friends':
       return 'Your friends';
+    case 'tenants':
+      return 'Your tenants';
   }
 }
 
@@ -320,6 +363,8 @@ export interface GoalState extends Snapshot {
   away?: boolean;
   /** homes it takes before whole buildings are for sale */
   buildingsAfter: number;
+  /** the home of the open dispute, as the lines name it: "your flat on Königstraße" */
+  disputeAt?: string;
 }
 
 /** What the open chapter asks, as it stands. */
@@ -350,6 +395,25 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
         : s.homes >= s.buildingsAfter
           ? { text: 'Own a whole building: stop beside one to see its price.', way: null }
           : { text: `Own a whole building. They are for sale once you have ${s.buildingsAfter} homes.`, way: null };
+    case 8: {
+      const at = s.disputeAt || 'your home';
+      switch (s.dispute) {
+        case 'talk':
+          return { text: `The tenants in ${at} have stopped paying: stop beside it and talk to them.`, way: 'home' };
+        case 'insist':
+          return { text: `Bring the part for ${at} from a fire station, in time.`, way: 'station' };
+        case 'accept':
+          return { text: `Bring what ${at} needs from a fuel station, with no new dent.`, way: 'station' };
+        case 'court':
+          return { text: `Drive the officers from a police station to ${at}, by the book.`, way: 'station' };
+        case 'replace':
+          return { text: `A package from any station brings the new boiler for ${at}.`, way: 'station' };
+        case 'moving':
+          return { text: `New tenants move into ${at} with your next delivery.`, way: null };
+        default:
+          return { text: `Your tenants have something to say: drive to one of your homes in ${s.town || 'your home town'}.`, way: 'home' };
+      }
+    }
     default:
       return { text: 'Comes in a later update.', way: null };
   }

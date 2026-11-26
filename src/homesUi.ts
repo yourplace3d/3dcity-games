@@ -10,7 +10,8 @@ import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHom
 import { FIXER_AFTER, FIXER_MIN, jobLines, loadReno, rentShare, storeReno, UNITS_MAX, UNITS_MIN, wantsJob, WORN, type Reno } from './game/renovation';
 import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from './game/bank';
 import { caughtCost, lessonDue, loadLesson, nearestBank, remindAt, remindDue, REMIND_ARROW_S, REMIND_GAP_S, storeLesson, type Lesson, type LessonNow } from './game/bankMission';
-import { dayNumber, eventDue, homeKey, loadEvents, renovateLines, renovationCandidates, storeEvents, thanks, type EventNow, type Events, type HomeEvent } from './game/events';
+import { dayNumber, eventDue, homeKey, loadEvents, renovateLines, renovationCandidates, storeEvents, thanks, type EventNow, type Events, type HomeEvent, type Stage } from './game/events';
+import { after, answer, choiceText, CLOCK_FITS, courtBill, disputeCandidates, fits, kindsFor, LIGHT_LOAD, LOWER_DAYS, lowered, note, officerDone, officerOrder, pickMood, pickupLines, replaceCost, storyLine, tenantsOf, welcome, type Tenants } from './game/dispute';
 import { dailyReady, deliveries, deliveriesFor, earn, pointsFor, POINTS_MAX, loadDaily, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS, type Daily } from './game/homePoints';
 import { MAX_CASH } from './game/game';
 import { serviceIcon } from './game/services';
@@ -136,8 +137,8 @@ export interface HomesHost {
   place: () => string;
   /** the first home was just bought (what it is, its rent each day; worn down: no rent until repaired): saving online opens */
   firstHome?: (what: string, rent: string, worn: boolean) => void;
-  /** a card over the game that waits for an answer (the mission's); with no `no`, a single button */
-  card?: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker?: string) => void;
+  /** a card over the game that waits for an answer (the mission's); with no `no`, a single button; `later`: a third button, which answers nothing */
+  card?: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker?: string, later?: string) => void;
   /** the side menu with the homes (real estate and trophies) */
   openHomes?: () => void;
   /** nothing may give the place away now (a city is being guessed): no way to the list of homes */
@@ -146,8 +147,19 @@ export interface HomesHost {
   blocked?: () => boolean;
   /** parties at the homes (`partyUi.ts`): whether one can be thrown at a home now, its button, and the card that starts it */
   party?: { can: (home: Home) => boolean; label: (home: Home) => string; tag: () => string; offer: (home: Home) => void };
-  /** the story's name for a card, when it is the open chapter's own (`storyUi.ts`): the first home's, the bank's */
-  kicker?: (what: 'home' | 'bank') => string | undefined;
+  /** the story's name for a card, when it is the open chapter's own (`storyUi.ts`): the first home's, the bank's, the tenants' dispute's */
+  kicker?: (what: 'home' | 'bank' | 'dispute') => string | undefined;
+  /**
+   * The story's people (`storyUi.ts`): a note from the tenants or the officer, kept with the messages
+   * (`strip`: shown over the game too, else only kept); a line for "The story so far"; the officer's name;
+   * the names the story's people already have, which no tenant gets.
+   */
+  people?: {
+    note: (who: 'tenants' | 'shield', from: string, text: string, strip: boolean) => void;
+    record: (text: string) => void;
+    officer: () => string;
+    names: () => string[];
+  };
 }
 
 export class HomesUi {
@@ -210,6 +222,10 @@ export class HomesUi {
   private cardAtS = -60;
   /** the home whose event the package on board is for */
   private carrying: string | null = null;
+  /** the deliveries when the court's order was carried out: the next one brings the new tenants */
+  private movingAfter = -1;
+  /** the building where the tenants were asked to talk, until the player drives off, so the card comes once a stop */
+  private talked: Lot | null = null;
   /** the bank the arrow points at, and the point it shows (kept, so the arrow can be told from others') */
   private bankTarget: HomesUi['banks'][number] | null = null;
   private bankGuide: { x: number; y: number } | null = null;
@@ -219,11 +235,16 @@ export class HomesUi {
   constructor(private readonly host: HomesHost) {
     host.game.ticks.push((dt) => this.tick(dt));
     host.game.onSpecialTaken = () => this.specialTaken();
-    host.game.onSpecialDone = () => this.specialDone();
+    host.game.onSpecialDone = (dented) => this.specialDone(dented);
+    host.game.onSpecialLost = (why) => this.specialLost(why);
+    // the court's order carried out: the next delivery brings the new tenants
+    host.game.events.push((e) => {
+      if (e.kind === 'delivered' && host.game.delivered > this.movingAfter) this.moveIn();
+    });
     addEventListener('keydown', (e) => {
       if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden || this.host.blocked?.()) return;
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
-      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch):not(.party)')?.click();
+      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch):not(.party):not(.talk)')?.click();
     });
   }
 
@@ -308,13 +329,32 @@ export class HomesUi {
       this.host.game.special = { at: { lat: first.lat, lon: first.lon }, say: jobLines(r) };
       return;
     }
-    // a home with something to solve: one in the part of town being played first
+    // a home with something a package solves: one in the part of town being played first
     const open = this.events.open.flatMap((e) => {
       const h = this.homeOfEvent(e);
-      return h ? [h] : [];
+      return h && (e.kind === 'renovate' || kindsFor(e.stage ?? 'talk')) ? [{ e, h }] : [];
     });
-    const h = [...open].reverse().find((o) => this.lotOf(o)) ?? open.at(-1);
-    this.host.game.special = h ? { at: { lat: h.lat, lon: h.lon }, say: renovateLines(this.nameOf(h)) } : null;
+    const o = [...open].reverse().find((x) => this.lotOf(x.h)) ?? open.at(-1);
+    if (!o) {
+      this.host.game.special = null;
+      return;
+    }
+    const { e, h } = o;
+    const at = { lat: h.lat, lon: h.lon };
+    if (e.kind === 'renovate') {
+      this.host.game.special = { at, say: renovateLines(this.nameOf(h)) };
+      return;
+    }
+    // a dispute: only the stations its stage takes, and an easier job for the choice that fits
+    const stage = e.stage ?? 'talk';
+    const fit = fits(e.mood ?? 'broken', stage);
+    this.host.game.special = {
+      at,
+      say: pickupLines(stage, e.mood ?? 'broken', this.nameOf(h), this.host.people?.officer() || 'Two officers'),
+      kinds: kindsFor(stage) ?? undefined,
+      ...(fit && stage === 'insist' ? { clock: CLOCK_FITS } : {}),
+      ...(fit && stage === 'accept' ? { light: LIGHT_LOAD } : {}),
+    };
   }
 
   /** A home's building in the square being played, if it is in it. */
@@ -378,7 +418,9 @@ export class HomesUi {
 
   /** What a home pays on a day one comes back: the first home only the share that is repaired. */
   private rentOf(home: Home): number {
-    return home === this.homes.homes[0] ? Math.round(home.rent * rentShare(this.reno)) : home.rent;
+    const rent = home === this.homes.homes[0] ? Math.round(home.rent * rentShare(this.reno)) : home.rent;
+    // a lower rent agreed in a dispute, for a week
+    return (this.events?.lower?.[homeKey(home)] ?? -1) >= dayNumber(Date.now()) ? lowered(rent) : rent;
   }
 
   private rentPerVisit(): number {
@@ -392,9 +434,9 @@ export class HomesUi {
   }
 
   /** A card over the game (`HomesHost.card`), counted for the time between cards (`AFTER_CARD_S`). */
-  private card(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker?: string): void {
+  private card(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker?: string, later?: string): void {
     this.cardAtS = this.playedS;
-    this.host.card?.(title, text, yes, no, answer, kicker);
+    this.host.card?.(title, text, yes, no, answer, kicker, later);
   }
 
   private say(text: string, kind: 'good' | 'info' = 'info', ms = 9000): void {
@@ -545,14 +587,14 @@ export class HomesUi {
     );
   }
 
-  /** A package reached the building: the next step. */
-  private specialDone(): void {
+  /** A package reached the building: the next step. `dented`: the car took harm on the way. */
+  private specialDone(dented = false): void {
     const r = this.reno;
     const first = this.homes.homes[0];
     if (this.carrying) {
       const key = this.carrying;
       this.carrying = null;
-      this.eventDone(key);
+      this.eventDone(key, dented);
       return;
     }
     if (!r || !first) return;
@@ -612,7 +654,7 @@ export class HomesUi {
     const first = this.homes.homes[0];
     const worn = this.reno && this.reno.stage !== 'done';
     for (const [lot, home] of this.owned) {
-      if ((worn && home === first) || this.eventOf(home)) world.model.paintBuilding(lot.poly, WORN);
+      if ((worn && home === first) || this.renovating(home)) world.model.paintBuilding(lot.poly, WORN);
       else if (home.colour) world.model.paintBuilding(lot.poly, home.colour);
     }
   }
@@ -914,6 +956,11 @@ export class HomesUi {
     return this.events.open.find((e) => e.home === key);
   }
 
+  /** Whether a home waits for renovating: its walls are worn meanwhile. */
+  private renovating(home: Home): boolean {
+    return this.eventOf(home)?.kind === 'renovate';
+  }
+
   private homeOfEvent(e: HomeEvent): Home | undefined {
     return this.homes.homes.find((h) => homeKey(h) === e.home);
   }
@@ -922,7 +969,17 @@ export class HomesUi {
   eventNote(home: Home): string {
     const e = this.eventOf(home);
     if (!e) return '';
-    return `Needs renovating: its rent waits until then${e.waiting ? ` (${money(e.waiting)} so far)` : ''}. A package from any station in its part of town renovates it`;
+    const so = e.waiting ? ` (${money(e.waiting)} so far)` : '';
+    if (e.kind === 'renovate') return `Needs renovating: its rent waits until then${so}. A package from any station in its part of town renovates it`;
+    const rest = {
+      talk: 'Stop beside it to talk to them',
+      insist: 'They wait for the part: a rush job from a fire station',
+      accept: 'They wait for what it needs: a supply run from a fuel station, with no new dent',
+      court: 'The court’s order: drive the officers from a police station to it, by the book',
+      replace: 'The old boiler gave up: a package from any station brings a new one',
+      moving: 'New tenants move in with your next delivery',
+    }[e.stage ?? 'talk'];
+    return `${e.stage === 'moving' ? 'The tenants have moved out' : 'The tenants have stopped paying'}: its rent waits until it is settled${so}. ${rest}`;
   }
 
   /** A day's rent of the homes with nothing open: what comes in as cash each day now. */
@@ -946,9 +1003,11 @@ export class HomesUi {
 
   /** " $384 waits at your flat on Königstraße until it is renovated." */
   private heldLine(held: number): string {
-    const homes = this.events.open.flatMap((e) => this.homeOfEvent(e) ?? []);
+    const open = this.events.open.filter((e) => this.homeOfEvent(e));
+    const homes = open.map((e) => this.homeOfEvent(e)!);
     const where = homes.length === 1 ? this.nameOf(homes[0]) : `${homes.length} of your homes`;
-    return ` ${money(held)} waits at ${where} until ${homes.length === 1 ? 'it is' : 'they are'} renovated.`;
+    const done = open.every((e) => e.kind === 'renovate') ? 'renovated' : open.every((e) => e.kind === 'dispute') ? 'settled' : 'sorted out';
+    return ` ${money(held)} waits at ${where} until ${homes.length === 1 ? 'it is' : 'they are'} ${done}.`;
   }
 
   /** Whether something may happen at a home now, and if so, it does: for now, a home needs renovating. */
@@ -965,8 +1024,15 @@ export class HomesUi {
       busy: !!game.job || !!game.party || this.rentLine !== null || wantsJob(this.reno),
     };
     if (!eventDue(this.events, n)) return;
-    const can = renovationCandidates(this.homes.homes, this.events, dayNumber(Date.now()), (h) => !!this.lotOf(h));
-    if (!can.length) return;
+    const today = dayNumber(Date.now());
+    const can = renovationCandidates(this.homes.homes, this.events, today, (h) => !!this.lotOf(h));
+    // the tenants' dispute: once the story's chapter 8 has settled one, it comes as an event too
+    const argue = this.events.settled > 0 ? this.disputeCandidates(today) : [];
+    if (!can.length && !argue.length) return;
+    if (argue.length && (!can.length || Math.random() < 0.5)) {
+      this.beginDispute(argue[Math.floor(Math.random() * argue.length)], false);
+      return;
+    }
     const h = can[Math.floor(Math.random() * can.length)];
     this.setEvents({ ...this.events, open: [...this.events.open, { home: homeKey(h), kind: 'renovate', began: n.today, waiting: 0 }], last: n.today });
     const lot = this.lotOf(h);
@@ -982,11 +1048,47 @@ export class HomesUi {
     );
   }
 
+  /**
+   * Money in: as cash, and at the most cash one can hold, the rest to the bank, as far as it holds. Says
+   * where it went, for the line that tells it.
+   */
+  private credit(amount: number): string {
+    const before = this.host.game.cash;
+    this.host.game.cash += amount;
+    const got = this.host.game.cash - before;
+    const banked = Math.min(amount - got, MAX_CASH - this.saved);
+    if (banked > 0) {
+      this.saved += banked;
+      storeSaved(this.saved);
+    }
+    this.host.save();
+    const lost = Math.max(0, amount - got - Math.max(0, banked));
+    return (banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '') + (lost > 0 ? ` ${money(lost)} did not fit: your cash and your bank are full.` : '');
+  }
+
+  /** A bill: from the cash first, then the bank, never below nothing. Returns what was paid. */
+  private charge(amount: number): number {
+    const game = this.host.game;
+    const cash = Math.min(Math.max(0, Math.floor(game.cash)), amount);
+    game.cash -= cash;
+    const bank = Math.min(this.saved, amount - cash);
+    if (bank > 0) {
+      this.saved -= bank;
+      storeSaved(this.saved);
+    }
+    this.host.save();
+    return cash + bank;
+  }
+
   /** A package reached a home with something to solve: it is solved, and the rent that waited is paid. */
-  private eventDone(key: string): void {
+  private eventDone(key: string, dented = false): void {
     const e = this.events.open.find((o) => o.home === key);
     const h = e && this.homeOfEvent(e);
     if (!e || !h) return;
+    if (e.kind === 'dispute') {
+      this.disputeStep(e, h, (e.stage ?? 'talk') === 'accept' ? !dented : true);
+      return;
+    }
     const tip = thanks(this.rentOf(h));
     const before = this.host.game.cash;
     this.host.game.cash += e.waiting + tip;
@@ -1005,6 +1107,244 @@ export class HomesUi {
     const lost = Math.max(0, e.waiting + tip - got - Math.max(0, banked));
     const extra = (banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '') + (lost > 0 ? ` ${money(lost)} did not fit: your cash and your bank are full.` : '');
     this.say(`${cap(this.nameOf(h))} is renovated.${e.waiting ? ` The ${money(e.waiting)} rent that waited there is yours,` : ''} ${e.waiting ? 'and the' : 'The'} tenants thank you with ${money(tip)}.${extra}`, 'good', 10000);
+  }
+
+  // ------------------------------------------------------------ the tenants' dispute (`game/dispute.ts`)
+
+  /** A home's tenants: the same until the court's order brings new ones. */
+  private tenantsAt(h: Home): Tenants {
+    const key = homeKey(h);
+    return tenantsOf({ key, lat: h.lat, lon: h.lon }, this.events.moved[key] ?? 0, this.host.people?.names() ?? []);
+  }
+
+  /** "Lena and Max · your flat on Königstraße": who a tenants' note is from. */
+  private tenantsFrom(h: Home, t = this.tenantsAt(h)): string {
+    return `${t.names} · ${this.nameOf(h)}`;
+  }
+
+  /** The homes where a dispute may begin now, as an event: in this part of town, with nothing open, bought a while ago, none there lately. */
+  private disputeCandidates(today: number): Home[] {
+    const open = new Set(this.events.open.map((e) => e.home));
+    const homes = this.homes.homes.map((h) => ({ h, at: h.at, key: homeKey(h) }));
+    return disputeCandidates(homes, open, this.events.disputed, today, (x) => !!this.lotOf(x.h)).map((x) => x.h);
+  }
+
+  /** The dispute open now, for the story: the chapter's first. */
+  dispute(): { stage: Stage; home: Home; chapter: boolean; here: boolean } | null {
+    const all = this.events.open.filter((e) => e.kind === 'dispute' && this.homeOfEvent(e));
+    const e = all.find((o) => o.chapter) ?? all[0];
+    if (!e) return null;
+    const home = this.homeOfEvent(e)!;
+    return { stage: e.stage ?? 'talk', home, chapter: !!e.chapter, here: !!this.lotOf(home) };
+  }
+
+  /** Disputes settled, in all: the story's chapter 8 is done with the first. */
+  settled(): number {
+    return this.events.settled;
+  }
+
+  /**
+   * The story's chapter 8 asks for its dispute: it begins at a home in the part of town being played, a
+   * whole building first, when nothing else is on. Returns whether it began.
+   */
+  startDispute(): boolean {
+    const { game } = this.host;
+    if (!this.world || !this.host.card || this.host.quiet?.() || this.host.blocked?.()) return false;
+    if (game.job || game.party || !game.run.over || this.rentLine !== null || wantsJob(this.reno)) return false;
+    if (this.events.open.some((e) => e.kind === 'dispute' && e.chapter) || this.playedS - this.cardAtS < 8) return false;
+    const open = new Set(this.events.open.map((e) => e.home));
+    const here = this.homes.homes.filter((h) => this.lotOf(h) && !open.has(homeKey(h)));
+    const h = here.find((x) => x.kind === 'building') ?? here.find((x) => x.kind === 'house') ?? here[0];
+    if (!h) return false;
+    this.beginDispute(h, true);
+    return true;
+  }
+
+  /** The tenants stop paying and write: their rent waits at the building, and the way leads there. */
+  private beginDispute(h: Home, chapter: boolean): void {
+    const today = dayOf(Date.now());
+    const key = homeKey(h);
+    const mood = pickMood();
+    this.setEvents({
+      ...this.events,
+      open: [...this.events.open, { home: key, kind: 'dispute', began: today, waiting: 0, mood, stage: 'talk', ...(chapter ? { chapter: true } : {}) }],
+      last: today,
+      disputed: { ...this.events.disputed, [key]: dayNumber(Date.now()) },
+    });
+    this.syncSpecial();
+    const t = this.tenantsAt(h);
+    const words = note(mood, t, h.kind);
+    // the card says it: the note is kept with the messages
+    this.host.people?.note('tenants', this.tenantsFrom(h, t), words, false);
+    this.card(
+      'A note from your tenants',
+      `“${words}” ${t.names}, ${t.what}, in ${this.nameOf(h)}. Until it is settled, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. Stop beside it to talk to them.`,
+      'Show the way',
+      'Later',
+      (yes) => {
+        if (yes) this.showWay(h);
+      },
+      this.host.kicker?.('dispute') ?? 'Your tenants',
+    );
+  }
+
+  /** Stopped beside a home whose tenants want to talk: their words, and the choice. */
+  private talk(h: Home): void {
+    const e = this.eventOf(h);
+    if (!e || e.kind !== 'dispute' || (e.stage ?? 'talk') !== 'talk') return;
+    const t = this.tenantsAt(h);
+    const mood = e.mood ?? 'broken';
+    this.card(
+      'Your tenants want to talk',
+      choiceText(mood, t, h.kind),
+      'Insist on all of it',
+      'Accept part of it',
+      (insist) => this.choose(h, insist ? 'insist' : 'accept'),
+      this.host.kicker?.('dispute') ?? 'Your tenants',
+      'Not now',
+    );
+  }
+
+  /** The choice is made: the job it asks for, from the stations whose rings now flash green. */
+  private choose(h: Home, stage: 'insist' | 'accept'): void {
+    const e = this.eventOf(h);
+    if (!e || e.kind !== 'dispute' || (e.stage ?? 'talk') !== 'talk') return;
+    this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage } : o)) });
+    this.syncSpecial();
+    const fit = fits(e.mood ?? 'broken', stage);
+    const when = this.host.game.run.over ? 'their rings flash green' : 'once your run is over, their rings flash green';
+    this.say(
+      stage === 'insist'
+        ? `You insist on all of it. The part comes from a fire station, on a rush job: ${when}.${fit ? ' It’s what they need most: a little more time on the clock.' : ''}`
+        : `You accept part of it. What the ${h.kind === 'house' ? 'house' : 'flat'} needs comes from a fuel station, on a supply run: ${when}.${fit ? ' It’s what they need most: a lighter load.' : ''}`,
+      'info',
+      9000,
+    );
+  }
+
+  /** A dispute's package arrived (`ok`: in time and, for the load, with no new dent), or did not: what follows. */
+  private disputeStep(e: HomeEvent, h: Home, ok: boolean): void {
+    const stage = e.stage ?? 'talk';
+    const next = after(stage, ok);
+    const t = this.tenantsAt(h);
+    const from = this.tenantsFrom(h, t);
+    const kicker = this.host.kicker?.('dispute') ?? 'Your tenants';
+    const said = answer(stage, ok, e.mood ?? 'broken');
+    if (said) this.host.people?.note('tenants', from, said, true);
+    const line = storyLine(stage, ok, h.street);
+    if (line) this.host.people?.record(line);
+    if (next === 'settled') {
+      this.settle(e, h, stage, ok);
+      return;
+    }
+    const rent = this.rentOf(h);
+    if (stage === 'court' && next === 'moving') {
+      // carried out: the bill now, from the rent that waited first; the new tenants with the next delivery
+      this.movingAfter = this.host.game.delivered;
+      const bill = courtBill(rent);
+      const fromRent = Math.min(e.waiting, bill);
+      const paid = fromRent + this.charge(bill - fromRent);
+      this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage: next, waiting: o.waiting - fromRent } : o)) });
+      this.syncSpecial();
+      this.host.people?.note('shield', '', officerDone(), true);
+      const how = fromRent >= bill ? ', paid from the rent that waited' : fromRent > 0 ? ', paid from the rent that waited and your money' : '';
+      this.say(`The court’s order is carried out: ${t.names} have moved out of ${this.nameOf(h)}. The bill of the court and the officers: ${money(bill)}${how}${paid < bill ? `; ${money(bill - paid)} of it you couldn’t pay` : ''}. New tenants move in with your next delivery.`, 'info', 11000);
+      return;
+    }
+    this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage: next } : o)) });
+    this.syncSpecial();
+    if (next === 'court' && stage === 'insist') {
+      const officer = this.host.people?.officer() || 'Two officers';
+      this.host.people?.note('shield', '', officerOrder(), true);
+      this.card(
+        'The court’s order',
+        `${t.names} still won’t pay, and the court has ordered them to move out of ${this.nameOf(h)}. ${officer === 'Two officers' ? 'Two officers carry' : `${officer} and a colleague carry`} out the order: pick them up at a police station and drive them there without breaking the law. Nobody is arrested: the tenants move out, and new ones move in. The bill of the court and the officers is high: ${money(courtBill(rent))}, five days of its rent.`,
+        'Got it',
+        '',
+        () => undefined,
+        kicker,
+      );
+      return;
+    }
+    if (next === 'replace' && stage === 'accept') {
+      this.card(
+        'The old boiler gave up',
+        `In ${this.nameOf(h)} the old boiler has broken for good, and a new one costs ${money(replaceCost(rent))}, three days of its rent. One more package from any fuel, fire or police station brings it: ${this.host.game.run.over ? 'their rings flash green' : 'once your run is over, their rings flash green'}. Then it is settled, at the rent you agreed.`,
+        'Got it',
+        '',
+        () => undefined,
+        kicker,
+      );
+      return;
+    }
+    // the court's order or the new boiler, not there: they wait
+    if (stage === 'court') this.say('The officers wait at the police station: pick them up again, and drive by the book.', 'info', 7000);
+    else if (stage === 'replace') this.say(`The new boiler for ${this.nameOf(h)} waits: a package from any station brings it.`, 'info', 7000);
+  }
+
+  /** A package for a home with something to solve did not get there. A dispute's choice turns on it; anything else waits. */
+  private specialLost(why: 'late' | 'caught' | 'offence' | 'dropped'): void {
+    const key = this.carrying;
+    this.carrying = null;
+    const e = key ? this.events.open.find((o) => o.home === key) : undefined;
+    const h = e && this.homeOfEvent(e);
+    if (!e || !h || e.kind !== 'dispute') return;
+    // put down by a new run or another place: nothing went wrong on the way, it can be fetched again
+    if (why === 'dropped') return;
+    this.disputeStep(e, h, false);
+  }
+
+  /** The dispute is settled: the rent that waited, with the tip or the cost of a new boiler; the lower rent agreed. */
+  private settle(e: HomeEvent, h: Home, stage: Stage, ok: boolean): void {
+    const key = homeKey(h);
+    const rent = this.rentOf(h);
+    const tip = stage === 'insist' ? thanks(rent) : 0;
+    const cost = stage === 'replace' ? replaceCost(rent) : 0;
+    const agreed = stage === 'accept' || stage === 'replace';
+    const today = dayNumber(Date.now());
+    this.setEvents({
+      ...this.events,
+      open: this.events.open.filter((o) => o !== e),
+      settled: this.events.settled + 1,
+      ...(agreed ? { lower: { ...this.events.lower, [key]: today + LOWER_DAYS } } : {}),
+      // the tenants it went well with come to the next party there
+      ...(ok && stage !== 'replace' ? { glad: [...this.events.glad.filter((g) => g !== key), key] } : {}),
+    });
+    this.syncSpecial();
+    const net = e.waiting + tip - cost;
+    const extra = net > 0 ? this.credit(net) : '';
+    const paid = net < 0 ? this.charge(-net) : 0;
+    const waited = e.waiting ? `the ${money(e.waiting)} rent that waited is yours` : '';
+    const where = cap(this.nameOf(h));
+    let text: string;
+    if (stage === 'insist') text = `${where}: settled. ${waited ? `${cap(waited)}, and the` : 'The'} tenants add ${money(tip)}.`;
+    else if (stage === 'accept') text = `${where}: settled.${waited ? ` ${cap(waited)}.` : ''} For a week their rent is a fifth lower: ${money(this.rentOf(h))} a day.`;
+    else text = `${where}: a new boiler, and it is settled. It cost ${money(cost)}${e.waiting ? `, paid from the ${money(e.waiting)} rent that waited` : ''}${paid ? `; ${money(paid)} came from your money` : ''}. For a week the rent is a fifth lower, as agreed.`;
+    this.say(text + extra, 'good', 11000);
+  }
+
+  /** The new tenants move in, with the delivery after the court's order: the rent that waited is paid. */
+  private moveIn(): void {
+    const e = this.events.open.find((o) => o.kind === 'dispute' && o.stage === 'moving');
+    const h = e && this.homeOfEvent(e);
+    if (!e || !h) return;
+    const key = homeKey(h);
+    this.setEvents({ ...this.events, open: this.events.open.filter((o) => o !== e), settled: this.events.settled + 1, moved: { ...this.events.moved, [key]: (this.events.moved[key] ?? 0) + 1 } });
+    this.syncSpecial();
+    const t = this.tenantsAt(h);
+    this.host.people?.note('tenants', this.tenantsFrom(h, t), welcome(), true);
+    const extra = e.waiting ? this.credit(e.waiting) : '';
+    this.say(`New tenants in ${this.nameOf(h)}: ${t.names}, ${t.what}.${e.waiting ? ` The ${money(e.waiting)} rent that waited there is yours.` : ''}${extra}`, 'good', 10000);
+  }
+
+  /** The tenants it went well with at a home come to the party there, once: the line that says so, or ''. */
+  guests(key: string): string {
+    if (!this.events.glad.includes(key)) return '';
+    const h = this.homes.homes.find((x) => homeKey(x) === key);
+    this.setEvents({ ...this.events, glad: this.events.glad.filter((g) => g !== key) });
+    if (!h) return '';
+    const t = this.tenantsAt(h);
+    return `${t.names}, your tenant${t.two ? 's' : ''}, came too, and brought dessert.`;
   }
 
   // ------------------------------------------------------------ home points
@@ -1202,6 +1542,14 @@ export class HomesUi {
       }
     }
     if (bank) found = null;
+    // tenants who want to talk: their card, once a stop
+    if (!game.held && game.speed() >= 1.2) this.talked = null;
+    const talker = found && found !== this.talked ? this.homeOf(found) : undefined;
+    const talks = talker && this.eventOf(talker);
+    if (talker && talks?.kind === 'dispute' && (talks.stage ?? 'talk') === 'talk' && this.host.card && !this.host.blocked?.() && !this.host.quiet?.()) {
+      this.talked = found;
+      this.talk(talker);
+    }
     const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()} ${this.host.party?.tag() ?? ''}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
@@ -1273,10 +1621,18 @@ export class HomesUi {
       }
       const note = this.eventNote(had);
       line(note ? `${note}. Then it pays ${money(had.rent)} rent each day you come back.` : `Pays ${money(had.rent)} rent each day you come back.`);
+      const open = this.eventOf(had);
+      if (open?.kind === 'dispute' && (open.stage ?? 'talk') === 'talk') {
+        const b = document.createElement('button');
+        b.className = 'talk';
+        b.textContent = 'Talk to the tenants';
+        b.addEventListener('click', () => this.talk(had));
+        this.panel.append(b);
+      }
       if (had.kind === 'flat') button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
       else {
         this.paints(found, had);
-        if (note) line('The colour you choose goes on once it is renovated.');
+        if (this.renovating(had)) line('The colour you choose goes on once it is renovated.');
       }
       // after the buying and the paint, so those keep their look
       partyButton(had);
@@ -1325,7 +1681,7 @@ export class HomesUi {
         if (hex) home.colour = hex;
         else delete home.colour;
         // while it waits for renovating, its walls stay worn: the colour goes on once it is renovated
-        if (!this.eventOf(home)) this.world?.model.paintBuilding(lot.poly, hex);
+        if (!this.renovating(home)) this.world?.model.paintBuilding(lot.poly, hex);
         saveHomes(this.homes);
         this.host.save();
         this.shown = '';

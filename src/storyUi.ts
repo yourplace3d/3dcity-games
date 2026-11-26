@@ -1,7 +1,7 @@
 /**
  * The story on screen (`game/story.ts` holds its rules): the chapter lines in the game's own voice, the
  * people's messages, each on a paper of their own (Mira's till receipt, Theo's pager, Ana's notebook, the
- * neighbour's card, the friends' texts), and the Story tab of the menu.
+ * neighbour's card, the friends' texts, the tenants' note on the door), and the Story tab of the menu.
  *
  * The owner, 26 November 2026: the game speaks plainly at first, and whoever gives a task writes to you.
  * Written messages only: nobody calls. A message waits while something covers the game (a card, the menu,
@@ -16,7 +16,9 @@ import { loadParties } from './game/party';
 import { namesFor } from './game/names';
 import { countPlay } from './linkCount';
 import type { JobKind, ServiceKind } from './game/services';
+import { kindsFor } from './game/dispute';
 import {
+  addNote,
   addPending,
   advance,
   ALL,
@@ -29,6 +31,7 @@ import {
   keep,
   loadStory,
   noteJob,
+  record,
   said,
   say,
   SCENES,
@@ -72,8 +75,14 @@ const VISIT_LINE_S = 9;
 /** the stations' kinds, by the job each hands out */
 const SERVICE_OF: Record<Exclude<JobKind, 'plain'>, ServiceKind> = { supply: 'fuel', rush: 'fire', clean: 'police' };
 
-/** `again`: a line said again on each visit (the open chapter, or where it waits), so a new place drops it */
-type Queued = { who: Who; text: string; heading?: string; again?: boolean };
+/**
+ * `again`: a line said again on each visit (the open chapter, or where it waits), so a new place drops it;
+ * `from`: who a person's note is from, where the story's names don't say it; `anywhere`: shown wherever the
+ * player is, not only in the home town.
+ */
+type Queued = { who: Who; text: string; heading?: string; again?: boolean; from?: string; anywhere?: boolean };
+/** seconds into a visit before chapter 8's tenants write: after the chapter's line has been read */
+const DISPUTE_AFTER_S = 16;
 
 
 export class StoryUi {
@@ -117,14 +126,21 @@ export class StoryUi {
     this.queue = this.queue.filter((q) => !q.again);
   }
 
+  /** Whether chapter `n` is done. */
+  done(n: number): boolean {
+    return !!this.story.done[n];
+  }
+
   /** The chapter open now, or the next one waiting; 0 before the story begins. */
   get open(): number {
     return this.story.open;
   }
 
   /** The kicker of a card the homes show, when that card is the open chapter's own. */
-  kicker(what: 'home' | 'bank'): string | undefined {
+  kicker(what: 'home' | 'bank' | 'dispute'): string | undefined {
     if (!this.story.open || this.host.quiet()) return undefined;
+    // a dispute before chapter 8 is done is chapter 8's: they come as events only after it
+    if (what === 'dispute') return this.story.open === 8 && this.story.opened ? heading(8) : undefined;
     // the first home's card comes only to a player with no home: it is always chapter 3's, even in the
     // moment before the story has seen the delivery that brought it
     if (what === 'home' && !this.story.done[3]) return heading(3);
@@ -151,13 +167,16 @@ export class StoryUi {
       }
     }
     const partied = this.partied;
+    const h = this.host.homes();
     return {
       delivered: this.host.game.delivered,
       homes: homes.length,
       reno: mine?.reno?.stage ?? null,
       saved: mine?.saved ?? 0,
       partied,
-      building: homes.some((h) => h.kind === 'building'),
+      building: homes.some((x) => x.kind === 'building'),
+      settled: h?.settled() ?? 0,
+      dispute: h?.dispute()?.stage ?? null,
     };
   }
 
@@ -190,7 +209,8 @@ export class StoryUi {
    */
   private waitsHome(n: number): boolean {
     if (this.atHome()) return false;
-    if (n === 4) return true;
+    // the bank, and the tenants' dispute of chapter 8, are in the home town
+    if (n === 4 || n === 8) return true;
     if (n === 6) return !this.homeHere();
     if (n === 7) {
       const r = this.snapshot().reno;
@@ -221,6 +241,11 @@ export class StoryUi {
     const next = this.nextIndex();
     if (next >= 0 && performance.now() - this.shownAt >= GAP_S * 1000 && this.playedS >= START_S) this.showNext(next);
     if (!this.visitSaid && this.playedS >= VISIT_LINE_S && next < 0) this.sayVisit();
+    // chapter 8: the tenants write, once the chapter's line has been read and nothing else waits
+    if (this.story.open === 8 && this.story.opened && this.visitSaid && next < 0 && this.playedS >= DISPUTE_AFTER_S && performance.now() - this.shownAt > LINE_S * 1000 && !this.waitsHome(8)) {
+      const h = this.host.homes();
+      if (h && !h.dispute()) h.startDispute();
+    }
   }
 
   /** The story moves on with what the player has done. */
@@ -264,8 +289,14 @@ export class StoryUi {
     if (n < 3) return;
     const next = story.open;
     // the next one waits for another day, or for an update; one that opens at once says so itself
-    const after = !last ? '' : next > BUILT ? (next <= ALL ? `Chapter ${next}, ${CHAPTERS[next - 1]}, comes in a later update.` : '') : !story.opened ? `Come back tomorrow for chapter ${next}: ${CHAPTERS[next - 1]}.` : '';
-    const body = n === 5 && !early ? `${this.three()} know you now. They'll write when they need you.` : '';
+    const after = !last ? '' : next > BUILT ? (next <= ALL ? `Chapter ${next}, ${CHAPTERS[next - 1]}, comes in a later update.` : `${this.three()} have stories of their own: they come in a later update.`) : !story.opened ? `Come back tomorrow for chapter ${next}: ${CHAPTERS[next - 1]}.` : '';
+    const town = this.town();
+    const body =
+      n === 5 && !early
+        ? `${this.three()} know you now. They'll write when they need you.`
+        : n === 8
+          ? `${this.snapshot().building ? `Your own building${town ? ` in ${town}` : ''}` : `Your own homes${town ? ` in ${town}` : ''}`}, and tenants who know you. That's the whole story so far.`
+          : '';
     if (body || after) this.line(`Chapter ${n} of ${ALL}: done`, [body, after].filter(Boolean).join(' '));
   }
 
@@ -290,7 +321,9 @@ export class StoryUi {
   }
 
   private goalOf(n: number) {
-    return goal(n, { ...this.snapshot(), town: this.town(), buildingsAfter: BUILDINGS_AFTER, away: !this.atHome() }, this.story);
+    const d = this.host.homes()?.dispute();
+    const at = d ? `your ${d.home.kind}${d.home.street ? ` on ${d.home.street}` : ''}` : undefined;
+    return goal(n, { ...this.snapshot(), town: this.town(), buildingsAfter: BUILDINGS_AFTER, away: !this.atHome(), disputeAt: at }, this.story);
   }
 
   /** "Chapter 5, The regulars, waits in Nuremberg." */
@@ -318,6 +351,40 @@ export class StoryUi {
     this.enqueue(SCENES.thanks(kind));
   }
 
+  /**
+   * A note from the tenants or the officer of a dispute (`homesUi.ts`): kept with the messages, and with
+   * `strip`, shown over the game as well, wherever the player is (the dispute's home is in the part of town
+   * being played).
+   */
+  note(who: 'tenants' | 'shield', from: string, text: string, strip: boolean): void {
+    if (this.host.quiet()) return;
+    const names = this.story.names;
+    const by = from || sender(who, names);
+    if (!strip) {
+      this.set(keep(this.story, { who, from: by, text, day: this.today() }));
+      return;
+    }
+    this.queue.push({ who, text, from: by, anywhere: true });
+    this.set(addNote(this.story, { who, text, from: by, anywhere: true }));
+  }
+
+  /** A line for "The story so far": a choice made, and how it went. */
+  record(text: string): void {
+    if (this.host.quiet()) return;
+    this.set(record(this.story, text, this.today()));
+  }
+
+  /** The officer's name, for the court's order. */
+  officer(): string {
+    return this.story.names?.shield ?? '';
+  }
+
+  /** The story's people's names, which no tenant shares. */
+  peopleNames(): string[] {
+    const n = this.story.names;
+    return n ? [n.pump, n.flame, n.shield, n.neighbour, ...n.friends] : [];
+  }
+
   /** A package for the first flat was taken: the first person of the stations writes. */
   private specialTaken(kind: JobKind): void {
     if (kind === 'plain' || this.host.quiet() || this.host.homes()?.mine().reno?.stage !== 'flat' || said(this.story, 'first-repair')) return;
@@ -343,6 +410,14 @@ export class StoryUi {
     for (const [who, text] of lines) this.queue.push({ who, text });
   }
 
+  /** A person's message has been shown: it no longer waits, and it is kept. */
+  private shownNote(q: Queued, from: string): void {
+    if (q.who === 'game') return;
+    const kept = keep(this.story, { who: q.who, from, text: q.text, day: this.today() });
+    const next = shown(kept, q.who, q.text);
+    this.set(q.who === 'friends' ? { ...next, turn: (next.turn + 1) % 3 } : next);
+  }
+
   /**
    * The first message that may show now: the game's lines always; the people's in the home town, where they
    * are; the friends' also wherever one of the player's homes stands.
@@ -350,7 +425,7 @@ export class StoryUi {
   private nextIndex(): number {
     const home = this.atHome();
     const friends = home || !!this.homeHere();
-    return this.queue.findIndex((q) => q.who === 'game' || home || (q.who === 'friends' && friends));
+    return this.queue.findIndex((q) => q.who === 'game' || q.anywhere || home || (q.who === 'friends' && friends));
   }
 
   private line(head: string, text: string, again = false): void {
@@ -362,11 +437,8 @@ export class StoryUi {
     if (!q) return;
     this.shownAt = performance.now();
     const names = this.story.names;
-    const from = q.who === 'friends' && names ? names.friends[friendFor(this.story)] : sender(q.who, names);
-    if (q.who !== 'game') {
-      const next = shown(keep(this.story, { who: q.who, from, text: q.text, day: this.today() }), q.who, q.text);
-      this.set(q.who === 'friends' ? { ...next, turn: (next.turn + 1) % 3 } : next);
-    }
+    const from = q.from ?? (q.who === 'friends' && names ? names.friends[friendFor(this.story)] : sender(q.who, names));
+    this.shownNote(q, from);
     this.host.show(messageEl(q.who, q.who === 'game' ? (q.heading ?? '') : from, q.text), (q.who === 'game' ? LINE_S : MESSAGE_S) * 1000, () => this.host.openStory());
   }
 
@@ -431,6 +503,18 @@ export class StoryUi {
       homes?.wayToBank(false);
       return;
     }
+    // chapter 8: the way to the home of the dispute, or to the stations its stage takes
+    const d = n === 8 ? homes?.dispute() : null;
+    if (d && g.way === 'home') {
+      if (!d.here || !homes?.showWay(d.home)) toast('Your tenants’ home is in another part of town.');
+      else toast('The arrow shows the way to your tenants.');
+      return;
+    }
+    if (d && g.way === 'station') {
+      const kinds = (kindsFor(d.stage) ?? []).filter((k): k is Exclude<JobKind, 'plain'> => k !== 'plain');
+      toast(this.toStation(kinds) ? 'The arrow shows the nearest station.' : 'No station in this part of town: drive on, and the next one shows.');
+      return;
+    }
     if (g.way === 'home') {
       const here = this.homeHere();
       if (!here || !homes?.showWay(here)) toast('None of your homes is in this part of town.');
@@ -478,9 +562,14 @@ export class StoryUi {
       }
     } else if (n > BUILT) {
       const title = document.createElement('b');
-      title.textContent = 'You are up to date';
       const text = document.createElement('p');
-      text.textContent = `Chapter ${BUILT + 1}, ${CHAPTERS[BUILT]}, comes in a later update.`;
+      if (BUILT < ALL) {
+        title.textContent = 'You are up to date';
+        text.textContent = `Chapter ${BUILT + 1}, ${(CHAPTERS as readonly string[])[BUILT]}, comes in a later update.`;
+      } else {
+        title.textContent = 'The whole story, played';
+        text.textContent = `${this.three()} have stories of their own: they come in a later update.`;
+      }
       now.append(title, text);
     } else {
       const text = document.createElement('p');
@@ -501,6 +590,19 @@ export class StoryUi {
       list.append(li);
     }
     box.append(now, list);
+    // each choice made, and how it went
+    if (story.sofar.length) {
+      const h = document.createElement('h3');
+      h.textContent = 'The story so far';
+      const ul = document.createElement('ul');
+      ul.className = 'sofar';
+      for (const l of [...story.sofar].reverse()) {
+        const li = document.createElement('li');
+        li.textContent = l.text;
+        ul.append(li);
+      }
+      box.append(h, ul);
+    }
     const inbox = [...story.inbox].reverse().slice(0, 12);
     if (inbox.length) {
       const h = document.createElement('h3');

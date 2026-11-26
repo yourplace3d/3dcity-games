@@ -3,7 +3,7 @@
  * walls and the water. Squares sit on a fixed grid; the next one loads as you near the edge.
  */
 
-import { CanvasTexture, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three';
+import { CanvasTexture, CircleGeometry, DoubleSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three';
 import { pointInRing, ringBounds, type Polygon } from '../geo/polygon';
 import { makeProjector, type LngLat, type Projector } from '../geo/projection';
 import { loadHeightGrid, sampleGrid } from '../geo/terrain';
@@ -28,6 +28,7 @@ import { findLots, type Lot } from './homes';
 import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
 import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
+import { loadLandCover, placeTrees, SATELLITE_TREES, treeMesh, treesWanted, TRUNK_R } from './trees';
 import { carvePassagesInSteps, keepPassages, Roofs } from './passages';
 import { inventServices, PointGrid, readBanks, readFood, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type Service } from './services';
 
@@ -398,10 +399,16 @@ export class World {
   readonly sights: Sight[];
 
   static async load(centre: LngLat, texturePx: number): Promise<World> {
-    const [grid, tiles] = await Promise.all([loadHeightGrid(centre, AREA_SIZE_M, GRID_N), fetchTiles(tilesForSquare(centre, AREA_SIZE_M, DATA_ZOOM))]);
+    const [grid, tiles, cover] = await Promise.all([
+      loadHeightGrid(centre, AREA_SIZE_M, GRID_N),
+      fetchTiles(tilesForSquare(centre, AREA_SIZE_M, DATA_ZOOM)),
+      treesWanted() && SATELLITE_TREES ? loadLandCover(centre, AREA_SIZE_M) : Promise.resolve(null),
+    ]);
     // Building a square takes a few hundred milliseconds of work. Done in one go it froze the game
     // mid-drive each time the next square arrived, so it is done in steps with a frame in between.
     const data = parseTiles(tiles, centre, AREA_SIZE_M);
+    // the areas as the map has them, for the trees, before basins and pitches are taken out
+    const treeAreas = data.features.areas.map((a) => ({ ...a, polys: a.polys.slice() }));
     // subway entrances that would stand on top of each other count as one
     const stops: Stop[] = [];
     for (const st of readStops(tiles, makeProjector(centre), AREA_SIZE_M / 2 - 8)) {
@@ -493,6 +500,24 @@ export class World {
     if (waterShape) signs.add(waterShape);
     const bridgeShape = bridgeMesh(roads, (x, y) => surfaceY(model, x, y), river);
     if (bridgeShape) signs.add(bridgeShape);
+    if (treesWanted()) {
+      await breathe();
+      const streams = new Streams(data.features.lines);
+      const trees = placeTrees({
+        proj: makeProjector(centre),
+        half: AREA_SIZE_M / 2,
+        areas: treeAreas,
+        cover,
+        ground: (x, y) => surfaceY(model, x, y),
+        onRoad: (x, y) => roads.onRoad(x, y),
+        blocked: (x, y) => solids.inside(x, y) || water.at(x, y) || streams.at(x, y) || onDeck(x, y) || pierTest(x, y),
+      });
+      const treeShape = treeMesh(trees, (x, y) => surfaceY(model, x, y));
+      // the trunks are solid: cars bump off them, people walk round
+      solids.addPosts(trees.map((t) => ({ x: t.x, y: t.y, r: TRUNK_R })));
+      if (treeShape) signs.add(treeShape);
+      (model as unknown as { treeCount: number }).treeCount = trees.length;
+    }
     const world = new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
     world.buildings = shapes.filter((b) => b.minHeight <= 2.6);
     world.roofs = new Roofs(shapes.filter((b) => b.minHeight > 2.6 && b.minHeight < 12));
@@ -589,6 +614,8 @@ export class World {
   dispose(): void {
     disposeRoadMeshes(this.ribbons);
     this.signs.traverse((o) => (o as Mesh).geometry?.dispose());
+    // the trees' per-tree buffers are freed with their meshes, not their shared shapes
+    this.signs.traverse((o) => (o as InstancedMesh).isInstancedMesh && (o as InstancedMesh).dispose());
     this.model.dispose();
   }
 }

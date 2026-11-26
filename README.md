@@ -242,6 +242,8 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
   edges. A step in the ground's shader cuts each blend between two colours down to about a pixel of the
   screen. `?try=softground` turns it off, to compare.
 - `src/game/cars.ts`: the car: how it looks, moves and collides.
+- `src/game/trees.ts`: trees in woods, parks and gardens from the map, with solid trunks. What was
+  measured and the parked plan for trees from satellite data: `docs/trees.md`.
 - `src/game/game.ts`: you, traffic, people, police, jobs, camera.
 - `src/game/homes.ts`: which buildings are for sale and their prices, what the player owns, and the rent.
   `src/homesUi.ts`: the offer after a run, the panel beside a building, the roof marks and the rent on return.

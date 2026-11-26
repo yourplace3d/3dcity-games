@@ -32,6 +32,9 @@ export class Solids {
   private readonly polyCells = new Map<number, number[]>();
   private readonly polys: Polygon[] = [];
   private readonly tall = new Map<number, number>();
+  /** tree trunks: round posts, x, y and radius each, found by cell */
+  private readonly posts: number[] = [];
+  private readonly postCells = new Map<number, number[]>();
 
   constructor(buildings: SolidBuilding[]) {
     const ax: number[] = [];
@@ -129,6 +132,41 @@ export class Solids {
         }
       if (!moved) break;
     }
+    if (this.posts.length) {
+      const p = this.pushPosts(c, r);
+      if (p && (!out || p.depth > out.depth)) out = p;
+    }
+    return out;
+  }
+
+  /** Trunks to bump into: a car or a person is pushed off them as off a wall. */
+  addPosts(list: Array<{ x: number; y: number; r: number }>): void {
+    for (const p of list) {
+      const id = this.posts.length / 3;
+      this.posts.push(p.x, p.y, p.r);
+      add(this.postCells, p.x - p.r, p.y - p.r, p.x + p.r, p.y + p.r, id);
+    }
+  }
+
+  private pushPosts(c: { x: number; y: number }, r: number): Push | null {
+    let out: Push | null = null;
+    for (let cy = Math.floor((c.y - r) / CELL); cy <= Math.floor((c.y + r) / CELL); cy++)
+      for (let cx = Math.floor((c.x - r) / CELL); cx <= Math.floor((c.x + r) / CELL); cx++) {
+        const list = this.postCells.get(key(cx, cy));
+        if (!list) continue;
+        for (const id of list) {
+          const ox = c.x - this.posts[id * 3];
+          const oy = c.y - this.posts[id * 3 + 1];
+          const d = Math.hypot(ox, oy);
+          const depth = r + this.posts[id * 3 + 2] - d;
+          if (depth <= 0) continue;
+          const nx = d > 1e-6 ? ox / d : 1;
+          const ny = d > 1e-6 ? oy / d : 0;
+          c.x += nx * depth;
+          c.y += ny * depth;
+          if (!out || depth > out.depth) out = { nx, ny, depth };
+        }
+      }
     return out;
   }
 

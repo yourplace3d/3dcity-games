@@ -1,0 +1,32 @@
+<!doctype html><html><body style="margin:0"><canvas id="c" width="800" height="600"></canvas>
+<!-- Worst case for the trees: a square of wood under the game's camera. npx vite, then open /tools/trees-bench.html; window.result holds ms per frame with and without them. -->
+<script type="module">
+import * as THREE from 'three';
+import { treeMesh } from '../src/game/trees.ts';
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(800, 600, false);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#ddd');
+scene.add(new THREE.HemisphereLight('#fff', '#888', 1.5));
+const sun = new THREE.DirectionalLight('#fff', 2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+const reach = 120; Object.assign(sun.shadow.camera, { left: -reach, right: reach, top: reach, bottom: -reach, near: 10, far: 1200 });
+sun.shadow.camera.updateProjectionMatrix();
+sun.position.set(-275, 390, -275); scene.add(sun); scene.add(sun.target);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1500, 1500).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#8fb878' }));
+ground.receiveShadow = true; scene.add(ground);
+const camera = new THREE.PerspectiveCamera(42, 800 / 600, 2, 4000);
+camera.position.set(0, 90, 0); camera.lookAt(0, 0, 0);
+// worst case: a whole square of wood, thinned to the cap as the game does
+const trees = []; let s = 1;
+const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+for (let y = -470; y < 470; y += 4) for (let x = -470; x < 470; x += 4) if (rnd() < 0.2) trees.push({ x: x + rnd() * 3, y: y + rnd() * 3, r1: rnd(), r2: rnd(), fir: rnd() < 0.3 });
+const cap = trees.filter((t) => t.r2 < 9000 / trees.length);
+const g = treeMesh(cap, () => 0); scene.add(g); if (location.hash === "#noshadow") g.traverse((o) => (o.castShadow = false));
+const gl = renderer.getContext(); const px = new Uint8Array(4);
+function time(n) { for (let i = 0; i < 3; i++) renderer.render(scene, camera); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px);
+  const t0 = performance.now(); for (let i = 0; i < n; i++) { renderer.render(scene, camera); gl.readPixels(0,0,1,1,gl.RGBA,gl.UNSIGNED_BYTE,px); } return (performance.now() - t0) / n; }
+g.visible = false; const without = time(20);
+g.visible = true; const withT = time(20); const info = { ...renderer.info.render };
+window.result = { trees: cap.length, without, with: withT, calls: info.calls, triangles: info.triangles };
+</script></body></html>

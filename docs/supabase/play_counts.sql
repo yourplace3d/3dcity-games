@@ -5,7 +5,12 @@
 -- place as its one-degree square (about 100 km across), as with the links. Written only through count_play().
 -- Applied to the project on 16 November 2026 as the migrations "play_counts" and "play_counts_fix_conflict";
 -- runs started, Where am I? rounds and time played added on 17 November 2026 ("play_counts_more");
--- the city being played added on 21 November 2026 ("play_counts_city").
+-- the city being played added on 21 November 2026 ("play_counts_city"); the chapter of the story just
+-- finished in play, '1' to '8', added on 26 November 2026 ("play_counts_chapter", applied 18:58 UTC by the
+-- session that keeps the database).
+--
+-- How far players get in the story:
+--   select day, detail, n from play_counts where kind = 'chapter' order by day desc, detail;
 --
 -- Read it with:
 --   select day, kind, detail, n from play_counts order by day desc, kind, detail;
@@ -41,10 +46,12 @@ declare
   today date := (now() at time zone 'utc')::date;
 begin
   -- only the words the game sends; anything else is dropped
-  if count_play.kind not in ('new', 'back', 'start', 'run', 'home', 'rent', 'guess', 'time', 'city') then return; end if;
+  if count_play.kind not in ('new', 'back', 'start', 'run', 'home', 'rent', 'guess', 'time', 'city', 'chapter') then return; end if;
   if count_play.kind in ('new', 'back') and d not in ('direct', 'youtube', 'search', 'challenge', 'link') then d := 'other'; end if;
   if count_play.kind = 'home' and d not in ('flat', 'house', 'building') then d := ''; end if;
   if count_play.kind = 'time' and d not in ('under1', '1to5', '5to20', 'over20') then return; end if;
+  -- the chapter just finished in the story, '1' to '8'; anything else is dropped (as with 'time')
+  if count_play.kind = 'chapter' and d not in ('1', '2', '3', '4', '5', '6', '7', '8') then return; end if;
   if count_play.kind in ('start', 'run', 'rent', 'guess') then d := ''; end if;
   -- a city being played: one of the well-known cities by name, else the one-degree square of the place
   -- ("53,9"), else 'other'. Never a name a visitor typed. Squares: at most 500 different ones a day.

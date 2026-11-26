@@ -23,8 +23,8 @@ the streets, buildings, water and hills come from the same map squares as
   (`src/game/names.ts`: 34 lists of 20, by rough boxes as for the windows) and are kept. From chapter 4 on
   the story happens in the home town; elsewhere the menu's **Story** tab says where it waits and goes there.
   No message interrupts a run of three, and there is no story in Where am I? or on a friend's link. Each
-  chapter finished in play is counted (`chapter`, its number), once a browser, as soon as the live server's
-  list has the word; chapters ticked for a player who was further on are not. Kept as `3da-story`.
+  chapter finished in play is counted (`chapter`, its number), once a browser; chapters ticked for a player
+  who was further on are not. Kept as `3da-story`.
 - **Where am I?**, the third choice on the start screen: you are put down in one of about sixty well-known cities without
   being told which. Drive around, then pick the city from four names (two of the wrong ones are cities
   nearby). A pick at once is worth 1,000 points, each second of looking costs 4, a wrong pick 250 and

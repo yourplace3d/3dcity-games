@@ -684,8 +684,8 @@ something at stake, such as a chase. Either is fine.
 - **The Story tab** (☰, after ❚❚): the chapter open now, what it asks and "Show the way" (to the bank, the
   nearest station still to do, or the home), or "Go to Nuremberg" away from home; the eight chapters with
   ticks; the last 12 messages on their papers.
-- **Counted:** `chapter` with its number when one is finished in play. The live server's list does not have
-  the word yet, so nothing arrives until it does (the session "3DA: connecting and getting online" was told).
+- **Counted:** `chapter` with its number when one is finished in play; on the server since 26 November, 18:58
+  UTC (migration "play_counts_chapter").
 - **Five code reviews** before going live (26 November, the owner's "Yes"). What they changed: a chapter that
   opens away from home keeps its people's messages for home; waiting messages are kept with the story, so a
   closed page loses none; the story is written only when it changes; a chapter done before its day is ticked

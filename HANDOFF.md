@@ -23,8 +23,10 @@ lives.
     story; Mira's choice tied in order. Ana's question is still open. **Step A, the main story over what exists,
     goes live on the owner's word** ("Yes" to "review it and put it live if the review passes", 26 November)
     after five code reviews: chapters 1 to 7, the people's messages on their own papers, the Story tab, names by
-    region, the `chapter` count in the game. The live server's list does not have the word `chapter` yet, so
-    nothing is counted until the session "3DA: connecting and getting online" adds it (told twice). Tested: 271
+    region, the `chapter` count in the game. Live since 26 November, about 20:00 UTC (pull request #24, deploy run
+    72, checked on the live site). The count is on the server since 18:58 UTC the same day (migration
+    "play_counts_chapter", by the session "3DA: connecting and getting online"; `docs/supabase/play_counts.sql`).
+    Read it with `select day, detail, n from play_counts where kind = 'chapter' order by day desc, detail;`. Tested: 271
     unit tests, and `tools/story-test.mjs` in a browser on Nuremberg and Berlin tiles. Not tested on a real
     device. Left as designed from the reviews: a player who is further on starts at chapter 5 (it introduces
     the people), and the Story tab shows once a place has been played on the page.

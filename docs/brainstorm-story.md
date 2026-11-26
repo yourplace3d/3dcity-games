@@ -578,3 +578,84 @@ runs' pay).
      Half a day, but the story's ending opens nothing new.
   4. **No choice:** her story ends with her owning the pump; the repair and the garage come later for everyone,
      outside the story.
+
+## 14. Round 3: the owner's answers (26 November, evening)
+
+| # | Answer | Decided |
+|---|---|---|
+| 2 | "Yes, but how come you need 30 per 25?" | **Names by region: yes.** Fewer names will do (below). |
+| 4 | "4c" | **The dispute: C**, reading people, then driving. |
+| 6 | "6 yes" | **The daily story fills the gaps:** the day's chapter first, the day's story once it is done or where it can't be played. |
+| 7 | "With 7 I'd even recommend to have each person after a couple of jobs done sending you actively into other territories. Like 'I opened a station there, can you help me?' Gasoline gets stolen, follow that car, chase it (actually should definitely go into the story mode, chasing cars)" | **Yes, as the owner's addition:** the people send you to other towns, and **car chases go into the story** (below). |
+| 9 | "I still don't understand what you mean" | Explained again, plainly (below). Open. |
+| 10 | "Yes" | **Mira's choice is tied in order:** lending opens the repair at her pump now; buying in pays a share like rent now, and the garage comes with cars of your own. |
+
+### How many names (the owner: "how come you need 30 per 25?")
+
+- **Why 25 regions:** names follow languages more than borders, and the cities the game knows by heart lie in
+  about 36 countries. Several share names (Germany, Austria and German-speaking Switzerland; the United States
+  and English-speaking Canada; Spain and much of Latin America), which leaves about 20 to 25 lists. Fewer is
+  fine to start: one list for each region players come from (the city counts show them), and the shared list
+  for the rest.
+- **Why 30 names each:** the story names seven people (Mira, Theo, Ana, the neighbour, three friends), then the
+  tenants of every home, and a player with 20 homes has 20 to 40 tenants, then the strangers of the daily
+  story. With few names, the same one turns up twice soon. But names repeat in real life too, so **20 per
+  region is enough** (10 women's, 10 men's): about 400 names, not 750.
+
+### The people send you to other towns (the owner's idea)
+
+- **When:** after a person's second or third job, once in their story.
+- **How it reads:** Mira, on her receipt: "I've taken over a second pump, in Munich. First week, nobody knows
+  me. Can you help me get started?" A card: "Go there" or "Not now". "Go there" loads that town beside her new
+  station, where her job waits.
+- **Which town:** the nearest of the 60 cities the game knows by heart that is not the home town, so the place is
+  well mapped and loads without a search. Each person picks a different one, so the three stories show three
+  more cities. From a village near Nuremberg, that is Nuremberg itself, then Munich and Frankfurt: the village
+  player gets the big city, and the city player another city (the "other-kind town" idea of 19 November, in a
+  small way).
+- **While there:** that person's job is the story's task in that town; everything else works as away from home
+  (section 13, point 7). Afterwards, "Back home" loads the home town.
+- **Later, perhaps:** a home bought in such a town could become a second home town, with its own bank.
+
+### Car chases in the story (the owner: "should definitely go into the story mode")
+
+- **The first one, in Mira's story:** "Someone just filled up and drove off without paying. Silver estate,
+  heading north. Can you follow it?" A car leaves her pump in front of you, with a red mark over it and on the
+  little map.
+- **How it drives:** along the streets, away from you, choosing turns that lose you, a little slower than your
+  car at full speed, so it can be caught by good driving and lost by bad.
+- **How it ends** (a proposal):
+  - *Caught:* stay close (within about 20 m). A bar fills while you are close, faster when you bump it. When
+    the bar is full the driver gives up and stops, the police arrive and take over. No arrest is shown, nobody
+    is pulled from a car.
+  - *Lost:* more than about 250 m away and out of sight for 10 seconds. "Lost them. Mira says thanks for
+    trying." Try again on another day.
+  - *While it lasts:* bumping the thief's car is no offence, and the police don't chase you for it. Ramming
+    anyone else is, as now.
+- **Pay:** like a rush job, and Mira gets her money back.
+- **More chases later**, each its own scene: Ana's "follow the van" (a tail: stay close, but not so close they
+  see you; listed in the brainstorm of 19 November), and stolen goods from the supermarket of a party.
+- **Tone:** you are on the side of the person robbed; no weapons, no fight. The famous game is known for chases
+  too; the rule may be shared, so the look and words stay our own.
+- **Build** (estimate): 2 to 3 days. A car that flees on the road network is new (traffic follows lanes, and the
+  police already chase you, but nothing runs away yet), and it needs trying in several cities.
+
+### Ana's question, said again plainly
+
+The scene, in full:
+
+> **Ana** (notebook): "Someone called us this morning. A car went the wrong way down the one-way street by your
+> flat. Was it you?"
+> Two buttons: **"Yes, sorry"** and **"No"**.
+> Yes: "Thanks for being honest. Just watch the signs."
+> No: "Alright."
+
+That is all. No fine, no money, nothing later changes. It is there only so the player decides what kind of
+person they play: one who owns up or one who doesn't. Many story games have a few choices like this, with
+nothing to win, beside the choices that pay.
+
+The suggestion was only about *when* she asks: only if the player really did drive the wrong way where a police
+car saw it (the game notices that). Then the question is about something that happened.
+
+**What to decide:** keep a choice like this (with nothing to win), or drop it and give Ana's story a choice with
+something at stake, such as a chase. Either is fine.

@@ -18,7 +18,9 @@ lives.
     as a message. Round 2 (26 November, section 13): "Do jobs" keeps its name; names by region if easy (it is,
     about 1.5 days); written messages only, a look per person (mockups: https://claude.ai/artifact/2C3rs3maNZd7ByRvmAJ9kJ);
     count word `chapter` agreed, and the session "3DA: connecting and getting online" told. Explanations given
-    for questions 4 to 7, 9 and 10, which wait on the owner. Nothing built.
+    for questions 4 to 7, 9 and 10. Round 3 (section 14): names by region yes (20 a region); the dispute by reading
+    people then driving; the daily story fills the gaps; the people send you to other towns; car chases go into the
+    story; Mira's choice tied in order. Ana's question is still open. Building step A (the main story).
   - *The next step at the homes:* step 2, the tenants' dispute with its four outcomes (the plan, section 4).
   - *Live weather:* on hold, the owner's call (26 November). If it comes back: Open-Meteo is free and needs no
     key, but its free tier is for non-commercial use and asks for a credit line ("Weather data by

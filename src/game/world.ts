@@ -3,7 +3,7 @@
  * walls and the water. Squares sit on a fixed grid; the next one loads as you near the edge.
  */
 
-import { CanvasTexture, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three';
+import { CanvasTexture, CircleGeometry, DoubleSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three';
 import { pointInRing, ringBounds, type Polygon } from '../geo/polygon';
 import { makeProjector, type LngLat, type Projector } from '../geo/projection';
 import { loadHeightGrid, sampleGrid } from '../geo/terrain';
@@ -612,6 +612,8 @@ export class World {
   dispose(): void {
     disposeRoadMeshes(this.ribbons);
     this.signs.traverse((o) => (o as Mesh).geometry?.dispose());
+    // the trees' per-tree buffers are freed with their meshes, not their shared shapes
+    this.signs.traverse((o) => (o as InstancedMesh).isInstancedMesh && (o as InstancedMesh).dispose());
     this.model.dispose();
   }
 }

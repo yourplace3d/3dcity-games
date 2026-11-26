@@ -215,52 +215,75 @@ const treeHeight = (t: Tree) => (t.fir ? 9 + 7 * t.r2 : 6 + 6 * t.r2);
 const LEAVES = ['#5f8f4a', '#6b9a50', '#55844a', '#7aa45a', '#4f7d43', '#668f3f'].map((c) => new Color(c));
 const NEEDLES = ['#3f6b45', '#46744a', '#365f3e'].map((c) => new Color(c));
 
-/** The trees of a square, as three shapes: round crowns, firs and trunks. */
+/** trees are drawn in patches this wide (m), so only the patches on screen (and in the sun's shadow box) are drawn */
+const PATCH = 250;
+
+/**
+ * The trees of a square, as round crowns, firs and trunks, in patches: one patch is three draws, and
+ * those off screen are skipped. Only the crowns throw shadows; seen from above a trunk's adds nothing.
+ */
 export function treeMesh(trees: Tree[], ground: (x: number, y: number) => number): Group | null {
   if (!trees.length) return null;
   const group = new Group();
   group.name = 'trees';
+  const patches = new Map<string, Tree[]>();
+  for (const t of trees) {
+    const k = `${Math.floor(t.x / PATCH)},${Math.floor(t.y / PATCH)}`;
+    const list = patches.get(k);
+    if (list) list.push(t);
+    else patches.set(k, [t]);
+  }
+  for (const list of patches.values()) patchMesh(group, list, ground);
+  return group;
+}
+
+const leafMat = new MeshStandardMaterial({ roughness: 0.9, metalness: 0, flatShading: true });
+const trunkMat = new MeshStandardMaterial({ color: '#6b5440', roughness: 1, metalness: 0 });
+const crownGeo = new IcosahedronGeometry(1, 1);
+const firGeo = new ConeGeometry(1, 1, 7).translate(0, 0.5, 0);
+const trunkGeo = new CylinderGeometry(0.22, 0.3, 1, 5).translate(0, 0.5, 0);
+/** shared by every square: a square's dispose must leave them be */
+for (const g of [crownGeo, firGeo, trunkGeo]) g.dispose = () => {};
+
+function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) => number): void {
   const round = trees.filter((t) => !t.fir);
   const firs = trees.filter((t) => t.fir);
-  const leafMat = new MeshStandardMaterial({ roughness: 0.9, metalness: 0, flatShading: true });
-  const trunkMat = new MeshStandardMaterial({ color: '#6b5440', roughness: 1, metalness: 0 });
-  const crownGeo = new IcosahedronGeometry(1, 1);
-  const firGeo = new ConeGeometry(1, 1, 7);
-  firGeo.translate(0, 0.5, 0);
-  const trunkGeo = new CylinderGeometry(0.22, 0.3, 1, 5);
-  trunkGeo.translate(0, 0.5, 0);
   const m = new Matrix4();
   const q = new Quaternion();
   const up = new Vector3(0, 1, 0);
-  const crowns = new InstancedMesh(crownGeo, leafMat, Math.max(1, round.length));
-  const cones = new InstancedMesh(firGeo, leafMat, Math.max(1, firs.length));
-  const trunks = new InstancedMesh(trunkGeo, trunkMat, trees.length);
-  for (const mesh of [crowns, cones, trunks]) {
-    mesh.castShadow = true;
-    mesh.receiveShadow = false;
-  }
   const colour = new Color();
-  round.forEach((t, k) => {
-    const g = ground(t.x, t.y);
-    const r = crownRadius(t);
-    const h = treeHeight(t);
-    q.setFromAxisAngle(up, t.r2 * Math.PI * 2);
-    // a crown a little wider than high, its bottom at about a third of the tree
-    m.compose(new Vector3(t.x, g + h - r * 0.85, -t.y), q, new Vector3(r, r * 0.85, r));
-    crowns.setMatrixAt(k, m);
-    colour.copy(LEAVES[Math.floor(t.r1 * 977) % LEAVES.length]).offsetHSL(0, 0, (t.r2 - 0.5) * 0.06);
-    crowns.setColorAt(k, colour);
-  });
-  firs.forEach((t, k) => {
-    const g = ground(t.x, t.y);
-    const r = crownRadius(t);
-    const h = treeHeight(t);
-    q.setFromAxisAngle(up, t.r2 * Math.PI * 2);
-    m.compose(new Vector3(t.x, g + h * 0.18, -t.y), q, new Vector3(r, h * 0.82, r));
-    cones.setMatrixAt(k, m);
-    colour.copy(NEEDLES[Math.floor(t.r1 * 977) % NEEDLES.length]);
-    cones.setColorAt(k, colour);
-  });
+  if (round.length) {
+    const crowns = new InstancedMesh(crownGeo, leafMat, round.length);
+    round.forEach((t, k) => {
+      const g = ground(t.x, t.y);
+      const r = crownRadius(t);
+      const h = treeHeight(t);
+      q.setFromAxisAngle(up, t.r2 * Math.PI * 2);
+      // a crown a little wider than high, its bottom at about a third of the tree
+      m.compose(new Vector3(t.x, g + h - r * 0.85, -t.y), q, new Vector3(r, r * 0.85, r));
+      crowns.setMatrixAt(k, m);
+      colour.copy(LEAVES[Math.floor(t.r1 * 977) % LEAVES.length]).offsetHSL(0, 0, (t.r2 - 0.5) * 0.06);
+      crowns.setColorAt(k, colour);
+    });
+    crowns.castShadow = true;
+    group.add(crowns);
+  }
+  if (firs.length) {
+    const cones = new InstancedMesh(firGeo, leafMat, firs.length);
+    firs.forEach((t, k) => {
+      const g = ground(t.x, t.y);
+      const r = crownRadius(t);
+      const h = treeHeight(t);
+      q.setFromAxisAngle(up, t.r2 * Math.PI * 2);
+      m.compose(new Vector3(t.x, g + h * 0.18, -t.y), q, new Vector3(r, h * 0.82, r));
+      cones.setMatrixAt(k, m);
+      colour.copy(NEEDLES[Math.floor(t.r1 * 977) % NEEDLES.length]);
+      cones.setColorAt(k, colour);
+    });
+    cones.castShadow = true;
+    group.add(cones);
+  }
+  const trunks = new InstancedMesh(trunkGeo, trunkMat, trees.length);
   trees.forEach((t, k) => {
     const g = ground(t.x, t.y);
     const h = treeHeight(t);
@@ -268,12 +291,9 @@ export function treeMesh(trees: Tree[], ground: (x: number, y: number) => number
     m.compose(new Vector3(t.x, g - 0.3, -t.y), q.identity(), new Vector3(1, Math.max(1.2, th) + 0.3, 1));
     trunks.setMatrixAt(k, m);
   });
-  if (round.length) group.add(crowns);
-  if (firs.length) group.add(cones);
   group.add(trunks);
-  for (const mesh of [crowns, cones, trunks]) {
+  for (const mesh of group.children.slice(-3) as InstancedMesh[]) {
     mesh.computeBoundingSphere();
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
-  return group;
 }

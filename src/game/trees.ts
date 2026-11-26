@@ -4,14 +4,16 @@
  *
  *  - in woods on the map, close together, a share of them firs;
  *  - in parks, gardens and cemeteries on the map, spread out;
- *  - wherever ESA's WorldCover (10 m land cover from satellites, CC BY 4.0) sees tree cover and the
- *    map has no wood: street trees, back yards, the green between blocks. Those squares are baked
- *    beside the game (`tools/landcover-bake.mjs`); where none is baked, only the map's woods and parks
- *    get trees.
+ *  - (off for now) wherever ESA's WorldCover (10 m land cover from satellites, CC BY 4.0) sees tree
+ *    cover and the map has no wood: street trees, back yards, the green between blocks. Those squares
+ *    are baked beside the game (`tools/landcover-bake.mjs`).
  *
  * Never on a road or path (nor so close that the crown hangs over it), in a building, in water, on a
  * sports ground or a square. Each tree's spot and look come from where it stands on the earth, so a
- * tree is the same on every visit and in the next square. They are only to look at: cars pass through.
+ * tree is the same on every visit and in the next square. Its trunk is solid: a car bumps off it as
+ * off a wall (a hard knock dents it, as a wall does), and people walk round it.
+ *
+ * The third kind (satellite tree cover) is off for now: see `SATELLITE_TREES`.
  *
  * `?try=notrees` leaves them out, to compare.
  */
@@ -29,6 +31,13 @@ export function treesWanted(): boolean {
     return true;
   }
 }
+
+/**
+ * Trees from satellite land cover too, not only the map's woods and parks. Off: the whole world's
+ * would need 40–100 GB hosted outside GitHub Pages (see docs/trees.md). With it on, squares baked
+ * into public/landcover/ by tools/landcover-bake.mjs are used where they exist.
+ */
+export const SATELLITE_TREES = false;
 
 /** WorldCover's class for tree cover */
 const TREE_COVER = 10;
@@ -210,6 +219,10 @@ export function placeTrees(site: TreeSite): Tree[] {
 }
 
 const crownRadius = (t: Tree) => (t.fir ? 2 + 1.3 * t.r1 : 2.6 + 2 * t.r1);
+/** a round crown's height against its width */
+const FLAT = 0.6;
+/** a trunk, to bump into (m): wide enough that a car never slips through a tree */
+export const TRUNK_R = 0.5;
 const treeHeight = (t: Tree) => (t.fir ? 9 + 7 * t.r2 : 6 + 6 * t.r2);
 
 const LEAVES = ['#5f8f4a', '#6b9a50', '#55844a', '#7aa45a', '#4f7d43', '#668f3f'].map((c) => new Color(c));
@@ -263,8 +276,8 @@ function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) =
       const r = crownRadius(t);
       const h = treeHeight(t);
       q.setFromAxisAngle(up, t.r2 * Math.PI * 2);
-      // a crown a little wider than high, its bottom at about a third of the tree
-      m.compose(new Vector3(t.x, g + h - r * 0.85, -t.y), q, new Vector3(r, r * 0.85, r));
+      // a flat crown, much wider than high, as the map's style keeps things low
+      m.compose(new Vector3(t.x, g + h - r * FLAT, -t.y), q, new Vector3(r, r * FLAT, r));
       crowns.setMatrixAt(k, m);
       colour.copy(LEAVES[Math.floor(t.r1 * 977) % LEAVES.length]).offsetHSL(0, 0, (t.r2 - 0.5) * 0.06);
       crowns.setColorAt(k, colour);
@@ -278,7 +291,7 @@ function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) =
       const r = crownRadius(t);
       const h = treeHeight(t);
       q.setFromAxisAngle(up, t.r2 * Math.PI * 2);
-      m.compose(new Vector3(t.x, g + h * 0.18, -t.y), q, new Vector3(r, h * 0.82, r));
+      m.compose(new Vector3(t.x, g + h * 0.15, -t.y), q, new Vector3(r, h * 0.62, r));
       cones.setMatrixAt(k, m);
       colour.copy(NEEDLES[Math.floor(t.r1 * 977) % NEEDLES.length]);
       cones.setColorAt(k, colour);
@@ -288,7 +301,7 @@ function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) =
   const shades = new InstancedMesh(shadeGeo, shadeMat, trees.length);
   trees.forEach((t, k) => {
     const r = crownRadius(t);
-    const lift = t.fir ? treeHeight(t) * 0.45 : treeHeight(t) - r * 0.85;
+    const lift = t.fir ? treeHeight(t) * 0.4 : treeHeight(t) - r * FLAT;
     const sx = t.x + lift * SUN_RUN;
     const sy = t.y - lift * SUN_RUN;
     m.compose(new Vector3(sx, ground(sx, sy) + 0.12, -sy), q.identity(), new Vector3(r * (t.fir ? 0.8 : 1), 1, r * (t.fir ? 0.8 : 1)));

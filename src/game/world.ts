@@ -28,7 +28,7 @@ import { findLots, type Lot } from './homes';
 import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
 import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
-import { loadLandCover, placeTrees, treeMesh, treesWanted } from './trees';
+import { loadLandCover, placeTrees, SATELLITE_TREES, treeMesh, treesWanted, TRUNK_R } from './trees';
 import { carvePassagesInSteps, keepPassages, Roofs } from './passages';
 import { inventServices, PointGrid, readBanks, readFood, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type Service } from './services';
 
@@ -402,7 +402,7 @@ export class World {
     const [grid, tiles, cover] = await Promise.all([
       loadHeightGrid(centre, AREA_SIZE_M, GRID_N),
       fetchTiles(tilesForSquare(centre, AREA_SIZE_M, DATA_ZOOM)),
-      treesWanted() ? loadLandCover(centre, AREA_SIZE_M) : Promise.resolve(null),
+      treesWanted() && SATELLITE_TREES ? loadLandCover(centre, AREA_SIZE_M) : Promise.resolve(null),
     ]);
     // Building a square takes a few hundred milliseconds of work. Done in one go it froze the game
     // mid-drive each time the next square arrived, so it is done in steps with a frame in between.
@@ -513,6 +513,8 @@ export class World {
         blocked: (x, y) => solids.inside(x, y) || water.at(x, y) || streams.at(x, y) || onDeck(x, y) || pierTest(x, y),
       });
       const treeShape = treeMesh(trees, (x, y) => surfaceY(model, x, y));
+      // the trunks are solid: cars bump off them, people walk round
+      solids.addPosts(trees.map((t) => ({ x: t.x, y: t.y, r: TRUNK_R })));
       if (treeShape) signs.add(treeShape);
       (model as unknown as { treeCount: number }).treeCount = trees.length;
     }

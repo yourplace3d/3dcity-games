@@ -181,9 +181,8 @@ whole story". From then on the people's stories (layer 2) and the daily story (l
 
 ### Where the story lives on screen
 
-- **The start screen:** "Do jobs" becomes **"Story"** ("Open jobs and your story in town"). "Compare with
-  friends" and "Where am I?" stay as they are. The owner already called open jobs "story-mode style"
-  (14 November).
+- **The start screen:** "Do jobs" keeps its name (the owner, 26 November: "It is story but we can leave do
+  jobs"); the story lives in it. "Compare with friends" and "Where am I?" stay as they are.
 - **The menu (☰)** gets a fourth tab, **Story**: the chapters with ticks, the one open now with its goal and
   "Show the way", then the people (one line each: where their story stands, the last message), then "The
   story so far" (each choice made, one line each).
@@ -352,7 +351,8 @@ The daily story is what keeps the game going after chapter 8 (question 6: or soo
 
 ## 11. Questions for the owner
 
-Each with a recommendation. A word per question is enough.
+Each with a recommendation. The owner's answers of 26 November, and the explanations they asked for, are in
+section 13.
 
 1. **"Do jobs" becomes "Story"** on the start screen ("Open jobs and your story in town"), runs and Where am I?
    unchanged? *Recommended: yes.*
@@ -387,3 +387,194 @@ Each with a recommendation. A word per question is enough.
 and savings, so the story would open at chapter 5, with Mira, Theo and Ana writing.
 
 Each step goes live only after the owner has seen it (the standing rule of 12 November).
+
+## 13. Round 2: the owner's answers (26 November), and what they asked to have explained
+
+| # | Question | The owner's answer | Where it stands |
+|---|---|---|---|
+| 1 | "Do jobs" becomes "Story"? | "It is story but we can leave do jobs" | **Decided:** the name stays "Do jobs". The story lives in it all the same. |
+| 2 | Names the same everywhere, or by country? | "How difficult? If easy that's the way to do it" | Easy enough: names by region (below). **Recommended: do it.** |
+| 3 | Messages as a paper strip, not a phone? | Phone messages, retro, even pagers are all fine; likes the paper strips; "maybe different depending on the person"; no voice calls | **Decided:** written messages only, no calls. A look per person is drawn up (below). |
+| 4 | What decides the dispute? | "Explain more" | Below. |
+| 5 | The station people at the stations nearest your first home? | "They live there?" | Below. |
+| 6 | The daily story after chapter 8, or alongside? | "Explain more" | Below, with a third way. |
+| 7 | Outside the home town, the story waits? | "More details?" | Below. |
+| 8 | Count how far players get? | "Yes, and inform the session 3DA: connecting and getting online" | **Decided.** That session was told on 26 November: kind `chapter`, detail `1` to `8`, sent once per browser for a chapter finished in play (chapters ticked at once for players who are further on are not sent). The server's list gets the word at the latest when the story's first step goes live. |
+| 9 | Ana's "Was it you?" | "More info needed" | Below. |
+| 10 | Mira's choice opens the repair at the pump and your garage? | "Maybe more info needed" | Below. |
+
+### 2. Names by country: how hard
+
+- **The code is the easy half** (estimate: half a day). The game already sorts places into parts of the world,
+  twice: for the windows (`src/game/windows.ts`, rough boxes that fade into each other near their edges) and
+  for left-hand traffic (`src/game/world.ts`). Names would work the same way: a list of regions, each with its
+  first names. A person's name is drawn once, from the home town, and kept: Mira does not change her name when
+  you play in Tokyo.
+- **The lists are the bigger half** (estimate: a day). About 25 regions, each with about 30 first names, half
+  women's and half men's: enough for the three station people, the neighbour, three friends and the tenants of
+  many homes. Taken from each country's own statistics of the names most given in about 1975 to 2000, so they
+  are the names of adults today, not of children. First names only: no surnames, which would point at real
+  families and invite clichés. Where a list of names already mixes origins, as big countries' statistics do,
+  the game adds no guesses of its own about who lives where.
+- **Near borders** the names of both sides mix, as the windows do (Strasbourg: French and German names).
+- **Where no region fits** (the open sea, a place the boxes miss): one list of names that read in most
+  languages.
+- **About 1.5 days in all.** It can come with step A, or step A can start with the one shared list and the
+  regions follow.
+
+### 3. The messages: a look per person
+
+The owner's idea, drawn up as mockups: https://claude.ai/artifact/2C3rs3maNZd7ByRvmAJ9kJ (a private page; the
+owner can open it).
+
+| Who | The look | Why |
+|---|---|---|
+| The game | the line it shows now | chapter titles, plain goals, the bank |
+| Mira, the pump | a till receipt | she writes on what she has at hand |
+| Theo, the flame | a pager | many fire services still call their crews out by pager; the retro look the owner mentioned |
+| Ana, the police shield | a page from her notebook, blue ballpoint | she does things by the book |
+| The tenants | a note stuck to the door, in green | tenants leave notes; green is the colour of homes, not yellow, which means "deliver here" |
+| Your neighbour | a card under the door, in pencil | a little more formal than the tenants' note |
+| Your friends | text messages, the game's own plain bubbles | friends text; no handset frame, no ringing |
+
+- All in the same place and about the same size; only the paper changes, so you can tell who is writing before
+  you read it. A message that asks something opens a card.
+- **No voice calls** (the owner).
+- Each new person needs a look of their own (estimate: about an hour each to draw). The daily story's
+  strangers use the game's plain line or the friends' bubbles.
+
+### 4. The dispute: the three ways, played through
+
+The same dispute three times. Your flat on Königstraße pays $456 a day; while the dispute is open, that rent
+waits at the building.
+
+**A. Chance.** The tenants write: "We're not paying this month." You drive there and choose "Insist on all of
+it" or "Accept part of it". Then the game flips a coin. Heads: settled. Tails: it escalates. What you chose
+and how you drove make no difference to which way it goes. Simple to build, but when it goes badly there was
+nothing you could have done, and that feels unfair.
+
+**B. Your driving.** The same message. Your choice decides which job follows: "Insist" means you fix the
+heating today, a rush job with the part from the fire station; "Accept part" means a heavy load from the pump,
+what the flat needs. In time, or with no new dent: settled. Too late, or dented: it escalates. So the choice is
+really "fast or careful?", and what the tenants wrote doesn't matter.
+
+**C. Reading people, then driving (recommended).** As B, but the tenants' message tells you what they need.
+One of two messages, chosen at random:
+- "The heating's been broken for three weeks. We're not paying for a cold flat." What fits: *insist, and fix
+  it*. Choosing it makes the rush job's clock longer.
+- "We're sorry. One of us lost a job this month. Can we talk?" What fits: *accept part*. Choosing it makes the
+  load lighter (estimate: half the slowing of a heavy load).
+
+The wrong choice for the message is still possible to win, only harder. An example: they write that money is
+tight; you accept part; you drive the lighter load from the pump without a new dent; they pay what they
+agreed, the rent is a fifth lower for 7 days, and at your next party there "the couple from the second floor
+brought dessert". Had you insisted, you'd have had a rush job on the usual clock; in time, they'd have paid
+everything.
+
+| | It goes well | It escalates |
+|---|---|---|
+| Insist | all the waiting rent, and a tip | the court's order: a clean run with the officers (Ana, if met); new tenants; the bill is 5 days' rent |
+| Accept part | what they agreed; the rent a fifth lower for 7 days | the broken thing breaks for good: 3 days' rent to replace it, and one more package |
+
+In C you are rewarded for listening *and* for driving, and there are no hidden dice: chance only picks which
+message the tenants send.
+
+### 5. "They live there?"
+
+No: they **work** there. Mira works at the fuel station nearest your first home, your local pump. Her messages
+come from there and her jobs start there. She is not at every pump in the world: other fuel stations give their
+jobs as now, in the game's plain voice. Where she lives the game doesn't say. Every town has a station of each
+kind near any home, because where the map has none the game makes one up (the dashed ring), so everyone gets
+all three.
+
+Another way: they **also live in your building** (Mira on the second floor, Theo on the third). That ties the
+people to your home, but it mixes roles: Mira would also be your tenant, and a dispute with her would be awkward,
+and the neighbour would have nothing left to do. **Recommended:** they work at the nearest stations, and the game
+doesn't say where they live.
+
+### 6. The daily story: when it starts
+
+A new player's first week, three ways:
+
+| Day | After chapter 8 | Alongside from day 2 | Fills the gaps (new) |
+|---|---|---|---|
+| 1 | chapters 1 to 3 | chapters 1 to 3 | chapters 1 to 3 |
+| 2 | rent, chapter 4 | rent, chapter 4, the day's story | rent, chapter 4; the day's story once chapter 4 is done |
+| 3 to 6 | chapters 5 to 8, the people's stories | the same, and the day's story each day | the same; the day's story once the day's chapter is done |
+| Away from the home town | nothing new | the day's story | the day's story |
+| 7 on | the day's story | the day's story | the day's story |
+
+- **After chapter 8:** one thing at a time; the main story has the stage in the first week, and the daily story
+  arrives as it ends, so there is always something new. But a player away from the home town gets nothing new
+  for a week.
+- **Alongside from day 2:** something new every day for everyone, wherever they play, the same for everyone
+  that day, so friends who started at different times can share it. But most visits last under 5 minutes, and
+  two goals at once compete; the main story slows down.
+- **Fills the gaps (recommended now):** the day's chapter comes first; once it is done, or where it can't be
+  played (away from the home town), the day's story is offered. A five-minute player does the chapter; a long
+  visit and a trip to another town get the day's story as well. The daily story is still built last (step D).
+
+### 7. Away from the home town, in detail
+
+Say your first home is in Nuremberg, and on day 3 you open the game in Tokyo.
+- **At the start** a line: "Chapter 5 waits in Nuremberg." Tapping it opens the menu's Story tab, with
+  "Go there", which starts you beside your first home.
+- **In Tokyo** everything works as now: jobs at the stations in the plain voice, runs, homes to buy, parties at
+  homes there. The bank, as now, only in the home town.
+- **Mira, Theo and Ana** send no tasks while you are away; a task you can't drive is no use. Back in Nuremberg,
+  one of them writes: "Back in town? I've got a load waiting."
+- **The days:** the chapter that opened on day 3 waits, and no further chapter opens until it is done. Travel
+  delays the story and never loses it, and chapters don't pile up.
+- **Before the first home** chapters 1 to 3 happen wherever you are, and the town of the first home becomes the
+  home town, as it does for the bank now.
+- **With the daily story filling the gaps** (point 6), Tokyo has the day's story.
+- **Not here:** Where am I? rounds and a friend's run or party from a link.
+- **The other way, the story wherever you play,** would need a home in every town for chapters 6 to 8, and a
+  Mira, Theo and Ana in every town. Not recommended.
+
+### 9. Ana's "Was it you?"
+
+What happens: Ana's fifth job. She writes that a driver reported a car going the wrong way down a one-way street
+on your street. "Was it you?" You say yes or no. No money and no fine either way; she answers differently
+("Thanks for being straight with me. Just watch the signs." or "Alright."), and a line goes into "The story so
+far". Nothing later depends on it.
+
+- **Why choices like this:** they let the player decide who their character is, not only what they get. They
+  cost two lines of text, and players remember them. Story games mix them with choices that have something at
+  stake.
+- **The risks:** a player looking for a reward may find it pointless, and any question about honesty can read
+  as the game giving a lesson.
+- **A better version:** ask only when it really happened. The game knows when a police car saw you go the
+  wrong way (`wrongWay`); only then does Ana ask. Otherwise her fifth job ends plainly, or with a different quiet
+  choice: a found violin, and the owner asks you to bring it now, across town, or she can pick it up at the
+  station tomorrow (your time against a stranger's evening).
+- **Ways to go:** (a) keep it as written; (b) **keep it, but only when it really happened (recommended)**;
+  (c) give it a stake: yes costs a small fine and earns a special job, no is free. But then honesty costs money,
+  and that reads as a lesson; (d) drop it, and keep only choices with something to gain.
+
+### 10. Mira's choice
+
+**Where it comes from.** The missions plan of 14 November had four steps at the stations. Steps 1 and 4 are
+built: jobs at the symbols, and links that carry the kinds of job. Step 2, **repair for cash at fuel
+stations**, and step 3, **buying a fuel station as a garage where a car waits**, are not.
+
+**The scene.** Mira's fifth job: the chain sells her station, and she is short $3,000 (estimate: about four
+runs' pay).
+
+| You choose | What it costs | What you get | What has to be built |
+|---|---|---|---|
+| **Lend her the money** | $3,000 | it comes back a little each day you come back (estimate: $330 a day for 10 days, so $3,300), and from then on your car is repaired at her pump for free | the repair at the pump (step 2), for her pump only: about 1 day |
+| **Buy in as a partner** | more (estimate: $5,000) | a share of the station's takings each day you come back, like a home's rent; later a garage bay where your car waits | the share: half a day. The garage (step 3): about 2 days, and it means cars of your own |
+
+- **The catch:** the owner said on 16 November "houses before cars… cars belong to individuals, later". A
+  garage where *your* car waits is the first car of your own. So the garage may come too early.
+- **Ways to go:**
+  1. **Tie both to the choice now:** lend opens the repair, buy-in opens the garage. About 3 days for both
+     endings.
+  2. **Tie them in order (recommended):** lend opens the repair at her pump, built with her story. Buy-in pays
+     its share like rent from the start, and the garage is added to it once cars of your own come. Both choices
+     give something at once, and nothing about cars is decided early.
+  3. **Tie nothing new to it:** lend, and she pays it back with a tip; buy in, and you get a share like rent.
+     Half a day, but the story's ending opens nothing new.
+  4. **No choice:** her story ends with her owning the pump; the repair and the garage come later for everyone,
+     outside the story.

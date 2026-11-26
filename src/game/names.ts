@@ -34,21 +34,22 @@ const REGIONS: Region[] = [
   },
   {
     key: 'french',
-    // France; Lille; Alsace and Lorraine; the Riviera; Corsica; Romandy and Lower Valais; Quebec
-    boxes: [[41.3, -5.2, 51.1, 8.3], [50.0, 2.5, 50.72, 3.2], [47.6, 5.8, 49.2, 7.8], [43.0, 5.8, 44.4, 7.53], [41.3, 8.5, 43.1, 9.6], [45.8, 5.9, 46.6, 7.6], [45, -75.5, 52, -57]],
+    // France; Lille; the Ardennes by Sedan; Alsace and Lorraine; the Riviera; Corsica; Romandy and Lower Valais; Quebec
+    boxes: [[41.3, -5.2, 51.1, 8.3], [50.0, 2.5, 50.72, 3.2], [49.5, 4.5, 49.95, 5.1], [47.6, 5.8, 49.2, 7.8], [43.0, 5.8, 44.4, 7.53], [41.3, 8.5, 43.1, 9.6], [45.8, 5.9, 46.6, 7.6], [45, -75.5, 52, -57]],
     women: ['Julie', 'Camille', 'Marie', 'Laura', 'Sarah', 'Pauline', 'Émilie', 'Céline', 'Manon', 'Aurélie'],
     men: ['Nicolas', 'Julien', 'Thomas', 'Maxime', 'Alexandre', 'Antoine', 'Kevin', 'Romain', 'Sébastien', 'Guillaume'],
   },
   {
     key: 'belgian',
-    boxes: [[49.5, 2.5, 51.5, 6.0]],
+    // Flanders and Hainaut, north of Valenciennes; Wallonia, east of Maubeuge
+    boxes: [[50.45, 2.5, 51.5, 6.0], [49.5, 3.9, 50.45, 6.0]],
     women: ['Laura', 'Sarah', 'Julie', 'Marie', 'Elke', 'Lotte', 'Charlotte', 'Sofie', 'Céline', 'Ann'],
     men: ['Thomas', 'Kevin', 'Nicolas', 'Pieter', 'Jonas', 'Maxime', 'Wouter', 'Simon', 'Tom', 'Julien'],
   },
   {
     key: 'dutch',
-    // the west and north; Groningen and Twente; Brabant and Limburg
-    boxes: [[51.45, 3.3, 53.6, 6.2], [52.0, 6.2, 53.6, 7.1], [50.75, 4.75, 51.45, 6.0]],
+    // the west, south of the Rhine to Nijmegen; the north; Groningen and Twente; Brabant to Venlo; Limburg
+    boxes: [[51.45, 3.3, 52.0, 6.0], [52.0, 3.3, 53.6, 6.2], [52.0, 6.2, 53.6, 7.1], [51.25, 4.75, 51.45, 6.2], [50.75, 5.6, 51.25, 6.0]],
     women: ['Anne', 'Lisa', 'Laura', 'Sanne', 'Femke', 'Linda', 'Kim', 'Iris', 'Eva', 'Marieke'],
     men: ['Thomas', 'Daan', 'Jeroen', 'Bas', 'Niels', 'Tim', 'Sander', 'Ruben', 'Mark', 'Joost'],
   },
@@ -101,8 +102,8 @@ const REGIONS: Region[] = [
   },
   {
     key: 'czech-slovak',
-    // Bohemia; southern Bohemia; Moravia; Slovakia
-    boxes: [[49.5, 12.4, 50.9, 16.8], [48.55, 13.6, 49.5, 16.8], [48.6, 16.8, 50.0, 18.9], [47.7, 16.9, 49.6, 22.2]],
+    // Bohemia; its north, below the Ore Mountains; southern Bohemia; Moravia; Slovakia, north of Hungary
+    boxes: [[49.5, 12.4, 50.35, 16.8], [50.35, 13.0, 50.85, 16.2], [48.55, 13.6, 49.5, 16.8], [48.6, 16.8, 50.0, 18.9], [48.4, 16.9, 49.6, 22.2], [47.75, 16.9, 48.4, 18.6], [48.2, 18.6, 48.4, 20.4]],
     women: ['Jana', 'Petra', 'Lucie', 'Kateřina', 'Tereza', 'Veronika', 'Martina', 'Eva', 'Lenka', 'Barbora'],
     men: ['Jan', 'Petr', 'Tomáš', 'Martin', 'Jakub', 'Lukáš', 'Ondřej', 'Pavel', 'David', 'Michal'],
   },
@@ -143,7 +144,8 @@ const REGIONS: Region[] = [
   },
   {
     key: 'pakistani',
-    boxes: [[23.6, 61.6, 37.1, 74.6]],
+    // Sindh, west of Rajasthan; southern Punjab; the north
+    boxes: [[23.6, 61.6, 28.0, 70.8], [28.0, 61.6, 30.0, 72.8], [30.0, 61.6, 37.1, 74.6]],
     women: ['Ayesha', 'Fatima', 'Sana', 'Hira', 'Maryam', 'Zainab', 'Amna', 'Sadia', 'Mehwish', 'Rabia'],
     men: ['Muhammad', 'Ali', 'Ahmed', 'Usman', 'Hamza', 'Bilal', 'Imran', 'Fahad', 'Zeeshan', 'Asad'],
   },
@@ -201,7 +203,8 @@ const REGIONS: Region[] = [
   },
   {
     key: 'vietnamese',
-    boxes: [[8.4, 104.0, 23.4, 109.5]],
+    // the coast and the south; the north, below China
+    boxes: [[8.4, 104.0, 21.6, 109.5], [21.6, 102.1, 23.4, 106.9]],
     women: ['Linh', 'Trang', 'Huong', 'Thao', 'Ngoc', 'Lan', 'Mai', 'Hoa', 'Phuong', 'Anh'],
     men: ['Minh', 'Hung', 'Tuan', 'Duc', 'Nam', 'Long', 'Hoang', 'Quang', 'Dung', 'Huy'],
   },
@@ -254,8 +257,8 @@ const REGIONS: Region[] = [
     key: 'shared',
     // places a bigger box would name wrongly, and no list of their own yet: the Levant, Cyprus, the Baltic
     // states, Romania, Bulgaria and Moldova, Mongolia, Central Asia, Myanmar, Cambodia, the South Caucasus,
-    // the Sahel
-    boxes: [[41.0, 41.5, 42.6, 50.0], [38.8, 43.5, 41.0, 50.0], [10, -17.6, 18.0, 16.0], [29.4, 34.2, 33.4, 35.9], [34.5, 32.2, 35.75, 34.65], [54.0, 20.9, 59.7, 28.2], [41.2, 20.2, 48.3, 29.8], [41.5, 87.7, 52.2, 120.0], [35.0, 46.5, 50.5, 87.4], [9.6, 92.2, 28.6, 101.2], [10.4, 102.3, 14.7, 106.2]],
+    // the Sahel, Malta
+    boxes: [[35.7, 14.1, 36.1, 14.6], [41.0, 41.5, 42.6, 50.0], [38.8, 43.5, 41.0, 50.0], [10, -17.6, 18.0, 16.0], [29.4, 34.2, 33.4, 35.9], [34.5, 32.2, 35.75, 34.65], [54.0, 20.9, 59.7, 28.2], [41.2, 20.2, 48.3, 29.8], [41.5, 87.7, 52.2, 120.0], [35.0, 46.5, 50.5, 87.4], [9.6, 92.2, 28.6, 101.2], [10.4, 102.3, 14.7, 106.2]],
     women: SHARED_WOMEN,
     men: SHARED_MEN,
   },

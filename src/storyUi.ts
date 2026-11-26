@@ -11,6 +11,7 @@
 import type { Game } from './game/game';
 import type { HomesUi } from './homesUi';
 import { BUILDINGS_AFTER, dayOf } from './game/homes';
+import { isCoords } from './homesList';
 import { loadParties } from './game/party';
 import { namesFor } from './game/names';
 import { countPlay } from './linkCount';
@@ -19,6 +20,7 @@ import {
   addPending,
   advance,
   ALL,
+  AT_HOME,
   begin,
   BUILT,
   CHAPTERS,
@@ -171,13 +173,20 @@ export class StoryUi {
 
   /** The first home's town: the story's from chapter 4 on. */
   private town(): string {
-    return this.host.homes()?.homeTownName() ?? '';
+    const t = this.host.homes()?.homeTownName() ?? '';
+    // a place with no name was kept by its coordinates: "your home town" reads better
+    return isCoords(t) ? '' : t;
   }
 
   /** Whether the chapters that happen at home can be played here: in the home town, or before there is one. */
   private atHome(): boolean {
     const h = this.host.homes();
     return !h || !h.mine().homes.length || h.atHomeTown();
+  }
+
+  /** Whether chapter `n` waits for the home town here: only those that happen at home, and only away from it. */
+  private waitsHome(n: number): boolean {
+    return AT_HOME.has(n) && !this.atHome();
   }
 
   // ------------------------------------------------------------ each moment
@@ -219,6 +228,8 @@ export class StoryUi {
     const r = advance(story, s, today);
     // written only when something changed: `advance` hands back the same story when nothing moved
     if (r.story !== this.story) this.set(r.story);
+    // the arrow to a station was for the chapter that is done
+    if (r.finished.length) this.clearGuide();
     r.finished.forEach((n, i) => {
       countPlay('chapter', String(n));
       this.finished(n, r.story, i === r.finished.length - 1, r.early.includes(n));
@@ -250,11 +261,10 @@ export class StoryUi {
     // chapters 1 to 3 are the tour, the first deliveries and the first flat: their own lines and cards say it
     if (n < 4) return;
     this.visitSaid = true;
-    const home = this.atHome();
     if (n === 6) this.enqueue(SCENES.housewarming());
     if (n === 7) this.enqueue(SCENES.building(s));
-    if (home) this.goalLine(n);
-    else this.awayLine(n);
+    if (this.waitsHome(n)) this.awayLine(n);
+    else this.goalLine(n);
     if (n === 5) this.enqueue(SCENES.regulars(this.story));
   }
 
@@ -264,7 +274,7 @@ export class StoryUi {
   }
 
   private goalOf(n: number) {
-    return goal(n, { ...this.snapshot(), town: this.town(), buildingsAfter: BUILDINGS_AFTER }, this.story);
+    return goal(n, { ...this.snapshot(), town: this.town(), buildingsAfter: BUILDINGS_AFTER, away: !this.atHome() }, this.story);
   }
 
   /** "Chapter 5, The regulars, waits in Nuremberg." */
@@ -277,7 +287,7 @@ export class StoryUi {
     this.visitSaid = true;
     const n = this.story.open;
     if (n < 4 || n > BUILT || !this.story.opened) return;
-    if (!this.atHome()) this.awayLine(n);
+    if (this.waitsHome(n)) this.awayLine(n);
     else this.goalLine(n);
   }
 
@@ -285,6 +295,8 @@ export class StoryUi {
   private job(kind: Exclude<JobKind, 'plain'>): void {
     const noted = noteJob(this.story, kind);
     if (noted !== this.story) this.set(noted);
+    // a job delivered: the arrow to a station has done its work
+    this.clearGuide();
     if (this.story.open !== 5 || !this.story.opened || said(this.story, `thanks-${kind}`)) return;
     this.set(say(this.story, `thanks-${kind}`));
     this.enqueue(SCENES.thanks(kind));
@@ -365,6 +377,11 @@ export class StoryUi {
     return true;
   }
 
+  private clearGuide(): void {
+    if (this.guide && this.host.game.guide === this.guide) this.host.game.guide = null;
+    this.guide = null;
+  }
+
   private guideTick(): void {
     const { game } = this.host;
     if (!this.guide) return;
@@ -420,7 +437,7 @@ export class StoryUi {
       const title = document.createElement('b');
       title.textContent = CHAPTERS[n - 1];
       const text = document.createElement('p');
-      const home = this.atHome();
+      const home = !this.waitsHome(n);
       text.textContent = !story.opened ? `Opens on your next day of play. Chapter ${n - 1} is done.` : home ? g.text : `This chapter happens in ${this.town() || 'your home town'}. ${g.text}`;
       now.append(head, title, text);
       if (story.opened && playing) {

@@ -313,9 +313,14 @@ export interface Goal {
   way: 'bank' | 'station' | 'home' | null;
 }
 
+/** The chapters that happen in the home town: the bank, the party at the flat, the building. */
+export const AT_HOME = new Set([4, 6, 7]);
+
 export interface GoalState extends Snapshot {
   /** the home town's name, once there is a first home */
   town: string;
+  /** played away from the home town: the people of the stations are at home */
+  away?: boolean;
   /** homes it takes before whole buildings are for sale */
   buildingsAfter: number;
 }
@@ -334,8 +339,11 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
     case 4:
       return { text: `Keep your cash safe from fines: pay it in at a bank in ${s.town || 'your home town'}.`, way: 'bank' };
     case 5: {
-      const left = STATION_JOBS.filter((k) => !story.kinds.includes(k)).map((k) => atStation(k, story.names));
-      return { text: `Do a job for ${list(left)}.`, way: 'station' };
+      const kinds = STATION_JOBS.filter((k) => !story.kinds.includes(k));
+      if (!kinds.length) return { text: 'Done: they all know you now.', way: null };
+      // away, their stations are elsewhere, but a job at any station counts
+      if (s.away) return { text: `Do a job at ${list(kinds.map((k) => ({ supply: 'a fuel station', rush: 'a fire station', clean: 'a police station' })[k]))}: they count wherever you are.`, way: 'station' };
+      return { text: `Do a job for ${list(kinds.map((k) => atStation(k, story.names)))}.`, way: 'station' };
     }
     case 6:
       return { text: 'Throw a party at your flat: stop beside it.', way: 'home' };
@@ -380,8 +388,10 @@ export const SCENES = {
       ['flame', 'Need someone quick. Come by the fire station.'],
       ['shield', 'If you can drive by the book, I have work for you. Police station, when you are ready.'],
     ];
+    // not someone who has written, nor one whose kind of job is done already
     const seen = met(story);
-    return all.filter(([w]) => !seen.includes(w));
+    const kindOf: Partial<Record<Who, JobKind>> = { pump: 'supply', flame: 'rush', shield: 'clean' };
+    return all.filter(([w]) => !seen.includes(w) && !story.kinds.includes(kindOf[w]!));
   },
   /** a first job done for a person in chapter 5 */
   thanks: (kind: Exclude<JobKind, 'plain'>): Array<[Who, string]> =>

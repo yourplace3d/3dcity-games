@@ -132,6 +132,14 @@ describe('the story', () => {
     expect(play(t, snap({ delivered: 9, homes: 1, reno: 'buy', saved: 10, partied: true }), D1).early).toEqual([]);
   });
 
+  it('in chapter 5, leaves out the people whose kind of job is done, and says so away from home', () => {
+    const s: Story = { ...none(), names: namesFor(49.4521, 11.0767), kinds: ['rush'] };
+    expect(SCENES.regulars(s).map(([w]) => w)).toEqual(['pump', 'shield']);
+    const g = (away: boolean, kinds: Story['kinds']) => goal(5, { ...snap(), town: 'Nuremberg', buildingsAfter: 6, away }, { ...s, kinds }).text;
+    expect(g(true, ['rush'])).toBe('Do a job at a fuel station and a police station: they count wherever you are.');
+    expect(g(false, ['supply', 'rush', 'clean'])).toBe('Done: they all know you now.');
+  });
+
   it('counts someone whose message still waits as met', () => {
     const s = addPending(none(), [['pump', 'Plaster for you']]);
     expect(SCENES.regulars(s).map(([w]) => w)).toEqual(['flame', 'shield']);

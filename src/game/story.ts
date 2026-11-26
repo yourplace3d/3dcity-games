@@ -313,9 +313,6 @@ export interface Goal {
   way: 'bank' | 'station' | 'home' | null;
 }
 
-/** The chapters that happen in the home town: the bank, the party at the flat, the building. */
-export const AT_HOME = new Set([4, 6, 7]);
-
 export interface GoalState extends Snapshot {
   /** the home town's name, once there is a first home */
   town: string;

@@ -10,7 +10,7 @@
 
 import type { Game } from './game/game';
 import type { HomesUi } from './homesUi';
-import { BUILDINGS_AFTER, dayOf } from './game/homes';
+import { BUILDINGS_AFTER, dayOf, type Home } from './game/homes';
 import { isCoords } from './homesList';
 import { loadParties } from './game/party';
 import { namesFor } from './game/names';
@@ -20,7 +20,6 @@ import {
   addPending,
   advance,
   ALL,
-  AT_HOME,
   begin,
   BUILT,
   CHAPTERS,
@@ -73,7 +72,8 @@ const VISIT_LINE_S = 9;
 /** the stations' kinds, by the job each hands out */
 const SERVICE_OF: Record<Exclude<JobKind, 'plain'>, ServiceKind> = { supply: 'fuel', rush: 'fire', clean: 'police' };
 
-type Queued = { who: Who; text: string; heading?: string };
+/** `again`: a line said again on each visit (the open chapter, or where it waits), so a new place drops it */
+type Queued = { who: Who; text: string; heading?: string; again?: boolean };
 
 
 export class StoryUi {
@@ -114,7 +114,7 @@ export class StoryUi {
   arrived(): void {
     this.playedS = 0;
     this.visitSaid = false;
-    this.queue = this.queue.filter((q) => q.who !== 'game');
+    this.queue = this.queue.filter((q) => !q.again);
   }
 
   /** The chapter open now, or the next one waiting; 0 before the story begins. */
@@ -184,9 +184,25 @@ export class StoryUi {
     return !h || !h.mine().homes.length || h.atHomeTown();
   }
 
-  /** Whether chapter `n` waits for the home town here: only those that happen at home, and only away from it. */
+  /**
+   * Whether chapter `n` waits for the home town here. Only the bank (4) does always; a party (6) at any home
+   * counts, so it waits only where no home stands; the whole building (7) waits while it is the first one's.
+   */
   private waitsHome(n: number): boolean {
-    return AT_HOME.has(n) && !this.atHome();
+    if (this.atHome()) return false;
+    if (n === 4) return true;
+    if (n === 6) return !this.homeHere();
+    if (n === 7) {
+      const r = this.snapshot().reno;
+      return r === 'buy' || r === 'rest' || r === 'paint';
+    }
+    return false;
+  }
+
+  /** A home of the player's in the part of town being played: the first home if it is here. */
+  private homeHere(): Home | null {
+    const h = this.host.homes();
+    return h?.mine().homes.find((x) => h.isHere(x)) ?? null;
   }
 
   // ------------------------------------------------------------ each moment
@@ -270,7 +286,7 @@ export class StoryUi {
 
   /** "Chapter 5 of 8 · The regulars": what it asks. */
   private goalLine(n: number): void {
-    this.line(heading(n), this.goalOf(n).text);
+    this.line(heading(n), this.goalOf(n).text, true);
   }
 
   private goalOf(n: number) {
@@ -279,7 +295,7 @@ export class StoryUi {
 
   /** "Chapter 5, The regulars, waits in Nuremberg." */
   private awayLine(n: number): void {
-    this.line(heading(n), `Waits in ${this.town() || 'your home town'}: the menu's Story tab takes you there.`);
+    this.line(heading(n), `Waits in ${this.town() || 'your home town'}: the menu's Story tab takes you there.`, true);
   }
 
   /** At the start of a visit, once: the chapter open now, or where it waits. */
@@ -327,14 +343,18 @@ export class StoryUi {
     for (const [who, text] of lines) this.queue.push({ who, text });
   }
 
-  /** The first message that may show now: the game's lines always, the people's only in the home town. */
+  /**
+   * The first message that may show now: the game's lines always; the people's in the home town, where they
+   * are; the friends' also wherever one of the player's homes stands.
+   */
   private nextIndex(): number {
     const home = this.atHome();
-    return this.queue.findIndex((q) => q.who === 'game' || home);
+    const friends = home || !!this.homeHere();
+    return this.queue.findIndex((q) => q.who === 'game' || home || (q.who === 'friends' && friends));
   }
 
-  private line(head: string, text: string): void {
-    this.queue.push({ who: 'game', text, heading: head });
+  private line(head: string, text: string, again = false): void {
+    this.queue.push({ who: 'game', text, heading: head, ...(again ? { again } : {}) });
   }
 
   private showNext(i: number): void {
@@ -410,8 +430,8 @@ export class StoryUi {
       return;
     }
     if (g.way === 'home') {
-      const first = homes?.mine().homes[0];
-      if (!first || !homes?.showWay(first)) toast('Your home is not in this part of town.');
+      const here = this.homeHere();
+      if (!here || !homes?.showWay(here)) toast('None of your homes is in this part of town.');
       else toast('The arrow shows the way to your home.');
       return;
     }

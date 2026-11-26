@@ -399,12 +399,12 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       story = new StoryUi({
         game,
         homes: () => homes,
-        show: showEl,
+        // on a touch screen the lines take no taps, and the house button keeps leading to the real estate
+        show: (el, ms, tap) => showEl(el, ms, document.body.classList.contains('touch') ? undefined : tap),
         openStory: () => setPause(true, 'story'),
         // a card, the menu, the map, the result, the tour: the messages wait
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden || step >= 0,
-        // a city being guessed, a friend's run or party from a link: no story
-        quiet: () => !!secret || !!rival || !!partyShown,
+        quiet: storyQuiet,
         goHome,
         closeMenu: () => setPause(false),
         stored: () => changed(),
@@ -1335,9 +1335,11 @@ type MenuTab = 'game' | 'story' | 'estate' | 'trophies';
 let menuOpen = false;
 
 /**
- * The menu over the game (☰, P or Esc), and the game waits behind it. Three tabs: paused (what is
- * being played, and changing it), the player's real estate, and their trophies. Over the start screen it
- * opens without the first; while a city is guessed, only the first, as the homes would give the city away.
+ * The menu over the game (☰, P or Esc), and the game waits behind it. Four tabs: paused (what is being
+ * played, and changing it), the story (`storyUi.ts`), the player's real estate, and their trophies. Over the
+ * start screen it opens without the first; while a city is guessed, only the first, as the homes would give
+ * the city away. The story's tab shows once a place has been played on this page, and not while the story
+ * is quiet (`storyQuiet`).
  */
 function setPause(on: boolean, tab: MenuTab = 'game'): void {
   if (on && playing && (mapOpen || welcoming || guessing || !$('result').hidden || !$('guess').hidden)) return;
@@ -1351,8 +1353,7 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
   if (!on) return;
   $('tab-game').hidden = !playing;
   $('tab-estate').hidden = $('tab-trophies').hidden = !!secret;
-  // no story while a city is guessed, or on a friend's run or party from a link
-  $('tab-story').hidden = !!secret || !story || !!rival || !!partyShown;
+  $('tab-story').hidden = !story || storyQuiet();
   if (tab === 'story' && $('tab-story').hidden) tab = playing ? 'game' : 'estate';
   const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['story', 'story'], ['estate', 'estate'], ['trophies', 'trophies']];
   for (const [t, id] of tabs) {
@@ -1547,6 +1548,11 @@ $('btn-estate').addEventListener('click', () => {
   if (go) go();
   else setPause(true, 'estate');
 });
+/** No story now: a city being guessed, a friend's run from a link, or a friend's party from a link while it is on. */
+function storyQuiet(): boolean {
+  return !!secret || !!rival || !!linkParty || (!!partyShown && !!game?.party);
+}
+
 /** The story's way home: the town of the first home, beside it. */
 function goHome(): void {
   setPause(false);

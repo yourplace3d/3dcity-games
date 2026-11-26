@@ -251,7 +251,7 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
   showEl(el, ms, tap);
 }
 /** A line over the game made elsewhere (the story's messages), shown as the lines are. */
-function showEl(el: HTMLElement, ms: number, tap?: () => void): void {
+function showEl(el: HTMLElement, ms: number, tap?: () => void, nudge = true): void {
   el.classList.add('toast');
   if (tap) el.classList.add('tap');
   if (tap) {
@@ -267,12 +267,15 @@ function showEl(el: HTMLElement, ms: number, tap?: () => void): void {
       e.preventDefault();
       el.click();
     });
-    asks.push({ tap, until: performance.now() + ms, el });
-    // the pulse starts again for each new line
-    const b = $('btn-estate');
-    b.classList.remove('nudge');
-    void b.offsetWidth;
-    b.classList.add('nudge');
+    // a line reached through the house button (on a touch screen) makes it pulse; the story's lines are not
+    if (nudge) {
+      asks.push({ tap, until: performance.now() + ms, el });
+      // the pulse starts again for each new line
+      const b = $('btn-estate');
+      b.classList.remove('nudge');
+      void b.offsetWidth;
+      b.classList.add('nudge');
+    }
   }
   // it fades over the time it is shown, a long message as well as a short one
   el.style.animationDuration = `${ms}ms`;
@@ -280,7 +283,7 @@ function showEl(el: HTMLElement, ms: number, tap?: () => void): void {
   box.append(el);
   // three at most: the oldest goes first, but a line that can be tapped stays while others can go
   while (box.children.length > 3) ([...box.children].find((c) => c !== el && !c.classList.contains('tap')) ?? box.firstElementChild)!.remove();
-  if (tap) nudgeButton();
+  if (tap && nudge) nudgeButton();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -400,7 +403,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         game,
         homes: () => homes,
         // on a touch screen the lines take no taps, and the house button keeps leading to the real estate
-        show: (el, ms, tap) => showEl(el, ms, document.body.classList.contains('touch') ? undefined : tap),
+        show: (el, ms, tap) => showEl(el, ms, document.body.classList.contains('touch') ? undefined : tap, false),
         openStory: () => setPause(true, 'story'),
         // a card, the menu, the map, the result, the tour: the messages wait
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden || step >= 0,
@@ -1556,11 +1559,13 @@ function storyQuiet(): boolean {
 /** The story's way home: the town of the first home, beside it. */
 function goHome(): void {
   setPause(false);
-  const first = owned().homes[0];
-  if (!first) return;
+  // the home town's place: the first home's, as the banks go by
+  const at = homes?.homeTownAt();
+  const place = homes?.homeTownName() ?? '';
+  if (!at) return;
   save();
   setScreen('start');
-  void go({ lat: first.lat, lon: first.lon }, isCoords(first.place) ? undefined : first.place);
+  void go(at, isCoords(place) ? undefined : place);
 }
 
 /** The way to the nearest bank: from the bank line in the money box, or from the real estate. */

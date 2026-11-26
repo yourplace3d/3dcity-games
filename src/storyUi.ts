@@ -231,9 +231,9 @@ export class StoryUi {
     // the story begins: a player who is further on starts at the chapter they are on, with its scene
     const began = !story.open;
     if (began) story = begin(s, today);
-    // the people's names, from the first home's place, once there is one
-    const first = this.host.homes()?.mine().homes[0];
-    if (!story.names && first) story = { ...story, names: namesFor(first.lat, first.lon) };
+    // the people's names, from the home town's place (the first home's), once there is one
+    const at = this.host.homes()?.homeTownAt();
+    if (!story.names && at) story = { ...story, names: namesFor(at.lat, at.lon) };
     // the first home bought, in play: the neighbour says welcome
     if (this.homesBefore === 0 && s.homes > 0 && !said(story, 'neighbour-welcome')) {
       const lines = SCENES.neighbourWelcome(s.reno === 'flat');
@@ -392,6 +392,8 @@ export class StoryUi {
     if (!best) return false;
     const n = w.roads.nearest(best.x, best.y, 150, 'traffic');
     const [rx, ry] = n ? w.roads.point(n.line, n.s) : [best.x, best.y];
+    // asked for now: the way to a home steps aside
+    this.host.homes()?.dropWay();
     this.guide = { x: rx, y: ry };
     game.guide = this.guide;
     return true;

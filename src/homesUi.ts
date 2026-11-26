@@ -181,6 +181,8 @@ export class HomesUi {
    * the rest of it, or to paint it), or a home picked from the list of homes.
    */
   private wayTo: Home | null = null;
+  /** the point the arrow shows on the way to `wayTo`: kept, so that only this arrow is taken down, never another's */
+  private homeGuide: { x: number; y: number } | null = null;
   /** the line on the rent of the day, waiting for the place's name to be read (`RENT_AFTER_S`) */
   private rentLine: (() => string) | null = null;
   private rentLineT = 0;
@@ -332,6 +334,18 @@ export class HomesUi {
     return { homes: this.homes.homes, reno: this.reno, saved: this.saved };
   }
 
+  /** The way to a home gives the arrow up to another (the story's way to a station). */
+  dropWay(): void {
+    if (this.homeGuide && this.host.game.guide === this.homeGuide) this.host.game.guide = null;
+    this.wayTo = null;
+    this.homeGuide = null;
+  }
+
+  /** Where the home town is: the first home's place, which the banks and the story go by. */
+  homeTownAt(): { lat: number; lon: number } | null {
+    return this.plate ? { lat: this.plate.lat, lon: this.plate.lon } : null;
+  }
+
   /** Whether the square being played is in the home town: the first home's, where the banks are. */
   atHomeTown(): boolean {
     return this.atPlate;
@@ -430,10 +444,11 @@ export class HomesUi {
       // on a job or a party the arrow is theirs: the way to the home waits
       if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job || game.party) {
         if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.wayTo = null;
-        if (game.guide && game.guide !== this.bankGuide && !game.job && !game.party) game.guide = null;
+        if (game.guide && game.guide === this.homeGuide && !game.job && !game.party) game.guide = null;
       } else {
         const [rx, ry] = world.roads.point(n.line, n.s);
-        game.guide = { x: rx, y: ry };
+        this.homeGuide = { x: rx, y: ry };
+        game.guide = this.homeGuide;
       }
     }
     if (r) return;

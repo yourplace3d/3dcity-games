@@ -168,7 +168,10 @@ the streets, buildings, water and hills come from the same map squares as
   the town, found through the volunteer directory Radio Browser and heard straight from each station's
   own stream. Pressing it contacts the directory and the station; without the trial nothing does.
   Switched on, it stays on: it plays again in the next car and on the next visit, until FM is pressed again
-  (`src/radio.ts`).
+  (`src/radio.ts`). It stays a trial on purpose: playing stations of any town to players elsewhere is what
+  a court found infringing in Warner and Sony against TuneIn (see `docs/plan-returning-players.md`,
+  section 11). A building's for-sale panel, and the radio's bar, keep clear of the little map and of each
+  other on any screen (`src/clearOf.ts`).
 - **Hills show and are felt.** The light treats every slope as about three times steeper than it is, so the
   side of a hill away from the sun is clearly darker. Streets that climb more than 1 in 10 carry arrowheads
   pointing uphill. The car you drive is held back uphill and carried downhill (never so much that a hill

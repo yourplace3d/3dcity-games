@@ -650,3 +650,54 @@ under a bridge. The bridges take 3 to 23 ms of a square's loading (Hong Kong, To
 in steps of their own.
 
 **Going live:** on the owner's word ("Put the bridge fix live", 25 November), by pull request #19.
+
+## 11. The radio: for everyone asked, held back for the law (the owner, 25 and 26 November)
+
+"Before putting the live weather in i would put the radio live for everyone." It was a trial, on in a browser
+with `?try=radio`: the owner had it on the iPad, never on the Mac. It was built for everyone (an FM button for
+all, off until tapped, Radio Browser credited on the start screen), and then held back before going live:
+"Don't put it live yet check the legal obstacles first."
+
+**The law, as far as it was looked into (not a lawyer's advice):**
+- A plain link to what is freely online with the rights holders' consent is no new "communication to the
+  public" (EU Court of Justice, *Svensson*, 2014); one who links for profit is taken to know when what he
+  links to is unlicensed (*GS Media*, 2016).
+- Warner and Sony against TuneIn (England, 2019; Court of Appeal 2021, on those European rulings): a radio app
+  linking listeners in the UK to stations licensed for the UK did no wrong; to foreign stations licensed only
+  at home it did, bringing them to a new public, and its checks of licences did not save it, as it ran for
+  profit. TuneIn then shut its foreign stations off in the UK.
+- GEMA and GVL hold web radio licensable; GVL asks a licence for several countries once listeners come from
+  abroad. Stations are mostly licensed at home.
+- The game's radio plays stations of any town on earth to players wherever they are: the case found
+  infringing. In Germany the likely trouble is a lawyer's letter with costs (Abmahnung); more so if the game
+  earns money.
+- No trouble with Radio Browser itself: its free service may be used in commercial software.
+- Apart from the radio: the site has no privacy policy and no legal notice (Impressum), though it already
+  contacts OpenFreeMap, AWS, Photon, Nominatim and Supabase; tapping FM would add Radio Browser and stations
+  worldwide (the player's address goes to them). For the owner, with a lawyer.
+
+**The owner's word (26 November):** "I'm really sad there's no work around but let's do it like you suggest."
+So the radio stays a trial; for everyone only with a media lawyer's word. A way round to weigh then: FM opening
+the station's own page in a new tab, a plain link, instead of playing in the game.
+
+**What goes live from the work, for everyone:**
+- **The top right of the screen kept clear** (`src/clearOf.ts`), measured on an iPad (both ways round), a
+  phone (both ways round), a narrow window and a computer: with the little map in the top right corner, a
+  building's for-sale panel hid it (the owner's iPad); now it sits beside the little map where there is room,
+  else under it, scrolling on a low screen. For the radio's trial too: on a phone its bar lay over the little
+  map, on an iPad it hid the panel's top line; now the bar goes under the little map and the panel under the
+  bar. Placed again whenever one of them changes (and once a second besides).
+- **On a narrow phone (360 px)** the four buttons at the top are a little smaller and closer, so that FM, in
+  the trial, stays clear of the cash. On the narrowest phones (320 px, the first iPhone SE) it still touches
+  the cash panel by a few pixels.
+- **"next ›"** shows only while a station plays.
+
+Checked in the browser with a stand-in for the directory and the stations (this session's network reaches
+neither): nothing is asked of anyone before FM is tapped; then a station plays and its name shows, next ›
+moves on, and out of the car the bar says the radio plays in a car. Tests: `tests/radio.test.ts`,
+`tests/clearOf.test.ts`. Two code reviews: a for-sale panel that scrolls on a low screen jumped back to its top
+four times a second; beside the little map it stayed put on a narrow screen (centred by the style sheet); next
+› while looking for stations; the bar and panel shown a moment in the old place; work done while nothing
+shows; FM over the cash on a 360 px phone; placed again on coming back from a menu: all fixed.
+
+**Going live:** the layout fixes, on the owner's word (26 November), by pull request #21; the radio stays a trial.

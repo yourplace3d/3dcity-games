@@ -111,16 +111,17 @@
           <input id="q" type="search" placeholder="City, street or lat, lon" autocomplete="off" enterkeyhint="go" />
           <button class="primary">Go</button>
         </form>
+        <!-- little on the map at the place just searched: right under the search field, the way on first, so it is seen without scrolling -->
+        <div id="thin" hidden>
+          <button id="btn-anyway">Play here anyway</button>
+          <p><b>There isn't much on the map here yet.</b> You can play, but the streets will feel empty. We'd recommend adding to the map first: this game is built from OpenStreetMap, which anyone can edit.</p>
+          <p><a id="thin-map" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">See this place on OpenStreetMap</a> · <a href="https://wiki.openstreetmap.org/wiki/Beginners%27_guide" target="_blank" rel="noopener">How to add buildings and streets</a></p>
+          <p>New map material shows up in the game after some days. Or play one of the recommended cities below.</p>
+        </div>
         <div class="places" id="places"></div>
         <!-- saving the game online under a name: optional, filled in by cloudUi.ts -->
         <div id="account" hidden></div>
         <p class="small" id="where" hidden>This page carries the map of central Berlin, about 3 km across. The full game loads any city.</p>
-        <div id="thin" hidden>
-          <p><b>There isn't much on the map here yet.</b> You can play, but the streets will feel empty. We'd recommend adding to the map first: this game is built from OpenStreetMap, which anyone can edit.</p>
-          <p><a id="thin-map" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">See this place on OpenStreetMap</a> · <a href="https://wiki.openstreetmap.org/wiki/Beginners%27_guide" target="_blank" rel="noopener">How to add buildings and streets</a></p>
-          <p>New map material shows up in the game after some days. Or play one of the recommended cities above.</p>
-          <button id="btn-anyway">Play here anyway</button>
-        </div>
         <div class="row"><button id="btn-resume" hidden>Back to the game</button><button id="btn-scores">Scoreboard</button><button id="btn-homes" hidden>Your homes</button></div>
         <p class="status" id="status" role="status" aria-live="polite"></p>
         <div id="busy" hidden><b id="busy-text">Searching</b><i aria-hidden="true"></i></div>

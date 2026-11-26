@@ -92,7 +92,8 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
 - **The owner asked what the blue dots are.** They are subway entrances. Nothing on screen says so until you
   stand on one. A label or a first-time hint was offered and not yet answered.
 - **Thin places get a warning** on the start screen, with links to OpenStreetMap and its beginners' guide, and
-  a "Play here anyway" button. The owner asked for exactly this wording idea: you can play, but we recommend
+  a "Play here anyway" button. It sits right under the search field with the button first, so it is seen
+  without scrolling on any screen (owner, 25 November). The owner asked for exactly this wording idea: you can play, but we recommend
   adding map material first, here is how, or play a recommended city.
 - **Public transport came first among the data ideas**, without real schedules: "the lines might be set up as
   normal bus traffic". Done from map tiles alone (see below).

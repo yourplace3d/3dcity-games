@@ -121,6 +121,22 @@ describe('the story', () => {
     expect(SCENES.regulars(s).map(([w]) => w)).toEqual(['flame', 'shield']);
   });
 
+  it('says which chapters were done before they opened', () => {
+    // chapter 5 opened today, chapter 6 waits: a party thrown today ticks it, early
+    const s: Story = { ...none(), open: 6, opened: '', last: D1, first: D1, done: { 1: { day: D1 }, 2: { day: D1 }, 3: { day: D1 }, 4: { day: D1 }, 5: { day: D1 } } };
+    const r = play(s, snap({ delivered: 9, homes: 1, reno: 'buy', saved: 10, partied: true }), D1);
+    expect(r.finished).toEqual([6]);
+    expect(r.early).toEqual([6]);
+    // an open chapter is not early
+    const t: Story = { ...s, opened: D1 };
+    expect(play(t, snap({ delivered: 9, homes: 1, reno: 'buy', saved: 10, partied: true }), D1).early).toEqual([]);
+  });
+
+  it('counts someone whose message still waits as met', () => {
+    const s = addPending(none(), [['pump', 'Plaster for you']]);
+    expect(SCENES.regulars(s).map(([w]) => w)).toEqual(['flame', 'shield']);
+  });
+
   it('hands back the same story when nothing moved, so nothing is written again', () => {
     const s = begin(snap({ delivered: 1 }), D1);
     const r = play(s, snap({ delivered: 1 }), D1);

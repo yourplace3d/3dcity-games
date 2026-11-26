@@ -26,15 +26,16 @@ const SHARED_MEN = ['Theo', 'Leo', 'Sam', 'Max', 'Noah', 'Adam', 'Ben', 'Luca', 
 const REGIONS: Region[] = [
   {
     key: 'german',
-    // Germany, north and south of the French border; Austria; German-speaking Switzerland; Upper Valais
-    boxes: [[49.0, 5.8, 55.1, 15.1], [47.2, 7.5, 49.0, 15.1], [46.3, 9.5, 49.1, 17.2], [46.6, 7.1, 47.81, 10.5], [46.0, 7.6, 46.6, 8.2]],
+    // Germany: the north, west of Szczecin; the middle, to the Oder; Görlitz and Zittau; the south, east of
+    // the French border. Austria, without Slovenia. German-speaking Switzerland; Upper Valais
+    boxes: [[52.9, 5.8, 55.1, 14.2], [49.0, 5.8, 52.9, 14.7], [50.8, 14.7, 51.3, 15.05], [47.2, 7.5, 49.0, 15.1], [46.8, 9.5, 49.1, 17.2], [46.4, 9.5, 46.8, 15.6], [46.6, 7.1, 47.81, 10.5], [46.0, 7.6, 46.6, 8.2]],
     women: ['Anna', 'Julia', 'Sarah', 'Lisa', 'Katharina', 'Laura', 'Sandra', 'Nicole', 'Stefanie', 'Christina'],
     men: ['Michael', 'Daniel', 'Thomas', 'Andreas', 'Tobias', 'Stefan', 'Christian', 'Jan', 'Florian', 'Markus'],
   },
   {
     key: 'french',
-    // France; Alsace and Lorraine; the Riviera; Corsica; Romandy and Lower Valais; Quebec
-    boxes: [[41.3, -5.2, 51.1, 8.3], [47.6, 5.8, 49.2, 7.8], [43.0, 5.8, 44.4, 7.53], [41.3, 8.5, 43.1, 9.6], [45.8, 5.9, 46.6, 7.6], [45, -75.5, 52, -57]],
+    // France; Lille; Alsace and Lorraine; the Riviera; Corsica; Romandy and Lower Valais; Quebec
+    boxes: [[41.3, -5.2, 51.1, 8.3], [50.0, 2.5, 50.72, 3.2], [47.6, 5.8, 49.2, 7.8], [43.0, 5.8, 44.4, 7.53], [41.3, 8.5, 43.1, 9.6], [45.8, 5.9, 46.6, 7.6], [45, -75.5, 52, -57]],
     women: ['Julie', 'Camille', 'Marie', 'Laura', 'Sarah', 'Pauline', 'Émilie', 'Céline', 'Manon', 'Aurélie'],
     men: ['Nicolas', 'Julien', 'Thomas', 'Maxime', 'Alexandre', 'Antoine', 'Kevin', 'Romain', 'Sébastien', 'Guillaume'],
   },
@@ -121,8 +122,8 @@ const REGIONS: Region[] = [
   },
   {
     key: 'east-slavic',
-    // Russia, Ukraine and Belarus; the Russian Far East by the sea
-    boxes: [[41, 22.1, 70, 180], [42.3, 130.7, 53.6, 135]],
+    // Russia, Ukraine and Belarus; the Russian Far East by the sea; Kaliningrad
+    boxes: [[41, 22.1, 70, 180], [42.3, 130.7, 53.6, 135], [54.3, 19.6, 55.3, 22.9]],
     women: ['Anna', 'Maria', 'Elena', 'Olga', 'Natalia', 'Irina', 'Ekaterina', 'Tatiana', 'Svetlana', 'Yulia'],
     men: ['Alexander', 'Dmitry', 'Sergey', 'Andrey', 'Alexey', 'Ivan', 'Mikhail', 'Nikolai', 'Pavel', 'Maxim'],
   },
@@ -252,8 +253,9 @@ const REGIONS: Region[] = [
   {
     key: 'shared',
     // places a bigger box would name wrongly, and no list of their own yet: the Levant, Cyprus, the Baltic
-    // states, Romania, Bulgaria and Moldova, Mongolia, Central Asia, Myanmar, Cambodia
-    boxes: [[29.4, 34.2, 33.4, 35.9], [34.5, 32.2, 35.75, 34.65], [54.0, 20.9, 59.7, 28.2], [41.2, 20.2, 48.3, 29.8], [41.5, 87.7, 52.2, 120.0], [35.0, 46.5, 50.5, 87.4], [9.6, 92.2, 28.6, 101.2], [10.4, 102.3, 14.7, 106.2]],
+    // states, Romania, Bulgaria and Moldova, Mongolia, Central Asia, Myanmar, Cambodia, the South Caucasus,
+    // the Sahel
+    boxes: [[41.0, 41.5, 42.6, 50.0], [38.8, 43.5, 41.0, 50.0], [10, -17.6, 18.0, 16.0], [29.4, 34.2, 33.4, 35.9], [34.5, 32.2, 35.75, 34.65], [54.0, 20.9, 59.7, 28.2], [41.2, 20.2, 48.3, 29.8], [41.5, 87.7, 52.2, 120.0], [35.0, 46.5, 50.5, 87.4], [9.6, 92.2, 28.6, 101.2], [10.4, 102.3, 14.7, 106.2]],
     women: SHARED_WOMEN,
     men: SHARED_MEN,
   },

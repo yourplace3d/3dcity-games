@@ -105,6 +105,16 @@ export class StoryUi {
     };
   }
 
+  /**
+   * A place has been loaded (`go()` in `main.ts`): a visit to it begins. Its first seconds are for the place's
+   * name and the rent, the open chapter is said again, and the last place's lines are not.
+   */
+  arrived(): void {
+    this.playedS = 0;
+    this.visitSaid = false;
+    this.queue = this.queue.filter((q) => q.who !== 'game');
+  }
+
   /** The chapter open now, or the next one waiting; 0 before the story begins. */
   get open(): number {
     return this.story.open;
@@ -122,16 +132,23 @@ export class StoryUi {
 
   // ------------------------------------------------------------ what the game holds
 
+  /** a party has been thrown: read from the parties' store now and then, as it only ever turns true */
+  private partied = false;
+  private partiedAt = -Infinity;
+
   private snapshot(): Snapshot {
     const mine = this.host.homes()?.mine();
     const homes = mine?.homes ?? [];
-    let partied = false;
-    try {
-      const p = loadParties();
-      partied = !!p.paid || Object.keys(p.best).length > 0;
-    } catch {
-      /* nothing kept */
+    if (!this.partied && performance.now() - this.partiedAt > 5000) {
+      this.partiedAt = performance.now();
+      try {
+        const p = loadParties();
+        this.partied = !!p.paid || Object.keys(p.best).length > 0;
+      } catch {
+        /* nothing kept */
+      }
     }
+    const partied = this.partied;
     return {
       delivered: this.host.game.delivered,
       homes: homes.length,
@@ -194,7 +211,7 @@ export class StoryUi {
     if (!story.names && first) story = { ...story, names: namesFor(first.lat, first.lon) };
     // the first home bought, in play: the neighbour says welcome
     if (this.homesBefore === 0 && s.homes > 0 && !said(story, 'neighbour-welcome')) {
-      const lines = SCENES.neighbourWelcome();
+      const lines = SCENES.neighbourWelcome(s.reno === 'flat');
       story = addPending(say(story, 'neighbour-welcome'), lines);
       this.push(lines);
     }
@@ -204,21 +221,24 @@ export class StoryUi {
     if (r.story !== this.story) this.set(r.story);
     r.finished.forEach((n, i) => {
       countPlay('chapter', String(n));
-      this.finished(n, r.story, i === r.finished.length - 1);
+      this.finished(n, r.story, i === r.finished.length - 1, r.early.includes(n));
     });
     if (r.opened) this.opened(r.opened, s);
     else if (began && r.story.opened && !r.finished.length) this.opened(r.story.open, s);
   }
 
-  /** A chapter is done: what is said then. `last`: the last of those done at once, which says what comes next. */
-  private finished(n: number, story: Story, last: boolean): void {
-    if (n === 6) this.enqueue(SCENES.partyThanks());
-    if (n === 7) this.enqueue(SCENES.buildingThanks());
+  /**
+   * A chapter is done: what is said then. `last`: the last of those done at once, which says what comes next.
+   * `early`: done before it opened, so it never had its scene, and the people's thanks would answer nothing.
+   */
+  private finished(n: number, story: Story, last: boolean, early: boolean): void {
+    if (n === 6 && !early) this.enqueue(SCENES.partyThanks());
+    if (n === 7 && !early) this.enqueue(SCENES.buildingThanks());
     if (n < 3) return;
     const next = story.open;
     // the next one waits for another day, or for an update; one that opens at once says so itself
     const after = !last ? '' : next > BUILT ? (next <= ALL ? `Chapter ${next}, ${CHAPTERS[next - 1]}, comes in a later update.` : '') : !story.opened ? `Come back tomorrow for chapter ${next}: ${CHAPTERS[next - 1]}.` : '';
-    const body = n === 5 ? `${this.three()} know you now. They'll write when they need you.` : '';
+    const body = n === 5 && !early ? `${this.three()} know you now. They'll write when they need you.` : '';
     if (body || after) this.line(`Chapter ${n} of ${ALL}: done`, [body, after].filter(Boolean).join(' '));
   }
 
@@ -311,7 +331,10 @@ export class StoryUi {
     this.shownAt = performance.now();
     const names = this.story.names;
     const from = q.who === 'friends' && names ? names.friends[friendFor(this.story)] : sender(q.who, names);
-    if (q.who !== 'game') this.set(shown(keep(this.story, { who: q.who, from, text: q.text, day: this.today() }), q.who, q.text));
+    if (q.who !== 'game') {
+      const next = shown(keep(this.story, { who: q.who, from, text: q.text, day: this.today() }), q.who, q.text);
+      this.set(q.who === 'friends' ? { ...next, turn: (next.turn + 1) % 3 } : next);
+    }
     this.host.show(messageEl(q.who, q.who === 'game' ? (q.heading ?? '') : from, q.text), (q.who === 'game' ? LINE_S : MESSAGE_S) * 1000, () => this.host.openStory());
   }
 

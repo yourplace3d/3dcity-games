@@ -68,6 +68,8 @@ export interface Story {
   inbox: Message[];
   /** the people's messages still to be shown: they wait for a quiet moment, and for the home town */
   pending: Array<{ who: Person; text: string }>;
+  /** the friends' messages shown so far: the three take turns */
+  turn: number;
   /** the people's names, drawn once from the home town */
   names?: Names;
 }
@@ -93,7 +95,7 @@ const JOBS: JobKind[] = ['plain', 'supply', 'rush', 'clean'];
 
 /** A story that has not begun. */
 export function none(): Story {
-  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [], pending: [] };
+  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [], pending: [], turn: 0 };
 }
 
 export function readStory(raw: string | null): Story {
@@ -127,6 +129,7 @@ export function readStory(raw: string | null): Story {
       said: Array.isArray(k.said) ? [...new Set(k.said.filter((s): s is string => typeof s === 'string'))].slice(0, 200) : [],
       inbox,
       pending,
+      turn: typeof k.turn === 'number' && Number.isInteger(k.turn) && k.turn >= 0 ? k.turn % 3 : 0,
       ...(names ? { names } : {}),
     };
   } catch {
@@ -207,6 +210,8 @@ export interface Step {
   story: Story;
   /** chapters finished in play just now, in order */
   finished: number[];
+  /** of those, the ones done while they still waited for their day: they never opened, so nothing was said of them */
+  early: number[];
   /** the chapter that opened just now, if one did */
   opened: number | null;
 }
@@ -215,6 +220,7 @@ export interface Step {
 export function advance(before: Story, s: Snapshot, today: string): Step {
   const story: Story = { ...before, done: { ...before.done } };
   const done: number[] = [];
+  const early: number[] = [];
   let opened: number | null = null;
   let changed = false;
   for (let guard = 0; guard < ALL + 2 && story.open >= 1 && story.open <= BUILT; guard++) {
@@ -223,6 +229,7 @@ export function advance(before: Story, s: Snapshot, today: string): Step {
       // done, whether it had opened or was waiting for its day: what a chapter asks may be done before it opens
       story.done[n] = { day: today };
       done.push(n);
+      if (!story.opened) early.push(n);
       story.open = nextOf(story);
       story.opened = '';
       changed = true;
@@ -239,7 +246,7 @@ export function advance(before: Story, s: Snapshot, today: string): Step {
     break;
   }
   // nothing moved: the same story, so nothing is written again
-  return { story: changed ? story : before, finished: done, opened };
+  return { story: changed ? story : before, finished: done, early, opened };
 }
 
 /** A station's job was delivered: its kind is kept, for chapter 5. */
@@ -268,9 +275,9 @@ export function keep(story: Story, m: Message): Story {
   return { ...story, inbox: [...story.inbox, m].slice(-INBOX_MAX) };
 }
 
-/** The people met: those who have written. */
+/** The people met: those who have written, or whose message waits to be shown. */
 export function met(story: Story): Who[] {
-  return [...new Set(story.inbox.map((m) => m.who).filter((w) => w !== 'game'))];
+  return [...new Set([...story.inbox.map((m) => m.who), ...story.pending.map((m) => m.who)].filter((w) => w !== 'game'))];
 }
 
 // ---------------------------------------------------------------- what the story says
@@ -325,7 +332,7 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
         ? { text: 'Repair your flat: take a job at a fuel, fire or police station. Their rings flash green.', way: 'station' }
         : { text: 'Buy a worn-down flat. After your deliveries, the game shows you where.', way: null };
     case 4:
-      return { text: `Your rent came in. Keep your cash safe: pay it in at a bank in ${s.town || 'your home town'}.`, way: 'bank' };
+      return { text: `Keep your cash safe from fines: pay it in at a bank in ${s.town || 'your home town'}.`, way: 'bank' };
     case 5: {
       const left = STATION_JOBS.filter((k) => !story.kinds.includes(k)).map((k) => atStation(k, story.names));
       return { text: `Do a job for ${list(left)}.`, way: 'station' };
@@ -354,7 +361,9 @@ export const heading = (n: number): string => `Chapter ${n} of ${ALL} · ${CHAPT
 /** The scenes: what each person says, and when. Keys are kept in `Story.said`, so each is said once. */
 export const SCENES = {
   /** the first flat is bought */
-  neighbourWelcome: (): Array<[Who, string]> => [['neighbour', 'Welcome to the house! The walls have been grey for years. Any of the stations nearby can bring what it needs.']],
+  neighbourWelcome: (worn: boolean): Array<[Who, string]> => [
+    ['neighbour', worn ? 'Welcome to the house! The walls have been grey for years. Any of the stations nearby can bring what it needs.' : 'Welcome to the house! Good to have someone new on the stairs.'],
+  ],
   /** the first package for the flat is taken: the person of that station, met for the first time */
   firstRepair: (kind: Exclude<JobKind, 'plain'>): Array<[Who, string]> =>
     [
@@ -402,5 +411,5 @@ export const SCENES = {
 
 /** Which friend says a friends' message: the first, the second, the third, in turn. */
 export function friendFor(story: Story): number {
-  return story.inbox.filter((m) => m.who === 'friends').length % 3;
+  return story.turn % 3;
 }

@@ -445,6 +445,8 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       void fullNote.then((n) => n && toast(n.text, n.kind));
     }
     await game.start(at);
+    // a new place: the story's visit begins again (its first seconds, its line)
+    story?.arrived();
     // a place played, for the trophies of places; not one a Where am I? round put the player in
     if (!dropping) trophies.visit(at.lat, at.lon);
     // which city is played; not one a Where am I? round put the player in, nor the place "Where I am" found

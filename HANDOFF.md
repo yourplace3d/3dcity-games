@@ -367,6 +367,13 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   A street bridge up in the air (the ground under it 3 m or more below the line between its ends) cuts what
   it crosses open to the sky, with 2 m either side and its pavements (25 November, North Bridge over Waverley
   station); a footbridge on its own cuts nothing, as walkways from house to house are footbridges too.
+- **Water is a shape of its own** (`river.ts`, 19 November 2026). Rivers, canals, docks, lakes and the sea are
+  joined into one outline per square (tiles cut them at every tile edge), cut out of the ground picture (the
+  ground material has `alphaTest`, so it has a hole there) and drawn 1.4 m below the bank (0.45 m for a lake or
+  pond) on the ground's own grid squares. A granite coping covers the cut edge, with a quay wall down to the
+  water (an earth bank for lakes). The ground under rivers and lakes is levelled with their banks before the
+  square is built, so bridges run level. A bridge over the water gets a wider deck, side faces, parapets and
+  piers, only over the water and a few metres onto each bank. Driving and walking still use `WaterMask`.
 - **Routes** are a shortest-path field per target (`RoadNet.field`, `RoadNet.route`). Drop-offs are only placed
   where a route exists. The distances are a `Float64Array` on purpose: with 32-bit floats the search skipped
   nodes.

@@ -17,6 +17,7 @@ import { basinMesh, takeBasins } from './basins';
 import { pitchMesh, takePitches } from './pitches';
 import { sharpenGround, softGroundWanted } from './sharpGround';
 import { deckMesh, takeDecks } from './docks';
+import { bridgeMesh, levelUnderWater, onBridgeDeck, waterBodies, waterMesh, waterTest } from './river';
 import type { AreaFeature } from '../geo/osm';
 import { sightsIn, type Sight } from '../landmarks';
 import { localColours } from './localColours';
@@ -413,6 +414,14 @@ export class World {
     const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true, id: b.id, realHeight: b.height }));
     // roofs out of the ground and the sea to sea level, before anything is built on it
     calmGround(grid, buildings, data.features.sea);
+    // small water becomes basins with a rim, taken out of what is painted on the ground
+    const basins = takeBasins(data.features.areas, AREA_SIZE_M / 2);
+    // piers and wharves: decks on the water, walked and driven on
+    const decks = takeDecks(data.features.areas);
+    // rivers, canals, harbours and lakes: one clean outline, cut out of the ground with a bank along it
+    const bodies = waterBodies(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M / 2);
+    // and the ground under rivers and lakes level with their banks, so bridges run level
+    levelUnderWater(grid, bodies, data.features.sea ?? []);
     await breathe();
     // ways through buildings: the map's "tunnels" that stay at ground level under a building are
     // kept, and every street or path through a building has a corridor cut out of it at ground level;
@@ -421,6 +430,9 @@ export class World {
     const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe, (x, y) => sampleGrid(grid, x, y), AREA_SIZE_M / 2);
     await breathe();
     const model = new CityModel(grid, texturePx, '#ffcc00');
+    model.overlay.cut = bodies.map((b) => b.poly);
+    // the ground is see-through where the water is cut out of its picture
+    model.terrain.surface.material.alphaTest = 0.5;
     model.setExaggeration(1);
     model.showPin(false);
     model.terrain.walls.visible = false;
@@ -442,12 +454,8 @@ export class World {
     }
     model.setBuildingSpecs(shapes);
     await breathe();
-    // small water becomes basins with a rim, taken out of what is painted on the ground
-    const basins = takeBasins(data.features.areas, AREA_SIZE_M / 2);
     // sports grounds too: turf with sharp edges and white lines
     const pitches = takePitches(data.features.areas, AREA_SIZE_M / 2);
-    // piers and wharves: decks on the water, walked and driven on
-    const decks = takeDecks(data.features.areas);
     model.setFeatures(data.features);
     const colours = localColours(data.colours, makeProjector(centre));
     model.setBuildingTint((e, n, i) => colours.at(e, n, buildings[i]?.id));
@@ -460,7 +468,8 @@ export class World {
     // a basin stops a car as water does; a deck carries it
     const wet: AreaFeature[] = [...data.features.areas, { kind: 'water', polys: basins.map((b) => b.poly) }];
     const water = new WaterMask(wet, data.features.lines, data.features.sea ?? [], AREA_SIZE_M, decks.map((d) => d.poly));
-    const ribbons = await buildRoadMeshes(roads, (x, y) => surfaceY(model, x, y), breathe, (x, y) => water.at(x, y));
+    const river = waterTest(bodies);
+    const ribbons = await buildRoadMeshes(roads, (x, y) => surfaceY(model, x, y), breathe, (x, y) => water.at(x, y), river);
     model.group.add(ribbons);
     await breathe();
     // the homes for sale are the buildings as the map has them, as before passages were cut: an
@@ -477,6 +486,13 @@ export class World {
     if (pitchShape) signs.add(pitchShape);
     const deckShape = deckMesh(decks, (x, y) => surfaceY(model, x, y));
     if (deckShape) signs.add(deckShape);
+    // the water below its banks, the quay walls, and bridges with sides, parapets and piers
+    const onDeck = onBridgeDeck(roads);
+    const pierTest = waterTest(decks.map((d) => ({ poly: d.poly, quay: true })));
+    const waterShape = waterMesh(bodies, model.grid, (x, y) => surfaceY(model, x, y), AREA_SIZE_M / 2, (x, y) => onDeck(x, y) || pierTest(x, y));
+    if (waterShape) signs.add(waterShape);
+    const bridgeShape = bridgeMesh(roads, (x, y) => surfaceY(model, x, y), river);
+    if (bridgeShape) signs.add(bridgeShape);
     const world = new World(centre, model, roads, solids, water, new Streams(data.features.lines), ribbons, stops, signs, buildings.length);
     world.buildings = shapes.filter((b) => b.minHeight <= 2.6);
     world.roofs = new Roofs(shapes.filter((b) => b.minHeight > 2.6 && b.minHeight < 12));

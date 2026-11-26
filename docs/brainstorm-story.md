@@ -686,5 +686,11 @@ something at stake, such as a chase. Either is fine.
   ticks; the last 12 messages on their papers.
 - **Counted:** `chapter` with its number when one is finished in play. The live server's list does not have
   the word yet, so nothing arrives until it does (the session "3DA: connecting and getting online" was told).
+- **Five code reviews** before going live (26 November, the owner's "Yes"). What they changed: a chapter that
+  opens away from home keeps its people's messages for home; waiting messages are kept with the story, so a
+  closed page loses none; the story is written only when it changes; a chapter done before its day is ticked
+  quietly; chapter 5 counts station jobs anywhere; chapters 6 and 7 wait for the home town only where no home
+  of the player's stands, or while the first building is being finished; no story while a friend's run or
+  party from a link is on; the story's lines leave the house button alone; 26 more border towns named right.
 - **Not in step A:** the people's own stories (step C, with the chases and the other towns), the dispute
   (step B), the daily story (step D), "The story so far".

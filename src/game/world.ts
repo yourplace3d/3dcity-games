@@ -408,7 +408,7 @@ export class World {
     // mid-drive each time the next square arrived, so it is done in steps with a frame in between.
     const data = parseTiles(tiles, centre, AREA_SIZE_M);
     // the areas as the map has them, for the trees, before basins and pitches are taken out
-    const treeAreas = data.features.areas.slice();
+    const treeAreas = data.features.areas.map((a) => ({ ...a, polys: a.polys.slice() }));
     // subway entrances that would stand on top of each other count as one
     const stops: Stop[] = [];
     for (const st of readStops(tiles, makeProjector(centre), AREA_SIZE_M / 2 - 8)) {

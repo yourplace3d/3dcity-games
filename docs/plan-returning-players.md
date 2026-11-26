@@ -699,3 +699,5 @@ moves on, and out of the car the bar says the radio plays in a car. Tests: `test
 four times a second; beside the little map it stayed put on a narrow screen (centred by the style sheet); next
 › while looking for stations; the bar and panel shown a moment in the old place; work done while nothing
 shows; FM over the cash on a 360 px phone; placed again on coming back from a menu: all fixed.
+
+**Going live:** the layout fixes, on the owner's word (26 November), by pull request #21; the radio stays a trial.

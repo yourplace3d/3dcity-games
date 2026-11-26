@@ -53,7 +53,8 @@ lives.
   players elsewhere is what a court found infringing in Warner and Sony against TuneIn. Not for everyone
   without a media lawyer's word. What went live from the work: the for-sale panel no longer hides the little
   map in the top right corner, and the radio's bar keeps clear of both (`clearOf.ts`); the top buttons fit
-  a 360 px phone. Branch `claude/radio-for-all`: the plan, section 11. The site has no privacy policy and
+  a 360 px phone. Branch `claude/radio-for-all`, merged by pull request #21 and put live on the owner's
+  word (26 November): the plan, section 11. The site has no privacy policy and
   no legal notice (Impressum) yet, though it contacts map, search and save services: for the owner, with a
   lawyer.
 

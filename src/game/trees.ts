@@ -16,7 +16,7 @@
  * `?try=notrees` leaves them out, to compare.
  */
 
-import { Color, ConeGeometry, CylinderGeometry, Group, IcosahedronGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
+import { CircleGeometry, Color, ConeGeometry, MeshBasicMaterial, Group, DodecahedronGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
 import type { AreaFeature } from '../geo/osm';
 import type { LngLat, Projector } from '../geo/projection';
 import { decodePng } from '../geo/png';
@@ -85,11 +85,11 @@ export interface TreeSite {
 /** a spot is tried on a grid this fine (m), fixed to the earth so neighbouring squares agree */
 const STEP = 4;
 /** chance a spot gets a tree: in a wood, in a park, where the satellites see trees */
-const IN_WOOD = 0.32;
+const IN_WOOD = 0.2;
 const IN_PARK = 0.07;
 const IN_COVER = 0.3;
 /** at most this many trees in a square, for slow phones */
-const MAX_TREES = 14000;
+const MAX_TREES = 9000;
 
 function hash(a: number, b: number, salt: number): number {
   let h = (Math.imul(a, 0x9e3779b1) ^ Math.imul(b, 0x85ebca6b) ^ Math.imul(salt, 0xc2b2ae35)) >>> 0;
@@ -209,18 +209,19 @@ export function placeTrees(site: TreeSite): Tree[] {
   return kept.filter((t) => t.r2 < share);
 }
 
-const crownRadius = (t: Tree) => (t.fir ? 1.8 + 1.2 * t.r1 : 2.2 + 2 * t.r1);
+const crownRadius = (t: Tree) => (t.fir ? 2 + 1.3 * t.r1 : 2.6 + 2 * t.r1);
 const treeHeight = (t: Tree) => (t.fir ? 9 + 7 * t.r2 : 6 + 6 * t.r2);
 
 const LEAVES = ['#5f8f4a', '#6b9a50', '#55844a', '#7aa45a', '#4f7d43', '#668f3f'].map((c) => new Color(c));
 const NEEDLES = ['#3f6b45', '#46744a', '#365f3e'].map((c) => new Color(c));
 
 /** trees are drawn in patches this wide (m), so only the patches on screen (and in the sun's shadow box) are drawn */
-const PATCH = 250;
+const PATCH = 125;
 
 /**
- * The trees of a square, as round crowns, firs and trunks, in patches: one patch is three draws, and
- * those off screen are skipped. Only the crowns throw shadows; seen from above a trunk's adds nothing.
+ * The trees of a square, as round crowns, firs and the shade under them, in patches: one patch is three
+ * draws, and those off screen are skipped. A tree throws no real shadow (that doubled the cost of
+ * drawing it): a soft dark patch lies where its shadow would fall.
  */
 export function treeMesh(trees: Tree[], ground: (x: number, y: number) => number): Group | null {
   if (!trees.length) return null;
@@ -238,12 +239,15 @@ export function treeMesh(trees: Tree[], ground: (x: number, y: number) => number
 }
 
 const leafMat = new MeshStandardMaterial({ roughness: 0.9, metalness: 0, flatShading: true });
-const trunkMat = new MeshStandardMaterial({ color: '#6b5440', roughness: 1, metalness: 0 });
-const crownGeo = new IcosahedronGeometry(1, 1);
+const crownGeo = new DodecahedronGeometry(1, 0);
 const firGeo = new ConeGeometry(1, 1, 7).translate(0, 0.5, 0);
-const trunkGeo = new CylinderGeometry(0.22, 0.3, 1, 5).translate(0, 0.5, 0);
+/** a soft dark patch on the ground where the tree's shadow falls: far cheaper than a real one */
+const shadeGeo = new CircleGeometry(1, 10).rotateX(-Math.PI / 2);
+const shadeMat = new MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.2, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+/** where the sun puts a shadow, per metre of height (the game's sun stands at -0.55, 0.78, -0.55) */
+const SUN_RUN = 0.55 / 0.78;
 /** shared by every square: a square's dispose must leave them be */
-for (const g of [crownGeo, firGeo, trunkGeo]) g.dispose = () => {};
+for (const g of [crownGeo, firGeo, shadeGeo]) g.dispose = () => {};
 
 function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) => number): void {
   const round = trees.filter((t) => !t.fir);
@@ -265,7 +269,6 @@ function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) =
       colour.copy(LEAVES[Math.floor(t.r1 * 977) % LEAVES.length]).offsetHSL(0, 0, (t.r2 - 0.5) * 0.06);
       crowns.setColorAt(k, colour);
     });
-    crowns.castShadow = true;
     group.add(crowns);
   }
   if (firs.length) {
@@ -280,19 +283,20 @@ function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) =
       colour.copy(NEEDLES[Math.floor(t.r1 * 977) % NEEDLES.length]);
       cones.setColorAt(k, colour);
     });
-    cones.castShadow = true;
     group.add(cones);
   }
-  const trunks = new InstancedMesh(trunkGeo, trunkMat, trees.length);
+  const shades = new InstancedMesh(shadeGeo, shadeMat, trees.length);
   trees.forEach((t, k) => {
-    const g = ground(t.x, t.y);
-    const h = treeHeight(t);
-    const th = t.fir ? h * 0.25 : h - crownRadius(t) * 1.4;
-    m.compose(new Vector3(t.x, g - 0.3, -t.y), q.identity(), new Vector3(1, Math.max(1.2, th) + 0.3, 1));
-    trunks.setMatrixAt(k, m);
+    const r = crownRadius(t);
+    const lift = t.fir ? treeHeight(t) * 0.45 : treeHeight(t) - r * 0.85;
+    const sx = t.x + lift * SUN_RUN;
+    const sy = t.y - lift * SUN_RUN;
+    m.compose(new Vector3(sx, ground(sx, sy) + 0.12, -sy), q.identity(), new Vector3(r * (t.fir ? 0.8 : 1), 1, r * (t.fir ? 0.8 : 1)));
+    shades.setMatrixAt(k, m);
   });
-  group.add(trunks);
-  for (const mesh of group.children.slice(-3) as InstancedMesh[]) {
+  shades.renderOrder = 1;
+  group.add(shades);
+  for (const mesh of group.children as InstancedMesh[]) {
     mesh.computeBoundingSphere();
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }

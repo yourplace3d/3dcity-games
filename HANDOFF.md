@@ -48,11 +48,14 @@ lives.
   without meeting the cars and people on them. Branch `claude/edinburgh-cuttings`, four code reviews, merged
   by pull request #19 and put live on the owner's word ("Put the bridge fix live", 25 November): the plan,
   section 10. Live weather (an idea from GTW, a sandbox on the real Earth) is on hold: the owner's call.
-- **The radio for everyone (owner, 25 November):** "Before putting the live weather in i would put the radio
-  live for everyone." The FM button shows for all, off until tapped; Radio Browser credited on the start
-  screen; `?try=noradio` hides it. Its bar lay over the little map on phones and hid the top of the for-sale
-  panel on the iPad, and the panel hid the little map in the top right corner: now kept clear
-  (`clearOf.ts`). Branch `claude/radio-for-all`, not live: the plan, section 11.
+- **The radio stays a trial (owner, 25 and 26 November):** asked for everyone, built, then held back on the
+  owner's word after a look at the law ("let's do it like you suggest"): playing stations of any town to
+  players elsewhere is what a court found infringing in Warner and Sony against TuneIn. Not for everyone
+  without a media lawyer's word. What went live from the work: the for-sale panel no longer hides the little
+  map in the top right corner, and the radio's bar keeps clear of both (`clearOf.ts`); the top buttons fit
+  a 360 px phone. Branch `claude/radio-for-all`: the plan, section 11. The site has no privacy policy and
+  no legal notice (Impressum) yet, though it contacts map, search and save services: for the owner, with a
+  lawyer.
 
 ## Where things stand
 

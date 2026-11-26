@@ -1,8 +1,12 @@
 /**
- * A car radio that plays real stations of the town you drive in. For everyone since 25 November
- * (a trial before, with `?try=radio`): an FM button, off until it is tapped, and until then nothing
- * here contacts anyone. `?try=noradio` in the address hides the button in that browser, until
- * `?try=radio`.
+ * A car radio that plays real stations of the town you drive in. A trial: switched on with
+ * `?try=radio` in the address and remembered by the browser until `?try=noradio`. Without it
+ * there is no button, and nothing here contacts anyone.
+ *
+ * A trial it stays, on purpose (the owner, 26 November): it plays stations of any town on earth to
+ * players wherever they are, and a court found that infringing for a radio app (Warner and Sony
+ * against TuneIn, England, 2019 and 2021, on the European rules for links): a station licensed at
+ * home brought to listeners elsewhere. Not for everyone without a lawyer's word; the plan, section 11.
  *
  * Which stations there are comes from Radio Browser (radio-browser.info), a directory kept by
  * volunteers: the game asks it for stations near the place, the most listened to first. What is
@@ -16,12 +20,7 @@
  * within a few seconds is skipped.
  */
 
-/** the button hidden in this browser (`?try=noradio`) */
-const HIDDEN = '3da-no-radio';
-/** where the trial was switched on, before it was for everyone: read once more, and gone */
-const TRIAL = '3da-radio';
-/** the radio is for everyone in this browser: what the trial left has been looked at */
-const FOR_ALL = '3da-radio-for-all';
+const KEPT = '3da-radio';
 /** whether the radio was left switched on: it then plays again in the next car, on the next visit too */
 const LEFT_ON = '3da-radio-on';
 /**
@@ -43,24 +42,15 @@ interface Station {
   url: string;
 }
 
-/** Whether the radio's button shows in this browser: yes, unless `?try=noradio` hid it. Reads the address once and remembers. */
+/** Whether the trial is on in this browser. Reads the address once and remembers. */
 export function radioOn(): boolean {
-  const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
   try {
-    if (tries.includes('radio')) localStorage.removeItem(HIDDEN);
-    if (tries.includes('noradio')) localStorage.setItem(HIDDEN, '1');
-    // once, from the trial: left switched on only where the trial still was. One switched on in the trial
-    // and left with ?try=noradio would otherwise come on by itself, unasked
-    if (!localStorage.getItem(FOR_ALL)) {
-      if (localStorage.getItem(TRIAL) !== '1') localStorage.removeItem(LEFT_ON);
-      localStorage.removeItem(TRIAL);
-      localStorage.setItem(FOR_ALL, '1');
-    }
-    return localStorage.getItem(HIDDEN) !== '1';
+    const tries = (new URLSearchParams(location.search).get('try') ?? '').split(',');
+    if (tries.includes('radio')) localStorage.setItem(KEPT, '1');
+    if (tries.includes('noradio')) localStorage.removeItem(KEPT);
+    return localStorage.getItem(KEPT) === '1';
   } catch {
-    // no storage (a private window): the button shows, and still plays nothing until tapped; hidden for
-    // this visit when the address says so
-    return !tries.includes('noradio');
+    return false;
   }
 }
 

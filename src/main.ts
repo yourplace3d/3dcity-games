@@ -1678,7 +1678,7 @@ else if (linked) {
   void search(linked);
 }
 
-// a car radio with stations of the town, for everyone (`?try=noradio` hides it in a browser)
+// a trial (`?try=radio`): a car radio with stations of the town. Kept a trial on purpose: see radio.ts
 wireRadio($<HTMLButtonElement>('btn-radio'), $('radio-bar'), () => (game?.world ? game.world.centre : null), () => playing && !!game?.car, toast, () => !!secret);
-// its bar and a building's panel kept clear of the little map and of each other
+// its bar and a building's panel kept clear of the little map and of each other (the panel for everyone)
 keepClear($('radio-bar'), $('forsale'), $('minimap'));

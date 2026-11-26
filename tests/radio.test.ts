@@ -43,7 +43,8 @@ beforeEach(() => {
   nextButton = next;
   const bar = Object.assign(new Element(), { querySelector: (selector: string) => selector === '.name' ? name : next });
   doc = Object.assign(new EventTarget(), { hidden: false, body: new Element(), createElement: () => ({ canPlayType: () => '' }) });
-  const data = new Map<string, string>();
+  // the trial on in this browser
+  const data = new Map([['3da-radio', '1']]);
   vi.stubGlobal('document', doc);
   vi.stubGlobal('location', { search: '' });
   vi.stubGlobal('window', { setTimeout });
@@ -60,51 +61,31 @@ afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals()
 describe('the radio’s button', () => {
   const storage = (data: Map<string, string>) => ({ getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value), removeItem: (key: string) => data.delete(key) });
 
-  it('shows for everyone, and nothing is asked of anyone until it is tapped', async () => {
+  it('shows where the trial is on, and nothing is asked of anyone until it is tapped', async () => {
     expect(button.hidden).toBe(false);
     await settle();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(audio.play).not.toHaveBeenCalled();
   });
 
-  it('is hidden in a browser by ?try=noradio, and shows again with ?try=radio', () => {
+  it('is a trial: off unless ?try=radio switched it on in this browser, and off again with ?try=noradio', () => {
     const data = new Map<string, string>();
     vi.stubGlobal('localStorage', storage(data));
-    vi.stubGlobal('location', { search: '?try=noradio' });
-    expect(radioOn()).toBe(false);
     vi.stubGlobal('location', { search: '' });
     expect(radioOn()).toBe(false);
     vi.stubGlobal('location', { search: '?try=radio' });
     expect(radioOn()).toBe(true);
     vi.stubGlobal('location', { search: '' });
     expect(radioOn()).toBe(true);
-  });
-
-  it('comes on by itself only where the trial had it on: not after the trial was left with ?try=noradio', () => {
-    // switched on in the trial, then the trial left: the setting to play stayed behind
-    const left = new Map([['3da-radio-on', '1']]);
-    vi.stubGlobal('localStorage', storage(left));
-    radioOn();
-    expect(left.has('3da-radio-on')).toBe(false);
-    // still in the trial, switched on: it stays on
-    const kept = new Map([['3da-radio', '1'], ['3da-radio-on', '1']]);
-    vi.stubGlobal('localStorage', storage(kept));
-    radioOn();
-    expect(kept.get('3da-radio-on')).toBe('1');
-    expect(kept.has('3da-radio')).toBe(false);
-    // and once switched on for everyone, it is remembered from visit to visit
-    const later = new Map<string, string>();
-    vi.stubGlobal('localStorage', storage(later));
-    radioOn();
-    later.set('3da-radio-on', '1');
-    radioOn();
-    expect(later.get('3da-radio-on')).toBe('1');
-  });
-
-  it('shows where there is no storage, as in a private window, unless the address says no', () => {
-    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } });
-    expect(radioOn()).toBe(true);
     vi.stubGlobal('location', { search: '?try=noradio' });
+    expect(radioOn()).toBe(false);
+    vi.stubGlobal('location', { search: '' });
+    expect(radioOn()).toBe(false);
+  });
+
+  it('is off where there is no storage, as in a private window', () => {
+    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } });
+    vi.stubGlobal('location', { search: '?try=radio' });
     expect(radioOn()).toBe(false);
   });
 });

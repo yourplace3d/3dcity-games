@@ -164,13 +164,14 @@ the streets, buildings, water and hills come from the same map squares as
   `?try=nowindows`). Drawn as a pattern, not from the map. Buildings differ by size and by a number from
   their position; sights stay bare; and the part of the world nudges the odds (glazing bars in Britain,
   shutters and a rail below the window around the Mediterranean, and so on: `src/game/windows.ts`).
-- **A car radio, for everyone** (a trial until 25 November): an FM button plays real stations of the town,
-  found through the volunteer directory Radio Browser and heard straight from each station's own stream.
-  Nothing plays and nothing is contacted until FM is tapped; then the directory and the station are. Switched
-  on, it stays on: it plays again in the next car and on the next visit, until FM is tapped again. It is
-  credited on the start screen; `?try=noradio` hides the button in a browser, until `?try=radio`
-  (`src/radio.ts`). Its bar and a building's for-sale panel keep clear of the little map and of each other
-  on any screen (`src/clearOf.ts`).
+- **A trial: a car radio** with `?try=radio` (until `?try=noradio`): an FM button plays real stations of
+  the town, found through the volunteer directory Radio Browser and heard straight from each station's
+  own stream. Pressing it contacts the directory and the station; without the trial nothing does.
+  Switched on, it stays on: it plays again in the next car and on the next visit, until FM is pressed again
+  (`src/radio.ts`). It stays a trial on purpose: playing stations of any town to players elsewhere is what
+  a court found infringing in Warner and Sony against TuneIn (see `docs/plan-returning-players.md`,
+  section 11). A building's for-sale panel, and the radio's bar, keep clear of the little map and of each
+  other on any screen (`src/clearOf.ts`).
 - **Hills show and are felt.** The light treats every slope as about three times steeper than it is, so the
   side of a hill away from the sun is clearly darker. Streets that climb more than 1 in 10 carry arrowheads
   pointing uphill. The car you drive is held back uphill and carried downhill (never so much that a hill

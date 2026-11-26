@@ -146,6 +146,8 @@ export interface HomesHost {
   blocked?: () => boolean;
   /** parties at the homes (`partyUi.ts`): whether one can be thrown at a home now, its button, and the card that starts it */
   party?: { can: (home: Home) => boolean; label: (home: Home) => string; tag: () => string; offer: (home: Home) => void };
+  /** the story's name for a card, when it is the open chapter's own (`storyUi.ts`): the first home's, the bank's */
+  kicker?: (what: 'home' | 'bank') => string | undefined;
 }
 
 export class HomesUi {
@@ -179,6 +181,8 @@ export class HomesUi {
    * the rest of it, or to paint it), or a home picked from the list of homes.
    */
   private wayTo: Home | null = null;
+  /** the point the arrow shows on the way to `wayTo`: kept, so that only this arrow is taken down, never another's */
+  private homeGuide: { x: number; y: number } | null = null;
   /** the line on the rent of the day, waiting for the place's name to be read (`RENT_AFTER_S`) */
   private rentLine: (() => string) | null = null;
   private rentLineT = 0;
@@ -330,6 +334,28 @@ export class HomesUi {
     return { homes: this.homes.homes, reno: this.reno, saved: this.saved };
   }
 
+  /** The way to a home gives the arrow up to another (the story's way to a station). */
+  dropWay(): void {
+    if (this.homeGuide && this.host.game.guide === this.homeGuide) this.host.game.guide = null;
+    this.wayTo = null;
+    this.homeGuide = null;
+  }
+
+  /** Where the home town is: the first home's place, which the banks and the story go by. */
+  homeTownAt(): { lat: number; lon: number } | null {
+    return this.plate ? { lat: this.plate.lat, lon: this.plate.lon } : null;
+  }
+
+  /** Whether the square being played is in the home town: the first home's, where the banks are. */
+  atHomeTown(): boolean {
+    return this.atPlate;
+  }
+
+  /** The home town's name, as it was when the first home was bought; '' before there is one. */
+  homeTownName(): string {
+    return this.plate?.place ?? '';
+  }
+
   /** Whether a home stands in the square being played. */
   isHere(home: Home): boolean {
     return !!this.lotOf(home);
@@ -418,10 +444,11 @@ export class HomesUi {
       // on a job or a party the arrow is theirs: the way to the home waits
       if (!lot || !n || Math.hypot(lot.x - px, lot.y - py) < 40 || game.job || game.party) {
         if (lot && Math.hypot(lot.x - px, lot.y - py) < 40) this.wayTo = null;
-        if (game.guide && game.guide !== this.bankGuide && !game.job && !game.party) game.guide = null;
+        if (game.guide && game.guide === this.homeGuide && !game.job && !game.party) game.guide = null;
       } else {
         const [rx, ry] = world.roads.point(n.line, n.s);
-        game.guide = { x: rx, y: ry };
+        this.homeGuide = { x: rx, y: ry };
+        game.guide = this.homeGuide;
       }
     }
     if (r) return;
@@ -456,6 +483,7 @@ export class HomesUi {
         this.setReno({ stage: 'find', price });
         this.missionTick();
       },
+      this.host.kicker?.('home'),
     );
   }
 
@@ -680,10 +708,10 @@ export class HomesUi {
 
   /**
    * The way to the nearest bank, asked for by the player: the arrow shows it until they are there, like a
-   * mission's, though it is none (the owner, 23 November). Asked again, it is turned off. Outside the home
-   * town, it says where the banks are.
+   * mission's, though it is none (the owner, 23 November). Asked again, it is turned off (`toggle`; the
+   * story's "Show the way" only ever turns it on). Outside the home town, it says where the banks are.
    */
-  wayToBank(): void {
+  wayToBank(toggle = true): void {
     const { toast } = this.host;
     if (!this.plate) {
       toast('No bank yet: your first home makes its town your home town, with its banks.', 'info', 6000);
@@ -711,7 +739,7 @@ export class HomesUi {
       }
     }
     // on the way to pay in for the first time, the arrow stays until the cash is in; it is turned off only when it shows
-    if (this.bankWay && this.bankArrow() && this.lesson.stage !== 'go') {
+    if (toggle && this.bankWay && this.bankArrow() && this.lesson.stage !== 'go') {
       this.bankWay = false;
       this.remindArrow = 0;
       this.guideBank(false);
@@ -793,7 +821,7 @@ export class HomesUi {
           this.setLesson({ stage: 'go', rent: true });
           this.guideBank(true);
         },
-        'Good to know',
+        this.host.kicker?.('bank') ?? 'Good to know',
       );
       return;
     }

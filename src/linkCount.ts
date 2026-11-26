@@ -177,7 +177,7 @@ export function countVisit(query: URLSearchParams): void {
  * Something in play: a run started (its first package on board) or finished, a home bought, rent
  * collected on a return, a round of Where am I? begun.
  */
-export function countPlay(kind: 'start' | 'run' | 'home' | 'rent' | 'guess', detail = ''): void {
+export function countPlay(kind: 'start' | 'run' | 'home' | 'rent' | 'guess' | 'chapter', detail = ''): void {
   send(kind, detail);
 }
 

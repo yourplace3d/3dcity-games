@@ -11,6 +11,23 @@ lives.
   request #12), the thin-map warning under the search field (#20), and police following a player they see
   going the wrong way (#13). North Bridge in Edinburgh checked on it after those: a car gets all 170 m across.
 - **Open, waiting on the owner:**
+  - *A story (owner, 26 November: "improve the gameplay aka story now"):* the brainstorm is
+    `docs/brainstorm-story.md` on branch `claude/story-brainstorm`. The owner's first answers: the main story,
+    then the people at the stations, then the tenants' dispute, with a story each day kept in view; free to
+    the first flat, then a chapter a day; the game speaks plainly at first, and whoever gives a task writes
+    as a message. Round 2 (26 November, section 13): "Do jobs" keeps its name; names by region if easy (it is,
+    about 1.5 days); written messages only, a look per person (mockups: https://claude.ai/artifact/2C3rs3maNZd7ByRvmAJ9kJ);
+    count word `chapter` agreed, and the session "3DA: connecting and getting online" told. Explanations given
+    for questions 4 to 7, 9 and 10. Round 3 (section 14): names by region yes (20 a region); the dispute by reading
+    people then driving; the daily story fills the gaps; the people send you to other towns; car chases go into the
+    story; Mira's choice tied in order. Ana's question is still open. **Step A, the main story over what exists,
+    goes live on the owner's word** ("Yes" to "review it and put it live if the review passes", 26 November)
+    after five code reviews: chapters 1 to 7, the people's messages on their own papers, the Story tab, names by
+    region, the `chapter` count in the game. The live server's list does not have the word `chapter` yet, so
+    nothing is counted until the session "3DA: connecting and getting online" adds it (told twice). Tested: 271
+    unit tests, and `tools/story-test.mjs` in a browser on Nuremberg and Berlin tiles. Not tested on a real
+    device. Left as designed from the reviews: a player who is further on starts at chapter 5 (it introduces
+    the people), and the Story tab shows once a place has been played on the page.
   - *The next step at the homes:* step 2, the tenants' dispute with its four outcomes (the plan, section 4).
   - *Live weather:* on hold, the owner's call (26 November). If it comes back: Open-Meteo is free and needs no
     key, but its free tier is for non-commercial use and asks for a credit line ("Weather data by

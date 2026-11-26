@@ -16,6 +16,7 @@ import { Sound } from './sound';
 import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
 import { arriveLine, PartyUi } from './partyUi';
+import { StoryUi } from './storyUi';
 import { readParty, type SentParty } from './game/party';
 import { drawTrophies, Trophies, type TrophyId } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
@@ -59,6 +60,8 @@ let game: Game | null = null;
 let homes: HomesUi | null = null;
 /** parties at the player's homes (`partyUi.ts`) */
 let party: PartyUi | null = null;
+/** the story (`storyUi.ts`): its chapters, the people's messages, the Story tab */
+let story: StoryUi | null = null;
 /** a friend's party from the link the page was opened with, until it starts */
 let linkParty: SentParty | null = null;
 /** the party of the link, for the line under the place's name, for as long as its place is played */
@@ -243,8 +246,14 @@ function nudgeButton(): void {
 }
 function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, tap?: () => void): void {
   const el = document.createElement('div');
-  el.className = `toast ${kind}${tap ? ' tap' : ''}`;
+  el.className = `toast ${kind}`;
   el.textContent = text;
+  showEl(el, ms, tap);
+}
+/** A line over the game made elsewhere (the story's messages), shown as the lines are. */
+function showEl(el: HTMLElement, ms: number, tap?: () => void, nudge = true): void {
+  el.classList.add('toast');
+  if (tap) el.classList.add('tap');
   if (tap) {
     el.setAttribute('role', 'button');
     el.tabIndex = 0;
@@ -258,12 +267,15 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
       e.preventDefault();
       el.click();
     });
-    asks.push({ tap, until: performance.now() + ms, el });
-    // the pulse starts again for each new line
-    const b = $('btn-estate');
-    b.classList.remove('nudge');
-    void b.offsetWidth;
-    b.classList.add('nudge');
+    // a line reached through the house button (on a touch screen) makes it pulse; the story's lines are not
+    if (nudge) {
+      asks.push({ tap, until: performance.now() + ms, el });
+      // the pulse starts again for each new line
+      const b = $('btn-estate');
+      b.classList.remove('nudge');
+      void b.offsetWidth;
+      b.classList.add('nudge');
+    }
   }
   // it fades over the time it is shown, a long message as well as a short one
   el.style.animationDuration = `${ms}ms`;
@@ -271,7 +283,7 @@ function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, 
   box.append(el);
   // three at most: the oldest goes first, but a line that can be tapped stays while others can go
   while (box.children.length > 3) ([...box.children].find((c) => c !== el && !c.classList.contains('tap')) ?? box.firstElementChild)!.remove();
-  if (tap) nudgeButton();
+  if (tap && nudge) nudgeButton();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -384,8 +396,23 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         quiet: () => !!secret,
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
         party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
+        kicker: (what) => story?.kicker(what),
       });
       (window as unknown as { homes: HomesUi }).homes = homes;
+      story = new StoryUi({
+        game,
+        homes: () => homes,
+        // on a touch screen the lines take no taps, and the house button keeps leading to the real estate
+        show: (el, ms, tap) => showEl(el, ms, document.body.classList.contains('touch') ? undefined : tap, false),
+        openStory: () => setPause(true, 'story'),
+        // a card, the menu, the map, the result, the tour: the messages wait
+        blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden || step >= 0,
+        quiet: storyQuiet,
+        goHome,
+        closeMenu: () => setPause(false),
+        stored: () => changed(),
+      });
+      (window as unknown as { story: StoryUi }).story = story;
       // trophies: what happens in play, and now and then what the player has
       {
         const g = game;
@@ -421,6 +448,8 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       void fullNote.then((n) => n && toast(n.text, n.kind));
     }
     await game.start(at);
+    // a new place: the story's visit begins again (its first seconds, its line)
+    story?.arrived();
     // a place played, for the trophies of places; not one a Where am I? round put the player in
     if (!dropping) trophies.visit(at.lat, at.lon);
     // which city is played; not one a Where am I? round put the player in, nor the place "Where I am" found
@@ -1304,14 +1333,16 @@ if (baked) {
 for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico, #openjobs .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
 // ------------------------------------------------------------------ pause, and what to play
 
-type MenuTab = 'game' | 'estate' | 'trophies';
+type MenuTab = 'game' | 'story' | 'estate' | 'trophies';
 /** the menu is open, over the game or over the start screen */
 let menuOpen = false;
 
 /**
- * The menu over the game (☰, P or Esc), and the game waits behind it. Three tabs: paused (what is
- * being played, and changing it), the player's real estate, and their trophies. Over the start screen it
- * opens without the first; while a city is guessed, only the first, as the homes would give the city away.
+ * The menu over the game (☰, P or Esc), and the game waits behind it. Four tabs: paused (what is being
+ * played, and changing it), the story (`storyUi.ts`), the player's real estate, and their trophies. Over the
+ * start screen it opens without the first; while a city is guessed, only the first, as the homes would give
+ * the city away. The story's tab shows once a place has been played on this page, and not while the story
+ * is quiet (`storyQuiet`).
  */
 function setPause(on: boolean, tab: MenuTab = 'game'): void {
   if (on && playing && (mapOpen || welcoming || guessing || !$('result').hidden || !$('guess').hidden)) return;
@@ -1325,12 +1356,15 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
   if (!on) return;
   $('tab-game').hidden = !playing;
   $('tab-estate').hidden = $('tab-trophies').hidden = !!secret;
-  const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['estate', 'estate'], ['trophies', 'trophies']];
+  $('tab-story').hidden = !story || storyQuiet();
+  if (tab === 'story' && $('tab-story').hidden) tab = playing ? 'game' : 'estate';
+  const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['story', 'story'], ['estate', 'estate'], ['trophies', 'trophies']];
   for (const [t, id] of tabs) {
     $(`tab-${id}`).setAttribute('aria-selected', String(t === tab));
     $(`pane-${id}`).hidden = t !== tab;
   }
   if (tab === 'trophies') drawTrophies($('trophies-list'), $('trophies-line'), trophies);
+  if (tab === 'story') story?.draw($('pane-story'), playing);
   if (tab === 'estate') drawEstate();
   if (tab !== 'game') return;
   const jobs = !!game?.run.over;
@@ -1353,6 +1387,7 @@ $('btn-menu').addEventListener('click', () => {
 });
 $('btn-menu-close').addEventListener('click', () => setPause(false));
 $('tab-game').addEventListener('click', () => setPause(true, 'game'));
+$('tab-story').addEventListener('click', () => setPause(true, 'story'));
 $('tab-estate').addEventListener('click', () => setPause(true, 'estate'));
 $('tab-trophies').addEventListener('click', () => setPause(true, 'trophies'));
 $('btn-continue').addEventListener('click', () => setPause(false));
@@ -1516,6 +1551,23 @@ $('btn-estate').addEventListener('click', () => {
   if (go) go();
   else setPause(true, 'estate');
 });
+/** No story now: a city being guessed, a friend's run from a link, or a friend's party from a link while it is on. */
+function storyQuiet(): boolean {
+  return !!secret || !!rival || !!linkParty || (!!partyShown && !!game?.party);
+}
+
+/** The story's way home: the town of the first home, beside it. */
+function goHome(): void {
+  setPause(false);
+  // the home town's place: the first home's, as the banks go by
+  const at = homes?.homeTownAt();
+  const place = homes?.homeTownName() ?? '';
+  if (!at) return;
+  save();
+  setScreen('start');
+  void go(at, isCoords(place) ? undefined : place);
+}
+
 /** The way to the nearest bank: from the bank line in the money box, or from the real estate. */
 function bankWay(): void {
   if (!homes || !playing) return;

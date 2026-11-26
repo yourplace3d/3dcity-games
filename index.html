@@ -22,11 +22,14 @@
 
     <div id="bigmap" hidden>
       <div class="panel" id="bigmap-card" role="dialog" aria-label="Map">
-        <div id="bigmap-top"><b id="bigmap-place"></b><small>1.5 km across · north is up · the game waits</small></div>
+        <div id="bigmap-top"><b id="bigmap-place"></b><small id="bigmap-note">1.5 km across · north is up · the game waits</small></div>
         <canvas id="bigmap-canvas"></canvas>
         <div id="bigmap-key">
           <span><i class="dot me"></i>you</span>
           <span><i class="dot ring"></i>package</span>
+          <span><i class="dot ring fuel"></i><i class="dot ring fire"></i><i class="dot ring police"></i>a station’s job</span>
+          <span><i class="dot ring party"></i>food for your party</span>
+          <span><i class="dot ring home"></i>flashing: a job for your home</span>
           <span><i class="dot ring drop"></i>deliver here</span>
           <span><i class="dot sub"></i>subway entrance</span>
           <span>main streets are named</span>
@@ -47,7 +50,7 @@
     <div id="hud" aria-live="off">
       <div class="panel stats">
         <b id="cash">$0</b>
-        <small id="saved" title="Money in the bank: safe from fines" hidden></small>
+        <small id="saved" role="button" tabindex="0" title="Money in the bank, safe from fines. Click for the way to the nearest bank." hidden></small>
         <span id="heat" aria-label="Police heat"><i></i><i></i><i></i><i></i></span>
         <span class="bar" title="You"><i id="health"></i></span>
         <span class="bar car" id="carbar" title="Car" hidden><i id="carhp"></i></span>
@@ -63,7 +66,7 @@
       <div id="sights"></div>
       <div class="panel" id="openjobs" hidden>
         <b>Open jobs</b>
-        <p>Drive to one of these signs. Each gives its own kind of job, as often as you like.</p>
+        <p>Drive to one of these signs. Each gives its own kind of job, as often as you like, and its ring has the sign’s colour: orange, red or blue.</p>
         <ul>
           <li><i class="ico" data-kind="fuel"></i><span><b>Supply run:</b> a heavy load, slow uphill. More pay for a car without a new dent.</span></li>
           <li><i class="ico" data-kind="fire"></i><span><b>Rush job:</b> a short clock. Every second left over pays three times.</span></li>
@@ -76,9 +79,9 @@
       <button class="panel" id="btn-guess" hidden></button>
       <div id="toasts"></div>
       <div class="panel" id="coach" hidden><small id="coach-n"></small><p id="coach-text"></p><button id="coach-skip">Skip the tour</button></div>
-      <button class="panel" id="btn-menu" aria-label="Main menu">☰</button>
+      <button class="panel" id="btn-menu" aria-label="Menu: pause, real estate, trophies">☰</button>
       <button class="panel" id="btn-sound" aria-label="Sound">♪</button>
-      <button class="panel" id="btn-pause" aria-label="Pause">❚❚</button>
+      <button class="panel" id="btn-estate" aria-label="Real estate and trophies"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="18.5"/><circle class="fill" cx="22" cy="22" r="18.5" pathLength="100" stroke-dasharray="0 100"/><path class="house" d="M22 11.5l10 9.2h-3V31H15V20.7h-3z"/></svg><b id="estate-free" hidden></b></button>
       <button class="panel" id="btn-radio" aria-label="Radio" hidden>FM</button>
       <div class="panel" id="radio-bar" hidden><span class="name"></span><button class="next" aria-label="Next station">next ›</button></div>
     </div>
@@ -108,16 +111,17 @@
           <input id="q" type="search" placeholder="City, street or lat, lon" autocomplete="off" enterkeyhint="go" />
           <button class="primary">Go</button>
         </form>
+        <!-- little on the map at the place just searched: right under the search field, the way on first, so it is seen without scrolling -->
+        <div id="thin" hidden>
+          <button id="btn-anyway">Play here anyway</button>
+          <p><b>There isn't much on the map here yet.</b> You can play, but the streets will feel empty. We'd recommend adding to the map first: this game is built from OpenStreetMap, which anyone can edit.</p>
+          <p><a id="thin-map" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">See this place on OpenStreetMap</a> · <a href="https://wiki.openstreetmap.org/wiki/Beginners%27_guide" target="_blank" rel="noopener">How to add buildings and streets</a></p>
+          <p>New map material shows up in the game after some days. Or play one of the recommended cities below.</p>
+        </div>
         <div class="places" id="places"></div>
         <!-- saving the game online under a name: optional, filled in by cloudUi.ts -->
         <div id="account" hidden></div>
         <p class="small" id="where" hidden>This page carries the map of central Berlin, about 3 km across. The full game loads any city.</p>
-        <div id="thin" hidden>
-          <p><b>There isn't much on the map here yet.</b> You can play, but the streets will feel empty. We'd recommend adding to the map first: this game is built from OpenStreetMap, which anyone can edit.</p>
-          <p><a id="thin-map" href="https://www.openstreetmap.org/" target="_blank" rel="noopener">See this place on OpenStreetMap</a> · <a href="https://wiki.openstreetmap.org/wiki/Beginners%27_guide" target="_blank" rel="noopener">How to add buildings and streets</a></p>
-          <p>New map material shows up in the game after some days. Or play one of the recommended cities above.</p>
-          <button id="btn-anyway">Play here anyway</button>
-        </div>
         <div class="row"><button id="btn-resume" hidden>Back to the game</button><button id="btn-scores">Scoreboard</button><button id="btn-homes" hidden>Your homes</button></div>
         <p class="status" id="status" role="status" aria-live="polite"></p>
         <div id="busy" hidden><b id="busy-text">Searching</b><i aria-hidden="true"></i></div>
@@ -127,33 +131,43 @@
           <dt>Touch</dt>
           <dd>Drag anywhere on the left to walk or drive that way. Buttons on the right: get in or out, and the brake pedal while you drive. Tap the little map for a big one of the streets around you.</dd>
           <dt>Rings</dt>
-          <dd><span class="dot job"></span> pick up a package · <span class="dot drop"></span> deliver it before the time runs out</dd>
+          <dd><span class="dot plain"></span> pick up a package · <span class="dot fuel"></span> <span class="dot fire"></span> <span class="dot police"></span> a job from the fuel, fire or police station · <span class="dot party"></span> food for a party at your home · <span class="dot home"></span> flashing: a job for your home · <span class="dot drop"></span> deliver it before the time runs out</dd>
           <dt>Transit</dt>
           <dd><span class="dot sub"></span> subway entrance (no rides for now) · buses stop at <span class="dot bus"></span>, trams at <span class="dot tram"></span></dd>
         </dl>
         <p class="small">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Stops and stations from OpenStreetMap. Search by Photon (komoot) and Nominatim. Built on the Your Place 3D engine.</p>
       </div>
     </section>
-    <section id="pause" hidden>
-      <div class="card">
-        <h2>Paused</h2>
-        <p class="small" id="pause-line"></p>
-        <div class="row">
-          <button class="primary" id="btn-continue">Continue</button>
-          <button id="btn-switch"></button>
-          <button id="btn-pause-homes" hidden>Your homes</button>
-          <button id="btn-city">Main menu</button>
+    <section id="pause" class="over" hidden>
+      <div class="card menu" role="dialog" aria-label="Menu">
+        <div class="menu-head">
+          <div class="tabs" role="tablist">
+            <button id="tab-game" role="tab" aria-selected="true" aria-label="Paused" title="Paused">❚❚</button>
+            <button id="tab-estate" role="tab" aria-selected="false">Real estate</button>
+            <button id="tab-trophies" role="tab" aria-selected="false">Trophies</button>
+          </div>
+          <button id="btn-menu-close" aria-label="Close">✕</button>
         </div>
-        <p class="small">P or Esc pauses and continues.</p>
-      </div>
-    </section>
-    <section id="homes" class="over" hidden>
-      <div class="card" role="dialog" aria-labelledby="homes-title">
-        <h2 id="homes-title">Your homes</h2>
-        <p id="homes-line"></p>
-        <div id="homes-list"></div>
-        <p class="small">Your cash and homes are kept in this browser and come along to every place you play. Each home pays rent on your first visit of a day, wherever you are.</p>
-        <div class="row"><button class="primary" id="btn-homes-close">Back</button></div>
+        <div id="pane-game" role="tabpanel">
+          <p class="small" id="pause-line"></p>
+          <div class="row">
+            <button class="primary" id="btn-continue">Continue</button>
+            <button id="btn-switch"></button>
+            <button id="btn-city">Main menu</button>
+          </div>
+          <p class="small">☰, P or Esc opens this; P, Esc or ✕ closes it. The game waits while it is open.</p>
+        </div>
+        <div id="pane-estate" role="tabpanel" hidden>
+          <div class="points" id="estate-points"></div>
+          <p id="homes-line"></p>
+          <button id="btn-bank-way" hidden>Show the way to the nearest bank</button>
+          <div id="homes-list"></div>
+          <p class="small">Your cash, homes and trophies are kept in this browser and come along to every place you play. Each home pays rent on your first visit of a day, wherever you are.</p>
+        </div>
+        <div id="pane-trophies" role="tabpanel" hidden>
+          <p class="small" id="trophies-line"></p>
+          <div id="trophies-list"></div>
+        </div>
       </div>
     </section>
     <section id="firsthome" class="over" hidden>
@@ -167,10 +181,24 @@
     </section>
     <section id="mission" class="over" hidden>
       <div class="card">
-        <small class="kicker">Private mission open now</small>
+        <small class="kicker" id="mission-kicker">Private mission open now</small>
         <h2 id="mission-title"></h2>
         <p id="mission-text"></p>
         <div class="row"><button class="primary" id="btn-mission-yes"></button><button id="btn-mission-no"></button></div>
+      </div>
+    </section>
+    <section id="party" class="over" hidden>
+      <div class="card">
+        <small class="kicker">Party</small>
+        <h2 id="party-title"></h2>
+        <p id="party-text"></p>
+        <div id="party-invite">
+          <p id="party-ask"></p>
+          <input id="party-name" type="text" maxlength="16" placeholder="Your name (optional)" autocomplete="off" enterkeyhint="done" />
+          <div class="row"><button class="primary" id="btn-party-send"></button><button id="btn-party-no"></button></div>
+          <p class="small" id="party-note"></p>
+          <input id="party-link" type="text" readonly hidden aria-label="Link to this party" />
+        </div>
       </div>
     </section>
     <section id="guess" class="over" hidden>

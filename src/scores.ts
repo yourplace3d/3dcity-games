@@ -59,6 +59,15 @@ export function nameScore(at: number, name: string): void {
   }
 }
 
+/** Keep a name written elsewhere (a party's link), to offer again. */
+export function keepName(name: string): void {
+  try {
+    localStorage.setItem(NAME_KEY, name);
+  } catch {
+    /* nothing to remember it in */
+  }
+}
+
 /** The name written last time, to offer again. */
 export function lastName(): string {
   try {

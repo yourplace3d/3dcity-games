@@ -16,8 +16,22 @@ const TRAFFIC = new Set<LineKind>(['motorway', 'primary', 'secondary', 'tertiary
 export const SPEED_LIMIT: Record<string, number> = { motorway: 21, primary: 14, secondary: 12.5, tertiary: 11, minor: 8.5, service: 5 };
 
 const CELL = 32;
+/** how far across from a track's middle a car touches a train or tram on it (m): half a train's width, and half a car's length */
+const RAIL_REACH_M = 6;
 /** Line ends this close to another line are joined to it (m). */
 const JOIN_M = 2.5;
+/**
+ * The least track a train or tram runs on (m, all of a connected stretch): a bit of track between two
+ * tunnels gets none. In Shibuya a 25 m train went to and fro across a square on 6 m of railway where a
+ * line comes up for a moment (the owner, 24 November). The bit of track is still drawn.
+ */
+const TRAIN_MIN_M = 200;
+const TRAM_MIN_M = 80;
+/**
+ * At the end of a line, a tram or train goes on along another unless that one doubles back (turns by more
+ * than 120°): a way split at a tight corner is a corner, two legs of a loop drawn apart are not.
+ */
+export const RAIL_ON = -0.5;
 
 export interface Conn {
   line: number;
@@ -39,6 +53,10 @@ export interface RoadLine {
   tram: boolean;
   /** a railway track, for trains */
   train: boolean;
+  /** railway or tram track too short for a train or tram to run on (`TRAIN_MIN_M`): drawn, never used */
+  short: boolean;
+  /** a one-way street: traffic goes only with the points (1) or only against them (-1); 0 both ways */
+  oneway: 0 | 1 | -1;
   /** a stairway */
   steps: boolean;
   /** a way through a building (`passages.ts`) */
@@ -109,7 +127,7 @@ export class RoadNet {
       const len = cum[pts.length - 1];
       if (len < 2) continue;
       const id = this.lines.length;
-      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
+      this.lines.push({ kind: f.kind, pts, cum, len, w: f.widthM, bridge: f.bridge, drive: DRIVE.has(f.kind), walk: WALK.has(f.kind), traffic: TRAFFIC.has(f.kind), tram, train, short: false, oneway: f.oneway ?? 0, steps: !!f.steps, passage: !!f.passage, ends: [[], []], joins: [] });
       for (let i = 0; i < pts.length - 1; i++) {
         const seg = this.segLine.length;
         this.segLine.push(id);
@@ -130,12 +148,13 @@ export class RoadNet {
       }
     }
     this.connect();
+    this.markShort();
     this.lines.forEach((l, i) => {
       if (l.traffic) this.trafficLines.push(i);
       if (l.walk) this.walkLines.push(i);
       if (l.drive) this.driveLines.push(i);
-      if (l.tram) this.tramLines.push(i);
-      if (l.train) this.trainLines.push(i);
+      if (l.tram && !l.short) this.tramLines.push(i);
+      if (l.train && !l.short) this.trainLines.push(i);
     });
     this.graph();
   }
@@ -303,6 +322,44 @@ export class RoadNet {
     return { pts, metres };
   }
 
+  /** Mark railway and tram track whose whole connected stretch is too short to run on (`TRAIN_MIN_M`). */
+  private markShort(): void {
+    const group = this.lines.map((_, i) => i);
+    const find = (i: number): number => {
+      while (group[i] !== i) i = group[i] = group[group[i]];
+      return i;
+    };
+    const rails = (a: RoadLine, b: RoadLine) => (a.train && b.train) || (a.tram && b.tram);
+    this.lines.forEach((l, i) => {
+      if (!l.train && !l.tram) return;
+      // at its ends: a line it can go on along (turning by up to 120°, `RAIL_ON`), not one that doubles back
+      for (const end of [0, 1] as const) {
+        const [ox, oy] = this.heading({ line: i, s: end ? l.len : 0, dir: end ? 1 : -1 });
+        for (const o of l.ends[end]) {
+          const other = this.lines[o.line];
+          if (!rails(l, other)) continue;
+          const [hx, hy] = this.heading({ line: o.line, s: o.s, dir: 1 });
+          const d = ox * hx + oy * hy;
+          if ((other.len - o.s > 4 && d > RAIL_ON) || (o.s > 4 && -d > RAIL_ON)) group[find(i)] = find(o.line);
+        }
+      }
+      // along a line: points that lead off at a slant, not a line that only crosses it (where lines only
+      // touch end to end, the crossings list has them too: those are the ends' to judge)
+      for (const j of l.joins) {
+        const o = this.lines[j.line];
+        if (!rails(l, o) || j.s < 1 || j.s > l.len - 1 || j.s2 < 1 || j.s2 > o.len - 1) continue;
+        const [ax, ay] = this.heading({ line: i, s: j.s, dir: 1 });
+        const [bx, by] = this.heading({ line: j.line, s: j.s2, dir: 1 });
+        if (Math.abs(ax * bx + ay * by) > 0.7) group[find(i)] = find(j.line);
+      }
+    });
+    const total = new Map<number, number>();
+    this.lines.forEach((l, i) => {
+      if (l.train || l.tram) total.set(find(i), (total.get(find(i)) ?? 0) + l.len);
+    });
+    for (const [i, l] of this.lines.entries()) if (l.train || l.tram) l.short = (total.get(find(i)) ?? 0) < (l.train ? TRAIN_MIN_M : TRAM_MIN_M);
+  }
+
   private connect(): void {
     this.lines.forEach((l, id) => {
       for (const end of [0, 1] as const) {
@@ -391,12 +448,39 @@ export class RoadNet {
     return { line, s: l.cum[i] + Math.sqrt(L2) * t, d: Math.hypot(x - px, y - py), x: px, y: py };
   }
 
+  /**
+   * The nearest point within `maxD` on a line of the wanted sort that runs along the heading (hx, hy),
+   * either way: a line across it counts as 12 m further off. For putting a tram back on its own rails
+   * and not on a track that crosses them.
+   */
+  nearestAlong(x: number, y: number, maxD: number, want: 'tram' | 'train', hx: number, hy: number): Near | null {
+    let best: Near | null = null;
+    let bestScore = Infinity;
+    this.each(x, y, maxD, (line, i) => {
+      const l = this.lines[line];
+      if (!l[want] || l.short) return;
+      const n = this.project(line, i, x, y);
+      if (n.d > maxD) return;
+      const [ax, ay] = l.pts[i];
+      const [bx, by] = l.pts[i + 1];
+      const len = Math.hypot(bx - ax, by - ay) || 1;
+      const score = n.d + 12 * (1 - Math.abs(((bx - ax) * hx + (by - ay) * hy) / len));
+      if (score < bestScore) {
+        bestScore = score;
+        best = n;
+      }
+    });
+    return best;
+  }
+
   /** The nearest point on a line of the wanted sort within `maxD`, or null. */
-  nearest(x: number, y: number, maxD: number, want: 'drive' | 'walk' | 'traffic' | 'tram' | 'train' | 'any' = 'any'): Near | null {
+  nearest(x: number, y: number, maxD: number, want: 'drive' | 'walk' | 'traffic' | 'tram' | 'train' | 'any' = 'any', runs = false): Near | null {
     let best: Near | null = null;
     this.each(x, y, maxD, (line, i) => {
       const l = this.lines[line];
       if (want !== 'any' && !l[want]) return;
+      // `runs`: past track too short for a train or tram to run on
+      if (runs && l.short) return;
       const n = this.project(line, i, x, y);
       if (n.d <= maxD && (!best || n.d < best.d)) best = n;
     });
@@ -415,6 +499,43 @@ export class RoadNet {
   /** Enough railway for a train to be worth the sight (m of track). */
   get hasTrains(): boolean {
     return this.trainLines.reduce((a, i) => a + this.lines[i].len, 0) > 400;
+  }
+
+  /**
+   * Whether tracks and a street cross here at different heights: one on a bridge over the other, as the
+   * station's tracks under North Bridge in Edinburgh. Then a train or tram and a car on the street pass
+   * here without meeting. Only where every track and every street near the point say the same: under a
+   * road on stilts that follows a street with trams in it, the street and the stilts both lie under the
+   * tram, and it meets the cars as before; and only where they cross, not where they run side by side.
+   * `on`: the ways a car takes (`drive`), or those someone on foot does (`walk`: a bridge's pavements too).
+   */
+  crossesApart(x: number, y: number, on: 'drive' | 'walk' = 'drive'): boolean {
+    const near = new Map<number, { d: number; hx: number; hy: number }>();
+    // as far as a car on the outer lane of the widest street is from its middle
+    this.each(x, y, 20, (line, i) => {
+      const l = this.lines[line];
+      if (!l[on] && !l.tram && !l.train) return;
+      const n = this.project(line, i, x, y);
+      const had = near.get(line);
+      if (had && had.d <= n.d) return;
+      const [ax, ay] = l.pts[i];
+      const [bx, by] = l.pts[i + 1];
+      const len = Math.hypot(bx - ax, by - ay) || 1;
+      near.set(line, { d: n.d, hx: (bx - ax) / len, hy: (by - ay) / len });
+    });
+    const rails: Array<{ up: boolean; hx: number; hy: number }> = [];
+    const streets: Array<{ up: boolean; hx: number; hy: number }> = [];
+    for (const [line, n] of near) {
+      const l = this.lines[line];
+      // a car touches a train whose middle is this near it; a car is on a street this near its middle
+      if ((l.tram || l.train) && n.d <= RAIL_REACH_M) rails.push({ up: l.bridge, ...n });
+      else if (l[on] && n.d <= l.w / 2 + 1.5) streets.push({ up: l.bridge, ...n });
+    }
+    if (!rails.length || !streets.length) return false;
+    const railUp = rails[0].up;
+    const streetUp = streets[0].up;
+    if (railUp === streetUp || rails.some((r) => r.up !== railUp) || streets.some((t) => t.up !== streetUp)) return false;
+    return rails.every((r) => streets.every((t) => Math.abs(r.hx * t.hx + r.hy * t.hy) < 0.9));
   }
 
   /** Whether a point is on a road or path (bridges count, so they carry you over water). */
@@ -507,7 +628,8 @@ export class RoadNet {
       if (maxD < 700) {
         const a = rnd() * Math.PI * 2;
         const r = minD + rnd() * (maxD - minD);
-        const n = this.nearest(x + Math.cos(a) * r, y + Math.sin(a) * r, 40, want);
+        // for a tram or train, the nearest track it can run on, past bits too short
+        const n = this.nearest(x + Math.cos(a) * r, y + Math.sin(a) * r, 40, want, want === 'tram' || want === 'train');
         if (n) place = { line: n.line, s: n.s, dir: rnd() < 0.5 ? 1 : -1 };
       } else {
         const line = pool[Math.floor(rnd() * pool.length)];
@@ -534,7 +656,18 @@ function segAt(l: RoadLine, s: number): number {
   return i;
 }
 
-/** How far to the right of the centre line a car drives on a road of this width. */
-export function laneOffset(l: RoadLine): number {
+/**
+ * How far to the right of the centre line a car drives on a road of this width, going `dir`: on a
+ * one-way street the right way a little nearer the middle; the wrong way, far enough over to pass the
+ * cars coming the right way.
+ */
+export function laneOffset(l: RoadLine, dir: 1 | -1 = 1): number {
+  if (l.oneway && l.oneway === dir) return l.w < 5 ? 0.7 : Math.min(1.8, l.w * 0.15);
+  if (l.oneway) return l.w < 5 ? 1.2 : Math.max(1.5, Math.min(3.2, l.w * 0.25));
   return l.w < 5 ? 0.7 : Math.min(3.2, l.w * 0.25);
+}
+
+/** Whether traffic may go this way along a line: not against a one-way street. */
+export function mayGo(l: RoadLine, dir: 1 | -1): boolean {
+  return !l.oneway || l.oneway === dir;
 }

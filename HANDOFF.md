@@ -4,6 +4,60 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
+## Right now (24 November 2026)
+
+- **The owner put street cred on the wishlist,** like the third currency: missions and learning to use the
+  bank come first, for players who come back. The plan and the brainstorm of what happens at the player's
+  homes: `docs/plan-returning-players.md`.
+- **Going live on the owner's word** ("review it and bring it live if the review passes", 23 November):
+  branch `claude/returning-players`, merged into `main` by pull request after four code reviews. In it: a
+  line on return saying what the homes paid, the mission to the bank and its reminder, ☰ as one menu
+  (❚❚, "Real estate", "Trophies") with a house button beside it, 17 trophies, and home points (a delivery
+  earns one; a flat takes 2, a house 10; one flat or house a day without a realtor, after the day's first
+  delivery). Live since 23 November (pull request #14, deploy run 61, checked on the live site).
+- **The owner's answers of 23 November** are in the plan, section 6: rent stays cash on return; the bank
+  is a tip, not a mission, with no reward; hospitals may go on the map; the police mission's tone is right.
+  The order of the events at the player's homes is in section 4 (agreed). Step 1, renovation, and the way to
+  the bank on demand go live on the owner's word ("Put it live", 23 November) after three code reviews.
+  Next is step 2, the tenants' dispute with its four outcomes.
+- **Then, from the owner's play:** hills never stop a car under power, and jobs at the stations come on a
+  card (take it or not; then only that job). Live on the owner's word ("then you can push both") after two
+  code reviews: the plan, section 6b.
+
+- **Parties at the homes, to reward sharing (owner, 23 November, night):** stop beside a home you own to throw
+  a party: fetch the pizza (a restaurant) or drinks and snacks (a supermarket) from the map and bring it to the
+  door against the clock. 2 home points for the day's first party, no cash. At the end, softly: "Someone still
+  missing for tonight's party?" with a link, or "No, we're a full house". Links are neither rewarded nor
+  counted (the owner's word). Up a lane too narrow for a car you walk the last bit, never more than 150 m;
+  further than that the friends meet you at the corner (the owner, 24 November). Seven code reviews, live
+  on the owner's word since 24 November 2026: the plan, section 8.
+
+- **Ring colours and sharp green (owner, 24 November, after Kiel and Rio):** each giver's ring in its sign's
+  colour (fuel orange, fire red, police blue, a plain package turquoise), pink for the party's food, green
+  flashing on a station's ring while a home of yours waits for its package, yellow to deliver; parks and
+  gardens drawn with sharp edges by a step in the ground's shader. Branch `claude/ring-colours`, merged by
+  pull request #18 and put live on the owner's word ("Yes review and put it live", 24 November) after
+  thirteen code reviews: the plan, section 9. The radio was then a trial switched on per browser
+  (`?try=radio`); that is why it played on the owner's iPad and not on the Mac. On the same branch, from the
+  owner's next round: home missions flash green (pink only for the party), no train on bits of track
+  shorter than 200 m (Shibuya), trams and trains on two bogies so they lie on their rails, and traffic
+  keeping to one-way streets (feedback from Dresden).
+- **Bridges over buildings (owner, 25 November, Edinburgh):** North Bridge ran into the roof of Waverley
+  station below it, and the party's food lay on it. Street bridges up in the air now cut what they cross open
+  to the sky, with their pavements; no ring goes where a car can't stand; trains pass under road bridges
+  without meeting the cars and people on them. Branch `claude/edinburgh-cuttings`, four code reviews, merged
+  by pull request #19 and put live on the owner's word ("Put the bridge fix live", 25 November): the plan,
+  section 10. Live weather (an idea from GTW, a sandbox on the real Earth) is on hold: the owner's call.
+- **The radio stays a trial (owner, 25 and 26 November):** asked for everyone, built, then held back on the
+  owner's word after a look at the law ("let's do it like you suggest"): playing stations of any town to
+  players elsewhere is what a court found infringing in Warner and Sony against TuneIn. Not for everyone
+  without a media lawyer's word. What went live from the work: the for-sale panel no longer hides the little
+  map in the top right corner, and the radio's bar keeps clear of both (`clearOf.ts`); the top buttons fit
+  a 360 px phone. Branch `claude/radio-for-all`, merged by pull request #21 and put live on the owner's
+  word (26 November): the plan, section 11. The site has no privacy policy and
+  no legal notice (Impressum) yet, though it contacts map, search and save services: for the owner, with a
+  lawyer.
+
 ## Where things stand
 
 - **The game is live** at https://yourplace3d.github.io/3dcity-games/ (public repo, GitHub Pages).
@@ -47,7 +101,8 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
 - **The owner asked what the blue dots are.** They are subway entrances. Nothing on screen says so until you
   stand on one. A label or a first-time hint was offered and not yet answered.
 - **Thin places get a warning** on the start screen, with links to OpenStreetMap and its beginners' guide, and
-  a "Play here anyway" button. The owner asked for exactly this wording idea: you can play, but we recommend
+  a "Play here anyway" button. It sits right under the search field with the button first, so it is seen
+  without scrolling on any screen (owner, 25 November). The owner asked for exactly this wording idea: you can play, but we recommend
   adding map material first, here is how, or play a recommended city.
 - **Public transport came first among the data ideas**, without real schedules: "the lines might be set up as
   normal bus traffic". Done from map tiles alone (see below).
@@ -168,6 +223,23 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   project; the game code that writes to it went live on 17 November 2026. The table was empty
   on 16 November (the owner deleted three test rows). Deletes through the Supabase tool ask the owner to
   confirm and that answer did not arrive in time, twice; for a delete, give the owner the SQL to run instead.
+- **Which city is played, counted (owner, 21 November 2026; live).** After a Reddit post that
+  used the same short link as the video, so the two can't be told apart ("which cities were played"
+  would say more). `count_play('city', …)`: when a place has loaded, once for each city in a visit and
+  only after the first touch, the place a link opens in included (`countCity`, `src/linkCount.ts`; called in `go()`, `src/main.ts`). The
+  detail is the well-known city the place lies in or beside (`nearCity`, 15 km, the same rule that names a place on
+  the sign: the first name in `CITIES`), else its one-degree square such as `53,9`. Never what was typed or the
+  name the place search gave. Not counted: "Where I am" (that is where the visitor is), Where am I?
+  rounds, baked builds, test browsers. The database function takes the 60 names, a square on Earth (at most
+  500 different ones a day), and puts anything else under `other`; `tests/cityCount.test.ts` fails if its list
+  and `CITIES` differ, so a new city in `places.ts` needs a new migration with its name. Migration
+  "play_counts_city" (21 November), tried in a transaction first (`docs/supabase/play_counts.sql`). Read it
+  with the second query in that file's header. **Live since 21 November 2026, about 20:32 UTC** (the owner said
+  yes; merged into `main` at `95e0f91`, Pages run 60; the deployed bundle is byte-identical to the one tested, and
+  the browser check passed against the live page with Supabase blocked). Nothing before that can be looked up:
+  the only older place data is `link_counts_at` (the square of each arrival by the video link). The short address's forwarder
+  (`docs/mindmacher/3da/index.html`) sets `ref=youtube` whatever the link says, so everyone sent through it counts
+  as YouTube; the game's own address posted elsewhere shows as `link` (or `direct` where an app hides the sender).
 - **Saving online for everyone, with homes (owner, 16 November 2026).** The owner's worry was space and
   traffic, not names: a save belongs to its secret code, so two players may share a name (a number as a
   suggestion is for later, if names are ever shown publicly). Done: the box shows on every start screen
@@ -200,7 +272,7 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   Built on branch `claude/bank`; live since 18 November 2026. Raised by the owner for later, not built: cash not paid in
   could be lost between visits ("you got to take it there or you will start with zero when you come back").
   Also seen on the owner's iPad: the panel beside a building sits over the minimap and under the radio
-  hint, top right; not changed yet.
+  hint, top right; kept clear since 25 November (`clearOf.ts`).
 - **Flats first, painting, and the first-home mission (owner, 17 November 2026).** Asked for together:
   - *Flats first:* "First you need to buy floors/flats... the further the game the more you can buy houses
     as a whole." A first home is a flat; houses open with the 3rd home (`HOUSES_AFTER`), whole buildings
@@ -237,6 +309,14 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   arrow at one in the town being played (`src/homesList.ts`). Offered, not built: a "Show me flats nearby"
   button on a house that is still locked, since a player with one or two homes in a street of houses finds
   nothing to buy there and nothing says where the flats are.
+- **Measured building heights: not now (owner, 18 November 2026).** The owner asked whether OpenHaystack
+  (home-made tags found through Apple's Find My network) could serve as a design tool: positions clustered
+  into walls and heights. No: a report is the passing phone's own position, with no height, usually 5 to
+  50 m off (worst beside tall buildings), and only for one's own tags. Measured outlines, heights and roof
+  shapes do exist free as official 3D building models (LoD2): all of Lower Saxony, Bavaria since 2023, and
+  other German states. But they come state by state, and the game has to work anywhere in the world, so
+  the owner judged it too complicated for now. Heights stay from OpenStreetMap, guessed where it has none
+  (the engine counts the guessed share of each square, `estimatedShare`).
 - **Supabase's GitHub link: not now (owner, 17 November 2026).** The dashboard shows "No repository
   connected"; that is Supabase's optional GitHub link (changes in `supabase/migrations/` on main go live by
   themselves, and test copies of the database per pull request on a paid plan). Not set up: the Supabase
@@ -275,7 +355,8 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   vector tiles and AWS terrain tiles; the next square loads when you are 450 m from the centre, and everything
   near you is carried over (`Game.swap`). Loading blocks for roughly 130 ms.
 - **Streets connect where they cross**, not only where a map line ends (`RoadNet.cross`). Before this the
-  network was nearly disconnected. Bridges and the roads under them don't meet.
+  network was nearly disconnected. Bridges and the roads under them don't meet, and a train or tram doesn't
+  meet the cars on a road bridge over its track, or under its own bridge (`Game.apart`).
 - **Ways through buildings are cut out** (`passages.ts`, 19 November 2026): passages, gateways, town walls.
   Every street or footpath that goes well into a building (not one that only grazes its front) gets a corridor
   cut out at ground level: walls either side stay solid, the part above starts at 4 m and is a roof you pass
@@ -283,6 +364,9 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   squeezes through). The tiles call `tunnel=building_passage` a tunnel; ground-level "tunnels" (layer 0 or
   none) are kept when at least half of them runs under buildings. Under a roof, a yellow shape draws you on
   top of it. Homes for sale are still chosen from the buildings as before, so owned homes don't change.
+  A street bridge up in the air (the ground under it 3 m or more below the line between its ends) cuts what
+  it crosses open to the sky, with 2 m either side and its pavements (25 November, North Bridge over Waverley
+  station); a footbridge on its own cuts nothing, as walkways from house to house are footbridges too.
 - **Water is a shape of its own** (`river.ts`, 19 November 2026). Rivers, canals, docks, lakes and the sea are
   joined into one outline per square (tiles cut them at every tile edge), cut out of the ground picture (the
   ground material has `alphaTest`, so it has a hole there) and drawn 1.4 m below the bank (0.45 m for a lake or
@@ -321,7 +405,7 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
 - Traffic can queue behind a pedestrian walking in the road, and behind a stopped car; cars hesitate at some
   corners.
 - Left-hand traffic uses rough boxes of latitude and longitude; border regions can be wrong.
-- No traffic lights, no one-way streets. Sound exists since 14 November 2026 and has only been checked for
+- No traffic lights. One-way streets for traffic since 24 November (the player may drive any way). Sound exists since 14 November 2026 and has only been checked for
   which sounds fire when: nobody has listened to it in the test browser. Volumes and tones need the owner's ear.
 - Subway rides stay within the loaded square.
 - The thin-place rule counts streets across the loaded tiles, not only the square, so its numbers are loose.

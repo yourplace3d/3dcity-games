@@ -5,7 +5,7 @@
 
 import { Game, MAX_CASH, RUN_JOBS, type Course, type Hud } from './game/game';
 import { linkHome, packChallenge, readChallenge, type Challenge } from './challenge';
-import { cameByVideo, countMade, countOpened, countPlay, countTime, countVisit, playingAt } from './linkCount';
+import { cameByVideo, countCity, countMade, countOpened, countPlay, countTime, countVisit, playingAt } from './linkCount';
 import { arrive as cloudArrive, changed, savedName, savingOn } from './cloud';
 import { loadHomes, type Home } from './game/homes';
 import { loadReno, type Reno } from './game/renovation';
@@ -15,16 +15,21 @@ import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
 import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
+import { arriveLine, PartyUi } from './partyUi';
+import { readParty, type SentParty } from './game/party';
+import { drawTrophies, Trophies, type TrophyId } from './trophies';
+import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
 import { wireRadio } from './radio';
-import { serviceIcon, type ServiceKind } from './game/services';
+import { keepClear } from './clearOf';
+import { RING, serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
 import { findPlace, nearCity, placeAt, placeFromHash } from './places';
 import { readPlayerSave } from './playerSave';
 import { newRound, packGuess, played, points, readGuess, type Round, type SentGuess } from './guess';
-import { addScore, lastName, nameScore, scores, type Score } from './scores';
+import { addScore, keepName, lastName, nameScore, scores, type Score } from './scores';
 import { BAKED } from './geo/mapCache';
 import type { LngLat } from './geo/projection';
 
@@ -44,12 +49,20 @@ const SAVE = 'drive-it-3d';
 
 const canvas = $<HTMLCanvasElement>('scene');
 const status = $('status');
+// the legends on the page in the colours of the rings in the game
+for (const [name, colour] of [['cyan', RING.plain], ['ring-fuel', RING.supply], ['ring-fire', RING.rush], ['ring-police', RING.clean], ['ring-party', RING.party], ['ring-home', RING.home]]) document.documentElement.style.setProperty(`--${name}`, colour);
 const small = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900;
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
 addEventListener('pointerdown', (e) => document.body.classList.toggle('touch', e.pointerType === 'touch'), true);
 
 let game: Game | null = null;
 let homes: HomesUi | null = null;
+/** parties at the player's homes (`partyUi.ts`) */
+let party: PartyUi | null = null;
+/** a friend's party from the link the page was opened with, until it starts */
+let linkParty: SentParty | null = null;
+/** the party of the link, for the line under the place's name, for as long as its place is played */
+let partyShown: SentParty | null = null;
 const sound = new Sound();
 let playing = false;
 let busy = false;
@@ -67,9 +80,21 @@ const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'delivery' : 'de
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const minimap = new Minimap($<HTMLCanvasElement>('minimap'));
 const bigmap = new Minimap($<HTMLCanvasElement>('bigmap-canvas'), true);
+/** The cards of the stations' jobs: what each asks of the player. */
+const JOB_CARDS = {
+  supply: { title: 'Supply run', text: 'A heavy load: slow uphill and slow to stop. More pay for a car without a new dent.', rule: 'More pay for a car without a new dent.' },
+  rush: { title: 'Rush job', text: 'A short clock, and every second left over pays three times.', rule: 'Every second left over pays three times.' },
+  clean: { title: 'Clean run', text: 'Pays well, but break the law on the way and the job is gone.', rule: 'Break the law on the way and the job is gone.' },
+} as const;
+
+/** things done in the game, kept with the day (`trophies.ts`) */
+const trophies = new Trophies();
+trophies.onStored = () => changed();
+trophies.onEarned = (names) =>
+  toast(names.length === 1 ? `Trophy: ${names[0]}` : `${names.length} trophies: ${names.join(', ')}`, 'good', 8000, secret ? undefined : () => setPause(true, 'trophies'));
 /** the big map is up and the game waits behind it */
 let mapOpen = false;
-/** the game waits behind the pause card */
+/** the game waits behind the menu (`setPause`) */
 let paused = false;
 const MODE = '3da-mode';
 /** what the start screen is set to: a run of three to compare, or open jobs */
@@ -160,6 +185,12 @@ function showMap(open: boolean): void {
   mapOpen = open;
   $('bigmap').hidden = !open;
   controls.enabled = playing && !open && !paused && !guessing && !welcoming;
+  // a home shown from the side menu blinks on the map; the line under the place says so
+  if (!open) bigmap.spot = null;
+  const spot = open ? bigmap.spot : null;
+  // the arrow stops pointing 40 m from the home (`HomesUi.missionTick`)
+  const near = !!spot && !!game && Math.hypot(spot.x - game.pos()[0], spot.y - game.pos()[1]) < 40;
+  $('bigmap-note').textContent = spot ? (near ? 'your home blinks · you are right beside it' : 'your home blinks · the arrow shows the way when you close this') : '1.5 km across · north is up · the game waits';
   if (open) {
     $('bigmap-place').textContent = secret ? 'Where am I?' : placeName;
     lineButton();
@@ -186,15 +217,61 @@ function save(at?: LngLat): void {
   }
 }
 
-function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300): void {
+/**
+ * A line over the game that leads somewhere (the menu) can be clicked with a mouse. On touch screens the
+ * lines take no taps, as the steering pad lies under them, so such a line also pulses the house button,
+ * and the button then does what the oldest such line still showing would do: the one the player has had
+ * longest to read. Both ways stay open, as a tablet with a trackpad goes from one to the other.
+ */
+const asks: Array<{ tap: () => void; until: number; el: HTMLElement }> = [];
+let askT = 0;
+function askedNow(): typeof asks {
+  const now = performance.now();
+  // gone: shown long enough, clicked, or pushed out by newer lines
+  for (let i = asks.length - 1; i >= 0; i--) if (asks[i].until <= now || !asks[i].el.isConnected) asks.splice(i, 1);
+  return asks;
+}
+function nudgeButton(): void {
+  const b = $('btn-estate');
+  clearTimeout(askT);
+  const left = askedNow();
+  if (!left.length) {
+    b.classList.remove('nudge');
+    return;
+  }
+  askT = window.setTimeout(nudgeButton, Math.min(...left.map((a) => a.until)) - performance.now() + 20);
+}
+function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, tap?: () => void): void {
   const el = document.createElement('div');
-  el.className = `toast ${kind}`;
+  el.className = `toast ${kind}${tap ? ' tap' : ''}`;
   el.textContent = text;
+  if (tap) {
+    el.setAttribute('role', 'button');
+    el.tabIndex = 0;
+    el.addEventListener('click', () => {
+      el.remove();
+      nudgeButton();
+      tap();
+    });
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      el.click();
+    });
+    asks.push({ tap, until: performance.now() + ms, el });
+    // the pulse starts again for each new line
+    const b = $('btn-estate');
+    b.classList.remove('nudge');
+    void b.offsetWidth;
+    b.classList.add('nudge');
+  }
   // it fades over the time it is shown, a long message as well as a short one
   el.style.animationDuration = `${ms}ms`;
   const box = $('toasts');
   box.append(el);
-  while (box.children.length > 3) box.firstElementChild!.remove();
+  // three at most: the oldest goes first, but a line that can be tapped stays while others can go
+  while (box.children.length > 3) ([...box.children].find((c) => c !== el && !c.classList.contains('tap')) ?? box.firstElementChild)!.remove();
+  if (tap) nudgeButton();
   setTimeout(() => el.remove(), ms);
 }
 
@@ -224,9 +301,16 @@ function setScreen(screen: 'start' | 'play'): void {
   homesButtons();
 }
 
-async function go(at: LngLat, name?: string, sent: Challenge | null = null): Promise<void> {
+/** Load a place and start playing in it. `here`: the place is where the visitor is ("Where I am"), which is never counted. */
+async function go(at: LngLat, name?: string, sent: Challenge | null = null, here = false): Promise<void> {
   if (busy) return;
   busy = true;
+  // a friend's party from the link is for its own place only: going anywhere else drops it, and the link
+  if (linkParty && (Math.abs(at.lat - linkParty.home.lat) > 1e-6 || Math.abs(at.lon - linkParty.home.lon) > 1e-6)) {
+    linkParty = null;
+    partyClosed();
+  }
+  partyShown = linkParty;
   if (!dropping) endGuess();
   playingAt(at);
   status.className = 'status';
@@ -246,6 +330,19 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       game.onRide = (t) => flash(t, true);
       game.onSquare = (s) => ($('next').hidden = s !== 'loading');
       game.onSave = () => save();
+      // a station's job: a card, and the player takes it or not
+      game.onOffer = (kind, special, answer) => {
+        const job = JOB_CARDS[kind as keyof typeof JOB_CARDS];
+        if (!job) return answer(true);
+        missionCard(
+          job.title,
+          `${special ? `${special}. ${job.rule}` : job.text} While you are on it there are no other jobs and nothing to buy: only this delivery, until it is done or the job is gone.`,
+          'Take the job',
+          'Not now',
+          answer,
+          'Open job',
+        );
+      };
       game.onSound = (what, strength) => sound.play(what, strength);
       // let the last delivery's message be read before the result covers it
       // a run is counted as started when its first package is on board
@@ -273,15 +370,64 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
       controls.onMap = () => showMap(true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
-      homes = new HomesUi({ game, toast, save: () => save(), place: () => placeName, firstHome: welcomeHome, card: missionCard });
+      party = new PartyUi({ game, homes: () => homes, toast, card: missionCard, cover, place: () => placeName, name: lastName, keepName, closed: partyClosed, save: () => save(), started: runOver });
+      (window as unknown as { party: PartyUi }).party = party;
+      const p = party;
+      homes = new HomesUi({
+        game,
+        toast,
+        save: () => save(),
+        place: () => placeName,
+        firstHome: welcomeHome,
+        card: missionCard,
+        openHomes: () => setPause(true, 'estate'),
+        quiet: () => !!secret,
+        blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
+        party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
+      });
       (window as unknown as { homes: HomesUi }).homes = homes;
+      // trophies: what happens in play, and now and then what the player has
+      {
+        const g = game;
+        g.events.push((e) => {
+          const ids: TrophyId[] = [];
+          if (e.kind === 'lost') ids.push('lost');
+          // a run a friend sent can have another number of deliveries
+          if (e.kind === 'run' && g.run.of === RUN_JOBS) ids.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
+          if (e.kind === 'delivered' && e.job === 'rush' && e.left >= 30) ids.push('rush');
+          if (ids.length) trophies.give(ids);
+        });
+        let every = 0;
+        g.ticks.push((dt) => {
+          every -= dt;
+          if (every > 0 || !homes) return;
+          every = 1;
+          const mine = homes.mine();
+          const towns = homeTowns(mine.homes, mine.reno);
+          trophies.check({
+            car: !!g.car,
+            delivered: g.delivered,
+            homes: mine.homes.length,
+            saved: mine.saved,
+            building: mine.homes.some((h) => h.kind === 'building'),
+            painted: mine.homes.some((h) => !!h.colour),
+            towns: towns.length,
+            rentPerDay: towns.reduce((n, t) => n + t.rent, 0),
+          });
+        });
+      }
       addonHost({ game, toast, api: 2 });
       // a tester's key was in play: say how it went
       void fullNote.then((n) => n && toast(n.text, n.kind));
     }
     await game.start(at);
-    // a run a friend sent is a run, whatever the start screen is set to
-    if (sent || mode === 'run') game.newRun(sent?.course ?? null);
+    // a place played, for the trophies of places; not one a Where am I? round put the player in
+    if (!dropping) trophies.visit(at.lat, at.lon);
+    // which city is played; not one a Where am I? round put the player in, nor the place "Where I am" found
+    if (!BAKED && !dropping && !here) countCity(at);
+    // a run a friend sent is a run, whatever the start screen is set to; a friend's party starts once the place is shown
+    if (linkParty) game.openPlay();
+    else if (sent || mode === 'run') game.newRun(sent?.course ?? null);
     else game.openPlay();
     rival = sent;
     const known = name ?? nearCity(at);
@@ -300,7 +446,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
     arrived = false;
     save(at);
     // the address would give a city to guess away
-    if (!BAKED) history.replaceState(null, '', dropping ? withoutChallenge() : `${sent ? location.search : withoutChallenge()}#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
+    if (!BAKED) history.replaceState(null, '', dropping ? withoutChallenge() : `${sent || linkParty ? location.search : withoutChallenge()}#${at.lat.toFixed(5)},${at.lon.toFixed(5)}`);
     $('btn-menu').blur();
     status.textContent = '';
     // little on the map here: say so, and let them choose
@@ -309,11 +455,15 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null): Pro
     if (thin) {
       $<HTMLAnchorElement>('thin-map').href = `https://www.openstreetmap.org/#map=16/${at.lat.toFixed(5)}/${at.lon.toFixed(5)}`;
       $('btn-resume').hidden = true;
+      // seen at once on any screen: the keyboard away, and the search field with the box under it at the top
+      (document.activeElement as HTMLElement | null)?.blur();
+      requestAnimationFrame(() => $('search').scrollIntoView({ block: 'start' }));
       return;
     }
     begin();
   } catch (err) {
     console.warn(err);
+    // the friend's party waits for its place: a retry of the same place still brings it, any other place drops it
     status.className = 'status error';
     const none = err instanceof Error && err.message === 'no roads here';
     status.textContent = navigator.onLine === false ? 'You seem to be offline.' : none ? 'There are no streets on the map right here. Try a spot nearby, or one of the cities above.' : 'That place didn’t load. Try another, or try again.';
@@ -332,18 +482,20 @@ function arrive(): void {
     ? guessRival
       ? `${guessRival.name || 'Someone'} ${guessRival.points ? `knew this city after ${secs(guessRival.seconds)}: ${guessRival.points} points` : 'did not get this city'}. Same place, same four names: beat it.`
       : 'Drive around and look. Tap “Guess the city” when you know: the sooner, the more points.'
+    : partyShown
+    ? arriveLine(partyShown)
     : rival
     ? `${rival.name || 'Someone'} made ${fmtMoney(rival.score)} here in ${fmtTime(rival.seconds)}. Same ${deliveries(rival.course.legs.length)}: beat it.`
     : game?.run.over
       ? 'Open jobs: look for the pump, the flame and the badge'
       : `${cap(deliveries(RUN_JOBS))} make a run`;
   const el = $('arrive');
-  el.classList.toggle('sent', !!rival || (!!secret && !!guessRival));
+  el.classList.toggle('sent', !!rival || !!partyShown || (!!secret && !!guessRival));
   el.hidden = true;
   void el.offsetWidth;
   el.hidden = false;
   clearTimeout(arriveT);
-  arriveT = window.setTimeout(() => (el.hidden = true), rival || (secret && guessRival) ? 6000 : 3200);
+  arriveT = window.setTimeout(() => (el.hidden = true), rival || partyShown || (secret && guessRival) ? 6000 : 3200);
 }
 let arriveT = 0;
 
@@ -352,6 +504,7 @@ function withoutChallenge(): string {
   const q = new URLSearchParams(location.search);
   q.delete('c');
   q.delete('g');
+  q.delete('p');
   const text = q.toString().replace(/=(?=&|$)/g, '');
   return location.pathname + (text ? `?${text}` : '');
 }
@@ -360,6 +513,15 @@ function begin(): void {
   $('thin').hidden = true;
   setScreen('play');
   if (placeKnown) arrive();
+  // a friend's party from the link: its card, then the party. Not the tour of the deliveries, which says
+  // nothing true of a party: a new player is told how to take a car once the party starts (`runOver`)
+  if (linkParty && party) {
+    const s = linkParty;
+    linkParty = null;
+    party.startSent(s);
+    carHint = !coached();
+    return;
+  }
   if (rival && coached()) return;
   if (secret) {
     // someone who came by a friend's link may never have played: say how to get going, once the sign has been read
@@ -392,7 +554,7 @@ function welcomeHome(what: string, rent: string, worn: boolean): void {
   controls.enabled = false;
   if (game) game.held = true;
   $('firsthome-what').textContent = worn
-    ? `It's yours: ${what}. But the colours on its walls are worn down, and it pays no rent until it is repaired: then ${rent} each day you come back to the game. Look out for the fuel, fire and police symbols: they are blinking now, and any of their jobs starts the repairs.`
+    ? `It's yours: ${what}. But the colours on its walls are worn down, and it pays no rent until it is repaired: then ${rent} each day you come back to the game. Look out for the fuel, fire and police stations: their rings flash green now, and any of their jobs starts the repairs.`
     : `It's yours: ${what}. It pays ${rent} rent each day you come back to the game.`;
   const saving = savingOn();
   $('firsthome-save').textContent = saving
@@ -404,8 +566,10 @@ function welcomeHome(what: string, rent: string, worn: boolean): void {
 }
 /** A card over the game that waits for a yes or a no (the homes' mission). */
 let missionAnswer: ((yes: boolean) => void) | null = null;
-function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void): void {
+function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now'): void {
   welcoming = true;
+  $('mission-kicker').textContent = kicker;
+  $('mission').dataset.kind = kicker === 'Party' || kicker === 'Invitation' ? 'party' : '';
   controls.enabled = false;
   // the game waits while the card is read: a package's clock too
   if (game) game.held = true;
@@ -429,6 +593,32 @@ function closeMission(yes: boolean): void {
 }
 $('btn-mission-yes').addEventListener('click', () => closeMission(true));
 $('btn-mission-no').addEventListener('click', () => closeMission(false));
+/** The game waits behind a card of its own (a party's end), or goes on. */
+function cover(on: boolean): void {
+  welcoming = on;
+  if (game) game.held = on;
+  controls.enabled = playing && !paused && !on;
+  before = 0;
+}
+/** a new player came by a party's link: how to take a car is said as the party starts */
+let carHint = false;
+/** A party has started: a run a friend sent is over, and leaves the address, so a reload does not bring it back. */
+function runOver(): void {
+  rival = null;
+  if (carHint) {
+    carHint = false;
+    setTimeout(() => playing && !game?.car && toast(document.body.classList.contains('touch') ? 'Walk to a car and tap Get in' : 'Walk to a car and press E', 'info'), 600);
+  }
+  if (BAKED || !new URLSearchParams(location.search).has('c')) return;
+  const q = new URLSearchParams(location.search);
+  q.delete('c');
+  const text = q.toString().replace(/=(?=&|$)/g, '');
+  history.replaceState(null, '', location.pathname + (text ? `?${text}` : '') + location.hash);
+}
+/** A party is over and its card closed: a friend's party leaves the address, so a reload is not the party again. */
+function partyClosed(): void {
+  if (!BAKED && new URLSearchParams(location.search).has('p')) history.replaceState(null, '', withoutChallenge() + location.hash);
+}
 function closeWelcome(): void {
   $('firsthome').hidden = true;
   welcoming = false;
@@ -554,6 +744,7 @@ function pick(name: string, b: HTMLButtonElement): void {
     }
   }
   const got = name === round.city ? points(lookedS, wrongPicks) : 0;
+  if (name === round.city) trophies.give(['guessed']);
   for (const o of buttons) {
     o.disabled = true;
     if (o.textContent === round.city) o.classList.add('right');
@@ -657,8 +848,8 @@ const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = 
     done: (h) => h.carHp !== null,
   },
   {
-    keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
-    touch: 'Drag to steer and drive, hold the red <b>Brake</b> pedal to stop. Follow the arrow to a <b class="c">blue ring</b> and drive through it to pick up a package.',
+    keys: 'Drive with the same keys, <kbd>Space</kbd> is the handbrake. Follow the arrow to a <b class="c">turquoise ring</b> and drive through it to pick up a package. At a station’s ring (orange, red or blue), stop: a card shows the job.',
+    touch: 'Drag to steer and drive, hold the red <b>Brake</b> pedal to stop. Follow the arrow to a <b class="c">turquoise ring</b> and drive through it to pick up a package. At a station’s ring (orange, red or blue), stop: a card shows the job.',
     done: (h) => h.job !== null,
   },
   {
@@ -933,9 +1124,12 @@ function paint(h: Hud): void {
   $('job').hidden = !h.job;
   if (h.job) {
     $('job').classList.toggle('late', h.job.left < 10);
-    const what = { plain: 'Delivery', supply: 'Supply run', rush: 'Rush job', clean: 'Clean run' }[h.job.kind];
-    $('job').dataset.kind = h.job.kind;
-    put('job', `${h.run ? `${what} ${h.run.n}/${h.run.of}` : what} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+    $('job').dataset.kind = h.job.party ? 'party' : h.job.kind;
+    if (h.job.party) put('job', `${party?.hudLabel() ?? 'Party'} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
+    else {
+      const what = { plain: 'Delivery', supply: 'Supply run', rush: 'Rush job', clean: 'Clean run' }[h.job.kind];
+      put('job', `${h.run ? `${what} ${h.run.n}/${h.run.of}` : what} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+    }
   }
   $('hint').hidden = !h.hint;
   if (h.hint) put('hint', `<kbd>E</kbd>${h.hint}`);
@@ -965,6 +1159,11 @@ function paint(h: Hud): void {
     const { ndcX, ndcY } = h.target;
     const off = Math.max(Math.abs(ndcX), Math.abs(ndcY));
     arrow.className = h.target.kind;
+    // in the colour of the ring it points to: each station its own, a plain package turquoise
+    if (arrow.dataset.ring !== h.target.colour) {
+      arrow.dataset.ring = h.target.colour;
+      arrow.style.setProperty('--ring', h.target.colour);
+    }
     const margin = 46;
     if (off < 0.86) {
       arrow.style.transform = `translate(${((ndcX + 1) / 2) * w}px, ${((1 - ndcY) / 2) * hh - 46}px)`;
@@ -1034,6 +1233,7 @@ function frame(now: number): void {
     bigmap.draw(game);
     return;
   }
+  estateButton();
   game.tune(dt);
   game.update(dt, controls.read());
   if (secret) {
@@ -1084,7 +1284,7 @@ if (baked) {
       status.className = 'status';
       status.textContent = 'Finding you…';
       navigator.geolocation.getCurrentPosition(
-        (p) => void go({ lat: p.coords.latitude, lon: p.coords.longitude }),
+        (p) => void go({ lat: p.coords.latitude, lon: p.coords.longitude }, undefined, null, true),
         () => {
           status.className = 'status error';
           status.textContent = 'Your location isn’t available. Pick a city instead.';
@@ -1104,31 +1304,66 @@ if (baked) {
 for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico, #openjobs .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
 // ------------------------------------------------------------------ pause, and what to play
 
-/** Hold the game, or let it go on. The card also lets the player change what they are playing. */
-function setPause(on: boolean): void {
-  if (on && (!playing || mapOpen || welcoming || !$('result').hidden || !$('guess').hidden)) return;
-  paused = on;
+type MenuTab = 'game' | 'estate' | 'trophies';
+/** the menu is open, over the game or over the start screen */
+let menuOpen = false;
+
+/**
+ * The menu over the game (☰, P or Esc), and the game waits behind it. Three tabs: paused (what is
+ * being played, and changing it), the player's real estate, and their trophies. Over the start screen it
+ * opens without the first; while a city is guessed, only the first, as the homes would give the city away.
+ */
+function setPause(on: boolean, tab: MenuTab = 'game'): void {
+  if (on && playing && (mapOpen || welcoming || guessing || !$('result').hidden || !$('guess').hidden)) return;
+  if (on && !playing && tab === 'game') return;
+  if (on && secret) tab = 'game';
+  paused = on && playing;
+  menuOpen = on;
   $('pause').hidden = !on;
   controls.enabled = playing && !on;
+  before = 0;
   if (!on) return;
-  homesButtons();
+  $('tab-game').hidden = !playing;
+  $('tab-estate').hidden = $('tab-trophies').hidden = !!secret;
+  const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['estate', 'estate'], ['trophies', 'trophies']];
+  for (const [t, id] of tabs) {
+    $(`tab-${id}`).setAttribute('aria-selected', String(t === tab));
+    $(`pane-${id}`).hidden = t !== tab;
+  }
+  if (tab === 'trophies') drawTrophies($('trophies-list'), $('trophies-line'), trophies);
+  if (tab === 'estate') drawEstate();
+  if (tab !== 'game') return;
   const jobs = !!game?.run.over;
   $('btn-switch').hidden = !!secret;
   if (secret) {
     $('pause-line').textContent = 'You are guessing a city. The points wait while you are here.';
     return;
   }
+  if (game?.party && party) {
+    $('pause-line').textContent = party.pauseLine();
+    $('btn-switch').textContent = 'Call off the party';
+    return;
+  }
   $('pause-line').textContent = jobs ? 'You are doing open jobs.' : rival ? `You are on the run ${rival.name || 'someone'} sent you.` : 'You are on a run of three deliveries.';
   $('btn-switch').textContent = jobs ? 'Start a run of three' : 'Do open jobs instead';
 }
-$('btn-pause').addEventListener('click', () => {
+$('btn-menu').addEventListener('click', () => {
+  $('btn-menu').blur();
   setPause(true);
-  $('btn-pause').blur();
 });
+$('btn-menu-close').addEventListener('click', () => setPause(false));
+$('tab-game').addEventListener('click', () => setPause(true, 'game'));
+$('tab-estate').addEventListener('click', () => setPause(true, 'estate'));
+$('tab-trophies').addEventListener('click', () => setPause(true, 'trophies'));
 $('btn-continue').addEventListener('click', () => setPause(false));
 $('pause').addEventListener('click', (e) => e.target === e.currentTarget && setPause(false));
 $('btn-switch').addEventListener('click', () => {
   if (!game) return;
+  if (game.party) {
+    setPause(false);
+    party?.callOff();
+    return;
+  }
   const toJobs = !game.run.over;
   setPause(false);
   rival = null;
@@ -1152,16 +1387,11 @@ addEventListener('keydown', (e) => {
   if (e.repeat || (e.code !== 'KeyP' && e.code !== 'Escape') || (e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
   // Esc closes the map first; that is handled where the map is
   if (mapOpen) return;
-  // and the list of homes before the pause card under it
-  if (!$('homes').hidden) {
-    showHomes(false);
-    return;
-  }
-  if (paused) setPause(false);
+  if (menuOpen) setPause(false);
   else if (playing) setPause(true);
 });
 // the game does not run on while its tab is out of sight
-document.addEventListener('visibilitychange', () => document.hidden && setPause(true));
+document.addEventListener('visibilitychange', () => document.hidden && !menuOpen && setPause(true));
 setMode(mode);
 $('mode-run').addEventListener('click', () => setMode('run'));
 $('mode-jobs').addEventListener('click', () => setMode('jobs'));
@@ -1177,51 +1407,136 @@ function owned(): { homes: Home[]; reno: Reno | null; saved: number } {
   return { homes: h.homes, reno: loadReno(h.homes.length > 0), saved: loadSaved() };
 }
 
-/** The buttons to the list of homes: once the browser owns one, and never while a city is guessed. */
+/** The start screen's way to the real estate and trophies: once there is something in them, and never while a city is guessed. */
 function homesButtons(): void {
   const n = owned().homes.length;
-  for (const id of ['btn-homes', 'btn-pause-homes']) {
-    $(id).hidden = !n || !!secret;
-    $(id).textContent = `Your homes (${n})`;
-  }
+  $('btn-homes').hidden = (!n && !trophies.count()) || !!secret;
+  $('btn-homes').textContent = n ? `Real estate (${n}) & trophies` : 'Trophies';
+}
+
+/** The ring of home points: on the house button, and bigger at the top of the side menu. */
+function ring(points: number): string {
+  const fill = Math.min(points, HOUSE_POINTS) / HOUSE_POINTS;
+  // no fill at all at 0: a round end alone would draw a dot
+  return `<svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="18.5"/>${fill > 0 ? `<circle class="fill" cx="22" cy="22" r="18.5" pathLength="100" stroke-dasharray="${Math.round(fill * 100)} 100"/>` : ''}<path class="house" d="M22 11.5l10 9.2h-3V31H15V20.7h-3z"/></svg>`;
+}
+
+let buttonShows = '';
+/** The house button: the ring fills with home points toward a house; the number is the flats they buy now. */
+function estateButton(): void {
+  const b = $('btn-estate');
+  const hide = !game?.world || !!secret;
+  const points = homes ? homes.pointsNow() : loadPoints();
+  const n = owned().homes.length;
+  const day = homes?.dailyNow() ?? null;
+  const shows = `${hide} ${points} ${n} ${day}`;
+  if (shows === buttonShows) return;
+  buttonShows = shows;
+  b.hidden = hide;
+  b.classList.toggle('full', points >= HOUSE_POINTS);
+  const fill = b.querySelector<SVGElement>('.fill')!;
+  fill.setAttribute('stroke-dasharray', `${Math.round((Math.min(points, HOUSE_POINTS) / HOUSE_POINTS) * 100)} 100`);
+  // at 0 a round end alone would draw a dot
+  fill.style.visibility = points > 0 ? '' : 'hidden';
+  // the flats the points buy, and the day's free one once it is there
+  const free = n ? flatsFree(points) + (day === 'ready' ? 1 : 0) : 0;
+  $('estate-free').hidden = !free;
+  $('estate-free').textContent = String(free);
+  b.setAttribute('aria-label', `Real estate and trophies: ${points} home ${points === 1 ? 'point' : 'points'}${free ? `, you may buy ${free} ${free === 1 ? 'flat' : 'flats'} now` : ''}`);
 }
 
 /**
- * The card with the player's homes, by town: a new place is not a new game, so this says what the
- * player owns and where, and leads there. A home in the town being played gets the arrow instead.
+ * The menu's real estate: the home points that say how many more homes may be bought, and the
+ * player's homes by town. A new place is not a new game, so this says what the player owns and where,
+ * and leads there: a home in the part of town being played is shown on the big map, and the arrow then
+ * points the way.
  */
-function showHomes(open: boolean): void {
-  $('homes').hidden = !open;
-  if (!open) return;
+function drawEstate(): void {
   const mine = owned();
   const towns = homeTowns(mine.homes, mine.reno);
+  // what is open at a home, and the rent waiting there
+  for (const t of towns) for (const l of t.homes) l.note = homes?.eventNote(l.home) || l.note;
   const n = mine.homes.length;
-  const rent = towns.reduce((s, t) => s + t.rent, 0);
+  const points = homes ? homes.pointsNow() : loadPoints();
+  const day = homes?.dailyNow() ?? null;
+  const free = flatsFree(points) + (day === 'ready' ? 1 : 0);
+  const box = $('estate-points');
+  box.classList.toggle('full', points >= HOUSE_POINTS);
+  box.innerHTML = ring(points);
+  const text = document.createElement('div');
+  const big = document.createElement('b');
+  big.textContent = `${points} home ${points === 1 ? 'point' : 'points'}`;
+  const small = document.createElement('small');
+  const houses = !!homes?.housesOpen();
+  const house = !houses ? '' : points >= HOUSE_POINTS || day === 'ready' ? ', or a house' : `; a house at ${HOUSE_POINTS} points`;
+  small.textContent = n
+    ? `${free ? `You may buy ${free} ${free === 1 ? 'flat' : 'flats'} now${house}` : `A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}`}. ${homes?.dailyLine() ?? ''} One point for each delivery, up to ${POINTS_MAX}. A whole building takes ${FLAT_POINTS} for each flat.`
+    : `One point for each delivery. Your first home takes none: after two deliveries you'll be shown one.`;
+  text.append(big, small);
+  box.append(text);
+  // rent that waits at a home with something open is not paid each day
+  const rent = homes ? homes.rentPaying() : towns.reduce((s, t) => s + t.rent, 0);
   const plate = towns.find((t) => t.plate)?.place ?? 'your home town';
   const who = n === 1 ? 'Your home pays' : `Your ${n} homes${towns.length > 1 ? `, in ${towns.length} towns,` : ''} pay`;
   const bank = mine.saved ? `, and ${fmtMoney(mine.saved)} in the bank in ${plate}` : '';
-  $('homes-line').textContent = `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.`;
+  $('btn-bank-way').hidden = !playing || !homes?.hasBanks();
+  $('homes-line').textContent = n ? `${who} ${rent ? `${fmtMoney(rent)} rent each day you come back` : 'no rent yet'}. You carry ${fmtMoney(game ? game.cash : load().cash)}${bank}.` : 'No homes yet.';
   drawHomes($('homes-list'), towns, {
+    party: (h) => (playing && !secret && party?.can(h) ? 'Party' : null),
+    throwParty: (h) => {
+      setPause(false);
+      setScreen('play');
+      party?.offer(h);
+    },
     here: (h) => !secret && !!homes?.isHere(h),
     show: (h) => {
-      showHomes(false);
-      if (paused) setPause(false);
+      setPause(false);
       setScreen('play');
-      homes?.showWay(h);
+      // the big map, with the home blinking; the arrow points the way once it is closed
+      const at = homes?.spotOf(h);
+      if (!homes?.showWay(h) || !at) return;
+      bigmap.spot = at;
+      showMap(true);
     },
     go: (t, h) => {
-      showHomes(false);
-      if (paused) setPause(false);
+      setPause(false);
       save();
       setScreen('start');
       void go({ lat: h.lat, lon: h.lon }, isCoords(t.place) ? undefined : t.place);
     },
   });
 }
-$('btn-homes').addEventListener('click', () => showHomes(true));
-$('btn-pause-homes').addEventListener('click', () => showHomes(true));
-$('btn-homes-close').addEventListener('click', () => showHomes(false));
-$('homes').addEventListener('click', (e) => e.target === e.currentTarget && showHomes(false));
+$('btn-estate').addEventListener('click', () => {
+  const b = $('btn-estate');
+  b.blur();
+  // a line showing asked for it: where that line leads (the trophies, for a new one)
+  const go = document.body.classList.contains('touch') ? (askedNow()[0]?.tap ?? null) : null;
+  asks.length = 0;
+  nudgeButton();
+  if (go) go();
+  else setPause(true, 'estate');
+});
+/** The way to the nearest bank: from the bank line in the money box, or from the real estate. */
+function bankWay(): void {
+  if (!homes || !playing) return;
+  if (menuOpen) setPause(false);
+  if (mapOpen || welcoming || guessing) return;
+  homes.wayToBank();
+}
+$('saved').addEventListener('click', () => {
+  $('saved').blur();
+  bankWay();
+});
+$('saved').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  // the key is the bank line's, not the game's (Space is the handbrake, Enter the action), and focus goes back to the game
+  e.preventDefault();
+  e.stopPropagation();
+  $('saved').blur();
+  if (!e.repeat) bankWay();
+});
+$('btn-bank-way').addEventListener('click', bankWay);
+$('btn-homes').addEventListener('click', () => setPause(true, owned().homes.length ? 'estate' : 'trophies'));
 
 const soundButton = (): void => {
   $('btn-sound').classList.toggle('off', !sound.on);
@@ -1236,10 +1551,6 @@ $('btn-sound').addEventListener('click', () => {
   if (sound.on) setTimeout(() => sound.play('pickup'), 120);
 });
 (window as unknown as { sound: Sound }).sound = sound;
-$('btn-menu').addEventListener('click', () => {
-  save();
-  setScreen('start');
-});
 $('btn-resume').addEventListener('click', () => setScreen('play'));
 // The little map can be put in any corner: press it and drag. A short tap still opens the big map.
 {
@@ -1355,15 +1666,22 @@ if (!BAKED) cameByVideo(new URLSearchParams(location.search));
 if (!BAKED) countVisit(new URLSearchParams(location.search));
 if (!BAKED) countTime(() => playedS);
 if (sentRun) countOpened(sentRun.course.start);
-const sentGuess = BAKED || sentRun ? null : readGuess(new URLSearchParams(location.search).get('g') ?? '');
+// a friend's party: not counted, as the owner asked (23 November): "we do not reward or count the actual played links yet"
+const sentParty = BAKED || sentRun ? null : readParty(new URLSearchParams(location.search).get('p') ?? '');
+const sentGuess = BAKED || sentRun || sentParty ? null : readGuess(new URLSearchParams(location.search).get('g') ?? '');
 if (sentGuess) countOpened(sentGuess.round.at);
 if (sentRun) void go(sentRun.course.start, sentRun.place || undefined, sentRun);
-else if (sentGuess) void drop(sentGuess);
+else if (sentParty) {
+  linkParty = sentParty;
+  void go(sentParty.home, sentParty.place || undefined);
+} else if (sentGuess) void drop(sentGuess);
 else if (fromLink) void go(fromLink);
 else if (linked) {
   $<HTMLInputElement>('q').value = linked;
   void search(linked);
 }
 
-// a trial (`?try=radio`): a car radio with stations of the town
+// a trial (`?try=radio`): a car radio with stations of the town. Kept a trial on purpose: see radio.ts
 wireRadio($<HTMLButtonElement>('btn-radio'), $('radio-bar'), () => (game?.world ? game.world.centre : null), () => playing && !!game?.car, toast, () => !!secret);
+// its bar and a building's panel kept clear of the little map and of each other (the panel for everyone)
+keepClear($('radio-bar'), $('forsale'), $('minimap'));

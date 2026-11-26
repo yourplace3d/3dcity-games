@@ -3,6 +3,11 @@
  * `?try=radio` in the address and remembered by the browser until `?try=noradio`. Without it
  * there is no button, and nothing here contacts anyone.
  *
+ * A trial it stays, on purpose (the owner, 26 November): it plays stations of any town on earth to
+ * players wherever they are, and a court found that infringing for a radio app (Warner and Sony
+ * against TuneIn, England, 2019 and 2021, on the European rules for links): a station licensed at
+ * home brought to listeners elsewhere. Not for everyone without a lawyer's word; the plan, section 11.
+ *
  * Which stations there are comes from Radio Browser (radio-browser.info), a directory kept by
  * volunteers: the game asks it for stations near the place, the most listened to first. What is
  * heard comes straight from each station's own public stream, unchanged; the game keeps and
@@ -138,8 +143,10 @@ export function wireRadio(
     }
   };
 
-  const show = (text: string): void => {
+  /** `playing`: a station is on, and next › goes to another; not while looking or waiting for a car */
+  const show = (text: string, playing = false): void => {
     nameEl.textContent = text;
+    nextEl.hidden = !playing || stations.length < 2;
     bar.hidden = !on;
     button.classList.toggle('on', on);
     document.body.classList.toggle('radio-on', on);
@@ -176,7 +183,7 @@ export function wireRadio(
       return;
     }
     const s = stations[at % stations.length];
-    show(label());
+    show(label(), true);
     audio.src = s.url;
     void audio.play().catch(() => undefined);
     // a station that stays silent is skipped

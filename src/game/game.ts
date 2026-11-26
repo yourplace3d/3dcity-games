@@ -32,10 +32,11 @@ import type { LngLat } from '../geo/projection';
 import { Car, collideCars, type CarKind } from './cars';
 import type { Input } from './input';
 import { Strip, drawnOverGround } from './roadMesh';
-import { laneOffset, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
+import { laneOffset, mayGo, RAIL_ON, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
-import { JOB_OF, type JobKind } from './services';
+import { DROP, JOB_OF, RING, ringAlong, type JobKind } from './services';
+import { partyClock } from './party';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -74,6 +75,9 @@ interface Marker {
   mesh: Group;
   /** for a package: the kind of job it is */
   kind?: JobKind;
+  /** the colour of its ring (`RING`), and the one it shows this moment (green while a home waits) */
+  colour?: string;
+  shown?: string;
   /** driving distances to it, in the square they were worked out for */
   field?: RouteField | null;
   fieldIn?: World;
@@ -95,6 +99,23 @@ export interface Job {
   hp0: number;
   /** a mission's package, going to `Game.special` */
   special?: boolean;
+  /** a party's food (`Game.party`): no pay, and the time from pickup to door is what counts */
+  party?: boolean;
+  /** the clock it started with (s) */
+  clock0?: number;
+}
+
+/**
+ * A party run (`game/party.ts`): the food is picked up at `pick` and goes to the door at `door`, on a
+ * clock that starts at the pickup. While it is on there are no other jobs and no run.
+ */
+export interface PartyRun {
+  pick: LngLat;
+  door: LngLat;
+  /** said as the food comes on board */
+  say: string;
+  /** the last metres to the door on foot, up a lane too narrow for a car: they get time on the clock */
+  walk?: number;
 }
 
 export interface Hud {
@@ -103,10 +124,10 @@ export interface Hud {
   health: number;
   carHp: number | null;
   kmh: number;
-  job: { left: number; metres: number; pay: number; kind: JobKind } | null;
+  job: { left: number; metres: number; pay: number; kind: JobKind; party: boolean } | null;
   hint: string;
-  /** where the arrow points: the drop-off, or the nearest job */
-  target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide' } | null;
+  /** where the arrow points: the drop-off, or the nearest job; `colour` is the colour of the ring it points to */
+  target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide'; colour: string } | null;
   delivered: number;
   /** well-known sights in the picture, to write their names over them */
   sights: Array<{ name: string; ndcX: number; ndcY: number; metres: number | null }>;
@@ -114,8 +135,22 @@ export interface Hud {
   run: { n: number; of: number; score: number } | null;
 }
 
+/** What happened in play, for whoever listens (the trophies). */
+export type GameEvent =
+  | { kind: 'delivered'; job: JobKind; left: number; special: boolean }
+  | { kind: 'fined' }
+  | { kind: 'lost' }
+  | { kind: 'run'; fined: boolean };
+
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
+/** how near a station's package the card offering its job comes (m), and how slow the player has to be: stopped (m/s) */
+const OFFER_M = 14;
+const OFFER_SPEED = 1.5;
+/** how near a station, or the spot on the road beside it, counts as being at it (m) */
+const STATION_M = 35;
+/** the autopilot leaves a wedged car and walks when the drop-off is this much further by road than the party's walk (m) */
+const WALK_AUTO_M = 80;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
 export const MAX_CASH = 1_000_000;
 /** open jobs pay more with each delivery made, up to this many */
@@ -169,6 +204,11 @@ function markerMesh(colour: string): Group {
   return g;
 }
 
+/** Colour a ring made by `markerMesh` anew. */
+function tintMarker(g: Group, colour: string): void {
+  for (const c of g.children) ((c as Mesh).material as MeshBasicMaterial).color.set(colour);
+}
+
 export class Game {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
@@ -209,12 +249,16 @@ export class Game {
   private caughtT = 0;
   /** how many places for a package in a row had no road leading to them */
   private noWay = 0;
+  /** where tracks and a street cross at different heights, by the metre, worked out once a frame (`apart`) */
+  private bridged = new Map<string, boolean>();
   /** seconds left of the car you sat in blowing up, and that car */
   private blowT = 0;
   private blown: Car | null = null;
   private routeT = 0;
   private routePts: Pt[] | null = null;
-  private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: '#ffd400', transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
+  /** the ring the way leads to (null: the drop-off), for its colour */
+  private routeTo: Marker | null = null;
+  private readonly routeLine = new Mesh<BufferGeometry, MeshBasicMaterial>(new BufferGeometry(), new MeshBasicMaterial({ color: DROP, transparent: true, opacity: 0.6, side: DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));
   /** drive yourself (for filming and tests), how fast, and whether to brake for what's ahead */
   auto = false;
   /** draw the way to the next ring as a line on the road; off: the arrow alone shows the direction */
@@ -226,6 +270,13 @@ export class Game {
   private readonly mineRing = new Mesh(new RingGeometry(3.3, 3.8, 40), new MeshBasicMaterial({ color: '#ffffff', side: DoubleSide, transparent: true, opacity: 0.85, depthWrite: false }));
   autoSpeed = 16;
   autoAvoid = true;
+  /** the autopilot's car has come no nearer its drop-off for so long (s), and it walks the rest of the way */
+  private autoStuck = 0;
+  private autoBest = Infinity;
+  private autoGoal: Marker | null = null;
+  private autoWalk = false;
+  /** seconds left of backing up, where there was no room to get out */
+  private autoBack = 0;
   private offenceAt = 0;
   private loading = false;
   /** A city change makes any pending neighbouring square obsolete. */
@@ -271,7 +322,7 @@ export class Game {
   guide: { x: number; y: number } | null = null;
   /**
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
-   * stations blink in open play, and whichever is taken goes there, with the line for its kind.
+   * stations flash green in open play, and whichever is taken goes there, with the line for its kind.
    */
   special: { at: LngLat; say: Record<JobKind, string> } | null = null;
   /** A package for `special` has been picked up (its kind). */
@@ -282,6 +333,35 @@ export class Game {
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
+  /** The party run being played, if any. */
+  party: PartyRun | null = null;
+  /**
+   * A party run is over: the food got to the door (and how long it took from the pickup, s), it got cold
+   * (the clock ran out), or it was lost (the player was caught or knocked out with it on board).
+   */
+  onPartyEnd: (end: 'done' | 'cold' | 'lost', seconds: number) => void = () => undefined;
+  /**
+   * A station's job is offered on a card before it is taken (the owner, 23 November): `special` is the
+   * line of a mission's package, when it goes to one. Without it, a package is taken by driving onto it.
+   */
+  onOffer: ((kind: JobKind, special: string | null, answer: (yes: boolean) => void) => void) | null = null;
+  /** the stations' packages the player said no to, each until they drive off */
+  private declined = new Set<Marker>();
+  /** the station spot where moving a package there found no way, so it is not tried again while there */
+  private triedAt: string | null = null;
+  /** the stations' rings are green this moment: a home waits for one of their packages */
+  private flash = false;
+  /** "slow down at the ring" has been said */
+  private slowSaid = false;
+  /** the player has got going since the start: no job's card at the very start, standing where the game put them */
+  private moved = false;
+  /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished. */
+  readonly events: Array<(e: GameEvent) => void> = [];
+  private emit(e: GameEvent): void {
+    for (const f of this.events) f(e);
+  }
+  /** the run in which the last fine came */
+  private finedIn: unknown = null;
   /** The run being scored: deliveries done, what they earned less fines, and the time played. */
   run = { done: 0, score: 0, seconds: 0, over: false, of: RUN_JOBS };
   /** Where the run being scored has led so far, so that someone else can be sent the same run. */
@@ -296,7 +376,11 @@ export class Game {
 
   /** No run: the open jobs from the start, as many as one likes. */
   openPlay(): void {
+    this.party = null;
     this.comeDown();
+    this.declined.clear();
+    this.slowSaid = false;
+    this.moved = false;
     this.run = { done: 0, score: 0, seconds: 0, over: true, of: RUN_JOBS };
     this.set = null;
     this.from = null;
@@ -308,7 +392,11 @@ export class Game {
 
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
   newRun(course: Course | null = null): void {
+    this.party = null;
     this.comeDown();
+    this.declined.clear();
+    this.slowSaid = false;
+    this.moved = false;
     this.lastFrom = null;
     this.set = course && course.legs.length >= 1 && course.legs.length <= RUN_STEPS.length ? course : null;
     this.run = { done: 0, score: 0, seconds: 0, over: false, of: this.set?.legs.length ?? RUN_JOBS };
@@ -316,6 +404,20 @@ export class Game {
     this.course = { start: this.set?.start ?? this.world.proj.toLngLat(x, y), legs: [] };
     this.from = null;
     if (this.job) this.endJob(false);
+    for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
+  }
+
+  /** A party run from here: no run and no other jobs, only the food from its place to the door. */
+  startParty(p: PartyRun): void {
+    this.openPlay();
+    this.party = p;
+  }
+
+  /** The party is called off: its food and its drop-off go, and the open jobs come back. */
+  endParty(): void {
+    if (!this.party) return;
+    this.party = null;
+    if (this.job?.party) this.endJob(false);
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
   }
 
@@ -486,6 +588,7 @@ export class Game {
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
     if (this.job) this.scene.remove(this.job.to.mesh);
     this.job = null;
+    this.party = null;
     this.routeLine.visible = false;
     this.routePts = null;
     this.routeT = 0;
@@ -536,7 +639,9 @@ export class Game {
     old.dispose();
     for (const c of this.cars) {
       c.lastStop = -1;
+      c.rail = null;
       if (c.path) c.path = this.attach(c.x, c.y, c.th, railsOf(c.kind) ?? 'drive');
+      c.ahead = c.path ? [c.path.line] : [];
     }
     for (const p of this.people) p.path = this.attach(p.x, p.y, p.th, 'walk');
     this.parkCars(this.pos());
@@ -574,9 +679,13 @@ export class Game {
       });
   }
 
-  /** The place on the network nearest to a point, facing the way `th` points. */
+  /**
+   * The place on the network nearest to a point, facing the way `th` points, one-way or not (a car put
+   * on a one-way street the wrong way leaves at the next street: `drive`).
+   */
   private attach(x: number, y: number, th: number, want: 'drive' | 'walk' | 'tram' | 'train'): PathState | null {
-    const n = this.world.roads.nearest(x, y, 60, want);
+    // a tram or train: its own track, the way it faces, and none too short to run on
+    const n = want === 'tram' || want === 'train' ? this.world.roads.nearestAlong(x, y, 60, want, Math.cos(th), Math.sin(th)) : this.world.roads.nearest(x, y, 60, want);
     if (!n) return null;
     const p: PathState = { line: n.line, s: n.s, dir: 1 };
     const [hx, hy] = this.world.roads.heading(p);
@@ -729,6 +838,8 @@ export class Game {
     const p = w.roads.randomPlace(railsOf(kind) ?? 'traffic', px, py, minD, maxD);
     if (!p) return null;
     const line = w.roads.lines[p.line];
+    // on a one-way street, the way it goes
+    if (line.oneway) p.dir = line.oneway;
     // buses keep to the bigger streets
     if (kind === 'bus' && (line.kind === 'minor' || line.kind === 'motorway')) return null;
     const [x, y] = w.roads.lanePoint(p, this.lane(p, kind));
@@ -746,7 +857,7 @@ export class Game {
   /** How far to the side of a line a vehicle keeps: its lane, on the side this country drives on. */
   private lane(p: PathState, kind: CarKind): number {
     if (railsOf(kind)) return 0;
-    return laneOffset(this.world.roads.lines[p.line]) * (this.world.leftHand ? -1 : 1);
+    return laneOffset(this.world.roads.lines[p.line], p.dir) * (this.world.leftHand ? -1 : 1);
   }
 
   private chasing(c: Car): boolean {
@@ -775,8 +886,17 @@ export class Game {
       limit = toMe < 14 ? 12 + this.speed() : 33;
       c.path = this.attach(c.x, c.y, c.th, 'drive') ?? c.path;
     } else {
-      if (!c.path) c.path = this.attach(c.x, c.y, c.th, want);
       if (!c.path) {
+        c.path = this.attach(c.x, c.y, c.th, want);
+        c.ahead = c.path ? [c.path.line] : [];
+      }
+      if (!c.path) {
+        // a tram or train with no track it can run on (a new square left it on a bit too short): out of
+        // sight it goes; in sight it stands till it is
+        if (want !== 'drive' && toMe > this.viewR) {
+          this.dropCar(c);
+          return;
+        }
         c.controls.throttle = 0;
         return;
       }
@@ -794,25 +914,57 @@ export class Game {
             return !from || score(best) > score(from) + 0.3 ? best : null;
           }
         : (options, from) => {
-            // trams and buses mostly carry straight on; cars turn off more often
-            if (from && Math.random() > (transit ? 0.08 : 0.25)) return null;
             if (want !== 'drive') {
-              const dot = (o: PathState) => net.heading(o)[0] * fx + net.heading(o)[1] * fy;
-              return options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
+              // trams and trains mostly carry straight on
+              if (from && Math.random() > 0.08) return null;
+              // by the look ahead's own direction there, which on a bend is not the body's
+              const [lx, ly] = net.heading(p);
+              const dot = (o: PathState) => net.heading(o)[0] * lx + net.heading(o)[1] * ly;
+              const best = options.reduce((a, b) => (dot(b) > dot(a) ? b : a));
+              // points lead off at a slant; where two lines only cross, there is no turning (45° at most);
+              // at the end of a line, on unless the only way on leads back
+              return dot(best) > (from ? 0.7 : RAIL_ON) ? best : null;
             }
             const ahead = options.filter((o) => {
               const [hx, hy] = net.heading(o);
               return hx * fx + hy * fy > -0.7;
             });
-            const real = ahead.filter((o) => net.lines[o.line].traffic);
-            const pool = real.length ? real : from ? [] : ahead.length ? ahead : options;
+            const may = (o: PathState) => mayGo(net.lines[o.line], o.dir);
+            // going against a one-way street (turned at a dead end the map left): off it at the first street
+            // ahead, never into a driveway or car park, nor by turning round on the spot
+            if (from && !may(from)) {
+              const out = ahead.filter((o) => may(o) && net.lines[o.line].traffic);
+              if (out.length) return pickOne(out);
+            }
+            // buses mostly carry straight on; cars turn off more often
+            if (from && Math.random() > (transit ? 0.08 : 0.25)) return null;
+            // never into a one-way street the wrong way, while there is another way on, a sharp turn
+            // included; where the map leaves none (a one-way street that ends at the edge of the
+            // square, say), on as before
+            const legal = ahead.filter(may);
+            const real = legal.filter((o) => net.lines[o.line].traffic);
+            const anyLegal = options.filter(may);
+            const pool = real.length ? real : from ? [] : legal.length ? legal : anyLegal.length ? anyLegal : ahead.length ? ahead : options;
             return pool.length ? pickOne(pool) : null;
           };
-      const look = 7 + Math.abs(vf) * 0.55;
+      // a tram or train aims beyond its own front, which is half its length ahead
+      const look = (want === 'drive' ? 0 : c.spec.len * 0.5) + 7 + Math.abs(vf) * 0.55;
       [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
       for (let k = 0; k < 30 && Math.hypot(tx - c.x, ty - c.y) < look; k++) {
         net.advance(p, 2, want, pick);
         [tx, ty] = net.lanePoint(p, this.lane(p, c.kind));
+        // a tram's front takes the branches its look ahead took
+        if (want !== 'drive' && c.ahead[c.ahead.length - 1] !== p.line) {
+          c.ahead.push(p.line);
+          // track split into many short pieces: enough lines for all of the look ahead and more
+          if (c.ahead.length > 32) c.ahead.shift();
+        }
+      }
+      // turned round against a one-way street where the map leaves no way on: out of sight, the car goes
+      // (cars that drive off go too); in sight, it turns as before
+      if (want === 'drive' && c.driver === 'ai' && !mayGo(net.lines[p.line], p.dir) && toMe > this.viewR) {
+        this.dropCar(c);
+        return;
       }
       // at the end of a track a tram or train stops, waits a moment and sets off the other way
       if (want !== 'drive' && (tx - c.x) * fx + (ty - c.y) * fy < -2) {
@@ -820,6 +972,7 @@ export class Game {
         c.vx = 0;
         c.vy = 0;
         c.dwell = 2.5;
+        c.ahead = [p.line];
       }
       const base = SPEED_LIMIT[net.lines[p.line].kind] ?? 8;
       limit = chase ? Math.min(31, base * 2.3) : c.kind === 'train' ? 19 : transit ? Math.min(base, 11) : base;
@@ -841,6 +994,165 @@ export class Game {
       }
     }
     this.pilot(c, tx, ty, limit, !chase, chase, dt);
+  }
+
+  /**
+   * A tram or train on its rails: the front bogie runs along the track, taking the branch the driver is
+   * headed for; the back bogie follows where the front has been; the body lies between the two. Steered
+   * like a car, a 19 m tram aimed at a point inside its own length and stood across the rails on bends
+   * and after points: in Dresden one tram in ten was 15° or more off its rails, at worst 70° (24 November).
+   * Speed and braking stay the car's own, and a knock slows it, but nothing pushes it off its rails: the
+   * car that hits it takes all of the push (`collideCars`).
+   */
+  private onRails(c: Car, dt: number): void {
+    const net = this.world.roads;
+    const want = c.kind as 'tram' | 'train';
+    const bogie = c.spec.len * 0.35;
+    const fx = Math.cos(c.th);
+    const fy = Math.sin(c.th);
+    const vf = c.vx * fx + c.vy * fy;
+    let r = c.rail;
+    if (r) {
+      // turned round at the end of the track, carried into the next square, or knocked off: on again
+      const [ex, ey] = r.trail[r.trail.length - 1];
+      if (r.world !== this.world || (ex - c.x) * fx + (ey - c.y) * fy < 0 || Math.hypot(ex - c.x, ey - c.y) > bogie + 6) r = null;
+    }
+    if (!r) {
+      const n = net.nearestAlong(c.x, c.y, 8, want, fx, fy);
+      if (!n) {
+        // no rails of its own near (knocked far off them, or a new square): out of sight it goes rather than
+        // jump to others; in sight it is let go
+        const [px, py] = this.pos();
+        if (Math.hypot(c.x - px, c.y - py) > this.viewR) this.dropCar(c);
+        c.rail = null;
+        return;
+      }
+      const [hx, hy] = net.heading({ line: n.line, s: n.s, dir: 1 });
+      const mid: PathState = { line: n.line, s: n.s, dir: hx * fx + hy * fy >= 0 ? 1 : -1 };
+      // the front on the branch its driver's look ahead took, if it is just before points
+      const front = this.alongRails(mid, bogie, want, c.path ? net.point(c.path.line, c.path.s) : null, c.ahead);
+      // where the front has been: the rails behind it, a metre at a time, past where the back bogie is
+      let q: PathState = { ...front, dir: front.dir > 0 ? -1 : 1 };
+      const trail: Array<[number, number]> = [];
+      for (let k = 0; k < bogie * 3 + 2; k++) {
+        trail.unshift(net.point(q.line, q.s));
+        q = this.alongRails(q, 1, want, null);
+      }
+      r = { p: front, world: this.world, trail };
+    }
+    c.rail = r;
+    // the front on by as far as the car went, along the lines the driver's look ahead took from the front
+    // on (a line it took on an earlier lap is not a turn to take now)
+    const at = c.ahead.lastIndexOf(r.p.line);
+    if (at > 0) c.ahead.splice(0, at);
+    const target = c.path ? net.point(c.path.line, c.path.s) : null;
+    if (vf > 0) r.p = this.alongRails(r.p, vf * dt, want, target, c.ahead);
+    const front = net.point(r.p.line, r.p.s);
+    const last = r.trail[r.trail.length - 1];
+    if (Math.hypot(front[0] - last[0], front[1] - last[1]) > 0.3) r.trail.push(front);
+    // the back bogie: on the trail, twice the bogie's reach behind the front
+    let left = bogie * 2;
+    // (put on near the end of its track the trail is short, and the back bogie stays at its start: the body
+    // stays on the rails all the same; left to the steering, it drifted off them and lost them)
+    let back: [number, number] = r.trail[0];
+    for (let i = r.trail.length - 1; i > 0; i--) {
+      const [ax, ay] = r.trail[i];
+      const [bx, by] = r.trail[i - 1];
+      const seg = Math.hypot(ax - bx, ay - by);
+      if (seg >= left) {
+        back = [ax + ((bx - ax) * left) / seg, ay + ((by - ay) * left) / seg];
+        // what is further back is not needed again
+        if (i > 2) r.trail.splice(0, i - 2);
+        break;
+      }
+      left -= seg;
+    }
+    const th = Math.atan2(front[1] - back[1], front[0] - back[0]);
+    if (Math.hypot(front[0] - back[0], front[1] - back[1]) < 1) return;
+    c.th = th;
+    c.x = (front[0] + back[0]) / 2;
+    c.y = (front[1] + back[1]) / 2;
+    const v = Math.max(0, vf);
+    c.vx = Math.cos(th) * v;
+    c.vy = Math.sin(th) * v;
+  }
+
+  /**
+   * A place on the rails `d` metres on from `from`. At points it takes a line of `follow` (the lines the
+   * driver's look ahead went along) where one leads off, else carries on; with no `follow`, the way that
+   * leads most towards `toward`, or the straightest. At the end of the track, or where the only way on
+   * leads back, it stops there.
+   */
+  private alongRails(from: PathState, d: number, want: 'tram' | 'train', toward: Pt | null, follow: number[] = []): PathState {
+    const net = this.world.roads;
+    const p = { ...from };
+    let left = d;
+    for (let k = 0; k < 400 && left > 1e-3; k++) {
+      const [x0, y0] = net.point(p.line, p.s);
+      const [hx, hy] = net.heading(p);
+      const line0 = p.line;
+      const dir0 = p.dir;
+      const score = (o: PathState): number => {
+        const [ox, oy] = net.heading(o);
+        if (!toward) return ox * hx + oy * hy;
+        const dx = toward[0] - x0;
+        const dy = toward[1] - y0;
+        return (ox * dx + oy * dy) / (Math.hypot(dx, dy) || 1);
+      };
+      net.advance(p, Math.min(1, left), want, (options, at) => {
+        // a followed line, where a tram can take it: at a slant at points, forwards at the end of a line
+        const onward = (o: PathState) => net.heading(o)[0] * hx + net.heading(o)[1] * hy > (at ? 0.7 : RAIL_ON);
+        const known = options.filter((o) => follow.includes(o.line) && o.line !== p.line && onward(o));
+        if (known.length) return known.reduce((a, b) => (score(b) > score(a) ? b : a));
+        // points: carry on, unless there is no look ahead to follow and a way a tram can take leads better
+        if (at) {
+          const can = options.filter(onward);
+          if (follow.length || !can.length) return null;
+          const best = can.reduce((a, b) => (score(b) > score(a) ? b : a));
+          return score(best) > score(at) ? best : null;
+        }
+        // the end of a line: the best of the ways a tram can go on along
+        const can = options.filter(onward);
+        return can.length ? can.reduce((a, b) => (score(b) > score(a) ? b : a)) : null;
+      });
+      if (p.line === line0 && p.dir !== dir0) {
+        p.dir = dir0;
+        break;
+      }
+      const [x1, y1] = net.point(p.line, p.s);
+      left -= Math.max(0.01, Math.hypot(x1 - x0, y1 - y0));
+    }
+    return p;
+  }
+
+  /**
+   * Whether a vehicle on rails and one on the road pass each other at different heights, one on a
+   * bridge over the other: then they neither meet nor wait for each other. The game has no heights for
+   * them, and a train under North Bridge in Edinburgh carried a car stopped on it 273 m along the
+   * tracks; every railway under a road bridge did the same. It is told where they meet (`at`, the road
+   * vehicle by default) from the tracks and streets there (`RoadNet.crossesApart`); two on rails, or
+   * two on the road, meet as before. Where a road bridge crosses a street with tram tracks in it, the
+   * place alone can't tell the bridge from the street, and they meet as before; and whoever walks along
+   * the tracks right under a bridge is taken to be on it.
+   */
+  private apart(p: Car, q: Car, at?: [number, number]): boolean {
+    // a wreck of a train lies on its tracks too
+    const rail = railsOf(p.kind) ? p : railsOf(q.kind) ? q : null;
+    const road = rail === p ? q : p;
+    if (!rail || railsOf(road.kind)) return false;
+    const [x, y] = at ?? [road.x, road.y];
+    return this.passesAt(x, y, 'drive');
+  }
+
+  /** `RoadNet.crossesApart` for a car (`drive`) or someone on foot (`walk`), by the metre, once a frame. */
+  private passesAt(x: number, y: number, on: 'drive' | 'walk'): boolean {
+    const key = `${on}${Math.round(x)},${Math.round(y)}`;
+    let apart = this.bridged.get(key);
+    if (apart === undefined) {
+      apart = this.world.roads.crossesApart(x, y, on);
+      this.bridged.set(key, apart);
+    }
+    return apart;
   }
 
   /** Work the wheel and pedals of a car towards a point, at up to `limit` m/s. */
@@ -870,10 +1182,19 @@ export class Game {
       };
       // a train brakes for another train and for nothing else: keeping off the track is up to you
       const train = c.kind === 'train';
-      for (const o of this.cars) if (o !== c && !o.gone && (!train || o.kind === 'train') && Math.abs(o.x - c.x) < 110 && Math.abs(o.y - c.y) < 110) gapTo(o.x, o.y, o.a + o.r, 1.5);
+      // a tram, held on its rails and never giving way, also slows for a car close beside its track
+      const wide = c.kind === 'tram' ? c.spec.wid / 2 + 1 : 1.5;
+      for (const o of this.cars) {
+        if (o === c || o.gone || (train && o.kind !== 'train') || Math.abs(o.x - c.x) >= 110 || Math.abs(o.y - c.y) >= 110) continue;
+        // a car looking at a train ahead asks where its own way meets the train; a tram, where the car is
+        const ahead = Math.max(0, (o.x - c.x) * fx + (o.y - c.y) * fy);
+        if ((railsOf(c.kind) || railsOf(o.kind)) && this.apart(c, o, railsOf(o.kind) ? [c.x + fx * ahead, c.y + fy * ahead] : [o.x, o.y])) continue;
+        gapTo(o.x, o.y, o.a + o.r, wide);
+      }
       if (!train) {
-        for (const o of this.people) if (o.state !== 'down') gapTo(o.x, o.y, 0.4, 1.4);
-        if (!this.car && c !== this.car) gapTo(this.me.x, this.me.y, 0.4, 1.4);
+        const apart = (o: { x: number; y: number }) => !!railsOf(c.kind) && Math.abs(o.x - c.x) < 60 && Math.abs(o.y - c.y) < 60 && this.passesAt(o.x, o.y, 'walk');
+        for (const o of this.people) if (o.state !== 'down' && !apart(o)) gapTo(o.x, o.y, 0.4, 1.4);
+        if (!this.car && c !== this.car && !apart(this.me)) gapTo(this.me.x, this.me.y, 0.4, 1.4);
       }
     }
     c.pushy = Math.max(0, c.pushy - dt);
@@ -890,11 +1211,25 @@ export class Game {
     if (c.speed < 0.5 && (want > 1 || blocked)) {
       c.stuck += dt;
       // a train that can't get on (another one coming the other way, something it can't
-      // shove aside) goes back the way it came
-      if (c.kind === 'train' && c.stuck > 2.5 && c.path) {
+      // shove aside) goes back the way it came; so does a tram that meets another head on, on one track
+      const headOn = () =>
+        this.cars.some((o) => {
+          if (o === c || o.gone || !railsOf(o.kind) || Math.cos(o.th - c.th) > -0.5) return false;
+          // ahead of it, on its own track (the line its front is on, or one its look ahead went along), not
+          // one passing on the track beside it, on a bend too
+          const line = o.rail?.p.line;
+          if (line === undefined || !c.rail || (line !== c.rail.p.line && !c.ahead.includes(line))) return false;
+          const ahead = (o.x - c.x) * Math.cos(c.th) + (o.y - c.y) * Math.sin(c.th);
+          return ahead > 0 && ahead < (c.spec.len + o.spec.len) * 0.7;
+        });
+      // from where it stands, not from the point ahead it was steering for; only where there is track to go back on
+      const turn = !!c.path && c.stuck > 2.5 && (c.kind === 'train' || (c.kind === 'tram' && headOn()));
+      const back = turn ? this.attach(c.x, c.y, wrap(c.th + Math.PI), railsOf(c.kind) ?? 'train') : null;
+      // a train turns round even where no track is found behind it, as it always did; a tram only onto track
+      if (back || (turn && c.kind === 'train')) {
         c.th = wrap(c.th + Math.PI);
-        // from where it stands, not from the point ahead it was steering for
-        c.path = this.attach(c.x, c.y, c.th, 'train') ?? c.path;
+        if (back) c.path = back;
+        c.ahead = c.path ? [c.path.line] : [];
         c.dwell = 1;
         c.stuck = 0;
         return;
@@ -1042,7 +1377,10 @@ export class Game {
         }
         return null;
       };
+      // a train or tram doesn't touch whoever is on a bridge over its track, or under its bridge
+      const apart = (o: { x: number; y: number }) => !!railsOf(c.kind) && Math.abs(o.x - c.x) <= reach && Math.abs(o.y - c.y) <= reach && this.passesAt(o.x, o.y, 'walk');
       for (const p of this.people) {
+        if (apart(p)) continue;
         const n = touch(p, 0.35);
         if (!n || p.state === 'down') continue;
         const closing = c.vx * n[0] + c.vy * n[1];
@@ -1054,7 +1392,7 @@ export class Game {
           if (c === this.car) this.offence(1, 'You knocked someone over');
         }
       }
-      if (!this.car && this.frozen <= 0) {
+      if (!this.car && this.frozen <= 0 && !apart(this.me)) {
         const n = touch(this.me, 0.4);
         if (n) {
           const closing = c.vx * n[0] + c.vy * n[1];
@@ -1314,6 +1652,7 @@ export class Game {
       if (this.heat <= 0) {
         this.heat = 0;
         this.onToast('You lost them', 'good');
+        this.emit({ kind: 'lost' });
       }
     }
     // more heat, more police
@@ -1333,13 +1672,21 @@ export class Game {
     const cost = Math.min(this.cash, Math.max(50, Math.round((this.cash * share) / 10) * 10));
     this.cash -= cost;
     if (!this.run.over) this.run.score = Math.max(0, this.run.score - cost);
+    this.finedIn = this.run;
+    this.emit({ kind: 'fined' });
     this.heat = 0;
     this.caughtT = 0;
     this.me.hp = 100;
     this.frozen = 1.6;
     this.onFlash(cost > 0 ? `${title}  −$${cost}` : title);
     this.onSound('fine');
+    // a party's food on board is lost with it: the party says so, and offers to fetch it again
+    const food = !!this.job?.party;
     if (this.job) this.endJob(false);
+    if (food) {
+      this.party = null;
+      this.onPartyEnd('lost', 0);
+    }
     // start again as the game began: on foot, with a parked car to take right beside you
     const p = this.toRoad(120, 320);
     if (p) {
@@ -1365,8 +1712,14 @@ export class Game {
    * map) would be a ring you can see and never reach. If place after place fails, you yourself
    * stand on such a cut-off street, and a ring is laid anyway, so the game never runs dry.
    */
-  private pickupAt(p: PathState): Marker | null {
-    const m = this.newMarker('#2bd4e0', p);
+  private pickupAt(at: PathState, kind?: JobKind): Marker | null {
+    // never where a car can't stand: a street the map has running into a building (North Bridge in
+    // Edinburgh ran into the roof of the station below it); a step along it, where that is near. None
+    // within 24 m either way is rare enough that another place, or another station, gives the package
+    const p = this.standOn(at);
+    if (!p) return null;
+    const m = this.newMarker(RING[kind ?? 'plain'], p);
+    if (kind) m.kind = kind;
     const [px, py] = this.pos();
     const f = this.fieldOf(m);
     if ((f && this.world.roads.route(f, px, py)) || this.noWay >= 40) {
@@ -1378,17 +1731,23 @@ export class Game {
     return null;
   }
 
+  /** The place along its street nearest `p` where a ring can go (`ringAlong`), or null. */
+  private standOn(p: PathState): PathState | null {
+    const s = ringAlong(this.world.roads, (x, y, r) => this.world.free(x, y, r), p.line, p.s);
+    return s === null ? null : { ...p, s };
+  }
+
   private newMarker(colour: string, p: PathState): Marker {
     const [x, y] = this.world.roads.point(p.line, p.s);
     const mesh = markerMesh(colour);
     this.scene.add(mesh);
-    return { at: this.world.proj.toLngLat(x, y), mesh };
+    return { at: this.world.proj.toLngLat(x, y), mesh, colour };
   }
 
   private markerAt(colour: string, at: LngLat): Marker {
     const mesh = markerMesh(colour);
     this.scene.add(mesh);
-    return { at, mesh };
+    return { at, mesh, colour };
   }
 
   private jobs(dt: number): void {
@@ -1400,6 +1759,16 @@ export class Game {
       j.metres = Math.hypot(x - px, y - py);
       j.left -= dt;
 
+      if (j.metres < 6.5 && j.party) {
+        // the food is at the door: no pay, and the time from the pickup is what counts
+        const seconds = Math.max(0, (j.clock0 ?? 0) - j.left);
+        this.endJob(true);
+        this.party = null;
+        this.onSound('run');
+        this.onPartyEnd('done', seconds);
+        this.onSave();
+        return;
+      }
       if (j.metres < 6.5) {
         // what comes on top: time left over, three times as much on a rush job; on a supply run a
         // fifth more for a car that took no harm
@@ -1417,16 +1786,30 @@ export class Game {
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
         if (j.special) this.onSpecialDone();
+        this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special });
         this.onSave();
         if (!r.over && r.done >= r.of) {
           r.over = true;
+          this.emit({ kind: 'run', fined: this.finedIn === r });
           this.onRunEnd(r.score, r.seconds);
         }
       } else if (j.left <= 0) {
-        this.onToast('Too late: the job is gone', 'bad');
         this.onSound('late');
         this.endJob(false);
+        if (j.party) {
+          this.party = null;
+          this.onPartyEnd('cold', 0);
+        } else this.onToast('Too late: the job is gone', 'bad');
       }
+      return;
+    }
+    if (!this.moved && this.speed() > 3) this.moved = true;
+    // a party: one ring, at its food place, and nothing else
+    if (this.party) {
+      if (!this.pickups.length) this.pickups.push(this.markerAt(RING.party, this.party.pick));
+      const m = this.pickups[0];
+      const [x, y] = this.local(m);
+      if (Math.hypot(x - px, y - py) < 6.5) this.takeParty(m);
       return;
     }
     // in a run someone sent there is one package at a time, where theirs was
@@ -1435,79 +1818,23 @@ export class Game {
       const m = this.pickups[i];
       const [x, y] = this.local(m);
       const d = Math.hypot(x - px, y - py);
-      if (d < 6.5) {
-        const leg = this.run.over ? null : this.set?.legs[this.run.done];
-        const [near, far, pace] = RUN_STEPS[this.run.over ? 2 : Math.min(this.run.done, RUN_STEPS.length - 1)];
-        let marker: Marker | null = null;
-        let metres = 0;
-        if (leg) {
-          // a run someone sent: the drop-off is where theirs was
-          marker = this.markerAt('#ffd400', leg.to);
-          const f = this.fieldOf(marker);
-          const [tx, ty] = this.local(marker);
-          const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
-          const r = inside && f ? w.roads.route(f, px, py) : null;
-          metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
+      // a station's job (the open jobs): a card first, once the player has stopped at the ring
+      if (this.asks(m)) {
+        if (!this.moved) continue;
+        const atIt = d < OFFER_M || (d < 160 && this.atStationOf(m));
+        if (this.declined.has(m)) {
+          // asked once: again only after driving off, away from the ring and from the station
+          if (d > 40 && !atIt) this.declined.delete(m);
+        } else if (atIt && this.speed() < OFFER_SPEED && !this.held) {
+          this.offerJob(m);
+          return;
+        } else if (d < 6.5 && !this.slowSaid) {
+          this.slowSaid = true;
+          this.onToast('Stop at the ring to see the job', 'info');
         }
-        const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
-        // a mission's package from a station: it goes to the mission's place, where a road leads there
-        const special = !leg && this.run.over && m.kind ? this.special : null;
-        if (special) {
-          const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
-          // the street at the door where a car may go (an old town's lanes too), else the nearest main
-          // road: the lane at the door can be a yard's driveway that no road leads to
-          const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
-          for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
-            if (!n || marker) continue;
-            const cand = this.newMarker('#ffd400', { line: n.line, s: n.s, dir: 1 });
-            const f = this.fieldOf(cand);
-            const r = f && w.roads.route(f, px, py);
-            if (r) {
-              marker = cand;
-              metres = r.metres;
-            } else this.scene.remove(cand.mesh);
-          }
-        }
-        const isSpecial = !!(special && marker);
-        // a sight or public place at a fitting distance makes the drop-off, where there is one
-        const sights = leg || marker ? [] : w.sights.filter((s) => {
-          const d2 = Math.hypot(s.x - px, s.y - py);
-          return d2 > near * 0.8 && d2 < far * 1.5;
-        });
-        // otherwise a drop-off on a real street that the roads actually lead to
-        for (let k = 0; k < 10 && !marker; k++) {
-          const sight = k < 2 && sights.length ? pickOne(sights) : null;
-          const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
-          const to: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
-          if (!to) continue;
-          const cand = this.newMarker('#ffd400', to);
-          const f = this.fieldOf(cand);
-          const r = f && w.roads.route(f, px, py);
-          if (r && r.metres < 2400) {
-            marker = cand;
-            metres = r.metres;
-          } else this.scene.remove(cand.mesh);
-        }
-        if (!marker) continue;
-        // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows
-        const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? Math.min(this.delivered, OPEN_JOBS_GROW) : this.run.done) * 0.03)) / 10) * 10);
-        // each kind of job has its own clock and its own pay
-        const [clock, pay, say] = {
-          plain: [25 + metres / pace, base, 'Package on board: get it to the yellow ring'],
-          supply: [32 + metres / (pace * 0.8), Math.round((base * 1.25) / 10) * 10, 'Supply run: a heavy load, slow uphill and slow to stop. More pay for a car without a new dent'],
-          rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, 'Rush job: a short clock, and every second left over pays three times'],
-          clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
-        }[kind] as [number, number, string];
-        // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
-        this.job = { to: marker, metres, left: isSpecial ? clock + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}) };
-        this.from = m.at;
-        this.lastFrom = m.at;
-        this.routeT = 0;
-        for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
-        this.onToast(isSpecial ? special!.say[kind] : say, 'info');
-        this.onSound('pickup');
-        if (isSpecial) this.onSpecialTaken(kind);
-        return;
+      } else if (d < 6.5) {
+        if (this.take(m)) return;
+        continue;
       }
       if (d > 1100 && !sent) {
         this.scene.remove(m.mesh);
@@ -1515,7 +1842,8 @@ export class Game {
       }
     }
     if (sent) {
-      if (!this.pickups.length) this.pickups.push(this.markerAt('#2bd4e0', sent.from));
+      // a run's package is taken by driving through it, whatever kind of job it was for the sender: turquoise
+      if (!this.pickups.length) this.pickups.push(this.markerAt(RING.plain, sent.from));
       return;
     }
     // a run is three plain packages from street corners near you, the same game for everyone, so
@@ -1541,6 +1869,25 @@ export class Game {
     const last = this.lastFrom ? this.local({ at: this.lastFrom } as Marker) : null;
     for (const kind of ['fuel', 'fire', 'police'] as const) {
       const job = JOB_OF[kind];
+      // driven to a station of this kind: its package waits right there, wherever it waited before.
+      // Players drove to the symbol they saw and found no package there (23 November).
+      const at = this.speed() < OFFER_SPEED ? this.stationHere(kind) : null;
+      const atLast = at && last && ((([ax, ay]) => Math.hypot(ax - last[0], ay - last[1]) < 30)(w.roads.point(at.line, at.s)));
+      const spot = at && `${at.line}:${Math.round(at.s)}`;
+      if (at && !atLast && spot !== this.triedAt) {
+        const [ax, ay] = w.roads.point(at.line, at.s);
+        const i = this.pickups.findIndex((m) => m.kind === job);
+        const there = i >= 0 && Math.hypot(this.local(this.pickups[i])[0] - ax, this.local(this.pickups[i])[1] - ay) < 30;
+        if (there) continue;
+        const m = this.pickupAt(at, job);
+        if (m) {
+          if (i >= 0) this.scene.remove(this.pickups.splice(i, 1)[0].mesh);
+          this.pickups.push(m);
+          continue;
+        }
+        // no way from this station: its package stays where it was, and this spot is not tried again while here
+        this.triedAt = spot;
+      } else if (!at) this.triedAt = null;
       if (this.pickups.some((m) => m.kind === job)) continue;
       // the nearest station of the kind that a road leads to
       const near: Array<{ d: number; p: PathState }> = [];
@@ -1556,11 +1903,8 @@ export class Game {
       }
       near.sort((a, b) => a.d - b.d);
       let m: Marker | null = null;
-      for (const c of near.slice(0, 4)) if ((m = this.pickupAt(c.p))) break;
-      if (m) {
-        m.kind = job;
-        this.pickups.push(m);
-      }
+      for (const c of near.slice(0, 4)) if ((m = this.pickupAt(c.p, job))) break;
+      if (m) this.pickups.push(m);
     }
     // no station in reach at all: a package from a street corner, as it always was
     if (!this.pickups.length) {
@@ -1568,6 +1912,178 @@ export class Game {
       const m = p && this.pickupAt(p);
       if (m) this.pickups.push(m);
     }
+  }
+
+  /** The party's food on board: to the door, on its clock. */
+  private takeParty(m: Marker): void {
+    const p = this.party!;
+    const w = this.world;
+    const [px, py] = this.pos();
+    const to = this.markerAt(DROP, p.door);
+    const f = this.fieldOf(to);
+    const [tx, ty] = this.local(to);
+    const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
+    const r = inside && f ? w.roads.route(f, px, py) : null;
+    const metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
+    const clock = partyClock(metres, p.walk ?? 0);
+    this.job = { to, metres, left: clock, clock0: clock, pay: 0, kind: 'plain', hp0: this.car ? this.car.hp : 100, party: true };
+    this.from = m.at;
+    this.lastFrom = m.at;
+    this.routeT = 0;
+    this.routePts = null;
+    for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
+    this.onToast(p.say, 'info');
+    this.onSound('pickup');
+  }
+
+  /** The colour of the way drawn: of the ring it leads to, flashing with it; yellow to the drop-off. */
+  private routeColour(): string {
+    if (this.job || !this.routeTo) return DROP;
+    return this.pickups.includes(this.routeTo) ? this.ringNow(this.routeTo) : this.routeTo.colour ?? RING.plain;
+  }
+
+  /** A package's colour this moment: its own, or green while a home waits for a station's package. */
+  private ringNow(m: Marker): string {
+    return m.kind && this.flash ? RING.home : m.colour ?? RING[m.kind ?? 'plain'];
+  }
+
+  /** Whether a package is a station's job, which is offered on a card before it is taken. */
+  private asks(m: Marker): boolean {
+    return !!m.kind && this.run.over && !!this.onOffer && !this.auto;
+  }
+
+  /** Whether the player is at the station whose package this is: parked by its symbol, set back from the road. */
+  private atStationOf(m: Marker): boolean {
+    const station = (Object.keys(JOB_OF) as Array<keyof typeof JOB_OF>).find((k) => JOB_OF[k] === m.kind);
+    const at = station && this.stationHere(station);
+    if (!at) return false;
+    const [ax, ay] = this.world.roads.point(at.line, at.s);
+    const [mx, my] = this.local(m);
+    return Math.hypot(ax - mx, ay - my) < 30;
+  }
+
+  /** A station's job on a card: taken only if the player says yes. Asked once until they drive off. */
+  private offerJob(m: Marker): void {
+    this.declined.add(m);
+    const kind = m.kind!;
+    // the mission's package goes to its place only when that is in the part of town loaded now (`take`)
+    const sp = this.special;
+    const there = sp && ((([sx, sy]) => Math.abs(sx) < this.world.half - 10 && Math.abs(sy) < this.world.half - 10)(this.world.proj.toLocal(sp.at.lon, sp.at.lat)));
+    this.onOffer!(kind, there ? sp!.say[kind] : null, (yes) => {
+      if (!yes) {
+        // no to one is no to every station's package here, until the player drives off
+        const [px, py] = this.pos();
+        for (const o of this.pickups) if (o.kind && Math.hypot(this.local(o)[0] - px, this.local(o)[1] - py) < 160) this.declined.add(o);
+        return;
+      }
+      if (this.job || !this.pickups.includes(m)) return;
+      if (!this.take(m)) {
+        this.onToast('No drop-off for this job from here: try another station', 'bad');
+        return;
+      }
+      this.declined.delete(m);
+      // `take` has set the job
+      if (there && !(this.job as Job | null)?.special) this.onToast('No road from here to your building: this one is an ordinary job', 'info');
+    });
+  }
+
+  /** A package taken: the job it brings, to a drop-off the roads lead to. False when none was found. */
+  private take(m: Marker): boolean {
+    const w = this.world;
+    const [px, py] = this.pos();
+    const leg = this.run.over ? null : this.set?.legs[this.run.done];
+    const [near, far, pace] = RUN_STEPS[this.run.over ? 2 : Math.min(this.run.done, RUN_STEPS.length - 1)];
+    let marker: Marker | null = null;
+    let metres = 0;
+    if (leg) {
+      // a run someone sent: the drop-off is where theirs was, so that runs compare (not moved off a
+      // street that runs into a building, as one laid here is)
+      marker = this.markerAt(DROP, leg.to);
+      const f = this.fieldOf(marker);
+      const [tx, ty] = this.local(marker);
+      const inside = Math.abs(tx) < w.half - 10 && Math.abs(ty) < w.half - 10;
+      const r = inside && f ? w.roads.route(f, px, py) : null;
+      metres = r ? r.metres : Math.hypot(tx - px, ty - py) * 1.35;
+    }
+    const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
+    // a mission's package from a station: it goes to the mission's place, where a road leads there
+    const special = !leg && this.run.over && m.kind ? this.special : null;
+    if (special) {
+      const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
+      // the street at the door where a car may go (an old town's lanes too), else the nearest main
+      // road: the lane at the door can be a yard's driveway that no road leads to
+      const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
+      for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
+        const at = n && !marker ? this.standOn({ line: n.line, s: n.s, dir: 1 }) : null;
+        if (!at) continue;
+        const cand = this.newMarker(DROP, at);
+        const f = this.fieldOf(cand);
+        const r = f && w.roads.route(f, px, py);
+        if (r) {
+          marker = cand;
+          metres = r.metres;
+        } else this.scene.remove(cand.mesh);
+      }
+    }
+    const isSpecial = !!(special && marker);
+    // a sight or public place at a fitting distance makes the drop-off, where there is one
+    const sights = leg || marker ? [] : w.sights.filter((s) => {
+      const d2 = Math.hypot(s.x - px, s.y - py);
+      return d2 > near * 0.8 && d2 < far * 1.5;
+    });
+    // otherwise a drop-off on a real street that the roads actually lead to
+    for (let k = 0; k < 10 && !marker; k++) {
+      const sight = k < 2 && sights.length ? pickOne(sights) : null;
+      const at = sight && w.roads.nearest(sight.x, sight.y, 160, 'traffic');
+      const place: PathState | null = at ? { line: at.line, s: at.s, dir: 1 } : w.roads.randomPlace('traffic', px, py, k < 6 ? near : 150, k < 6 ? far : 3000);
+      const to = place && this.standOn(place);
+      if (!to) continue;
+      const cand = this.newMarker(DROP, to);
+      const f = this.fieldOf(cand);
+      const r = f && w.roads.route(f, px, py);
+      if (r && r.metres < 2400) {
+        marker = cand;
+        metres = r.metres;
+      } else this.scene.remove(cand.mesh);
+    }
+    if (!marker) return false;
+    // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows
+    const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? Math.min(this.delivered, OPEN_JOBS_GROW) : this.run.done) * 0.03)) / 10) * 10);
+    // each kind of job has its own clock and its own pay
+    const [clock, pay, say] = {
+      plain: [25 + metres / pace, base, 'Package on board: get it to the yellow ring'],
+      supply: [32 + metres / (pace * 0.8), Math.round((base * 1.25) / 10) * 10, 'Supply run: a heavy load, slow uphill and slow to stop. More pay for a car without a new dent'],
+      rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, 'Rush job: a short clock, and every second left over pays three times'],
+      clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
+    }[kind] as [number, number, string];
+    // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
+    this.job = { to: marker, metres, left: isSpecial ? clock + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}) };
+    this.from = m.at;
+    this.lastFrom = m.at;
+    this.routeT = 0;
+    this.routePts = null;
+    for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
+    this.onToast(isSpecial ? special!.say[kind] : say, 'info');
+    this.onSound('pickup');
+    if (isSpecial) this.onSpecialTaken(kind);
+    return true;
+  }
+
+  /**
+   * The spot on the road beside a station of a kind, when the player is at it: within `STATION_M` of that
+   * spot or of the symbol itself. Null when not at one.
+   */
+  private stationHere(kind: 'fuel' | 'fire' | 'police'): PathState | null {
+    const w = this.world;
+    const [px, py] = this.pos();
+    for (const s of w.services) {
+      if (s.kind !== kind || Math.hypot(s.x - px, s.y - py) > 200) continue;
+      const n = w.roads.nearest(s.x, s.y, 150, 'traffic');
+      if (!n) continue;
+      const [x, y] = w.roads.point(n.line, n.s);
+      if (Math.hypot(x - px, y - py) < STATION_M || Math.hypot(s.x - px, s.y - py) < STATION_M) return { line: n.line, s: n.s, dir: 1 };
+    }
+    return null;
   }
 
   /** Driving distances to a marker, in the square that is loaded now. */
@@ -1617,6 +2133,31 @@ export class Game {
   /** Drive yourself: to the drop-off, or to the nearest job. For filming and tests. */
   private autopilot(dt: number): void {
     const w = this.world;
+    // a drop-off up a lane too narrow for the car: on foot the rest of the way, along the road
+    if (!this.car && this.autoWalk && this.job) {
+      const f = this.fieldOf(this.job.to);
+      const r = f ? w.roads.route(f, this.me.x, this.me.y, 40) : null;
+      const [gx, gy] = this.local(this.job.to);
+      let [tx, ty] = [gx, gy];
+      if (r && r.metres > 8) {
+        let left = 4;
+        for (let i = 1; i < r.pts.length; i++) {
+          const d = Math.hypot(r.pts[i][0] - r.pts[i - 1][0], r.pts[i][1] - r.pts[i - 1][1]);
+          [tx, ty] = r.pts[i];
+          if ((left -= d) <= 0) break;
+        }
+      }
+      const d = Math.hypot(tx - this.me.x, ty - this.me.y) || 1;
+      this.walk({ moveX: (tx - this.me.x) / d, moveY: (ty - this.me.y) / d, stick: true, throttle: 0, steer: 0, brake: false, handbrake: false }, dt);
+      return;
+    }
+    if (!this.job) {
+      // a new goal starts afresh: no walking, backing up or waiting left over from the last
+      this.autoWalk = false;
+      this.autoBack = 0;
+      this.autoStuck = 0;
+      this.autoGoal = null;
+    }
     if (!this.car) {
       const near = this.carInReach();
       if (near && near.hp > 40) {
@@ -1634,6 +2175,30 @@ export class Game {
     const goal = this.goal();
     const f = goal && this.fieldOf(goal);
     const r = f ? w.roads.route(f, c.x, c.y, 90) : null;
+    // a party's food for a door up a lane too narrow for a car, and the car wedged near it (no nearer by road
+    // for a few seconds, however it bumps about, and hardly moving): out of the car, and on foot (`autoWalk`).
+    // Other jobs are driven as they always were.
+    const gd = r ? r.metres : Infinity;
+    if (!this.job?.party || !this.party?.walk || goal !== this.autoGoal || gd < this.autoBest - 1) {
+      this.autoGoal = goal;
+      this.autoBest = gd;
+      this.autoStuck = 0;
+    } else this.autoStuck += dt;
+    if (this.autoBack > 0) {
+      // no room to get out between the walls: back up a little first
+      this.autoBack -= dt;
+      c.controls.throttle = -0.6;
+      c.controls.steer = 0;
+      c.controls.handbrake = false;
+      return;
+    }
+    if (this.autoStuck > 4 && gd < (this.party?.walk ?? 0) + WALK_AUTO_M && Math.abs(c.forward) < 2) {
+      this.autoStuck = 0;
+      this.action();
+      if (!this.car) this.autoWalk = true;
+      else this.autoBack = 1.5;
+      return;
+    }
     if (!goal || !r) {
       c.controls.throttle = 0;
       return;
@@ -1661,6 +2226,9 @@ export class Game {
 
   private endJob(_done: boolean): void {
     this.routeLine.visible = false;
+    // the way to the drop-off goes with it; the next is worked out at once
+    this.routePts = null;
+    this.routeT = 0;
     if (!this.job) return;
     this.scene.remove(this.job.to.mesh);
     this.job = null;
@@ -1675,16 +2243,26 @@ export class Game {
 
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
-    // a mission waits for a package from a station: those blink
-    const blink = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35;
+    // a home waits for a package from a station: those rings flash green, the colour of homes
+    const blink = (this.flash = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35);
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : [])]) {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
-      m.mesh.visible = inside && !(blink && m.kind);
+      m.mesh.visible = inside;
+      if (m.kind) {
+        const want = blink ? RING.home : m.colour ?? RING[m.kind];
+        if (m.shown !== want) {
+          tintMarker(m.mesh, want);
+          m.shown = want;
+        }
+      }
+      if (m === this.routeTo && this.routeLine.visible) this.routeLine.material.color.set(this.routeColour());
       if (!inside) continue;
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
-      m.mesh.scale.set(pulse, 1, pulse);
+      // flashing for a home it is a quarter bigger too, so it shows to those who can't tell red from green
+      const grow = blink && m.kind ? 1.25 : 1;
+      m.mesh.scale.set(pulse * grow, 1, pulse * grow);
     }
   }
 
@@ -1698,6 +2276,7 @@ export class Game {
     }
     for (const tick of this.ticks) tick(dt);
     const w = this.world;
+    this.bridged.clear();
     this.clock += dt;
     if (this.frozen > 0) this.frozen -= dt;
     const live = this.frozen <= 0;
@@ -1724,6 +2303,7 @@ export class Game {
         for (let j = i + 1; j < this.cars.length; j++) {
           const q = this.cars[j];
           if (q.gone || (p.asleep && q.asleep)) continue;
+          if ((railsOf(p.kind) || railsOf(q.kind)) && Math.abs(p.x - q.x) < 80 && Math.abs(p.y - q.y) < 80 && this.apart(p, q)) continue;
           // whose fault a crash is: yours if you were driving into the other car
           const mine = p === this.car ? p : q === this.car ? q : null;
           let closing = 0;
@@ -1741,6 +2321,8 @@ export class Game {
         }
       }
     }
+    // trams and trains lie on their rails, whatever the steering did
+    for (const c of this.cars) if (!c.gone && !c.asleep && c.driver === 'ai' && c.hp > 0 && railsOf(c.kind)) this.onRails(c, dt);
     if (this.car && this.car.knock > 2.5) this.onSound('crash', Math.min(1, this.car.knock / 16));
     this.stepPeople(dt);
     this.bumps();
@@ -1767,7 +2349,10 @@ export class Game {
       } else if (c.driver === 'ai' || c.driver === 'cop') {
         const limit = this.chasing(c) ? 420 : this.viewR + 190;
         if (far > limit || Math.abs(c.x) > w.half - 8 || Math.abs(c.y) > w.half - 8 || (c.hp <= 0 && far > this.viewR + 20)) this.dropCar(c);
-        else if (c.hp <= 0) c.driver = 'none';
+        else if (c.hp <= 0) {
+          c.driver = 'none';
+          c.rail = null;
+        }
       }
     }
     if (this.sinking) this.sink(dt);
@@ -1820,7 +2405,9 @@ export class Game {
       this.routeT -= dt;
       if (this.routeT <= 0) {
         this.routeT = 0.3;
-        this.drawRoute(this.goal(), this.job ? '#ffd400' : '#2bd4e0');
+        const goal = this.goal();
+        this.routeTo = this.job ? null : goal;
+        this.drawRoute(goal, this.routeColour());
       }
     }
     this.draw(dt);
@@ -1979,17 +2566,18 @@ export class Game {
   }
 
   /** What the little map draws: you, the rings, the way there, and the police while they're after you. */
-  mapView(): { x: number; y: number; th: number; pickups: Pt[]; drop: Pt | null; cops: Pt[]; route: Pt[] | null } {
+  mapView(): { x: number; y: number; th: number; pickups: Array<{ at: Pt; colour: string }>; drop: Pt | null; cops: Pt[]; route: Pt[] | null; routeColour: string } {
     const [x, y] = this.pos();
     return {
       x,
       y,
       // backing up, the arrowhead shows the way you are going, not the way the bonnet points
       th: this.car ? (this.car.forward < -0.5 ? this.car.th + Math.PI : this.car.th) : this.me.th,
-      pickups: this.job ? [] : this.pickups.map((m) => this.local(m)),
+      pickups: this.job ? [] : this.pickups.map((m) => ({ at: this.local(m), colour: this.ringNow(m) })),
       drop: this.job ? this.local(this.job.to) : null,
       cops: this.heat > 0 ? this.cars.filter((c) => c.driver === 'cop' && !c.gone).map((c): Pt => [c.x, c.y]) : [],
       route: this.routePts,
+      routeColour: this.routeColour(),
     };
   }
 
@@ -1997,22 +2585,22 @@ export class Game {
   hud(): Hud {
     const [px, py] = this.pos();
     let target: Hud['target'] = null;
-    let best: { x: number; y: number; d: number; kind: 'drop' | 'job' | 'guide' } | null = null;
+    let best: { x: number; y: number; d: number; kind: 'drop' | 'job' | 'guide'; colour: string } | null = null;
     if (this.job) {
       const [x, y] = this.local(this.job.to);
-      best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop' };
-    } else if (this.guide) {
-      best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide' };
+      best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop', colour: DROP };
+    } else if (this.guide && !this.party) {
+      best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide', colour: RING.home };
     } else {
       for (const m of this.pickups) {
         const [x, y] = this.local(m);
         const d = Math.hypot(x - px, y - py);
-        if (!best || d < best.d) best = { x, y, d, kind: 'job' };
+        if (!best || d < best.d) best = { x, y, d, kind: 'job', colour: this.ringNow(m) };
       }
     }
     if (best) {
       const v = new Vector3(best.x, this.world.groundY(clamp(best.x, -this.world.half, this.world.half), clamp(best.y, -this.world.half, this.world.half)), -best.y).project(this.camera);
-      target = { ndcX: v.x, ndcY: v.y, metres: best.d, kind: best.kind };
+      target = { ndcX: v.x, ndcY: v.y, metres: best.d, kind: best.kind, colour: best.colour };
     }
     let hint = '';
     if (!this.car) {
@@ -2034,7 +2622,7 @@ export class Game {
       health: Math.max(0, this.me.hp),
       carHp: this.car ? this.car.hp : null,
       kmh: this.speed() * 3.6,
-      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind } : null,
+      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind, party: !!this.job.party } : null,
       hint,
       target,
       delivered: this.delivered,

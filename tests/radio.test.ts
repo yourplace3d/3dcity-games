@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { wireRadio } from '../src/radio';
+import { radioOn, wireRadio } from '../src/radio';
 
 class Element extends EventTarget {
   hidden = false;
@@ -18,6 +18,7 @@ class AudioStub extends EventTarget {
 }
 let audio: AudioStub;
 let button: Element;
+let nextButton: Element;
 let doc: EventTarget & { hidden: boolean };
 let inCar: boolean;
 let say = vi.fn<(text: string, kind?: 'good' | 'bad' | 'info') => void>();
@@ -35,11 +36,14 @@ function click(): void { button.dispatchEvent(new Event('click')); }
 beforeEach(() => {
   vi.useFakeTimers();
   audio = new AudioStub();
-  button = new Element();
+  // hidden in the page until the radio shows it
+  button = Object.assign(new Element(), { hidden: true });
   const name = new Element();
   const next = new Element();
+  nextButton = next;
   const bar = Object.assign(new Element(), { querySelector: (selector: string) => selector === '.name' ? name : next });
   doc = Object.assign(new EventTarget(), { hidden: false, body: new Element(), createElement: () => ({ canPlayType: () => '' }) });
+  // the trial on in this browser
   const data = new Map([['3da-radio', '1']]);
   vi.stubGlobal('document', doc);
   vi.stubGlobal('location', { search: '' });
@@ -54,6 +58,38 @@ beforeEach(() => {
 });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
+describe('the radio’s button', () => {
+  const storage = (data: Map<string, string>) => ({ getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => data.set(key, value), removeItem: (key: string) => data.delete(key) });
+
+  it('shows where the trial is on, and nothing is asked of anyone until it is tapped', async () => {
+    expect(button.hidden).toBe(false);
+    await settle();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(audio.play).not.toHaveBeenCalled();
+  });
+
+  it('is a trial: off unless ?try=radio switched it on in this browser, and off again with ?try=noradio', () => {
+    const data = new Map<string, string>();
+    vi.stubGlobal('localStorage', storage(data));
+    vi.stubGlobal('location', { search: '' });
+    expect(radioOn()).toBe(false);
+    vi.stubGlobal('location', { search: '?try=radio' });
+    expect(radioOn()).toBe(true);
+    vi.stubGlobal('location', { search: '' });
+    expect(radioOn()).toBe(true);
+    vi.stubGlobal('location', { search: '?try=noradio' });
+    expect(radioOn()).toBe(false);
+    vi.stubGlobal('location', { search: '' });
+    expect(radioOn()).toBe(false);
+  });
+
+  it('is off where there is no storage, as in a private window', () => {
+    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('denied'); }, setItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } });
+    vi.stubGlobal('location', { search: '?try=radio' });
+    expect(radioOn()).toBe(false);
+  });
+});
+
 describe('car radio lifecycle', () => {
   it('does not start a station after the player exits during the directory request', async () => {
     const pending = deferred();
@@ -67,6 +103,19 @@ describe('car radio lifecycle', () => {
     inCar = true;
     await vi.advanceTimersByTimeAsync(400);
     expect(audio.src).toBe('https://radio.test/old/1');
+  });
+
+  it('offers next › only while a station plays: not while it looks for stations or waits for a car', async () => {
+    const pending = deferred();
+    fetchMock.mockReturnValueOnce(pending.promise);
+    click();
+    expect(nextButton.hidden).toBe(true);
+    pending.resolve(reply('town'));
+    await settle();
+    expect(nextButton.hidden).toBe(false);
+    inCar = false;
+    await vi.advanceTimersByTimeAsync(400);
+    expect(nextButton.hidden).toBe(true);
   });
 
   it('ignores the old station list after switching off and on again', async () => {

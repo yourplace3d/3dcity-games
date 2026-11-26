@@ -6,7 +6,7 @@
 import { CanvasTexture, CircleGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, SRGBColorSpace } from 'three';
 import { pointInRing, ringBounds, type Polygon } from '../geo/polygon';
 import { makeProjector, type LngLat, type Projector } from '../geo/projection';
-import { loadHeightGrid } from '../geo/terrain';
+import { loadHeightGrid, sampleGrid } from '../geo/terrain';
 import { DATA_ZOOM, fetchTiles, parseTiles, tilesForSquare, type LoadedTile } from '../geo/tiles';
 import { CityModel } from '../scene/cityModel';
 import { PALETTE } from '../scene/overlay';
@@ -15,6 +15,7 @@ import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
 import { basinMesh, takeBasins } from './basins';
 import { pitchMesh, takePitches } from './pitches';
+import { sharpenGround, softGroundWanted } from './sharpGround';
 import { deckMesh, takeDecks } from './docks';
 import { bridgeMesh, levelUnderWater, onBridgeDeck, waterBodies, waterMesh, waterTest } from './river';
 import type { AreaFeature } from '../geo/osm';
@@ -28,7 +29,7 @@ import { subwayEntrances, subwayLetter, type EntranceSpot } from './subwaySign';
 import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes';
 import { addWindows, styleWindows, windowsOn } from './windows';
 import { carvePassagesInSteps, keepPassages, Roofs } from './passages';
-import { inventServices, readBanks, readReserved, readServices, serviceIcon, type Bank, type Service } from './services';
+import { inventServices, PointGrid, readBanks, readFood, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -349,6 +350,9 @@ export class World {
   /** banks, real and made up: not drawn here; the homes put their symbol up in the player's home town */
   readonly banks: Bank[] = [];
 
+  /** restaurants and supermarkets, real and made up, where a party's food comes from: not drawn here; a party run puts up its own */
+  readonly food: FoodPlace[] = [];
+
   /** the buildings that are walls here: outline in metres from the middle of the square, and height */
   buildings: Array<{ poly: Polygon; height: number; id?: string }> = [];
 
@@ -408,22 +412,23 @@ export class World {
     // a building with no recorded height takes its neighbours', before tall ones are squashed
     const heightCounts = localHeights(data.buildings);
     const buildings = data.buildings.map((b) => ({ poly: b.poly, height: gameHeight(b.height), minHeight: gameHeight(b.minHeight), estimated: false, heightKnown: true, id: b.id, realHeight: b.height }));
-    // ways through buildings: the map's "tunnels" that stay at ground level under a building are
-    // kept, and every street or path through a building has a corridor cut out of it at ground level
-    data.features.lines = keepPassages(data.features.lines, buildings);
-    const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe);
-    await breathe();
+    // roofs out of the ground and the sea to sea level, before anything is built on it
+    calmGround(grid, buildings, data.features.sea);
     // small water becomes basins with a rim, taken out of what is painted on the ground
     const basins = takeBasins(data.features.areas, AREA_SIZE_M / 2);
     // piers and wharves: decks on the water, walked and driven on
     const decks = takeDecks(data.features.areas);
     // rivers, canals, harbours and lakes: one clean outline, cut out of the ground with a bank along it
     const bodies = waterBodies(data.features.areas, data.features.lines, data.features.sea ?? [], AREA_SIZE_M / 2);
-    await breathe();
-    // roofs out of the ground and the sea to sea level, before anything is built on it
-    calmGround(grid, buildings, data.features.sea);
     // and the ground under rivers and lakes level with their banks, so bridges run level
     levelUnderWater(grid, bodies, data.features.sea ?? []);
+    await breathe();
+    // ways through buildings: the map's "tunnels" that stay at ground level under a building are
+    // kept, and every street or path through a building has a corridor cut out of it at ground level;
+    // a bridge high over the ground there cuts away what it crosses (on the ground as it is laid)
+    data.features.lines = keepPassages(data.features.lines, buildings);
+    const { shapes } = await carvePassagesInSteps(buildings, data.features.lines, breathe, (x, y) => sampleGrid(grid, x, y), AREA_SIZE_M / 2);
+    await breathe();
     const model = new CityModel(grid, texturePx, '#ffcc00');
     model.overlay.cut = bodies.map((b) => b.poly);
     // the ground is see-through where the water is cut out of its picture
@@ -435,6 +440,8 @@ export class World {
     // on some graphics chips it drew dark streaks that stayed put on the screen
     model.terrain.surface.castShadow = false;
     model.terrain.base.visible = false;
+    // parks, gardens and water with sharp edges, not stretched soft
+    if (!softGroundWanted()) sharpenGround(model.terrain.surface.material, texturePx);
     await breathe();
     // a trial: windows and doors on the walls
     if (windowsOn()) {
@@ -504,6 +511,16 @@ export class World {
     const realBanks = readBanks(tiles, world.proj, 1e9);
     for (const b of [...realBanks.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(realBanks, world.proj, reach, roads, ['bank'])]) {
       if (!world.banks.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 250) && !world.services.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 70)) world.banks.push(b);
+    }
+    // restaurants and supermarkets for the parties: of several within 60 m only the first is kept, and one is
+    // made up where the map has none near (a made-up one is a restaurant)
+    const realFood = readFood(tiles, world.proj, 1e9);
+    const madeUp = inventServices(realFood.map((f) => ({ ...f, kind: 'food' as const })), world.proj, reach, roads, ['food']).map((f): FoodPlace => ({ ...f, food: 'restaurant' }));
+    const foodKept = new PointGrid<FoodPlace>(60);
+    for (const f of [...realFood.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...madeUp]) {
+      if (foodKept.near(f.x, f.y, 60)) continue;
+      world.food.push(f);
+      foodKept.add(f);
     }
     // the map puts such a place on its building: the symbol lies on the roof, where it can be seen
     for (const sv of world.services) signs.add(serviceSign(sv, (x, y) => surfaceY(model, x, y) + solids.tallestNear(x, y, 5) + 0.2, (x, y) => surfaceY(model, x, y)));

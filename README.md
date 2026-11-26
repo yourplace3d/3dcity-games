@@ -10,7 +10,7 @@ the streets, buildings, water and hills come from the same map squares as
 
 - **Two ways to play, chosen on the start screen** and remembered. *Compare with friends*: a run of three
   deliveries against the clock, to send to a friend to beat. *Do jobs*: the open jobs from the stations in
-  town, as many as you like. The pause card switches between them. A run a friend sent is always a run.
+  town, as many as you like. The menu (☰) switches between them. A run a friend sent is always a run.
 - **Where am I?**, the third choice on the start screen: you are put down in one of about sixty well-known cities without
   being told which. Drive around, then pick the city from four names (two of the wrong ones are cities
   nearby). A pick at once is worth 1,000 points, each second of looking costs 4, a wrong pick 250 and
@@ -23,12 +23,14 @@ the streets, buildings, water and hills come from the same map squares as
   police are about. It moves on as you do each thing, and can be skipped.
 - You start on foot beside a parked car. Walk up to any car and get in: parked ones are free, taking one
   with a driver in it is an offence.
-- **Blue rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
+- **Turquoise rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
   metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
   the more you have delivered.
 - **Open jobs.** A run stays three plain packages from street corners, so that runs compare. The open jobs
   are their own way to play, and a run's result also leads on to them. A short note says how to find them: a
-  blue ring waits at the nearest fuel station, fire station and police station, as often as you go there:
+  ring waits at the nearest fuel station, fire station and police station, as often as you go there, in the
+  colour of its sign: **orange** at the pump, **red** at the flame, **blue** at the badge. Stop at it and a
+  card offers the job:
   - **Supply run** (fuel station): a heavy load. The car is slower away, slower to stop and slower uphill.
     It pays a quarter more, and a fifth on top for a car without a new dent.
   - **Rush job** (fire station): a short clock, and every second left over pays three times.
@@ -49,11 +51,28 @@ the streets, buildings, water and hills come from the same map squares as
   cheap and dear streets: a dense part of town, a park, water or a sight close by raise it; a big road or
   railway outside and a district of halls lower it. The cheapest flats cost about one run's pay. Where a
   place has hardly any blocks of flats, its bigger houses hold flats. Owned buildings carry a yellow house on
-  the roof and on both maps. **Your homes**, on the start screen and the pause card once you own one, lists
-  them by town with what each pays: *Go there* starts beside one, and in the town you are in, *Show the way*
-  points the arrow at it. Cash and homes come along to every place you play: a new place is not a new game.
+  the roof and on both maps. **Real estate**, a tab of the menu (☰, or the house button beside it, whose ring
+  fills with home points), lists them by town with what each pays: *Go there* starts beside one, and in the
+  town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
+  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 17 things to do.
+  Now and then something happens at a home (for now: it needs renovating); its rent waits at the building
+  until a station's package solves it. Tapping "Bank" in the money box shows the way to the nearest bank. Cash and homes come along to every place you play: a new place is not a new game.
   Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
+- **Parties.** Stop beside a home you own (or tap *Party* beside it in Real estate) to throw one: friends
+  are coming over and nobody got the food. Fetch the pizza from a restaurant, or drinks and snacks from a
+  supermarket, about 800 m away by road (a pink sign; made up, with a dashed ring, where the map has none
+  near), and bring it to the door before it gets cold. The clock starts at the pickup. Up a lane too narrow
+  for a car you park and walk the last bit, never more than 150 m (with time on the clock for it); further
+  than that, the friends meet you at the corner where a car can go. It pays no cash: the
+  first party of a day pays 2 home points. Each home keeps its food place, so its party run stays the same.
+  The party's food has a **pink** ring, as its sign. A station's ring flashes **green** (the colour of homes)
+  while its package would go to a home of yours that needs it (`RING` in `src/game/services.ts`). Where to
+  deliver is always yellow.
+  At the end, one soft question: "Someone still missing for tonight's party?", with a link to send or "No,
+  we're a full house". Whoever opens the link (`?p=…`) starts at that home and fetches the same food, against
+  the time in it, and can send their time back. Nothing is paid for sending, and party links are not
+  counted (`src/game/party.ts`, `src/partyUi.ts`, kept as `3da-party`).
 - **Flats first.** A first home is a flat; houses open with your 3rd home, whole buildings with your 6th.
   A house or whole building you own can be painted, from the panel beside it. A player with no home who
   has the cash for a flat gets a private mission that shows a part of town nearby where flats are cheap.
@@ -98,7 +117,11 @@ the streets, buildings, water and hills come from the same map squares as
   (`?ref=youtube`), each with the region of the map being played (a square of one degree, about
   100 km). It also counts how it is played, per day: a visit, once a day for each browser and only once
   the page is touched, as "new" (first time) or "back", with where it came from in one word (direct,
-  youtube, search, challenge, link); a run of three finished; a home bought; rent collected on a return.
+  youtube, search, challenge, link); a run begun, and a run of three finished; a home bought; rent
+  collected on a return; a Where am I? round; how long a visit played, as one of four spans; and which
+  city is played, once for each city in a visit: one of the well-known cities by name, or any other
+  place as its square of one degree. What a visitor types is not sent, nor is "Where I am" or a
+  Where am I? round (that is where they are, or a place they were not asked to pick).
   Each count is a word and a number for the day, and nothing else: nothing about the player, the friend
   or where they are. Whether a browser was here before is a date kept in it (`3da-visit-day`) that is never
   sent. Test browsers and the developer's own machine are not counted (`src/linkCount.ts`,
@@ -126,7 +149,9 @@ the streets, buildings, water and hills come from the same map squares as
   both wait at the real stops. A bus stop is a small shelter with a sign on a post, a tram stop a platform
   beside the track. The sign is the same everywhere for now: a white bus on a blue disc, a white tram on a red one;
   no operator's own symbol is drawn (`src/game/stopShapes.ts`). Trains run on the railway tracks and
-  brake for nothing but another train: keep off the track. At the end of a track a train or tram waits a moment and goes back the way it came. Trains have no stations yet. You can take a bus; trams stay on their rails. A subway
+  brake for nothing but another train: keep off the track. At the end of a track a train or tram waits a moment and goes back the way it came. A stretch of track shorter than 200 m (80 m for trams), such as a bit between two tunnels, is drawn but gets no train (`TRAIN_MIN_M` in `src/game/roads.ts`). Trams and trains run on two bogies: the
+  front follows the rails, the back follows where the front has been, and the body lies between them
+  (`Game.onRails`). Trains have no stations yet. You can take a bus; trams stay on their rails. A subway
   entrance is a stairwell going down, with a sign on a post beside it (a white letter on a blue disc:
   U in Germany and Austria, M elsewhere; the game's own sign, no operator's symbol): walk in on foot and you come up at the station nearest to where you're headed. **Rides are switched
   off for now** (`SUBWAY_RIDES` in `src/game/world.ts`): on the iPad the ride did not start. The entrances and signs stay.
@@ -143,7 +168,10 @@ the streets, buildings, water and hills come from the same map squares as
   the town, found through the volunteer directory Radio Browser and heard straight from each station's
   own stream. Pressing it contacts the directory and the station; without the trial nothing does.
   Switched on, it stays on: it plays again in the next car and on the next visit, until FM is pressed again
-  (`src/radio.ts`).
+  (`src/radio.ts`). It stays a trial on purpose: playing stations of any town to players elsewhere is what
+  a court found infringing in Warner and Sony against TuneIn (see `docs/plan-returning-players.md`,
+  section 11). A building's for-sale panel, and the radio's bar, keep clear of the little map and of each
+  other on any screen (`src/clearOf.ts`).
 - **Hills show and are felt.** The light treats every slope as about three times steeper than it is, so the
   side of a hill away from the sun is clearly darker. Streets that climb more than 1 in 10 carry arrowheads
   pointing uphill. The car you drive is held back uphill and carried downhill (never so much that a hill
@@ -162,7 +190,7 @@ the streets, buildings, water and hills come from the same map squares as
 | Brake, reverse | `S` | **Brake** |
 | Handbrake | `Space` | |
 | Big map of the loaded streets | `M` | tap the little map |
-| Pause | `P` or `Esc` | **❚❚** at the top |
+| Menu: pause, real estate, trophies | `P` or `Esc` | **☰** at the top; the house button opens real estate |
 | Route line on the road | `G` | the button on the big map |
 | Back onto the road when stuck | `R` | |
 
@@ -208,11 +236,17 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/game/roads.ts`: the road lines as a network that cars and people follow.
 - `src/game/solids.ts`: building walls (circles are pushed out of them) and the water raster.
 - `src/game/roadMesh.ts`: roads as ribbons on the terrain, sharp from close up.
+- `src/game/sharpGround.ts`: parks, gardens, woods, water and paths are painted into one picture over the
+  square (0.37 m a pixel on a computer, 0.73 m on a tablet), which the close camera stretched into soft
+  edges. A step in the ground's shader cuts each blend between two colours down to about a pixel of the
+  screen. `?try=softground` turns it off, to compare.
 - `src/game/cars.ts`: the car: how it looks, moves and collides.
 - `src/game/game.ts`: you, traffic, people, police, jobs, camera.
 - `src/game/homes.ts`: which buildings are for sale and their prices, what the player owns, and the rent.
   `src/homesUi.ts`: the offer after a run, the panel beside a building, the roof marks and the rent on return.
-  `src/homesList.ts`: the list of homes by town, from the start screen and the pause card.
+  `src/homesList.ts`: the list of homes by town, in the menu. `src/game/homePoints.ts`: home points.
+  `src/trophies.ts`: the trophies. `src/game/bankMission.ts`: the mission to the bank and its reminder.
+  `src/game/party.ts`: a party at a home, its food place and its link; `src/partyUi.ts`: its cards.
 - `src/addon.ts`: where an extra feature plugs in. The game loads an add-on only when it is handed its
   address (`loadAddon(address)`); on its own it loads none.
   For such a file the game can stand a car in the world, take one out, lay a ring, put a symbol on a
@@ -222,16 +256,20 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
-  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways.
+  (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways, and which streets are one-way.
   Bug fixes cover date-line tile requests, cache failure and cancellation handling, nested polygon
   holes, terrain edge patches and clipped road/bridge export heights; see the verification notes above.
 
 Heights of tall buildings are squashed (above 18 m only 30 % counts) so the camera can stay close.
-There are no traffic lights, level-crossing barriers or one-way streets, and bus and tram lines are not the real routes: vehicles follow
+Traffic keeps to one-way streets as the map has them (`oneway` in the map tiles; a car the map leaves at a dead end on one turns off at the
+first way out, or goes if you can't see it). You may drive any way you like, and the arrow's way does not mind one-way streets.
+There are no traffic lights or level-crossing barriers, and bus and tram lines are not the real routes: vehicles follow
 the streets and tracks and mostly carry straight on. Where a street or
 path runs through a building (gateways, archways, passages into courtyards, gates in a town wall), a corridor is
 cut through it at ground level: walls either side, the floors above as a roof you pass under, and you are drawn
-over that roof while beneath it (`src/game/passages.ts`).
+over that roof while beneath it (`src/game/passages.ts`). A street bridge high over what the map has under it (North
+Bridge over Waverley station in Edinburgh) cuts that away along its deck, open to the sky, and trains under a road
+bridge pass the cars on it.
 
 `game.auto = true` in the browser console makes the game drive the jobs itself: for tests and for filming.
 

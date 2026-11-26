@@ -146,6 +146,8 @@ export interface HomesHost {
   blocked?: () => boolean;
   /** parties at the homes (`partyUi.ts`): whether one can be thrown at a home now, its button, and the card that starts it */
   party?: { can: (home: Home) => boolean; label: (home: Home) => string; tag: () => string; offer: (home: Home) => void };
+  /** the story's name for a card, when it is the open chapter's own (`storyUi.ts`): the first home's, the bank's */
+  kicker?: (what: 'home' | 'bank') => string | undefined;
 }
 
 export class HomesUi {
@@ -330,6 +332,16 @@ export class HomesUi {
     return { homes: this.homes.homes, reno: this.reno, saved: this.saved };
   }
 
+  /** Whether the square being played is in the home town: the first home's, where the banks are. */
+  atHomeTown(): boolean {
+    return this.atPlate;
+  }
+
+  /** The home town's name, as it was when the first home was bought; '' before there is one. */
+  homeTownName(): string {
+    return this.plate?.place ?? '';
+  }
+
   /** Whether a home stands in the square being played. */
   isHere(home: Home): boolean {
     return !!this.lotOf(home);
@@ -456,6 +468,7 @@ export class HomesUi {
         this.setReno({ stage: 'find', price });
         this.missionTick();
       },
+      this.host.kicker?.('home'),
     );
   }
 
@@ -793,7 +806,7 @@ export class HomesUi {
           this.setLesson({ stage: 'go', rent: true });
           this.guideBank(true);
         },
-        'Good to know',
+        this.host.kicker?.('bank') ?? 'Good to know',
       );
       return;
     }

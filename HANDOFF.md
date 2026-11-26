@@ -20,7 +20,11 @@ lives.
     count word `chapter` agreed, and the session "3DA: connecting and getting online" told. Explanations given
     for questions 4 to 7, 9 and 10. Round 3 (section 14): names by region yes (20 a region); the dispute by reading
     people then driving; the daily story fills the gaps; the people send you to other towns; car chases go into the
-    story; Mira's choice tied in order. Ana's question is still open. Building step A (the main story).
+    story; Mira's choice tied in order. Ana's question is still open. **Step A, the main story over what exists,
+    is built** on the same branch, not live: chapters 1 to 7, the people's messages on their own papers, the Story
+    tab, names by region, the `chapter` count in the game (the server's list does not have the word yet, so
+    nothing is counted until it does). Tested: 265 unit tests, and `tools/story-test.mjs` in a browser on
+    Nuremberg and Berlin tiles. Not tested on a real device. Waiting on the owner to try it and say yes.
   - *The next step at the homes:* step 2, the tenants' dispute with its four outcomes (the plan, section 4).
   - *Live weather:* on hold, the owner's call (26 November). If it comes back: Open-Meteo is free and needs no
     key, but its free tier is for non-commercial use and asks for a credit line ("Weather data by

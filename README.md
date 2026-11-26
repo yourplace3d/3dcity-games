@@ -11,6 +11,20 @@ the streets, buildings, water and hills come from the same map squares as
 - **Two ways to play, chosen on the start screen** and remembered. *Compare with friends*: a run of three
   deliveries against the clock, to send to a friend to beat. *Do jobs*: the open jobs from the stations in
   town, as many as you like. The menu (☰) switches between them. A run a friend sent is always a run.
+- **A story in eight chapters** (`src/game/story.ts`, `src/storyUi.ts`; the brainstorm is `docs/brainstorm-story.md`). It puts what the game
+  has in order: Arrival, Making rent, A roof over your head (the worn-down flat), Safe money (the bank), The
+  regulars (a job at each kind of station), Housewarming (a party), The whole building, and Landlord (the
+  tenants' dispute, not built yet). The first visit plays straight through to the first flat; after that,
+  one new chapter on each new day you play, and a missed day loses nothing. What a chapter asks may be done
+  before it opens. A player who is further on starts at the chapter they are on. The game speaks plainly;
+  whoever gives a task writes a message, each on a paper of their own: the pump's attendant on a till
+  receipt, the fire station's on a pager, the police officer in a notebook, the neighbour on a card, the
+  friends in text messages. Nobody calls. Their first names come from the region of the first home
+  (`src/game/names.ts`: about 30 lists by rough boxes, as for the windows) and are kept. From chapter 4 on
+  the story happens in the home town; elsewhere the menu's **Story** tab says where it waits and goes there.
+  No message interrupts a run of three, and there is no story in Where am I? or on a friend's link. Each
+  chapter finished in play is counted (`chapter`, its number), once a browser; chapters ticked for a player
+  who was further on are not. Kept as `3da-story`.
 - **Where am I?**, the third choice on the start screen: you are put down in one of about sixty well-known cities without
   being told which. Drive around, then pick the city from four names (two of the wrong ones are cities
   nearby). A pick at once is worth 1,000 points, each second of looking costs 4, a wrong pick 250 and
@@ -277,6 +291,9 @@ bridge pass the cars on it.
 
 ## Tools
 
+- `tools/story-test.mjs`: the story played through in a browser on real map tiles: a first visit to the first flat,
+  a chapter on each following day with the people's messages, a player who is further on, the story away from the
+  home town, and a phone. `SHOTS=<folder>` keeps a screenshot of each step.
 - `tools/selfdrive-test.mjs`: the game drives itself for eight game-minutes per place and reports deliveries
   and mishaps. A quick check after changes to roads, traffic or collisions.
 - `tools/film.mjs`: films a scene frame by frame at 1080p for trailers.

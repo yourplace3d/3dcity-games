@@ -659,3 +659,32 @@ car saw it (the game notices that). Then the question is about something that ha
 
 **What to decide:** keep a choice like this (with nothing to win), or drop it and give Ana's story a choice with
 something at stake, such as a chase. Either is fine.
+
+## 15. Step A built (26 November, evening; branch `claude/story-brainstorm`, not live)
+
+- **Chapters 1 to 7** over what the game has; chapter 8 shows as "Coming". The rules of section 4 hold: free to
+  the flat, then one new chapter on each new day you play; what a chapter asks may be done before it opens; a
+  player who is further on starts where they are, ticked silently.
+- **The voice:** chapters 1 to 3 speak through what is there (the tour, the line after the first delivery, the
+  first-home card, which now carries "Chapter 3 of 8 · A roof over your head"). From chapter 4 a chapter opens
+  with a line in the game's voice. The people write from the first flat on: the neighbour when it is bought,
+  the person of whichever station brings its first repair, the other two in chapter 5, the friends in chapter
+  6, the neighbour again in chapter 7. The bank's card carries "Chapter 4 of 8 · Safe money".
+- **The looks** are those of the mockups, in the game's own fonts (no font is loaded from outside): a till
+  receipt, a pager, a notebook page, a card, text bubbles. Each message shows for 9 seconds, at least 2.8
+  seconds apart, from 6 seconds into a visit (after the place's name and the line on rent). They wait while a
+  card, the menu, the map or the tour is up, and while a run of three is on.
+- **Names by region:** about 30 lists of 20 first names (`src/game/names.ts`), from general knowledge of the
+  most given names of adults today, **to be checked against each country's statistics**. Nuremberg's people
+  came out as Laura at the pump, Thomas at the fire station, Sarah at the police, Stefan next door, and Nicole,
+  Jan and Anna. The unit tests check that all 60 built-in cities and 63 places near borders get the right list
+  (Cologne German not Dutch, Strasbourg and Geneva French, Lugano Italian, St Petersburg Russian not Finnish).
+  Where a box would misname a place and there is no list yet (the Levant, Cyprus, the Baltic states, Romania
+  and Bulgaria, Central Asia, Myanmar, Cambodia), the shared list.
+- **The Story tab** (☰, after ❚❚): the chapter open now, what it asks and "Show the way" (to the bank, the
+  nearest station still to do, or the home), or "Go to Nuremberg" away from home; the eight chapters with
+  ticks; the last 12 messages on their papers.
+- **Counted:** `chapter` with its number when one is finished in play. The live server's list does not have
+  the word yet, so nothing arrives until it does (the session "3DA: connecting and getting online" was told).
+- **Not in step A:** the people's own stories (step C, with the chases and the other towns), the dispute
+  (step B), the daily story (step D), "The story so far".

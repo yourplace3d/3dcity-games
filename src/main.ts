@@ -16,6 +16,7 @@ import { Sound } from './sound';
 import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
 import { arriveLine, PartyUi } from './partyUi';
+import { StoryUi } from './storyUi';
 import { readParty, type SentParty } from './game/party';
 import { drawTrophies, Trophies, type TrophyId } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
@@ -59,6 +60,8 @@ let game: Game | null = null;
 let homes: HomesUi | null = null;
 /** parties at the player's homes (`partyUi.ts`) */
 let party: PartyUi | null = null;
+/** the story (`storyUi.ts`): its chapters, the people's messages, the Story tab */
+let story: StoryUi | null = null;
 /** a friend's party from the link the page was opened with, until it starts */
 let linkParty: SentParty | null = null;
 /** the party of the link, for the line under the place's name, for as long as its place is played */
@@ -243,8 +246,14 @@ function nudgeButton(): void {
 }
 function toast(text: string, kind: 'good' | 'bad' | 'info' = 'info', ms = 3300, tap?: () => void): void {
   const el = document.createElement('div');
-  el.className = `toast ${kind}${tap ? ' tap' : ''}`;
+  el.className = `toast ${kind}`;
   el.textContent = text;
+  showEl(el, ms, tap);
+}
+/** A line over the game made elsewhere (the story's messages), shown as the lines are. */
+function showEl(el: HTMLElement, ms: number, tap?: () => void): void {
+  el.classList.add('toast');
+  if (tap) el.classList.add('tap');
   if (tap) {
     el.setAttribute('role', 'button');
     el.tabIndex = 0;
@@ -384,8 +393,23 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         quiet: () => !!secret,
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
         party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
+        kicker: (what) => story?.kicker(what),
       });
       (window as unknown as { homes: HomesUi }).homes = homes;
+      story = new StoryUi({
+        game,
+        homes: () => homes,
+        show: showEl,
+        openStory: () => setPause(true, 'story'),
+        // a card, the menu, the map, the result, the tour: the messages wait
+        blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden || step >= 0,
+        // a city being guessed, a friend's run or party from a link: no story
+        quiet: () => !!secret || !!rival || !!partyShown,
+        goHome,
+        closeMenu: () => setPause(false),
+        stored: () => changed(),
+      });
+      (window as unknown as { story: StoryUi }).story = story;
       // trophies: what happens in play, and now and then what the player has
       {
         const g = game;
@@ -1304,7 +1328,7 @@ if (baked) {
 for (const el of document.querySelectorAll<HTMLElement>('#bigmap-key .ico, #openjobs .ico')) el.style.backgroundImage = `url(${serviceIcon(el.dataset.kind as ServiceKind, !!el.dataset.invented).toDataURL()})`;
 // ------------------------------------------------------------------ pause, and what to play
 
-type MenuTab = 'game' | 'estate' | 'trophies';
+type MenuTab = 'game' | 'story' | 'estate' | 'trophies';
 /** the menu is open, over the game or over the start screen */
 let menuOpen = false;
 
@@ -1325,12 +1349,15 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
   if (!on) return;
   $('tab-game').hidden = !playing;
   $('tab-estate').hidden = $('tab-trophies').hidden = !!secret;
-  const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['estate', 'estate'], ['trophies', 'trophies']];
+  $('tab-story').hidden = !!secret || !story;
+  if (tab === 'story' && !story) tab = playing ? 'game' : 'estate';
+  const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['story', 'story'], ['estate', 'estate'], ['trophies', 'trophies']];
   for (const [t, id] of tabs) {
     $(`tab-${id}`).setAttribute('aria-selected', String(t === tab));
     $(`pane-${id}`).hidden = t !== tab;
   }
   if (tab === 'trophies') drawTrophies($('trophies-list'), $('trophies-line'), trophies);
+  if (tab === 'story') story?.draw($('pane-story'), playing);
   if (tab === 'estate') drawEstate();
   if (tab !== 'game') return;
   const jobs = !!game?.run.over;
@@ -1353,6 +1380,7 @@ $('btn-menu').addEventListener('click', () => {
 });
 $('btn-menu-close').addEventListener('click', () => setPause(false));
 $('tab-game').addEventListener('click', () => setPause(true, 'game'));
+$('tab-story').addEventListener('click', () => setPause(true, 'story'));
 $('tab-estate').addEventListener('click', () => setPause(true, 'estate'));
 $('tab-trophies').addEventListener('click', () => setPause(true, 'trophies'));
 $('btn-continue').addEventListener('click', () => setPause(false));
@@ -1516,6 +1544,16 @@ $('btn-estate').addEventListener('click', () => {
   if (go) go();
   else setPause(true, 'estate');
 });
+/** The story's way home: the town of the first home, beside it. */
+function goHome(): void {
+  setPause(false);
+  const first = owned().homes[0];
+  if (!first) return;
+  save();
+  setScreen('start');
+  void go({ lat: first.lat, lon: first.lon }, isCoords(first.place) ? undefined : first.place);
+}
+
 /** The way to the nearest bank: from the bank line in the money box, or from the real estate. */
 function bankWay(): void {
   if (!homes || !playing) return;

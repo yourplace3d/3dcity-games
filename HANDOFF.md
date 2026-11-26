@@ -4,7 +4,26 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (24 November 2026)
+## Right now (26 November 2026)
+
+- **Live:** `main` at `b04b3f4`, deploy run 70 (26 November), with everything below that says live, and the
+  work of other sessions the same day: rivers with quay walls and bridges that look like bridges (pull
+  request #12), the thin-map warning under the search field (#20), and police following a player they see
+  going the wrong way (#13). North Bridge in Edinburgh checked on it after those: a car gets all 170 m across.
+- **Open, waiting on the owner:**
+  - *The next step at the homes:* step 2, the tenants' dispute with its four outcomes (the plan, section 4).
+  - *Live weather:* on hold, the owner's call (26 November). If it comes back: Open-Meteo is free and needs no
+    key, but its free tier is for non-commercial use and asks for a credit line ("Weather data by
+    Open-Meteo.com"). GTW, a sandbox on the real Earth, was looked at for ideas only; the owner wants no credit
+    to it, and none is owed as no code was taken.
+  - *The radio for everyone:* only with a media lawyer's word (the plan, section 11). A way round to weigh then:
+    FM opening the station's own page in a new tab, a plain link, instead of playing in the game.
+  - *A privacy policy and a legal notice (Impressum):* the site has neither, though it contacts OpenFreeMap,
+    AWS, Photon, Nominatim and Supabase. For the owner, with a lawyer.
+- **Known limits, left as they are:** where a road bridge crosses a street with tram tracks in it, trams and
+  cars still meet there (the place alone can't tell the bridge from the street); someone walking along the
+  tracks right under a bridge counts as on it; on the narrowest phones (320 px) the radio trial's FM button
+  touches the cash panel.
 
 - **The owner put street cred on the wishlist,** like the third currency: missions and learning to use the
   bank come first, for players who come back. The plan and the brainstorm of what happens at the player's

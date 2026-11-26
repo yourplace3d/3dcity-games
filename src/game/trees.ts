@@ -18,7 +18,7 @@
  * `?try=notrees` leaves them out, to compare.
  */
 
-import { CircleGeometry, Color, ConeGeometry, MeshBasicMaterial, Group, DodecahedronGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
+import { CircleGeometry, Color, ConeGeometry, CylinderGeometry, MeshBasicMaterial, Group, DodecahedronGeometry, InstancedMesh, Matrix4, MeshStandardMaterial, Quaternion, Vector3 } from 'three';
 import type { AreaFeature } from '../geo/osm';
 import type { LngLat, Projector } from '../geo/projection';
 import { decodePng } from '../geo/png';
@@ -223,7 +223,7 @@ const crownRadius = (t: Tree) => (t.fir ? 2 + 1.3 * t.r1 : 2.6 + 2 * t.r1);
 const FLAT = 0.6;
 /** a trunk, to bump into (m): wide enough that a car never slips through a tree */
 export const TRUNK_R = 0.5;
-const treeHeight = (t: Tree) => (t.fir ? 9 + 7 * t.r2 : 6 + 6 * t.r2);
+const treeHeight = (t: Tree) => (t.fir ? 8 + 5 * t.r2 : 5.5 + 3.5 * t.r2);
 
 const LEAVES = ['#5f8f4a', '#6b9a50', '#55844a', '#7aa45a', '#4f7d43', '#668f3f'].map((c) => new Color(c));
 const NEEDLES = ['#3f6b45', '#46744a', '#365f3e'].map((c) => new Color(c));
@@ -232,8 +232,8 @@ const NEEDLES = ['#3f6b45', '#46744a', '#365f3e'].map((c) => new Color(c));
 const PATCH = 125;
 
 /**
- * The trees of a square, as round crowns, firs and the shade under them, in patches: one patch is three
- * draws, and those off screen are skipped. A tree throws no real shadow (that doubled the cost of
+ * The trees of a square, as round crowns, firs, trunks and the shade beside them, in patches: one patch
+ * is four draws, and those off screen are skipped. A tree throws no real shadow (that doubled the cost of
  * drawing it): a soft dark patch lies where its shadow would fall.
  */
 export function treeMesh(trees: Tree[], ground: (x: number, y: number) => number): Group | null {
@@ -256,11 +256,14 @@ const crownGeo = new DodecahedronGeometry(1, 0);
 const firGeo = new ConeGeometry(1, 1, 7).translate(0, 0.5, 0);
 /** a soft dark patch on the ground where the tree's shadow falls: far cheaper than a real one */
 const shadeGeo = new CircleGeometry(1, 10).rotateX(-Math.PI / 2);
+/** a trunk: five sides, no ends, 10 triangles; it throws no shadow */
+const trunkGeo = new CylinderGeometry(0.7, 1, 1, 5, 1, true).translate(0, 0.5, 0);
+const trunkMat = new MeshStandardMaterial({ color: '#6b5440', roughness: 1, metalness: 0 });
 const shadeMat = new MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.2, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
 /** where the sun puts a shadow, per metre of height (the game's sun stands at -0.55, 0.78, -0.55) */
 const SUN_RUN = 0.55 / 0.78;
 /** shared by every square: a square's dispose must leave them be */
-for (const g of [crownGeo, firGeo, shadeGeo]) g.dispose = () => {};
+for (const g of [crownGeo, firGeo, shadeGeo, trunkGeo]) g.dispose = () => {};
 
 function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) => number): void {
   const round = trees.filter((t) => !t.fir);
@@ -298,13 +301,29 @@ function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) =
     });
     group.add(cones);
   }
-  const shades = new InstancedMesh(shadeGeo, shadeMat, trees.length);
+  const trunks = new InstancedMesh(trunkGeo, trunkMat, trees.length);
   trees.forEach((t, k) => {
-    const r = crownRadius(t);
-    const lift = t.fir ? treeHeight(t) * 0.4 : treeHeight(t) - r * FLAT;
-    const sx = t.x + lift * SUN_RUN;
-    const sy = t.y - lift * SUN_RUN;
-    m.compose(new Vector3(sx, ground(sx, sy) + 0.12, -sy), q.identity(), new Vector3(r * (t.fir ? 0.8 : 1), 1, r * (t.fir ? 0.8 : 1)));
+    const g = ground(t.x, t.y);
+    // up into the middle of the crown, so no gap shows between them from any side
+    const top = t.fir ? treeHeight(t) * 0.3 : treeHeight(t) - crownRadius(t) * FLAT;
+    const w = t.fir ? 0.3 : 0.28 + 0.12 * t.r1;
+    m.compose(new Vector3(t.x, g - 0.2, -t.y), q.identity(), new Vector3(w, top + 0.2, w));
+    trunks.setMatrixAt(k, m);
+  });
+  group.add(trunks);
+  const shades = new InstancedMesh(shadeGeo, shadeMat, trees.length);
+  // The shadow runs from the foot of the trunk to where the crown's shadow falls, as one long patch:
+  // a patch only where the crown's shadow falls lay apart from the tree, and the tree seemed to float.
+  const along = new Quaternion().setFromAxisAngle(up, -Math.PI / 4);
+  trees.forEach((t, k) => {
+    const r = crownRadius(t) * (t.fir ? 0.8 : 1);
+    const lift = t.fir ? treeHeight(t) * 0.4 : treeHeight(t) - crownRadius(t) * FLAT;
+    const run = lift * SUN_RUN * Math.SQRT2;
+    const half = (run + r + 0.6) / 2;
+    const mid = half - 0.6;
+    const sx = t.x + (mid / Math.SQRT2);
+    const sy = t.y - (mid / Math.SQRT2);
+    m.compose(new Vector3(sx, ground(sx, sy) + 0.12, -sy), along, new Vector3(half, 1, r));
     shades.setMatrixAt(k, m);
   });
   shades.renderOrder = 1;

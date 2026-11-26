@@ -17,10 +17,15 @@ leaves the trees out, to compare.
 
 Drawing cost, measured with `tools/trees-bench.html` (a square of wood under the game's camera) in a
 browser with software graphics, the worst case: about 25,000 triangles and 13 draws a frame, 27 ms a
-frame against 21 ms without trees. What made it cheap: flat crowns of 36 triangles, no trunks drawn,
-a soft patch on the ground instead of a real shadow (real shadows cost four times as much), trees in
+frame against 21 ms without trees. What made it cheap: flat crowns of 36 triangles, trunks of 10
+triangles that throw no shadow, a soft patch on the ground instead of a real shadow (real shadows cost four times as much), trees in
 patches of 125 m so those off screen are skipped, and at most 9,000 a square. Not yet measured on a
 phone.
+
+The owner found the first live trees looked like flying balls (26 November): the shadow patch lay
+where the crown's shadow falls, metres away from the tree, and no trunk was drawn. The patch now
+runs from the foot of the trunk to the crown's shadow, the trunks are drawn again, and the trees are
+lower (5.5–9 m, firs 8–13 m).
 
 ## Parked: trees from satellites (owner, 26 November 2026)
 

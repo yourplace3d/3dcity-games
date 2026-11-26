@@ -11,6 +11,11 @@ lives.
   request #12), the thin-map warning under the search field (#20), and police following a player they see
   going the wrong way (#13). North Bridge in Edinburgh checked on it after those: a car gets all 170 m across.
 - **Open, waiting on the owner:**
+  - *A story (owner, 26 November: "improve the gameplay aka story now"):* the brainstorm is
+    `docs/brainstorm-story.md` on branch `claude/story-brainstorm`. The owner's first answers: the main story,
+    then the people at the stations, then the tenants' dispute, with a story each day kept in view; free to
+    the first flat, then a chapter a day; the game speaks plainly at first, and whoever gives a task writes
+    as a message. Ten questions wait in its section 11. Nothing built.
   - *The next step at the homes:* step 2, the tenants' dispute with its four outcomes (the plan, section 4).
   - *Live weather:* on hold, the owner's call (26 November). If it comes back: Open-Meteo is free and needs no
     key, but its free tier is for non-commercial use and asks for a credit line ("Weather data by

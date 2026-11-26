@@ -1,5 +1,6 @@
 /**
- * A small PNG decoder for the elevation tiles (8-bit RGB or RGBA, not interlaced).
+ * A small PNG decoder for the elevation tiles (8-bit RGB or RGBA, not interlaced), and the grey land
+ * cover squares the trees are placed by.
  *
  * The tiles store heights in their colours (red × 256 + green + blue / 256 − 32768 m), so every
  * pixel has to come back exactly as it was stored. Reading it back from a canvas doesn't
@@ -36,10 +37,10 @@ export async function decodePng(bytes: Uint8Array): Promise<DecodedPng> {
       width = view.getUint32(p + 8);
       height = view.getUint32(p + 12);
       const [depth, colour, , , interlace] = body.subarray(8, 13);
-      if (depth !== 8 || interlace !== 0 || (colour !== 2 && colour !== 6)) {
+      if (depth !== 8 || interlace !== 0 || (colour !== 0 && colour !== 2 && colour !== 6)) {
         throw new Error(`unsupported PNG (depth ${depth}, colour type ${colour}, interlace ${interlace})`);
       }
-      channels = colour === 2 ? 3 : 4;
+      channels = colour === 0 ? 1 : colour === 2 ? 3 : 4;
     } else if (type === 'IDAT') {
       idat.push(body);
       idatLength += body.length;

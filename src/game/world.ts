@@ -9,7 +9,8 @@ import { makeProjector, type LngLat, type Projector } from '../geo/projection';
 import { loadHeightGrid, sampleGrid } from '../geo/terrain';
 import { DATA_ZOOM, fetchTiles, parseTiles, tilesForSquare, type LoadedTile } from '../geo/tiles';
 import { CityModel } from '../scene/cityModel';
-import { PALETTE } from '../scene/overlay';
+import { landCoverOn, PALETTE } from '../scene/overlay';
+import { reliefImage } from '../scene/relief';
 import { buildRoadMeshes, disposeRoadMeshes, showRelief } from './roadMesh';
 import { RoadNet } from './roads';
 import { Solids, Streams, WaterMask } from './solids';
@@ -76,6 +77,23 @@ Object.assign(PALETTE, {
   roadCasing: '#bdb7a8',
   path: '#c4bba6',
   rail: '#7d766a',
+  // finer kinds of land, in step with the stronger greens above (`landCoverOn`)
+  rock: '#c4bdb1',
+  ice: '#eef3f5',
+  wetland: '#9cc0a8',
+  heath: '#c6c49c',
+  scrub: '#9cc080',
+  orchard: '#b9cc94',
+  vineyard: '#cfcba4',
+  rows: '#8fb070',
+  town: '#dbd3c2',
+  shops: '#ddcfc4',
+  industry: '#cfccc6',
+  civic: '#e0d6b8',
+  quarry: '#cbbfa8',
+  slope: '#a3a39e',
+  cliff: '#75736f',
+  snow: '#f7f9fb',
 });
 
 
@@ -438,6 +456,10 @@ export class World {
     await breathe();
     const model = new CityModel(grid, texturePx, '#ffcc00');
     model.overlay.cut = bodies.map((b) => b.poly);
+    // bare steep slopes, cliffs and snow on the high tops, from the heights as the town is built on them
+    const relief = landCoverOn() ? reliefImage(grid, centre.lat, PALETTE) : null;
+    model.overlay.relief = relief;
+    (model as unknown as { reliefStats: unknown }).reliefStats = relief?.stats ?? null;
     // the ground is see-through where the water is cut out of its picture
     model.terrain.surface.material.alphaTest = 0.5;
     model.setExaggeration(1);

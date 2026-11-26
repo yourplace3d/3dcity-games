@@ -195,6 +195,8 @@ const LANDCOVER_KIND: Record<string, AreaKind> = {
   wetland: 'green',
   farmland: 'farmland',
   sand: 'sand',
+  rock: 'rock',
+  ice: 'ice',
 };
 
 const LANDUSE_KIND: Record<string, AreaKind> = {
@@ -202,6 +204,18 @@ const LANDUSE_KIND: Record<string, AreaKind> = {
   pitch: 'green',
   playground: 'green',
   stadium: 'green',
+  // what a part of town is used for: only a shade of the ground
+  residential: 'built',
+  commercial: 'built',
+  retail: 'built',
+  industrial: 'built',
+  railway: 'built',
+  quarry: 'built',
+  school: 'built',
+  university: 'built',
+  college: 'built',
+  kindergarten: 'built',
+  hospital: 'built',
 };
 
 const ROAD_KIND: Record<string, [LineKind, number]> = {
@@ -329,6 +343,8 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         clipArea(kind, polygonsOf(f, toLocal));
         // what the green is (park, garden, grass, meadow): a lawn is painted over a square, a park under it
         if (areas.length > before && str(f.properties.subclass)) areas[before].cls = str(f.properties.subclass);
+        // the broad class too (a wetland, scrub or a vineyard is coloured apart from plain green or fields)
+        if (areas.length > before) areas[before].cover = str(f.properties.class);
       });
     }
     {

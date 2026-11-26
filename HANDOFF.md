@@ -4,39 +4,72 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (26 November 2026)
+## Right now (26 November 2026, evening)
 
-- **Live:** `main` at `b04b3f4`, deploy run 70 (26 November), with everything below that says live, and the
-  work of other sessions the same day: rivers with quay walls and bridges that look like bridges (pull
-  request #12), the thin-map warning under the search field (#20), and police following a player they see
-  going the wrong way (#13). North Bridge in Edinburgh checked on it after those: a car gets all 170 m across.
-- **Open, waiting on the owner:**
-  - *A story (owner, 26 November: "improve the gameplay aka story now"):* the brainstorm is
-    `docs/brainstorm-story.md` on branch `claude/story-brainstorm`. The owner's first answers: the main story,
-    then the people at the stations, then the tenants' dispute, with a story each day kept in view; free to
-    the first flat, then a chapter a day; the game speaks plainly at first, and whoever gives a task writes
-    as a message. Round 2 (26 November, section 13): "Do jobs" keeps its name; names by region if easy (it is,
-    about 1.5 days); written messages only, a look per person (mockups: https://claude.ai/artifact/2C3rs3maNZd7ByRvmAJ9kJ);
-    count word `chapter` agreed, and the session "3DA: connecting and getting online" told. Explanations given
-    for questions 4 to 7, 9 and 10. Round 3 (section 14): names by region yes (20 a region); the dispute by reading
-    people then driving; the daily story fills the gaps; the people send you to other towns; car chases go into the
-    story; Mira's choice tied in order. Ana's question is still open. **Step A, the main story over what exists,
-    goes live on the owner's word** ("Yes" to "review it and put it live if the review passes", 26 November)
-    after five code reviews: chapters 1 to 7, the people's messages on their own papers, the Story tab, names by
-    region, the `chapter` count in the game. The live server's list does not have the word `chapter` yet, so
-    nothing is counted until the session "3DA: connecting and getting online" adds it (told twice). Tested: 271
-    unit tests, and `tools/story-test.mjs` in a browser on Nuremberg and Berlin tiles. Not tested on a real
-    device. Left as designed from the reviews: a player who is further on starts at chapter 5 (it introduces
-    the people), and the Story tab shows once a place has been played on the page.
-  - *The next step at the homes:* step 2, the tenants' dispute with its four outcomes (the plan, section 4).
-  - *Live weather:* on hold, the owner's call (26 November). If it comes back: Open-Meteo is free and needs no
-    key, but its free tier is for non-commercial use and asks for a credit line ("Weather data by
-    Open-Meteo.com"). GTW, a sandbox on the real Earth, was looked at for ideas only; the owner wants no credit
-    to it, and none is owed as no code was taken.
-  - *The radio for everyone:* only with a media lawyer's word (the plan, section 11). A way round to weigh then:
-    FM opening the station's own page in a new tab, a plain link, instead of playing in the game.
-  - *A privacy policy and a legal notice (Impressum):* the site has neither, though it contacts OpenFreeMap,
-    AWS, Photon, Nominatim and Supabase. For the owner, with a lawyer.
+- **Live:** `main` at `1114856`, deploy run 73 (26 November, 20:07 UTC), checked on the live site. In it, the
+  same day: **the story, step A** (pull request #24, below); trees in woods, parks and gardens, standing on the
+  ground (#23 and #25, another session: `docs/trees.md`); rivers with quay walls and real bridges (#12); the
+  thin-map warning under the search field (#20); police following a player they see going the wrong way (#13).
+
+### The story (owner, 26 November: "improve the gameplay aka story now")
+
+- **What is live (step A):** eight chapters that put what the game had in order: Arrival, Making rent, A roof
+  over your head (the worn-down flat), Safe money (the bank), The regulars (a job at each kind of station),
+  Housewarming (a party), The whole building, and Landlord (chapter 8, shown as "Coming"). The first visit
+  plays straight through to the first flat; then one new chapter on each new day you play. The game speaks
+  plainly; whoever gives a task writes a message on a paper of their own (the pump a till receipt, the fire
+  station a pager, the police a notebook, the neighbour a card, the friends text bubbles). Nobody calls. First
+  names come from the region of the first home. The menu has a **Story** tab. How it all works: README, "A story
+  in eight chapters"; every decision and its reason: `docs/brainstorm-story.md` (sections 1 to 15).
+- **Put live on the owner's word** ("Yes" to "review it and put it live if the review passes") after five code
+  reviews, whose fixes are listed in the brainstorm, section 15. The owner looked at it live: "looks good".
+- **Code:** `src/game/story.ts` (the rules, no screen: chapters, the day gate, what each says),
+  `src/storyUi.ts` (messages, the Story tab, the way), `src/game/names.ts` (34 lists of 20 first names by
+  rough boxes), hooks in `src/homesUi.ts` (`atHomeTown`, `homeTownName`, `homeTownAt`, `dropWay`, the cards'
+  `kicker`, `wayToBank(toggle)`) and `src/main.ts` (`storyQuiet`, `goHome`, `showEl`). Kept as `3da-story`.
+- **Tests:** `tests/story.test.ts`, `tests/names.test.ts` (all 60 built-in cities and 89 border towns get the
+  right list); `node tools/story-test.mjs` plays it in a browser on real tiles (`SHOTS=<folder>` for
+  screenshots). In the software-rendered test browser a screenshot takes 10 to 20 seconds and the game runs
+  slowly: the test sets the story's played seconds by hand, and the gap between messages is in real time.
+- **Counted:** `chapter` with its number, once a browser for each chapter finished in play (not the ones ticked
+  for a player who was further on). On the server since 18:58 UTC, 26 November (migration
+  "play_counts_chapter", by the session "3DA: connecting and getting online", which keeps the database). Read:
+  `select day, detail, n from play_counts where kind = 'chapter' order by day desc, detail;`
+- **How it behaves, on purpose:** a player who is further on starts at chapter 5, which introduces the people;
+  messages wait while a card, the menu, the map or the tour is up and while a run of three is on; the station
+  people and the neighbour write only in the home town (their messages are kept until then), the friends
+  wherever a home of the player's stands; the bank chapter waits for the home town, chapter 6 only where no
+  home stands, chapter 7 only while the first building is being finished; no story in Where am I? or while a
+  friend's run or party from a link is on; the Story tab shows once a place has been played on the page.
+- **Next, in the owner's order** ("1-3 consequential", the daily story kept in view):
+  - *Step B, chapter 8 Landlord:* the tenants' dispute, decided by "reading people, then driving" (the owner's
+    "4c"): the tenants' message hints at what they need, the matching choice makes the job easier, the drive
+    settles it; four outcomes; escalation to the court's order with the police (a clean run, bill 5 days' rent).
+    Brainstorm, sections 8 and 13 (4). About 2.5 days (estimate). This replaces the old "step 2 at the homes".
+  - *Step C, the people's own stories:* five jobs each for the pump, the fire station and the police, one scene
+    a day, one choice each; after a couple of jobs each sends you to another town (the nearest built-in city,
+    "Go there"); **car chases** go into the story (the owner: "definitely"), the first in the pump's story (a
+    driver leaves without paying: stay close until the bar fills). The pump's choice is tied in order (the
+    owner's yes): lending opens free repair at her pump now; buying in pays a share like rent, and the garage
+    comes with cars of your own. Sections 7, 13 (10) and 14. About 3 days, plus 2 to 3 for the chase.
+  - *Step D, a short story each day:* the same for everyone that day, filling the gaps (the owner's "6 yes"):
+    offered once the day's chapter is done or where it can't be played. Section 10. About 3.5 days.
+- **Open, waiting on the owner:** the police officer's "Was it you?" (a choice with nothing to win): keep it,
+  only when it really happened, or drop it for a choice with something at stake such as a chase (section 14).
+- **To check:** the name lists come from general knowledge of common names, not from each country's
+  statistics; check them before they grow. Not tested on a real device.
+
+### Also open, waiting on the owner
+
+- *Live weather:* on hold, the owner's call (26 November). If it comes back: Open-Meteo is free and needs no
+  key, but its free tier is for non-commercial use and asks for a credit line ("Weather data by
+  Open-Meteo.com"). GTW, a sandbox on the real Earth, was looked at for ideas only; the owner wants no credit
+  to it, and none is owed as no code was taken.
+- *The radio for everyone:* only with a media lawyer's word (the plan, section 11). A way round to weigh then:
+  FM opening the station's own page in a new tab, a plain link, instead of playing in the game.
+- *A privacy policy and a legal notice (Impressum):* the site has neither, though it contacts OpenFreeMap,
+  AWS, Photon, Nominatim and Supabase. For the owner, with a lawyer.
+
 - **Known limits, left as they are:** where a road bridge crosses a street with tram tracks in it, trams and
   cars still meet there (the place alone can't tell the bridge from the street); someone walking along the
   tracks right under a bridge counts as on it; on the narrowest phones (320 px) the radio trial's FM button

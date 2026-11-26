@@ -16,6 +16,7 @@ import { namesFor } from './game/names';
 import { countPlay } from './linkCount';
 import type { JobKind, ServiceKind } from './game/services';
 import {
+  addPending,
   advance,
   ALL,
   begin,
@@ -31,6 +32,7 @@ import {
   say,
   SCENES,
   sender,
+  shown,
   STATION_JOBS,
   storeStory,
   type Snapshot,
@@ -74,7 +76,8 @@ type Queued = { who: Who; text: string; heading?: string };
 
 export class StoryUi {
   private story: Story = loadStory();
-  private queue: Queued[] = [];
+  /** what waits to be shown: the game's lines for this visit, and the people's messages kept in `Story.pending` */
+  private queue: Queued[] = this.story.pending.map((m) => ({ ...m }));
   /** when the last message was shown (ms, page time): messages keep a gap in real time, as they show for real time */
   private shownAt = -Infinity;
   private everyT = 0;
@@ -173,8 +176,9 @@ export class StoryUi {
     }
     this.guideTick();
     if (covered || !this.host.game.run.over) return;
-    if (this.queue.length && performance.now() - this.shownAt >= GAP_S * 1000 && this.playedS >= START_S) this.showNext();
-    if (!this.visitSaid && this.playedS >= VISIT_LINE_S && !this.queue.length) this.sayVisit();
+    const next = this.nextIndex();
+    if (next >= 0 && performance.now() - this.shownAt >= GAP_S * 1000 && this.playedS >= START_S) this.showNext(next);
+    if (!this.visitSaid && this.playedS >= VISIT_LINE_S && next < 0) this.sayVisit();
   }
 
   /** The story moves on with what the player has done. */
@@ -190,12 +194,14 @@ export class StoryUi {
     if (!story.names && first) story = { ...story, names: namesFor(first.lat, first.lon) };
     // the first home bought, in play: the neighbour says welcome
     if (this.homesBefore === 0 && s.homes > 0 && !said(story, 'neighbour-welcome')) {
-      story = say(story, 'neighbour-welcome');
-      this.enqueue(SCENES.neighbourWelcome());
+      const lines = SCENES.neighbourWelcome();
+      story = addPending(say(story, 'neighbour-welcome'), lines);
+      this.push(lines);
     }
     this.homesBefore = s.homes;
     const r = advance(story, s, today);
-    if (r.story !== story || story !== this.story) this.set(r.story);
+    // written only when something changed: `advance` hands back the same story when nothing moved
+    if (r.story !== this.story) this.set(r.story);
     r.finished.forEach((n, i) => {
       countPlay('chapter', String(n));
       this.finished(n, r.story, i === r.finished.length - 1);
@@ -216,18 +222,19 @@ export class StoryUi {
     if (body || after) this.line(`Chapter ${n} of ${ALL}: done`, [body, after].filter(Boolean).join(' '));
   }
 
-  /** A chapter opens: its line, and the people who come in with it. */
+  /**
+   * A chapter opens: its line, and the people who come in with it. Away from the home town the line says
+   * where it waits, and the people's messages wait for the home town (kept, so a later visit brings them).
+   */
   private opened(n: number, s: Snapshot): void {
     // chapters 1 to 3 are the tour, the first deliveries and the first flat: their own lines and cards say it
     if (n < 4) return;
     this.visitSaid = true;
-    if (!this.atHome()) {
-      this.awayLine(n);
-      return;
-    }
+    const home = this.atHome();
     if (n === 6) this.enqueue(SCENES.housewarming());
     if (n === 7) this.enqueue(SCENES.building(s));
-    this.goalLine(n);
+    if (home) this.goalLine(n);
+    else this.awayLine(n);
     if (n === 5) this.enqueue(SCENES.regulars(this.story));
   }
 
@@ -256,7 +263,8 @@ export class StoryUi {
 
   /** A station's job was delivered: its kind, for chapter 5, and the person's thanks. */
   private job(kind: Exclude<JobKind, 'plain'>): void {
-    this.set(noteJob(this.story, kind));
+    const noted = noteJob(this.story, kind);
+    if (noted !== this.story) this.set(noted);
     if (this.story.open !== 5 || !this.story.opened || said(this.story, `thanks-${kind}`)) return;
     this.set(say(this.story, `thanks-${kind}`));
     this.enqueue(SCENES.thanks(kind));
@@ -277,21 +285,33 @@ export class StoryUi {
 
   // ------------------------------------------------------------ messages
 
+  /** People's messages to show: kept with the story until they are shown. */
   private enqueue(lines: Array<[Who, string]>): void {
+    this.push(lines);
+    this.set(addPending(this.story, lines));
+  }
+
+  private push(lines: Array<[Who, string]>): void {
     for (const [who, text] of lines) this.queue.push({ who, text });
+  }
+
+  /** The first message that may show now: the game's lines always, the people's only in the home town. */
+  private nextIndex(): number {
+    const home = this.atHome();
+    return this.queue.findIndex((q) => q.who === 'game' || home);
   }
 
   private line(head: string, text: string): void {
     this.queue.push({ who: 'game', text, heading: head });
   }
 
-  private showNext(): void {
-    const q = this.queue.shift();
+  private showNext(i: number): void {
+    const [q] = this.queue.splice(i, 1);
     if (!q) return;
     this.shownAt = performance.now();
     const names = this.story.names;
     const from = q.who === 'friends' && names ? names.friends[friendFor(this.story)] : sender(q.who, names);
-    if (q.who !== 'game') this.set(keep(this.story, { who: q.who, from, text: q.text, day: this.today() }));
+    if (q.who !== 'game') this.set(shown(keep(this.story, { who: q.who, from, text: q.text, day: this.today() }), q.who, q.text));
     this.host.show(messageEl(q.who, q.who === 'game' ? (q.heading ?? '') : from, q.text), (q.who === 'game' ? LINE_S : MESSAGE_S) * 1000, () => this.host.openStory());
   }
 
@@ -345,7 +365,8 @@ export class StoryUi {
     this.host.closeMenu();
     const toast = (t: string) => this.host.show(messageEl('game', '', t), 4500);
     if (g.way === 'bank') {
-      homes?.wayToBank();
+      // asked from the story, the way is shown, never turned off
+      homes?.wayToBank(false);
       return;
     }
     if (g.way === 'home') {

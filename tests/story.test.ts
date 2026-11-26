@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advance, begin, BUILT, finished, goal, keep, met, none, noteJob, readStory, SCENES, type Snapshot, type Story } from '../src/game/story';
+import { addPending, advance, begin, BUILT, finished, goal, keep, met, none, noteJob, readStory, SCENES, shown, type Snapshot, type Story } from '../src/game/story';
 import { namesFor } from '../src/game/names';
 
 const snap = (o: Partial<Snapshot> = {}): Snapshot => ({ delivered: 0, homes: 0, reno: null, saved: 0, partied: false, building: false, ...o });
@@ -119,6 +119,31 @@ describe('the story', () => {
     s = keep(s, { who: 'pump', from: 'Mira · the pump', text: 'Hi', day: D1 });
     expect(met(s)).toEqual(['pump']);
     expect(SCENES.regulars(s).map(([w]) => w)).toEqual(['flame', 'shield']);
+  });
+
+  it('hands back the same story when nothing moved, so nothing is written again', () => {
+    const s = begin(snap({ delivered: 1 }), D1);
+    const r = play(s, snap({ delivered: 1 }), D1);
+    expect(r.story).toBe(s);
+    expect(play(s, snap({ delivered: 2 }), D1).story).not.toBe(s);
+    expect(noteJob(noteJob(s, 'rush'), 'rush').kinds).toEqual(['rush']);
+    const once = noteJob(s, 'rush');
+    expect(noteJob(once, 'rush')).toBe(once);
+  });
+
+  it('keeps people’s messages until they are shown, never the game’s lines', () => {
+    let s = addPending(none(), [['game', 'A line'], ['friends', 'Hey'], ['pump', 'Oil']]);
+    expect(s.pending).toEqual([{ who: 'friends', text: 'Hey' }, { who: 'pump', text: 'Oil' }]);
+    expect(readStory(JSON.stringify(s)).pending).toEqual(s.pending);
+    s = shown(s, 'friends', 'Hey');
+    expect(s.pending).toEqual([{ who: 'pump', text: 'Oil' }]);
+    expect(shown(s, 'flame', 'nothing')).toBe(s);
+  });
+
+  it('says whole buildings are for sale only from the number of homes the game asks', () => {
+    const at = (homes: number) => goal(7, { ...snap({ homes }), town: 'Nuremberg', buildingsAfter: 6 }, none()).text;
+    expect(at(5)).toBe('Own a whole building. They are for sale once you have 6 homes.');
+    expect(at(6)).toBe('Own a whole building: stop beside one to see its price.');
   });
 
   it('reads back what it stored, and nothing broken', () => {

@@ -30,9 +30,12 @@ export const BUILT = 7;
 export const FREE = 3;
 /** messages kept for the menu */
 export const INBOX_MAX = 24;
+/** people's messages waiting to be shown, kept so that a closed page loses none */
+export const PENDING_MAX = 12;
 
 /** Who speaks: the game itself, or a person, each with a look of their own. */
 export type Who = 'game' | 'pump' | 'flame' | 'shield' | 'neighbour' | 'friends';
+export type Person = Exclude<Who, 'game'>;
 /** The people at the stations, by the job their station hands out. */
 export const PERSON_OF: Record<Exclude<JobKind, 'plain'>, Who> = { supply: 'pump', rush: 'flame', clean: 'shield' };
 export const STATION_JOBS: Array<Exclude<JobKind, 'plain'>> = ['supply', 'rush', 'clean'];
@@ -63,6 +66,8 @@ export interface Story {
   said: string[];
   /** the messages, newest last */
   inbox: Message[];
+  /** the people's messages still to be shown: they wait for a quiet moment, and for the home town */
+  pending: Array<{ who: Person; text: string }>;
   /** the people's names, drawn once from the home town */
   names?: Names;
 }
@@ -88,7 +93,7 @@ const JOBS: JobKind[] = ['plain', 'supply', 'rush', 'clean'];
 
 /** A story that has not begun. */
 export function none(): Story {
-  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [] };
+  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [], pending: [] };
 }
 
 export function readStory(raw: string | null): Story {
@@ -106,6 +111,11 @@ export function readStory(raw: string | null): Story {
     const inbox = Array.isArray(k.inbox)
       ? k.inbox.flatMap((m) => (m && WHO.includes(m.who) && typeof m.text === 'string' && typeof m.from === 'string' && isDay(m.day) ? [{ who: m.who, from: m.from.slice(0, 80), text: m.text.slice(0, 400), day: m.day }] : [])).slice(-INBOX_MAX)
       : [];
+    const pending = Array.isArray(k.pending)
+      ? (k.pending as Array<{ who?: unknown; text?: unknown } | null>)
+          .flatMap((m) => (m && typeof m.who === 'string' && m.who !== 'game' && WHO.includes(m.who as Who) && typeof m.text === 'string' ? [{ who: m.who as Person, text: m.text.slice(0, 400) }] : []))
+          .slice(-PENDING_MAX)
+      : [];
     const names = readNames(k.names);
     return {
       open,
@@ -116,6 +126,7 @@ export function readStory(raw: string | null): Story {
       kinds: Array.isArray(k.kinds) ? [...new Set(k.kinds.filter((j): j is JobKind => JOBS.includes(j)))] : [],
       said: Array.isArray(k.said) ? [...new Set(k.said.filter((s): s is string => typeof s === 'string'))].slice(0, 200) : [],
       inbox,
+      pending,
       ...(names ? { names } : {}),
     };
   } catch {
@@ -205,6 +216,7 @@ export function advance(before: Story, s: Snapshot, today: string): Step {
   const story: Story = { ...before, done: { ...before.done } };
   const done: number[] = [];
   let opened: number | null = null;
+  let changed = false;
   for (let guard = 0; guard < ALL + 2 && story.open >= 1 && story.open <= BUILT; guard++) {
     const n = story.open;
     if (finished(n, s, story)) {
@@ -213,6 +225,7 @@ export function advance(before: Story, s: Snapshot, today: string): Step {
       done.push(n);
       story.open = nextOf(story);
       story.opened = '';
+      changed = true;
       continue;
     }
     if (story.opened) break;
@@ -221,15 +234,29 @@ export function advance(before: Story, s: Snapshot, today: string): Step {
       story.opened = today;
       story.last = today;
       opened = n;
+      changed = true;
     }
     break;
   }
-  return { story, finished: done, opened };
+  // nothing moved: the same story, so nothing is written again
+  return { story: changed ? story : before, finished: done, opened };
 }
 
 /** A station's job was delivered: its kind is kept, for chapter 5. */
 export function noteJob(story: Story, kind: JobKind): Story {
   return story.kinds.includes(kind) ? story : { ...story, kinds: [...story.kinds, kind] };
+}
+
+/** People's messages are kept until they have been shown. */
+export function addPending(story: Story, lines: Array<[Who, string]>): Story {
+  const add = lines.flatMap(([who, text]) => (who === 'game' ? [] : [{ who, text }]));
+  return add.length ? { ...story, pending: [...story.pending, ...add].slice(-PENDING_MAX) } : story;
+}
+
+/** A person's message has been shown: it no longer waits. */
+export function shown(story: Story, who: Person, text: string): Story {
+  const i = story.pending.findIndex((m) => m.who === who && m.text === text);
+  return i < 0 ? story : { ...story, pending: story.pending.filter((_, j) => j !== i) };
 }
 
 /** A scene is shown once: whether it has been. */
@@ -308,9 +335,9 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
     case 7:
       return s.reno === 'buy' || s.reno === 'rest' || s.reno === 'paint'
         ? { text: 'Buy the rest of your building, repair it flat by flat, and choose its colour.', way: 'home' }
-        : s.homes >= s.buildingsAfter - 1
+        : s.homes >= s.buildingsAfter
           ? { text: 'Own a whole building: stop beside one to see its price.', way: null }
-          : { text: `Own a whole building. They are for sale from your ${ordinal(s.buildingsAfter)} home on.`, way: null };
+          : { text: `Own a whole building. They are for sale once you have ${s.buildingsAfter} homes.`, way: null };
     default:
       return { text: 'Comes in a later update.', way: null };
   }
@@ -319,10 +346,6 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
 function list(items: string[]): string {
   if (items.length <= 1) return items.join('');
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-}
-
-function ordinal(n: number): string {
-  return ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'][n - 1] ?? `${n}th`;
 }
 
 /** "Chapter 5 of 8 · The regulars" */

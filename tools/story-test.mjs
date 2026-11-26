@@ -167,11 +167,16 @@ try {
   assert.ok(Object.values(s.done).every((d) => d.silent));
   assert.equal(s.open, 5, 'the people at the stations come first');
 
-  console.log('Away from the home town: the chapter waits there');
+  console.log('Away from the home town: chapter 7 opens there, its message waits for home');
+  for (const job of ['rush', 'clean', 'supply']) await page.evaluate((j) => game.events.forEach((f) => f({ kind: 'delivered', job: j, left: 20, special: false })), job);
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-story')).open === 7);
+  await nextDay();
   await reload('Berlin');
-  await page.evaluate(() => (story.visitSaid = false));
   await message('game', 'Waits in Nuremberg');
   await shot('13-away');
+  await page.waitForTimeout(4000);
+  assert.equal(await page.locator('#toasts .msg[data-who="neighbour"]').count(), 0, 'no neighbour’s card away from home');
+  assert.equal((await story()).pending.filter((m) => m.who === 'neighbour').length, 1, 'it is kept for home');
   await page.keyboard.press('KeyP');
   await page.locator('#tab-story').click();
   const go = page.locator('#pane-story button', { hasText: 'Go to Nuremberg' });
@@ -180,6 +185,8 @@ try {
   await playing();
   assert.match(await page.evaluate(() => homes.homeTownName()), /Nuremberg/);
   assert.equal(await page.evaluate(() => homes.atHomeTown()), true, 'back in the home town');
+  await message('neighbour', 'selling the rest');
+  assert.equal((await story()).pending.length, 0, 'shown at home');
 
   console.log('On a phone');
   await page.setViewportSize({ width: 390, height: 844 });

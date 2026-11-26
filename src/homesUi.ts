@@ -693,10 +693,10 @@ export class HomesUi {
 
   /**
    * The way to the nearest bank, asked for by the player: the arrow shows it until they are there, like a
-   * mission's, though it is none (the owner, 23 November). Asked again, it is turned off. Outside the home
-   * town, it says where the banks are.
+   * mission's, though it is none (the owner, 23 November). Asked again, it is turned off (`toggle`; the
+   * story's "Show the way" only ever turns it on). Outside the home town, it says where the banks are.
    */
-  wayToBank(): void {
+  wayToBank(toggle = true): void {
     const { toast } = this.host;
     if (!this.plate) {
       toast('No bank yet: your first home makes its town your home town, with its banks.', 'info', 6000);
@@ -724,7 +724,7 @@ export class HomesUi {
       }
     }
     // on the way to pay in for the first time, the arrow stays until the cash is in; it is turned off only when it shows
-    if (this.bankWay && this.bankArrow() && this.lesson.stage !== 'go') {
+    if (toggle && this.bankWay && this.bankArrow() && this.lesson.stage !== 'go') {
       this.bankWay = false;
       this.remindArrow = 0;
       this.guideBank(false);

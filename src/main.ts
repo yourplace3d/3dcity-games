@@ -1349,8 +1349,9 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
   if (!on) return;
   $('tab-game').hidden = !playing;
   $('tab-estate').hidden = $('tab-trophies').hidden = !!secret;
-  $('tab-story').hidden = !!secret || !story;
-  if (tab === 'story' && !story) tab = playing ? 'game' : 'estate';
+  // no story while a city is guessed, or on a friend's run or party from a link
+  $('tab-story').hidden = !!secret || !story || !!rival || !!partyShown;
+  if (tab === 'story' && $('tab-story').hidden) tab = playing ? 'game' : 'estate';
   const tabs: Array<[MenuTab, string]> = [['game', 'game'], ['story', 'story'], ['estate', 'estate'], ['trophies', 'trophies']];
   for (const [t, id] of tabs) {
     $(`tab-${id}`).setAttribute('aria-selected', String(t === tab));

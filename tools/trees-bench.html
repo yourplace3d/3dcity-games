@@ -20,7 +20,7 @@ const hm = /h(\d+)/.exec(location.hash); camera.position.set(0, hm ? +hm[1] : 90
 // worst case: a whole square of wood, thinned to the cap as the game does
 const trees = []; let s = 1;
 const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-for (let y = -470; y < 470; y += 4) for (let x = -470; x < 470; x += 4) if (rnd() < (location.hash.includes("park") ? 0.08 : 0.2)) trees.push({ x: x + rnd() * 3, y: y + rnd() * 3, r1: rnd(), r2: rnd(), fir: rnd() < 0.3 });
+for (let y = -470; y < 470; y += 4) for (let x = -470; x < 470; x += 4) if (rnd() < (location.hash.includes("park") ? 0.08 : 0.2)) trees.push({ x: x + rnd() * 3, y: y + rnd() * 3, r1: rnd(), r2: rnd(), fir: rnd() < 0.3, shade: 9 });
 const cap = trees.filter((t) => t.r2 < 9000 / trees.length);
 const g = treeMesh(cap, () => 0); scene.add(g); if (location.hash === "#noshadow") g.traverse((o) => (o.castShadow = false));
 const gl = renderer.getContext(); const px = new Uint8Array(4);

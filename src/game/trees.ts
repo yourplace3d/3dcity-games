@@ -158,6 +158,8 @@ interface Tree {
   r1: number;
   r2: number;
   fir: boolean;
+  /** how far its shadow patch may run from the foot of the trunk (m): it stops short of water, roads and walls */
+  shade: number;
 }
 
 /** Where the trees of a square stand. */
@@ -197,7 +199,7 @@ export function placeTrees(site: TreeSite): Tree[] {
       else if (site.cover && site.cover.at(lon, lat) === TREE_COVER) chance = place === PLACE_OPEN ? IN_COVER / 2 : IN_COVER;
       else if (place === PLACE_PARK) chance = IN_PARK;
       if (roll >= chance) continue;
-      out.push({ x, y, r1: hash(i, j, 4), r2: hash(i, j, 5), fir: place === PLACE_WOOD && hash(i, j, 6) < 0.3 });
+      out.push({ x, y, r1: hash(i, j, 4), r2: hash(i, j, 5), fir: place === PLACE_WOOD && hash(i, j, 6) < 0.3, shade: 0 });
     }
   }
   // the costly tests last, on the few spots left
@@ -212,10 +214,23 @@ export function placeTrees(site: TreeSite): Tree[] {
     }
     return true;
   });
-  if (kept.length <= MAX_TREES) return kept;
   // too many: keep a fair share everywhere, not the first ones
   const share = MAX_TREES / kept.length;
-  return kept.filter((t) => t.r2 < share);
+  const trees = kept.length <= MAX_TREES ? kept : kept.filter((t) => t.r2 < share);
+  // The shadow patch lies flat at the height of the ground. Over a river the ground is cut away and the
+  // water lies lower, so a patch reaching out over it hung in the air beside the bank (seen by the
+  // Thames at Westminster). It ends before water, a road or a wall.
+  for (const t of trees) {
+    const full = shadeLength(t);
+    let len = 0;
+    while (len < full) {
+      const d = Math.min(full, len + 1) / Math.SQRT2;
+      if (site.blocked(t.x + d, t.y - d) || site.onRoad(t.x + d, t.y - d)) break;
+      len = Math.min(full, len + 1);
+    }
+    t.shade = len;
+  }
+  return trees;
 }
 
 const crownRadius = (t: Tree) => (t.fir ? 2 + 1.3 * t.r1 : 2.6 + 2 * t.r1);
@@ -223,6 +238,12 @@ const crownRadius = (t: Tree) => (t.fir ? 2 + 1.3 * t.r1 : 2.6 + 2 * t.r1);
 const FLAT = 0.6;
 /** a trunk, to bump into (m): wide enough that a car never slips through a tree */
 export const TRUNK_R = 0.5;
+/** the shadow patch's full length from the foot of the trunk along the sun (m) */
+function shadeLength(t: Tree): number {
+  const r = crownRadius(t) * (t.fir ? 0.8 : 1);
+  const lift = t.fir ? treeHeight(t) * 0.4 : treeHeight(t) - crownRadius(t) * FLAT;
+  return lift * SUN_RUN * Math.SQRT2 + r;
+}
 const treeHeight = (t: Tree) => (t.fir ? 8 + 5 * t.r2 : 5.5 + 3.5 * t.r2);
 
 const LEAVES = ['#5f8f4a', '#6b9a50', '#55844a', '#7aa45a', '#4f7d43', '#668f3f'].map((c) => new Color(c));
@@ -317,13 +338,12 @@ function patchMesh(group: Group, trees: Tree[], ground: (x: number, y: number) =
   const along = new Quaternion().setFromAxisAngle(up, -Math.PI / 4);
   trees.forEach((t, k) => {
     const r = crownRadius(t) * (t.fir ? 0.8 : 1);
-    const lift = t.fir ? treeHeight(t) * 0.4 : treeHeight(t) - crownRadius(t) * FLAT;
-    const run = lift * SUN_RUN * Math.SQRT2;
-    const half = (run + r + 0.6) / 2;
+    // from just behind the trunk to as far as the shadow may run; never wider than it is long
+    const half = (t.shade + 0.6) / 2;
     const mid = half - 0.6;
-    const sx = t.x + (mid / Math.SQRT2);
-    const sy = t.y - (mid / Math.SQRT2);
-    m.compose(new Vector3(sx, ground(sx, sy) + 0.12, -sy), along, new Vector3(half, 1, r));
+    const sx = t.x + mid / Math.SQRT2;
+    const sy = t.y - mid / Math.SQRT2;
+    m.compose(new Vector3(sx, ground(sx, sy) + 0.12, -sy), along, new Vector3(half, 1, Math.min(r, half)));
     shades.setMatrixAt(k, m);
   });
   shades.renderOrder = 1;

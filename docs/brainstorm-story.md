@@ -674,7 +674,7 @@ something at stake, such as a chase. Either is fine.
   receipt, a pager, a notebook page, a card, text bubbles. Each message shows for 9 seconds, at least 2.8
   seconds apart, from 6 seconds into a visit (after the place's name and the line on rent). They wait while a
   card, the menu, the map or the tour is up, and while a run of three is on.
-- **Names by region:** about 30 lists of 20 first names (`src/game/names.ts`), from general knowledge of the
+- **Names by region:** 34 lists of 20 first names (`src/game/names.ts`), from general knowledge of the
   most given names of adults today, **to be checked against each country's statistics**. Nuremberg's people
   came out as Laura at the pump, Thomas at the fire station, Sarah at the police, Stefan next door, and Nicole,
   Jan and Anna. The unit tests check that all 60 built-in cities and 63 places near borders get the right list

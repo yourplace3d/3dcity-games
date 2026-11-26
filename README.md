@@ -20,7 +20,7 @@ the streets, buildings, water and hills come from the same map squares as
   whoever gives a task writes a message, each on a paper of their own: the pump's attendant on a till
   receipt, the fire station's on a pager, the police officer in a notebook, the neighbour on a card, the
   friends in text messages. Nobody calls. Their first names come from the region of the first home
-  (`src/game/names.ts`: about 30 lists by rough boxes, as for the windows) and are kept. From chapter 4 on
+  (`src/game/names.ts`: 34 lists of 20, by rough boxes as for the windows) and are kept. From chapter 4 on
   the story happens in the home town; elsewhere the menu's **Story** tab says where it waits and goes there.
   No message interrupts a run of three, and there is no story in Where am I? or on a friend's link. Each
   chapter finished in play is counted (`chapter`, its number), once a browser; chapters ticked for a player

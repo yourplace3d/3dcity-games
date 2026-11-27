@@ -17,6 +17,7 @@ import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
 import { arriveLine, PartyUi } from './partyUi';
 import { StoryUi } from './storyUi';
+import { menuLine as discordLine } from './discord';
 import { readParty, type SentParty } from './game/party';
 import { drawTrophies, Trophies, type TrophyId } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
@@ -1417,6 +1418,8 @@ $('tab-story').addEventListener('click', () => setPause(true, 'story'));
 $('tab-estate').addEventListener('click', () => setPause(true, 'estate'));
 $('tab-trophies').addEventListener('click', () => setPause(true, 'trophies'));
 $('btn-continue').addEventListener('click', () => setPause(false));
+// the Discord, on the menu's first tab: only once the owner has set an invite (`discord.ts`)
+discordLine($('discord-menu'));
 $('pause').addEventListener('click', (e) => e.target === e.currentTarget && setPause(false));
 $('btn-switch').addEventListener('click', () => {
   if (!game) return;

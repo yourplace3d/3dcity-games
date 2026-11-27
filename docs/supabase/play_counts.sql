@@ -7,10 +7,13 @@
 -- runs started, Where am I? rounds and time played added on 17 November 2026 ("play_counts_more");
 -- the city being played added on 21 November 2026 ("play_counts_city"); the chapter of the story just
 -- finished in play, '1' to '8', added on 26 November 2026 ("play_counts_chapter", applied 18:58 UTC by the
--- session that keeps the database).
+-- session that keeps the database); a click on the Discord invite, the chapter the card follows ('1' to '8')
+-- or 'menu', added on 27 November 2026 ("play_counts_discord", applied 21:29 UTC).
 --
 -- How far players get in the story:
 --   select day, detail, n from play_counts where kind = 'chapter' order by day desc, detail;
+-- Clicks on the Discord invite, by place:
+--   select day, detail, n from play_counts where kind = 'discord' order by day desc, detail;
 --
 -- Read it with:
 --   select day, kind, detail, n from play_counts order by day desc, kind, detail;
@@ -30,7 +33,7 @@ create table public.play_counts (
   primary key (day, kind, detail)
 );
 comment on table public.play_counts is
-  'Per day (UTC): visits (new: a browser seen for the first time; back: the first visit of a day by a browser seen before; detail: where it came from) and play (start: a run begun, its first package on board; run: a run of three finished; home: a home bought, detail flat/house/building; rent: rent collected on a return; guess: a round of Where am I? begun; time: how long a visit played, detail under1/1to5/5to20/over20 minutes; city: a city loaded to play in, once a visit for each, detail a well-known city by name, else its one-degree square such as 53,9, else other). Counts only. Written through count_play().';
+  'Per day (UTC): visits (new: a browser seen for the first time; back: the first visit of a day by a browser seen before; detail: where it came from) and play (start: a run begun, its first package on board; run: a run of three finished; home: a home bought, detail flat/house/building; rent: rent collected on a return; guess: a round of Where am I? begun; time: how long a visit played, detail under1/1to5/5to20/over20 minutes; city: a city loaded to play in, once a visit for each, detail a well-known city by name, else its one-degree square such as 53,9, else other; chapter: a story chapter finished in play, once a browser for each chapter, detail its number 1 to 8; discord: a click on the Discord invite, detail the chapter after which it was shown (1 to 8) or menu, else other). Counts only. Written through count_play().';
 
 alter table public.play_counts enable row level security;
 -- no policies: browsers cannot read or write the table, only call count_play()
@@ -46,12 +49,14 @@ declare
   today date := (now() at time zone 'utc')::date;
 begin
   -- only the words the game sends; anything else is dropped
-  if count_play.kind not in ('new', 'back', 'start', 'run', 'home', 'rent', 'guess', 'time', 'city', 'chapter') then return; end if;
+  if count_play.kind not in ('new', 'back', 'start', 'run', 'home', 'rent', 'guess', 'time', 'city', 'chapter', 'discord') then return; end if;
   if count_play.kind in ('new', 'back') and d not in ('direct', 'youtube', 'search', 'challenge', 'link') then d := 'other'; end if;
   if count_play.kind = 'home' and d not in ('flat', 'house', 'building') then d := ''; end if;
   if count_play.kind = 'time' and d not in ('under1', '1to5', '5to20', 'over20') then return; end if;
   -- the chapter just finished in the story, '1' to '8'; anything else is dropped (as with 'time')
   if count_play.kind = 'chapter' and d not in ('1', '2', '3', '4', '5', '6', '7', '8') then return; end if;
+  -- a click on the Discord invite: the chapter after which it was shown ('1' to '8') or 'menu'; anything else counts as 'other'
+  if count_play.kind = 'discord' and d not in ('1', '2', '3', '4', '5', '6', '7', '8', 'menu') then d := 'other'; end if;
   if count_play.kind in ('start', 'run', 'rent', 'guess') then d := ''; end if;
   -- a city being played: one of the well-known cities by name, else the one-degree square of the place
   -- ("53,9"), else 'other'. Never a name a visitor typed. Squares: at most 500 different ones a day.

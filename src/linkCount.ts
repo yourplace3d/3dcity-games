@@ -182,6 +182,14 @@ export function countPlay(kind: 'start' | 'run' | 'home' | 'rent' | 'guess' | 'c
 }
 
 /**
+ * A click on the game's Discord invite (`discord.ts`): where it was, the chapter the card follows ("1" to "8")
+ * or "menu". Once the page has been touched (the click itself is a touch).
+ */
+export function countDiscord(where: string): void {
+  void person.then(() => send('discord', where));
+}
+
+/**
  * What a place is counted under: the well-known city it lies in or beside (the rule that names it on
  * the sign), else its one-degree square, as the links are. Never a name from the place search.
  */

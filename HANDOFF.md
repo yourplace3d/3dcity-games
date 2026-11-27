@@ -151,8 +151,8 @@ lives.
   doesn't count. `wrongWay` in `src/game/game.ts`, tests in `tests/oneway.test.ts`. Put live on the owner's
   word ("Oneway streets go up too", 26 November).
 - **The police too hard for it (owner, 27 November, after playing: "The police is too hard on the player now.
-  Catching after only seeing wrong direction is too much"). Not live: branch `claude/police-wrong-way`, from
-  `main`, waiting for the owner's word.** One heat for the wrong way had made it a chase like any other: the
+  Catching after only seeing wrong direction is too much").** Branch `claude/police-wrong-way`, merged by pull
+  request and put live on the owner's word ("put the police fix live", 27 November). One heat for the wrong way had made it a chase like any other: the
   police car drove straight at the player, and stopping beside it was "Caught!", a quarter of the cash gone and
   the package with it, though the arrow's own way leads down one-way streets. Now, while the wrong way is all
   there is (`Game.soft`): the police car follows about 18 m behind and gives way like any driver; it never

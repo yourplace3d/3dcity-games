@@ -1,12 +1,15 @@
 /**
  * The game's Discord: a small server for story help, bugs and feedback (the owner's plan, 27 November 2026).
- * Two places invite to it, and nothing more: a small card after one chapter of the story, that can be closed
- * and blocks nothing, and a link on the menu's first tab. Nothing on the first screen.
+ * Three places invite to it, and nothing more: a small card after one chapter of the story, that can be closed
+ * and blocks nothing, a link on the menu's first tab, and a line at the very bottom of the main menu, under
+ * the credits (the owner, 27 November 2026: "add it to the very bottom of main menu as well").
  *
  * Nothing shows until `INVITE` holds a real invite (an address on discord.gg or discord.com/invite).
  *
- * A click on either is counted (`count_play`, kind "discord"): the detail is the chapter the card follows
- * ("1" to "8") or "menu". Once for each browser and each place, kept in this browser as `3da-discord`; not
+ * A click on any of them is counted (`count_play`, kind "discord"): the detail is the chapter the card follows
+ * ("1" to "8"), "menu", or "start" for the main menu. The server knows no "start" yet and counts it as "other",
+ * which nothing else sends; once it is added there, the same clicks land under "start".
+ * Once for each browser and each place, kept in this browser as `3da-discord`; not
  * from a test browser, a page on this computer or a baked build. Nothing about the player is sent, and the
  * invite opens in a new tab that is not told where it came from.
  */
@@ -110,9 +113,9 @@ export function inviteCard(close: () => void): HTMLElement {
   return el;
 }
 
-/** The line on the menu's first tab: shown only when the game invites. */
-export function menuLine(box: HTMLElement): void {
+/** The line on the menu's first tab ("menu") or the main menu ("start"): shown only when the game invites. */
+export function menuLine(box: HTMLElement, where: 'menu' | 'start' = 'menu'): void {
   if (!inviting()) return;
-  box.replaceChildren('Story help, bugs, ideas: ', inviteLink('menu', '3DA on Discord'), ' (opens in a new tab).');
+  box.replaceChildren('Story help, bugs, ideas: ', inviteLink(where, '3DA on Discord'), ' (opens in a new tab).');
   box.hidden = false;
 }

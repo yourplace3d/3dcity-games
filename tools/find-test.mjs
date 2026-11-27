@@ -141,8 +141,35 @@ try {
   assert.ok(await page.evaluate(() => !!game.car), 'still at the wheel of the customer’s car, for the day');
 
   console.log('Another search, the car lost in the water on the way back: over, not stuck');
-  await page.evaluate(() => game.startFind(game.planFind({ kind: 'van', colour: '#e0569b' }, null)));
-  await page.waitForFunction(() => game.findCar && !game.findCar.gone);
+  // a street to park it on is drawn by chance, and now and then none is found from where the player stands
+  // (the game then says so and asks again another day): a few tries here
+  const planned = await page.evaluate(() => {
+    for (let k = 0; k < 6; k++) {
+      const plan = game.planFind({ kind: 'van', colour: '#e0569b' }, null);
+      if (plan) {
+        game.startFind(plan);
+        return true;
+      }
+    }
+    return false;
+  });
+  assert.ok(planned, 'a street for the second car');
+  try {
+    await page.waitForFunction(() => game.findCar && !game.findCar.gone);
+  } catch (err) {
+    console.log(
+      '  no second car:',
+      JSON.stringify(
+        await page.evaluate(() => {
+          const f = game.find;
+          const at = f ? game.world.proj.toLocal(f.car.lon, f.car.lat).map(Math.round) : null;
+          return { find: !!f, at, half: game.world.half, stage: game.findStage, car: game.findCar ? { gone: game.findCar.gone, hp: game.findCar.hp } : null, me: game.pos().map(Math.round), inCar: !!game.car, mission: !document.querySelector('#mission').hidden, missionTitle: document.querySelector('#mission-title').textContent, menu: !document.querySelector('#pause').hidden, screen: document.body.dataset.screen, loading: !document.querySelector('#next').hidden, clock: game.clock };
+        }),
+      ),
+      JSON.stringify(errors),
+    );
+    throw err;
+  }
   await page.evaluate(() => {
     if (game.car) {
       game.car.vx = 0;

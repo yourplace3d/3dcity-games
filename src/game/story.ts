@@ -548,14 +548,11 @@ export function findDue(story: Story, today: string): boolean {
 }
 
 /**
- * The hellos owed to a player whose chapter 5 was ticked before its people wrote: as the story first went
- * live, a job of each kind done before the chapter's day finished it unseen. None once they have been said,
- * and none when the chapter was played, as its thanks show.
+ * Whether the people at the stations are due to say hello (`SCENES.regulars`): once, when chapter 5 has
+ * opened. Also in a story kept from the first live days, where a job of each kind done before the chapter's
+ * day ticked it unseen, or where someone whose kind of job was done got no hello: they say it now.
  */
-export function lateHellos(story: Story): Array<[Who, string]> {
-  if (!story.done[MEET] || said(story, REGULARS)) return [];
-  return STATION_JOBS.some((k) => said(story, `thanks-${k}`)) ? [] : SCENES.regulars(story);
-}
+export const hellosDue = (story: Story): boolean => !said(story, REGULARS) && (!!story.done[MEET] || (story.open === MEET && !!story.opened));
 
 /** The scene was offered today. */
 export const offer = (story: Story, key: string, today: string): Story => ({ ...story, offered: { ...story.offered, [key]: today } });

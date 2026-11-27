@@ -160,7 +160,7 @@ export interface Hud {
 
 /** What happened in play, for whoever listens (the trophies). */
 export type GameEvent =
-  | { kind: 'delivered'; job: JobKind; left: number; special: boolean; /** the car took harm on the way */ dented?: boolean }
+  | { kind: 'delivered'; job: JobKind; left: number; special: boolean; /** the car the load came on board in took harm on the way */ dented?: boolean }
   | { kind: 'fined' }
   | { kind: 'lost' }
   | { kind: 'run'; fined: boolean };
@@ -172,6 +172,8 @@ const OFFER_M = 14;
 const OFFER_SPEED = 1.5;
 /** how near a station, or the spot on the road beside it, counts as being at it (m) */
 const STATION_M = 35;
+/** how far from a mission's door a station's package still goes to it, once the next square has left its building behind (m, as the crow flies) */
+const DOOR_REACH_M = 2000;
 /** the autopilot leaves a wedged car and walks when the drop-off is this much further by road than the party's walk (m) */
 const WALK_AUTO_M = 80;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
@@ -350,6 +352,13 @@ export class Game {
    * the clock is this much longer; `light`: a supply run's load slows the car this share of a heavy one's.
    */
   special: { at: LngLat; say: Record<JobKind, string>; kinds?: JobKind[]; clock?: number; light?: number } | null = null;
+  /**
+   * The spot on the street at the mission's place (`for`) where its packages are put down, as last found:
+   * kept as a place on the earth, so a package can still be taken for it once the next square has left the
+   * building behind. A square is 1.5 km across and the next one loads 450 m from its middle: without this,
+   * a station across that line handed out an ordinary job though its ring had just flashed green.
+   */
+  private door: { for: LngLat; at: LngLat } | null = null;
   /** A package for `special` has been picked up (its kind). */
   onSpecialTaken: (kind: JobKind) => void = () => undefined;
   /** A package for `special` has been delivered; `dented`: the car took harm on the way. */
@@ -659,6 +668,8 @@ export class Game {
 
   /** The next square is ready: move everything near you over to it. */
   private swap(next: World): void {
+    // a home that waits for a package stays within reach across the edge of its square
+    this.keepDoor();
     const old = this.world;
     const move = (o: { x: number; y: number }) => {
       const ll = old.proj.toLngLat(o.x, o.y);
@@ -1845,7 +1856,8 @@ export class Game {
         this.cash += j.pay + bonus;
         this.delivered++;
         // a new dent on the car the load came on board in; a load moved to another car counts as dented
-        const dented = !!j.car0 && (j.car0.hp < j.hp0 - 1 || (!!this.car && this.car !== j.car0));
+        const harmed = !!j.car0 && j.car0.hp < j.hp0 - 1;
+        const dented = harmed || (!!j.car0 && !!this.car && this.car !== j.car0);
         const r = this.run;
         if (!r.over) {
           r.done++;
@@ -1856,7 +1868,7 @@ export class Game {
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
         if (j.special) this.onSpecialDone(dented);
-        this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special, dented });
+        this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special, dented: harmed });
         this.onSave();
         if (!r.over && r.done >= r.of) {
           r.over = true;
@@ -2043,7 +2055,7 @@ export class Game {
     const kind = m.kind!;
     // the mission's package goes to its place only when that is in the part of town loaded now (`take`)
     const sp = this.special && (!this.special.kinds || this.special.kinds.includes(kind)) ? this.special : null;
-    const there = sp && ((([sx, sy]) => Math.abs(sx) < this.world.half - 10 && Math.abs(sy) < this.world.half - 10)(this.world.proj.toLocal(sp.at.lon, sp.at.lat)));
+    const there = sp && (this.inSquare(sp.at) || !!this.doorOf(sp));
     this.onOffer!(kind, there ? sp!.say[kind] : null, (yes) => {
       if (!yes) {
         // no to one is no to every station's package here, until the player drives off
@@ -2084,20 +2096,10 @@ export class Game {
     // a mission's package from a station: it goes to the mission's place, where a road leads there
     const special = !leg && this.run.over && m.kind && (!this.special?.kinds || this.special.kinds.includes(m.kind)) ? this.special : null;
     if (special) {
-      const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
-      // the street at the door where a car may go (an old town's lanes too), else the nearest main
-      // road: the lane at the door can be a yard's driveway that no road leads to
-      const inside = Math.abs(sx) < w.half - 10 && Math.abs(sy) < w.half - 10;
-      for (const n of inside ? [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')] : []) {
-        const at = n && !marker ? this.standOn({ line: n.line, s: n.s, dir: 1 }) : null;
-        if (!at) continue;
-        const cand = this.newMarker(DROP, at);
-        const f = this.fieldOf(cand);
-        const r = f && w.roads.route(f, px, py);
-        if (r) {
-          marker = cand;
-          metres = r.metres;
-        } else this.scene.remove(cand.mesh);
+      const d = this.dropFor(special);
+      if (d) {
+        marker = d.marker;
+        metres = d.metres;
       }
     }
     const isSpecial = !!(special && marker);
@@ -2483,11 +2485,70 @@ export class Game {
     return !!m.kind && (!this.special?.kinds || this.special.kinds.includes(m.kind));
   }
 
-  /** Whether the mission's drop-off is in the square being played, where a package can be taken to it. */
+  /**
+   * Whether a package can be taken to the mission's drop-off from here: it is in the square being played,
+   * or the next square has left it behind and its door is known and near (`door`).
+   */
   specialHere(): boolean {
-    if (!this.special) return false;
-    const [x, y] = this.world.proj.toLocal(this.special.at.lon, this.special.at.lat);
+    return !!this.special && (this.inSquare(this.special.at) || !!this.doorOf(this.special));
+  }
+
+  /** Whether a place lies in the square being played. */
+  private inSquare(at: LngLat): boolean {
+    const [x, y] = this.world.proj.toLocal(at.lon, at.lat);
     return Math.abs(x) < this.world.half - 10 && Math.abs(y) < this.world.half - 10;
+  }
+
+  /** The door kept for a mission's place, when the player is within `DOOR_REACH_M` of it; else null. */
+  private doorOf(sp: { at: LngLat }): LngLat | null {
+    const d = this.door;
+    if (!d || d.for.lat !== sp.at.lat || d.for.lon !== sp.at.lon) return null;
+    const [x, y] = this.world.proj.toLocal(d.at.lon, d.at.lat);
+    const [px, py] = this.pos();
+    return Math.hypot(x - px, y - py) < DOOR_REACH_M ? d.at : null;
+  }
+
+  /**
+   * The drop-off for a mission's package: a yellow ring where a road leads to it from the player, and how
+   * far that is. In the square of its place, the street at the door where a car may go (an old town's
+   * lanes too), else the nearest main road: the lane at the door can be a yard's driveway that no road
+   * leads to. Once the next square has left the place behind, the door as it was last found. Null where
+   * neither gives one: the package is then an ordinary job's.
+   */
+  private dropFor(sp: { at: LngLat }): { marker: Marker; metres: number } | null {
+    const w = this.world;
+    const [px, py] = this.pos();
+    if (this.inSquare(sp.at)) {
+      const [sx, sy] = w.proj.toLocal(sp.at.lon, sp.at.lat);
+      for (const n of [w.roads.nearest(sx, sy, 60, 'drive'), w.roads.nearest(sx, sy, 200, 'traffic')]) {
+        const at = n ? this.standOn({ line: n.line, s: n.s, dir: 1 }) : null;
+        if (!at) continue;
+        const cand = this.newMarker(DROP, at);
+        const f = this.fieldOf(cand);
+        const r = f && w.roads.route(f, px, py);
+        if (r) {
+          this.door = { for: sp.at, at: cand.at };
+          return { marker: cand, metres: r.metres };
+        }
+        this.scene.remove(cand.mesh);
+      }
+      return null;
+    }
+    const door = this.doorOf(sp);
+    if (!door) return null;
+    // beyond the square, the way by road is not known: as for a run's drop-off out there, a guess from the straight line
+    const marker = this.markerAt(DROP, door);
+    const [tx, ty] = this.local(marker);
+    return { marker, metres: Math.hypot(tx - px, ty - py) * 1.35 };
+  }
+
+  /** Before the square goes: the door of a mission's place in it is found and kept, if it is not known yet. */
+  private keepDoor(): void {
+    const sp = this.special;
+    if (!sp || !this.inSquare(sp.at) || (this.door && this.door.for.lat === sp.at.lat && this.door.for.lon === sp.at.lon)) return;
+    const d = this.dropFor(sp);
+    // only the place is wanted: the ring is laid when a package is taken
+    if (d) this.scene.remove(d.marker.mesh);
   }
 
   private placeMarkers(): void {

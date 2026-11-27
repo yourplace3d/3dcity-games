@@ -386,8 +386,12 @@ export class HomesUi {
    * the arrow leads there, 'here' once the player is among them, 'none' where this part of town has none.
    */
   flatsWay(): 'arrow' | 'here' | 'none' {
-    if (this.reno?.stage !== 'find' || !this.area) return 'none';
-    return this.area.here ? 'here' : 'arrow';
+    const a = this.area;
+    if (this.reno?.stage !== 'find' || !a) return 'none';
+    // there once, and driven off since: the arrow leads back
+    const [px, py] = this.host.game.pos();
+    if (a.here && Math.hypot(a.x - px, a.y - py) > 150) a.here = false;
+    return a.here ? 'here' : 'arrow';
   }
 
   /** Where the home town is: the first home's place, which the banks and the story go by. */

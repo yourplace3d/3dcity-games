@@ -34,8 +34,8 @@ import {
   goal,
   heading,
   HELLO,
+  hellosDue,
   keep,
-  lateHellos,
   loadStory,
   MEET,
   noteJob,
@@ -265,7 +265,21 @@ export class StoryUi {
     if (!h) return null;
     if ((n === 4 || (n === 8 && !h.dispute())) && !this.atHome()) return this.first();
     const home = this.homeOf(n);
-    return home && !h.isHere(home) ? home : null;
+    if (!home || h.isHere(home)) return null;
+    // a package for it can still be taken a little beyond its part of town: the game keeps the way to its door
+    const { game } = this.host;
+    const sp = game.special;
+    return this.wantsPackage(n) && sp && sp.at.lat === home.lat && sp.at.lon === home.lon && game.specialHere() ? null : home;
+  }
+
+  /** Whether chapter `n`'s next step is a station's package for its home (not a stop beside the home). */
+  private wantsPackage(n: number): boolean {
+    const h = this.host.homes();
+    const reno = h?.mine().reno?.stage ?? null;
+    if (n === 3) return reno === 'flat';
+    if (n === 7) return reno === 'rest' || reno === 'paint';
+    const d = n === 8 ? h?.dispute() : null;
+    return !!d && !!kindsFor(d.stage);
   }
 
   /** Whether chapter `n` waits somewhere else: in the home town, or at a home in another part of town. */
@@ -409,9 +423,10 @@ export class StoryUi {
     });
     if (r.opened) this.opened(r.opened, s);
     else if (began && r.story.opened && !r.finished.length) this.opened(r.story.open, s);
-    // a player whose chapter 5 was ticked before its people wrote: they say hello now, once
-    if (this.story.done[MEET] && !said(this.story, REGULARS)) {
-      const hellos = lateHellos(this.story);
+    // chapter 5 has opened: the people at the stations not yet met say hello, once, after its line. (Also to
+    // a player whose chapter 5 was ticked before they wrote, as the story first went live.)
+    if (hellosDue(this.story)) {
+      const hellos = SCENES.regulars(this.story);
       this.set(say(this.story, REGULARS));
       if (hellos.length) this.enqueue(hellos);
     }
@@ -453,10 +468,6 @@ export class StoryUi {
     if (n === 7) this.enqueue(SCENES.building(s));
     if (this.waitsHome(n)) this.awayLine(n);
     else this.goalLine(n);
-    if (n === MEET) {
-      this.enqueue(SCENES.regulars(this.story));
-      this.set(say(this.story, REGULARS));
-    }
   }
 
   /** "Chapter 5 of 8 · The regulars": what it asks. */
@@ -470,7 +481,8 @@ export class StoryUi {
     const { game } = this.host;
     // the first flat is offered to a player with enough cash, once no run of three is on
     const flatWaits = game.cash < FIXER_MIN ? ('cash' as const) : !game.run.over ? ('run' as const) : undefined;
-    const worn = h?.renovatingHere();
+    // a home being renovated holds the tenants back only where they would write: in the home town, before they have
+    const worn = n === 8 && !d && this.atHome() ? h?.renovatingHere() : null;
     return goal(
       n,
       { ...this.snapshot(), town: this.town(), buildingsAfter: BUILDINGS_AFTER, away: !this.atHome(), disputeAt: d ? homeName(d.home) : undefined, flatWaits, renovateFirst: worn ? homeName(worn) : undefined },

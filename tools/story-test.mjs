@@ -265,6 +265,26 @@ try {
   await page.waitForFunction(() => !document.querySelector('#mission').hidden);
   await page.locator('#btn-mission-yes').click();
   assert.deepEqual(await page.evaluate(() => game.special.kinds), ['rush'], 'insisting: the part from a fire station');
+  // the fire station may lie across the line where the next part of town loads (450 m from the middle of a
+  // square 1.5 km across): walk 600 m off, away from the building, and the part still goes to it
+  assert.equal(await page.evaluate(() => homes.isHere(homes.dispute().home) && game.specialHere()), true, 'the building is in this part of town');
+  await page.evaluate(() => {
+    const h = homes.dispute().home;
+    const [bx, by] = game.world.proj.toLocal(h.lon, h.lat);
+    const along = Math.abs(bx) >= Math.abs(by);
+    const off = (along ? bx : by) > 0 ? -600 : 600;
+    const n = game.world.roads.nearest(along ? off : 0, along ? 0 : off, 300, 'traffic');
+    const [x, y] = n ? game.world.roads.point(n.line, n.s) : [along ? off : 0, along ? 0 : off];
+    game.me.x = x;
+    game.me.y = y;
+  });
+  await page.waitForFunction(() => !homes.isHere(homes.dispute().home), null, { timeout: 180000 });
+  assert.equal(await page.evaluate(() => game.specialHere()), true, 'the next part of town has left the building behind: its door is kept, the rings still flash green');
+  await page.keyboard.press('KeyP');
+  await page.locator('#tab-story').click();
+  assert.equal(await page.locator('#pane-story button.primary').textContent(), 'Show the way', 'no trip back for a package that can be taken here');
+  await shot('16a-beyond-the-square');
+  await page.keyboard.press('KeyP');
   // the part is taken, and comes too late
   await page.evaluate(() => {
     game.onSpecialTaken('rush');

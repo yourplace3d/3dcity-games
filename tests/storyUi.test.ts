@@ -60,13 +60,15 @@ interface Town {
   moved: boolean;
   worn: Home | null;
   flats: 'arrow' | 'here' | 'none';
+  /** a party has been thrown (chapter 6) */
+  partied: boolean;
 }
 
 function setup(story: Story, town: Partial<Town> = {}) {
   vi.stubGlobal('navigator', { webdriver: true });
   vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
   vi.stubGlobal('document', { createElement: (tag: string) => new El(tag) });
-  const t: Town = { homes: [flat], here: [flat], inTown: true, reno: 'done', dispute: null, moved: false, worn: null, flats: 'none', ...town };
+  const t: Town = { homes: [flat], here: [flat], inTown: true, reno: 'done', dispute: null, moved: false, worn: null, flats: 'none', partied: true, ...town };
   const homes = {
     mine: () => ({ homes: t.homes, reno: t.reno ? { stage: t.reno } : null, saved: 100 }),
     homeTownName: () => 'Nuremberg',
@@ -94,7 +96,7 @@ function setup(story: Story, town: Partial<Town> = {}) {
     party: null,
     find: null,
     auto: false,
-    special: null,
+    special: null as { at: { lat: number; lon: number } } | null,
     specialHere: () => false,
     guide: null as { x: number; y: number } | null,
     pos: () => [0, 0],
@@ -105,7 +107,7 @@ function setup(story: Story, town: Partial<Town> = {}) {
     startFind: vi.fn(),
   };
   const host = { game, homes: () => homes, show: vi.fn(), openStory: vi.fn(), blocked: () => false, quiet: () => false, goHome: vi.fn(), closeMenu: vi.fn(), stored: vi.fn(), card: vi.fn() };
-  const ui: StoryUi = Object.assign(Object.create(StoryUi.prototype), { host, story, queue: story.pending.map((m) => ({ ...m })), shownAt: -Infinity, everyT: 0, playedS: 60, visitSaid: true, homesBefore: t.homes.length, guide: null, partied: true, partiedAt: 0, findCar: '' });
+  const ui: StoryUi = Object.assign(Object.create(StoryUi.prototype), { host, story, queue: story.pending.map((m) => ({ ...m })), shownAt: -Infinity, everyT: 0, playedS: 60, visitSaid: true, homesBefore: t.homes.length, guide: null, partied: t.partied, partiedAt: performance.now(), findCar: '' });
   const inner = ui as unknown as { story: Story; queue: Array<{ who: string; text: string; heading?: string }> } & Record<string, (...a: unknown[]) => unknown>;
   /** the Story tab, drawn: its words, and its button if it has one */
   const tab = () => {
@@ -147,13 +149,47 @@ describe('where a chapter waits', () => {
     expect(host.goHome).toHaveBeenCalledWith(flat);
   });
 
-  it('says where it waits when it opens: the town from afar, the home within the town', () => {
+  it('says where it waits at the start of a visit: the town from afar, the home within the town', () => {
     const far = setup(at(6), { here: [], inTown: false });
     far.inner.sayVisit();
     expect(far.inner.queue.at(-1)!.text).toBe("Waits in Nuremberg: the menu's Story tab takes you there.");
     const near = setup(at(6), { here: [] });
     near.inner.sayVisit();
     expect(near.inner.queue.at(-1)!.text).toBe("Waits at your flat on Lindenstraße, in another part of town: the menu's Story tab takes you there.");
+  });
+
+  it('says where it waits as it opens, and what it asks where it can be played', () => {
+    // chapter 6 waited for its day: today it opens, with no home in this part of town
+    const waiting = at(6, { opened: '', last: BEFORE });
+    const away = setup(waiting, { here: [], partied: false });
+    away.inner.look();
+    expect(away.inner.story.opened).toBe(TODAY);
+    expect(away.inner.queue.filter((q) => q.who === 'game').map((q) => q.text)).toEqual(["Waits at your flat on Lindenstraße, in another part of town: the menu's Story tab takes you there."]);
+    const home = setup(waiting, { partied: false });
+    home.inner.look();
+    expect(home.inner.queue.filter((q) => q.who === 'game').map((q) => q.text)).toEqual(['Throw a party at your home: stop beside it.']);
+    // the friends write either way
+    expect(home.inner.queue.filter((q) => q.who === 'friends')).toHaveLength(2);
+  });
+
+  it('a package for the home can still be taken a little beyond its part of town: no trip back for it', () => {
+    // insisting: the fire station's ring flashes green here, as the game kept the way to the building's door
+    const near = setup(at(8), { homes: [flat, building], here: [flat], dispute: { stage: 'insist', home: building } });
+    near.game.special = { at: { lat: building.lat, lon: building.lon } };
+    near.game.specialHere = () => true;
+    expect(near.tab().button?.textContent).toBe('Show the way');
+    near.ui.showWay();
+    expect(near.game.guide).toEqual({ x: 300, y: 0 });
+    // to talk to the tenants one has to stop beside the building: that is there, not here
+    const talk = setup(at(8), { homes: [flat, building], here: [flat], dispute: { stage: 'talk', home: building } });
+    talk.game.special = { at: { lat: building.lat, lon: building.lon } };
+    talk.game.specialHere = () => true;
+    expect(talk.tab().button?.textContent).toBe('Go to your building on Königstraße');
+    // a package that goes to another home is no help
+    const other = setup(at(8), { homes: [flat, building], here: [flat], dispute: { stage: 'insist', home: building } });
+    other.game.special = { at: { lat: flat.lat, lon: flat.lon } };
+    other.game.specialHere = () => true;
+    expect(other.tab().button?.textContent).toBe('Go to your building on Königstraße');
   });
 
   it('a party of chapter 6 counts at any home: one here will do, in the home town or away', () => {
@@ -226,6 +262,10 @@ describe('where a chapter waits', () => {
     expect(tab().text).toContain('First your flat on Lindenstraße needs renovating');
     ui.showWay();
     expect(game.guide).toEqual({ x: 100, y: 0 });
+    // in another town a home being renovated holds nobody back: the tenants are those of the home town
+    const far: Home = { ...flat, id: 'w7', street: 'Unter den Linden', place: 'Berlin' };
+    const away = setup(at(8), { homes: [flat, far], here: [far], inTown: false, worn: far });
+    expect(away.tab().text).toBe('This chapter happens in Nuremberg. Your tenants have something to say: drive to one of your homes in Nuremberg.');
   });
 });
 
@@ -261,6 +301,36 @@ describe('the people at the stations', () => {
     deliver(inner, 'rush');
     expect(inner.queue.map((q) => q.text)).toEqual([HELLO.clean, "That was quick. I'll call on you again."]);
     expect(inner.story.pending.map((m) => m.text)).toEqual([HELLO.clean, "That was quick. I'll call on you again."]);
+  });
+
+  it('say hello as chapter 5 opens: those who have not written, after the chapter\'s line, and it asks for a job for each', () => {
+    // a job of each kind was done on the first days; the pump wrote at the flat's repair
+    let waiting = at(5, { opened: '', last: BEFORE, kinds: ['supply', 'rush', 'clean'] });
+    waiting = keep(waiting, { who: 'pump', from: 'Mira · the pump', text: 'Here is your plaster', day: BEFORE });
+    const { inner } = setup(waiting);
+    inner.look();
+    expect(inner.story.opened).toBe(TODAY);
+    expect(inner.story.kinds).toEqual(['supply']);
+    expect(inner.queue.map((q) => q.text)).toEqual([`Do a job for ${names.flame} at the fire station and ${names.shield} at the police station.`, HELLO.rush, HELLO.clean]);
+    expect(inner.story.said).toContain(REGULARS);
+    // once
+    inner.look();
+    expect(inner.queue).toHaveLength(3);
+  });
+
+  it('hear of a delivery as the game tells it: the pump\'s thanks by the dent, through the game\'s own events', () => {
+    const story = at(5, { said: [REGULARS] });
+    const { host, game } = setup(story);
+    vi.stubGlobal('localStorage', { getItem: (k: string) => (k === '3da-story' ? JSON.stringify(story) : null), setItem: vi.fn() });
+    Object.assign(game, { onSpecialTaken: vi.fn(), onFind: null });
+    const ui = new StoryUi(host as unknown as ConstructorParameters<typeof StoryUi>[0]) as unknown as { story: Story };
+    const events = game.events as Array<(e: unknown) => void>;
+    expect(events).toHaveLength(1);
+    events[0]({ kind: 'delivered', job: 'supply', left: 12, special: false, dented: true });
+    expect(ui.story.pending.map((m) => m.text)).toEqual(["Delivered. A new dent on the way, but it's all here. You'll do."]);
+    // a plain package is no station's job
+    events[0]({ kind: 'delivered', job: 'plain', left: 12, special: false });
+    expect(ui.story.kinds).toEqual(['supply']);
   });
 
   it('say hello to a player whose chapter 5 was ticked before they wrote, once', () => {
@@ -322,6 +392,20 @@ describe('how the story ends', () => {
     const other = setup(at(8, { opened: '' }), { homes: [flat, building] });
     other.inner.finished(7, other.inner.story, true, false);
     expect(other.inner.queue[0].text).toBe('A whole building of your own. It is in good hands.');
+  });
+});
+
+describe('the way to the worn-down flats', () => {
+  it('leads back once the player has driven off again', () => {
+    const game = { pos: (): [number, number] => [50, 0] };
+    const area = { x: 0, y: 0, rx: 0, ry: 0, lots: [], marks: [], here: true };
+    const ui = Object.assign(Object.create(HomesUi.prototype), { host: { game }, reno: { stage: 'find' }, area }) as HomesUi;
+    expect(ui.flatsWay()).toBe('here');
+    // 600 m off for another delivery: "You are there" would be wrong, and no arrow would show
+    game.pos = () => [600, 0];
+    expect(ui.flatsWay()).toBe('arrow');
+    expect(area.here).toBe(false);
+    expect(Object.assign(Object.create(HomesUi.prototype), { host: { game }, reno: { stage: 'find' }, area: null }).flatsWay()).toBe('none');
   });
 });
 

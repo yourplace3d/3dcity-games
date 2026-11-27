@@ -847,7 +847,28 @@ failing test, then fixed. One fix changes a rule of section 4, so it is first he
   ("have more for you: their own stories go on in later updates"), nor "tenants who know you" after a court's
   order brought new ones ("and new tenants").
 - **Kept as shown:** the newest 200 scenes, not the first 200, so a scene just played is never played again.
-- **Tested:** 30 more unit tests (`tests/story.test.ts`, `tests/storyUi.test.ts`, new: the story on screen
-  with stand-ins for the game and the homes; `tests/dispute.test.ts`, `tests/find.test.ts`).
-  `node tools/story-test.mjs` now plays the review's cases on Nuremberg's tiles: a job of each kind on day 1,
-  chapter 5 on its day all the same, and chapter 6 opened 3 km from the flat, with the way back to it.
+- **A second review, of these fixes,** found one thing older than the story and four slips:
+  - **A home's package across the edge of its part of town** (in the game since the renovations of 23
+    November). A part of town is 1.5 km across and the next one loads 450 m from its middle. A station across
+    that line had its ring flashing green, then handed out an ordinary job: by the time the player stood there,
+    the home was no longer in the part of town loaded. Counted with made-up stations alone: for a job that
+    takes one kind of station (chapter 8's part, load and officers) this hit about 3 homes in 10 from the part
+    of town the home's own "Go to" loads, and about 1 in 25 had no station that worked from anywhere. Now the
+    spot at the home's door is kept as a place on the earth when the next part of town loads, and a package
+    for it can be taken up to 2 km away (`Game.door`, `DOOR_REACH_M`, an estimate); the rings keep flashing
+    green, and the Story tab offers "Show the way", not "Go to", while that holds. This also serves the first
+    flat's repair, the building's, and every renovation.
+  - "Show the way" to the worn-down flats said "You are there" after the player had driven off again: it now
+    points the arrow back.
+  - Chapter 8 named a renovation in another town as coming first: only one in the home town holds the
+    tenants back.
+  - One kind of story kept from the first live days still missed a hello (chapter 5 opened with someone's
+    job done already): whoever has not written when chapter 5 is open or done now says hello, once.
+  - The pump's thanks spoke of a dent when the load had only been moved to another car: it now goes by harm
+    to the car the load came on board in.
+- **Tested:** 38 more unit tests (`tests/story.test.ts`; `tests/storyUi.test.ts`, new: the story on screen
+  with stand-ins for the game and the homes; `tests/door.test.ts`, new: a package taken beyond the home's
+  part of town; `tests/dispute.test.ts`, `tests/find.test.ts`). `node tools/story-test.mjs` now plays the
+  review's cases on Nuremberg's tiles: a job of each kind on day 1 and chapter 5 on its day all the same;
+  chapter 6 opened 3 km from the flat, with the way back to it; and in chapter 8 a walk into the next part of
+  town, after which the part still goes to the building.

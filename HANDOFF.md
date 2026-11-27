@@ -24,7 +24,11 @@ lives.
   6, 7 and 8 were stuck in the home town wherever no home stood in the part of town loaded (the Story tab
   now goes to the home: "Go to your flat on Lindenstraße"); "Show the way" could lead to a station whose
   package was an ordinary job; chapter 7 pointed at the building while its next step was at a station.
-  The players of the first live day whose chapter 5 was ticked unseen get its hellos once. Unit tests and
+  The players of the first live day whose chapter 5 was ticked unseen get its hellos once. A second review,
+  of the fixes, found something older than the story: a station across the line where the next part of town
+  loads handed out an ordinary job instead of the home's package (about 3 homes in 10 for chapter 8's
+  one-kind jobs). The spot at a home's door is now kept as a place on the earth, and its package can be
+  taken up to 2 km away (`DOOR_REACH_M` in `src/game/game.ts`, an estimate to tune). Unit tests and
   `node tools/story-test.mjs` (which now plays these cases on Nuremberg's tiles) pass.
 
 ### The story (owner, 26 November: "improve the gameplay aka story now")

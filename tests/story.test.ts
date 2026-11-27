@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addNote, addPending, advance, begin, BUILT, finished, goal, keep, lateHellos, met, none, noteJob, readStory, record, REGULARS, SAID_MAX, say, SCENES, shown, type Snapshot, type Story } from '../src/game/story';
+import { addNote, addPending, advance, begin, BUILT, finished, goal, hellosDue, keep, met, none, noteJob, readStory, record, REGULARS, SAID_MAX, say, SCENES, shown, type Snapshot, type Story } from '../src/game/story';
 import { namesFor } from '../src/game/names';
 
 const snap = (o: Partial<Snapshot> = {}): Snapshot => ({ delivered: 0, homes: 0, reno: null, saved: 0, partied: false, building: false, settled: 0, dispute: null, ...o });
@@ -246,11 +246,13 @@ describe('the story', () => {
     // as the story first went live: chapter 5 ticked unseen, only the pump met at the flat's repair
     let s: Story = { ...none(), open: 6, opened: '', last: D2, first: D1, kinds: ['supply', 'rush', 'clean'], done };
     s = keep(s, { who: 'pump', from: 'Mira · the pump', text: 'Here is your plaster', day: D1 });
-    expect(lateHellos(s).map(([w]) => w)).toEqual(['flame', 'shield']);
-    expect(lateHellos(say(s, REGULARS))).toEqual([]);
-    // a chapter 5 that was played: its people have thanked, so nobody says hello after it
-    expect(lateHellos(say({ ...s, inbox: [] }, 'thanks-rush'))).toEqual([]);
-    expect(lateHellos(none())).toEqual([]);
+    expect(hellosDue(s)).toBe(true);
+    expect(SCENES.regulars(s).map(([w]) => w)).toEqual(['flame', 'shield']);
+    expect(hellosDue(say(s, REGULARS))).toBe(false);
+    // due as chapter 5 opens, and not before
+    expect(hellosDue({ ...s, done: { 1: { day: D1 } }, open: 5, opened: '' })).toBe(false);
+    expect(hellosDue({ ...s, done: { 1: { day: D1 } }, open: 5, opened: D2 })).toBe(true);
+    expect(hellosDue(none())).toBe(false);
   });
 
   it('thanks for a supply run as it arrived: in one piece, or with a new dent', () => {

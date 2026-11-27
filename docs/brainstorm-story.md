@@ -799,7 +799,7 @@ the scene in `src/storyUi.ts`, the circle in `src/game/minimap.ts`.
   wild one (the car flees; stay close until it gives up; lost when it gets away, reaches the edge of the loaded
   map or for any other natural end; a dead end can end it in your favour).
 
-## 18. The whole story reviewed and debugged (27 November; branch `claude/find-the-car`; put live on the owner's word, "Yes put it live", 27 November)
+## 18. The whole story reviewed and debugged (27 November; live since 23:30 UTC that day, pull request #34, deploy run 79, on the owner's word: "Yes put it live")
 
 The owner asked for a code review of the whole story mode ("Does it make sense?"), then "Start debugging".
 The review found twelve places where the story broke as a player meets it. Each was first reproduced as a

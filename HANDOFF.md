@@ -6,20 +6,24 @@ lives.
 
 ## Right now (27 November 2026, night)
 
-- **Going live on the owner's word** ("Yes put it live", 27 November, night): **the story debugged** (branch
-  `claude/find-the-car`, by pull request into `main`, then the Pages workflow on `main`). It goes live with
-  the three open questions answered by what is built; they stay open for the owner (just below).
-- **Live before it:** `main` at `613ef08`, deploy run 78 (27 November, 22:36 UTC): **the Discord invite**
-  (pull requests #31 and #32, another session; runs 77 and 78: a small card once after chapter 2, a line on
-  the menu's first tab and one at the very bottom of the main menu, a click counted as `discord`; the entry
-  "Discord: a small, feedback-first server" below). On top of run 76
-  (21:45 UTC, "put the police fix live"): **the police only follow for the wrong way** (#30; the entry "The
-  police too hard for it" below). Run 75 (14:16 UTC, "Put all live now"): **story chapter 8, Landlord** and
-  **Find the car** (#29, both below); run 74 (tree shadows that end before water, #26) and, from 26
-  November, **the story, step A** (#24); trees in woods, parks and gardens (#23, #25, another session:
-  `docs/trees.md`); rivers with quay walls and real bridges (#12); the thin-map warning (#20); police
-  following a player going the wrong way (#13). What run 75 shipped, in detail with screenshots:
+- **Live:** `main` at `8bc9651`, deploy run 79 (27 November, 23:30 UTC), on the owner's word ("Yes put it
+  live"). In it: **the story debugged** (pull request #34 from `claude/find-the-car`; told in full just
+  below). Checked on the live site: the page and its bundle are byte-identical to the ones built from the
+  tested branch, and the page opens in a test browser with no errors. Its three open questions went live
+  answered by what is built; they stay open for the owner. This note is one commit ahead of `main` on
+  `claude/find-the-car`: `main`'s copy still says "going live".
+- **Live before it:** run 78 (22:36 UTC): **the Discord invite** (pull requests #31 and #32, another session;
+  runs 77 and 78: a small card once after chapter 2, a line on the menu's first tab and one at the very
+  bottom of the main menu, a click counted as `discord`; the entry "Discord: a small, feedback-first server"
+  below). Run 76 (21:45 UTC, "put the police fix live"): **the police only follow for the wrong way** (#30;
+  the entry "The police too hard for it" below). Run 75 (14:16 UTC, "Put all live now"): **story chapter 8,
+  Landlord** and **Find the car** (#29, both below); run 74 (tree shadows that end before water, #26) and,
+  from 26 November, **the story, step A** (#24); trees in woods, parks and gardens (#23, #25, another
+  session: `docs/trees.md`); rivers with quay walls and real bridges (#12); the thin-map warning (#20);
+  police following a player going the wrong way (#13). What run 75 shipped, in detail with screenshots:
   https://claude.ai/artifact/PY7n1roKgTCUGwK32GBUf1 (a private page; the owner can open it).
+- **Open and not this session's:** pull request #33 ("Buildings under roof-only parts, and the car search's
+  task always on screen", another session's branch), not merged when this was written.
 - **Next, the owner's word:** "We'll do a review gameplay next": the owner plays it, and the guessed numbers
   (listed below) get tuned from that play.
 - **Waiting on the owner, in short** (each is told in full further down):

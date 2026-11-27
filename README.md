@@ -16,12 +16,15 @@ the streets, buildings, water and hills come from the same map squares as
   regulars (a job at each kind of station), Housewarming (a party), The whole building, and Landlord (the
   tenants' dispute). The first visit plays straight through to the first flat; after that,
   one new chapter on each new day you play, and a missed day loses nothing. What a chapter asks may be done
-  before it opens. A player who is further on starts at the chapter they are on. The game speaks plainly;
+  before it opens, except chapter 5: its people say hello on its day, and it asks for one job for each of
+  those who had not written before. A player who is further on starts at the chapter they are on. The game speaks plainly;
   whoever gives a task writes a message, each on a paper of their own: the pump's attendant on a till
   receipt, the fire station's on a pager, the police officer in a notebook, the neighbour on a card, the
   friends in text messages, the tenants on a green note stuck to the door. Nobody calls. Their first names come from the region of the first home
   (`src/game/names.ts`: 34 lists of 20, by rough boxes as for the windows) and are kept. From chapter 4 on
   the story happens in the home town; elsewhere the menu's **Story** tab says where it waits and goes there.
+  What happens at a home (a party, the first building, the tenants, a package for it) waits at that home: in
+  another part of the home town the tab says "Go to your flat on Lindenstraße" instead of showing a way.
   No message interrupts a run of three, and there is no story in Where am I? or on a friend's link. Each
   chapter finished in play is counted (`chapter`, its number), once a browser; chapters ticked for a player
   who was further on are not. The Story tab also keeps "The story so far": each choice, and how it went.

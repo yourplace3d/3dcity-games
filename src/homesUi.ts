@@ -117,7 +117,7 @@ const floorsA = (n: number) => `${/^(8|11|18)$|^8\d$/.test(String(n)) ? 'an' : '
 const on = (street: string) => (street ? ` on ${street}` : '');
 
 /** "your flat on Lindenstraße", "your house", for the lines about one of the player's homes */
-const homeName = (h: Home) => `your ${h.kind}${h.street ? ` on ${h.street}` : ''}`;
+export const homeName = (h: Home) => `your ${h.kind}${h.street ? ` on ${h.street}` : ''}`;
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 /** "a flat in a 5-floor building on Lindenstraße" */
@@ -182,8 +182,8 @@ export class HomesUi {
   private shown = '';
   /** the new player's way to a first home and its building (`game/renovation.ts`); null: not begun */
   private reno: Reno | null = loadReno(this.homes.homes.length > 0);
-  /** offered on this visit already (and put off) */
-  private offered = false;
+  /** the deliveries made when the first flat was last offered: put off ("Later"), it is offered again after the next one */
+  private offeredAt = -1;
   /** the notes after the first deliveries, said on this visit */
   private noted = new Set<string>();
   /** where the mission leads: a part of town with worn-down flats, in the square being played */
@@ -381,6 +381,15 @@ export class HomesUi {
     this.homeGuide = null;
   }
 
+  /**
+   * The way to the worn-down flats of the first-home mission, for the story's "Show the way": 'arrow' when
+   * the arrow leads there, 'here' once the player is among them, 'none' where this part of town has none.
+   */
+  flatsWay(): 'arrow' | 'here' | 'none' {
+    if (this.reno?.stage !== 'find' || !this.area) return 'none';
+    return this.area.here ? 'here' : 'arrow';
+  }
+
   /** Where the home town is: the first home's place, which the banks and the story go by. */
   homeTownAt(): { lat: number; lon: number } | null {
     return this.plate ? { lat: this.plate.lat, lon: this.plate.lon } : null;
@@ -504,7 +513,7 @@ export class HomesUi {
       this.noted.add('one');
       this.say('One more delivery, and you can buy yourself some property: your first flat.');
     }
-    if (d < FIXER_AFTER || game.cash < FIXER_MIN || this.offered || !this.host.card) return;
+    if (d < FIXER_AFTER || game.cash < FIXER_MIN || this.offeredAt === d || !this.host.card) return;
     if (!game.run.over) {
       if (!this.noted.has('run')) {
         this.noted.add('run');
@@ -513,7 +522,7 @@ export class HomesUi {
       return;
     }
     if (game.job || game.party) return;
-    this.offered = true;
+    this.offeredAt = d;
     const price = Math.floor(game.cash / 10) * 10;
     this.card(
       'Private mission: your first home',
@@ -1147,9 +1156,19 @@ export class HomesUi {
     return { stage: e.stage ?? 'talk', home, chapter: !!e.chapter, here: !!this.lotOf(home) };
   }
 
+  /** A home in this part of town that waits to be renovated: the story's dispute begins only once it is. */
+  renovatingHere(): Home | null {
+    return this.homes.homes.find((h) => this.lotOf(h) && this.renovating(h)) ?? null;
+  }
+
   /** Disputes settled, in all: the story's chapter 8 is done with the first. */
   settled(): number {
     return this.events.settled;
+  }
+
+  /** Whether a court's order has brought new tenants to one of the homes: the story's last line says so. */
+  movedOut(): boolean {
+    return Object.values(this.events.moved).some((n) => n > 0);
   }
 
   /**
@@ -1232,16 +1251,19 @@ export class HomesUi {
     );
   }
 
-  /** A dispute's package arrived (`ok`: in time and, for the load, with no new dent), or did not: what follows. */
-  private disputeStep(e: HomeEvent, h: Home, ok: boolean): void {
+  /**
+   * A dispute's package arrived (`ok`: in time and, for the load, with no new dent), or did not: what follows.
+   * `late`: it did not because the clock ran out, not because it was lost on the way.
+   */
+  private disputeStep(e: HomeEvent, h: Home, ok: boolean, late = true): void {
     const stage = e.stage ?? 'talk';
     const next = after(stage, ok);
     const t = this.tenantsAt(h);
     const from = this.tenantsFrom(h, t);
     const kicker = this.host.kicker?.('dispute') ?? 'Your tenants';
-    const said = answer(stage, ok, e.mood ?? 'broken');
+    const said = answer(stage, ok, e.mood ?? 'broken', h.kind);
     if (said) this.host.people?.note('tenants', from, said, true);
-    const line = storyLine(stage, ok, h.street);
+    const line = storyLine(stage, ok, h.street, late);
     if (line) this.host.people?.record(line);
     if (next === 'settled') {
       this.settle(e, h, stage, ok);
@@ -1265,7 +1287,7 @@ export class HomesUi {
     this.syncSpecial();
     if (next === 'court' && stage === 'insist') {
       const officer = this.host.people?.officer() || 'Two officers';
-      this.host.people?.note('shield', '', officerOrder(), true);
+      this.host.people?.note('shield', '', officerOrder(h.kind), true);
       this.card(
         'The court’s order',
         `${t.names} still won’t pay, and the court has ordered them to move out of ${this.nameOf(h)}. ${officer === 'Two officers' ? 'Two officers carry' : `${officer} and a colleague carry`} out the order: pick them up at a police station and drive them there without breaking the law. Nobody is arrested: the tenants move out, and new ones move in. The bill of the court and the officers is high: ${money(courtBill(rent))}, five days of its rent.`,
@@ -1301,7 +1323,7 @@ export class HomesUi {
     if (!e || !h || e.kind !== 'dispute') return;
     // put down by a new run or another place: nothing went wrong on the way, it can be fetched again
     if (why === 'dropped') return;
-    this.disputeStep(e, h, false);
+    this.disputeStep(e, h, false, why === 'late');
   }
 
   /** The dispute is settled: the rent that waited, with the tip or the cost of a new boiler; the lower rent agreed. */

@@ -99,6 +99,9 @@ try {
   // delivered: the flat is repaired, and chapter 3 is done
   await page.evaluate(() => game.onSpecialDone());
   await message('game', 'Come back tomorrow for chapter 4');
+  // as in play, the repair is a supply run delivered; and a keen player does a job at the other stations too
+  for (const job of ['supply', 'rush', 'clean']) await page.evaluate((j) => game.events.forEach((f) => f({ kind: 'delivered', job: j, left: 20, special: j === 'supply' })), job);
+  assert.deepEqual((await story()).kinds.sort(), ['clean', 'rush', 'supply'], 'a job of each kind on the first day');
   await shot('04-chapter3-done');
   let s = await story();
   assert.deepEqual(Object.keys(s.done).map(Number), [1, 2, 3]);
@@ -120,7 +123,11 @@ try {
     game.cash = 800;
     homes.payIn();
   });
+  // chapter 5 is not ticked unseen, though a job of each kind is done: its people write on its day
   await message('game', 'Come back tomorrow for chapter 5');
+  s = await story();
+  assert.equal(s.open, 5, 'chapter 5 waits for its day');
+  assert.equal(s.done[5], undefined);
 
   console.log('The next day: chapter 5, the regulars');
   await nextDay();
@@ -130,16 +137,45 @@ try {
   await message('shield', 'by the book');
   await shot('08-notebook');
   assert.equal(await page.locator('#toasts .msg[data-who="pump"]').count(), 0, 'Mira has written before: she is not introduced again');
-  for (const job of ['rush', 'clean', 'supply']) await page.evaluate((j) => game.events.forEach((f) => f({ kind: 'delivered', job: j, left: 20, special: false })), job);
+  s = await story();
+  assert.deepEqual(s.kinds, ['supply'], 'the job for the one who has written counts; the others are still to do');
+  await page.keyboard.press('KeyP');
+  await page.locator('#tab-story').click();
+  assert.match(await page.locator('#pane-story .story-now p').textContent(), new RegExp(`^Do a job for ${names.flame} at the fire station and ${names.shield} at the police station\\.$`));
+  await page.keyboard.press('KeyP');
+  // another job for her is no part of the chapter: no thanks for it
+  await page.evaluate(() => game.events.forEach((f) => f({ kind: 'delivered', job: 'supply', left: 20, special: false })));
+  assert.equal((await story()).said.includes('thanks-supply'), false, 'no thanks from someone the chapter does not ask for');
+  for (const job of ['rush', 'clean']) await page.evaluate((j) => game.events.forEach((f) => f({ kind: 'delivered', job: j, left: 20, special: false })), job);
+  await message('flame', 'That was quick');
   await message('game', 'know you now');
   await shot('09-chapter5-done');
   s = await story();
   assert.deepEqual(s.kinds.sort(), ['clean', 'rush', 'supply']);
   assert.equal(s.open, 6);
 
-  console.log('The next day: chapter 6, housewarming');
+  console.log('The next day: chapter 6, housewarming, opened in another part of the home town');
   await nextDay();
-  await reload();
+  // 3 km north of the flat: still Nuremberg, but the flat is not in the part of town loaded
+  const flat = await page.evaluate(() => ({ lat: homes.homes.homes[0].lat, lon: homes.homes.homes[0].lon, street: homes.homes.homes[0].street }));
+  await reload(`${(flat.lat + 0.027).toFixed(5)},${flat.lon.toFixed(5)}`);
+  assert.equal(await page.evaluate(() => homes.atHomeTown()), true, 'the home town');
+  assert.equal(await page.evaluate(() => homes.isHere(homes.homes.homes[0])), false, 'the flat is in another part of it');
+  await message('game', 'in another part of town');
+  await shot('10a-another-part-of-town');
+  await page.keyboard.press('KeyP');
+  await page.locator('#tab-story').click();
+  const toFlat = page.locator('#pane-story button.primary');
+  assert.equal(await toFlat.textContent(), `Go to your flat${flat.street ? ` on ${flat.street}` : ''}`, 'the Story tab leads to the flat, not to an arrow that cannot show');
+  await shot('10b-go-to-flat');
+  await toFlat.click();
+  await playing();
+  assert.equal(await page.evaluate(() => homes.isHere(homes.homes.homes[0])), true, 'beside the flat');
+  await page.keyboard.press('KeyP');
+  await page.locator('#tab-story').click();
+  assert.equal(await page.locator('#pane-story button.primary').textContent(), 'Show the way');
+  assert.match(await page.locator('#pane-story .story-now p').textContent(), /^Throw a party at your home/);
+  await page.keyboard.press('KeyP');
   await message('friends', 'Nobody got food');
   await shot('10-friends');
   await page.evaluate(() => localStorage.setItem('3da-party', JSON.stringify({ paid: '', places: {}, best: { x: 300 }, warned: false })));
@@ -255,6 +291,9 @@ try {
   });
   await message('tenants', 'Thanks for having us');
   await message('game', "That's the whole story so far");
+  // the court's order brought new tenants: the last line doesn't say they know you
+  await message('game', 'and new tenants.');
+  await message('game', 'have more for you');
   s = await story();
   assert.ok(s.done[8] && !s.done[8].silent, 'chapter 8 played');
   assert.equal(s.sofar.length, 1);

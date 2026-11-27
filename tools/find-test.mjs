@@ -39,7 +39,7 @@ try {
     const done = Object.fromEntries([1, 2, 3, 4, 5].map((n) => [n, { day }]));
     localStorage.setItem(
       '3da-story',
-      JSON.stringify({ v: 1, open: 6, opened: day, last: day, done, first: day, kinds: ['supply', 'rush', 'clean'], said: [], inbox: [], pending: [], turn: 0, sofar: [], offered: {}, names: { region: 'german', pump: 'Laura', flame: 'Thomas', shield: 'Sarah', neighbour: 'Stefan', friends: ['Nicole', 'Jan', 'Anna'] } }),
+      JSON.stringify({ v: 1, open: 6, opened: day, last: day, done, first: day, kinds: ['supply', 'rush', 'clean'], said: ['regulars', 'thanks-supply', 'thanks-rush', 'thanks-clean'], inbox: [{ who: 'pump', from: 'Laura · the pump', text: "Delivered, and the load in one piece. You'll do.", day }], pending: [], turn: 0, sofar: [], offered: {}, names: { region: 'german', pump: 'Laura', flame: 'Thomas', shield: 'Sarah', neighbour: 'Stefan', friends: ['Nicole', 'Jan', 'Anna'] } }),
     );
   });
   await page.goto(`${base}?n=${Math.random()}#Nuremberg`);
@@ -55,8 +55,11 @@ try {
   const car = ask.match(/her car: (a [a-z-]+ (?:car|van|sports car))\./)[1];
   console.log('  the car:', car);
   await shot('01-card');
+  // her ask is kept with the messages once it is taken on, not while the card waits
+  assert.equal((await story()).inbox.filter((m) => m.text.includes('left her keys')).length, 0, 'not kept before the answer');
   await page.locator('#btn-mission-yes').click();
   assert.ok(await page.evaluate(() => !!game.find), 'the search is on');
+  assert.equal((await story()).inbox.filter((m) => m.text.includes('left her keys')).length, 1, 'kept once taken on');
   await line('orange circle');
   const zone = await page.evaluate(() => game.mapView().zone);
   assert.ok(zone && zone.r === 150, 'the circle is on the little map');

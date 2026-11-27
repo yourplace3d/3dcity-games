@@ -160,7 +160,7 @@ export interface Hud {
 
 /** What happened in play, for whoever listens (the trophies). */
 export type GameEvent =
-  | { kind: 'delivered'; job: JobKind; left: number; special: boolean }
+  | { kind: 'delivered'; job: JobKind; left: number; special: boolean; /** the car took harm on the way */ dented?: boolean }
   | { kind: 'fined' }
   | { kind: 'lost' }
   | { kind: 'run'; fined: boolean };
@@ -1856,7 +1856,7 @@ export class Game {
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
         if (j.special) this.onSpecialDone(dented);
-        this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special });
+        this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special, dented });
         this.onSave();
         if (!r.over && r.done >= r.of) {
           r.over = true;

@@ -169,11 +169,11 @@ export function pickupLines(stage: Stage, mood: Mood, where: string, officer: st
   };
 }
 
-/** The tenants' answer, by how it went. */
-export function answer(stage: Stage, ok: boolean, mood: Mood): string {
+/** The tenants' answer, by how it went; `kind`: the home, for the word they use for it. */
+export function answer(stage: Stage, ok: boolean, mood: Mood, kind: 'flat' | 'house' | 'building' = 'flat'): string {
   if (stage === 'insist') {
     if (ok) return mood === 'broken' ? "Warm again at last. Here's everything we owe, and a little extra." : "Here's all of it. It wasn't easy, but it's done.";
-    return mood === 'broken' ? "Still no heating. We're not paying for a cold flat." : "We just can't pay all of it. We're sorry.";
+    return mood === 'broken' ? `Still no heating. We're not paying for a cold ${placeWord(kind)}.` : "We just can't pay all of it. We're sorry.";
   }
   if (stage === 'accept') return ok ? "Thank you for understanding. We'll manage from here." : "The old boiler gave up this morning, for good. Nobody's fault: it was ancient.";
   if (stage === 'replace') return ok ? 'Warm and working. Thank you.' : '';
@@ -183,14 +183,17 @@ export function answer(stage: Stage, ok: boolean, mood: Mood): string {
 /** The new tenants' first note, as they move in. */
 export const welcome = (): string => 'Thanks for having us! We love the place already.';
 
-/** The officer's notes: the court's order, and when it is carried out. */
-export const officerOrder = (): string => "I have the court's order for your building. Pick us up at the station, and drive by the book.";
+/** The officer's notes: the court's order for the home (a flat, a house, a building), and when it is carried out. */
+export const officerOrder = (kind: 'flat' | 'house' | 'building' = 'building'): string => `I have the court's order for your ${kind}. Pick us up at the station, and drive by the book.`;
 export const officerDone = (): string => "Done, and peacefully. They've found a place nearby.";
 
-/** A line for "The story so far": what was chosen, and how it went. */
-export function storyLine(stage: Stage, ok: boolean, street: string): string {
+/**
+ * A line for "The story so far": what was chosen, and how it went. `late`: the part ran out of time; else
+ * it was lost on the way (the police caught the player, they were knocked out, or the job was taken away).
+ */
+export function storyLine(stage: Stage, ok: boolean, street: string, late = true): string {
   const at = street ? `${street}: ` : '';
-  if (stage === 'insist') return ok ? `${at}you insisted, and the part came in time. They paid all they owed.` : `${at}you insisted, the part came too late, and the court ordered them out.`;
+  if (stage === 'insist') return ok ? `${at}you insisted, and the part came in time. They paid all they owed.` : `${at}you insisted, the part ${late ? 'came too late' : 'never arrived'}, and the court ordered them out.`;
   if (stage === 'accept') return ok ? `${at}you met them halfway, and the load arrived in one piece.` : `${at}you met them halfway, but the old boiler gave up for good.`;
   return '';
 }

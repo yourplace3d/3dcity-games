@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { after, choiceText, CLOCK_FITS, courtBill, disputeCandidates, DISPUTE_AFTER_DAYS, DISPUTE_GAP_DAYS, fits, kindsFor, LIGHT_LOAD, lowered, note, pickMood, pickupLines, replaceCost, storyLine, tenantsOf, TENANTS } from '../src/game/dispute';
+import { after, answer, choiceText, CLOCK_FITS, courtBill, disputeCandidates, DISPUTE_AFTER_DAYS, DISPUTE_GAP_DAYS, fits, kindsFor, LIGHT_LOAD, lowered, note, officerOrder, pickMood, pickupLines, replaceCost, storyLine, tenantsOf, TENANTS } from '../src/game/dispute';
 import { homeKey, readEvents, thanks, type Events, type HomeEvent } from '../src/game/events';
 import { HomesUi } from '../src/homesUi';
 import type { Home } from '../src/game/homes';
@@ -81,6 +81,16 @@ describe('the dispute, as rules', () => {
     expect(card).toContain('a rush job');
     expect(card).toContain('a supply run');
     expect(card).toContain('Lena and Max, a couple with a baby');
+  });
+
+  it('the words fit the home and what happened: a house is no flat, and a part lost on the way did not come late', () => {
+    expect(answer('insist', false, 'broken', 'house')).toBe("Still no heating. We're not paying for a cold house.");
+    expect(answer('insist', false, 'broken', 'building')).toContain('cold flat');
+    expect(officerOrder('flat')).toContain('your flat');
+    expect(officerOrder('house')).toContain('your house');
+    expect(officerOrder('building')).toContain('your building');
+    expect(storyLine('insist', false, 'Königstraße', true)).toBe('Königstraße: you insisted, the part came too late, and the court ordered them out.');
+    expect(storyLine('insist', false, 'Königstraße', false)).toBe('Königstraße: you insisted, the part never arrived, and the court ordered them out.');
   });
 
   it('the pickup says when the choice fits: more time for the part, a lighter load', () => {

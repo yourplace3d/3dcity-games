@@ -9,6 +9,9 @@
  *   once the one before is done, and not on the day the one before opened.
  * - The story never locks what the game allows: what a chapter asks may be done before it opens, and it
  *   counts when the chapter comes. Only the scenes wait for their day.
+ * - Chapter 5 is the one that cannot be done before it opens: it is where the people at the stations are
+ *   met, and they write on its day. A job counts for someone who has written; the others' count from
+ *   the day they write.
  * - A player who is further on starts where they are: what the browser already holds ticks chapters at
  *   once, silently (they are not counted as played).
  * - Chapter 8 is the tenants' dispute (`dispute.ts`): it happens in the home town, at a home there, and is
@@ -20,6 +23,7 @@
 import type { JobKind } from './services';
 import type { Names } from './names';
 import type { Stage } from './events';
+import { FIXER_MIN } from './renovation';
 
 const STORE = '3da-story';
 
@@ -30,12 +34,16 @@ export const ALL = CHAPTERS.length;
 export const BUILT = 8;
 /** chapters that open as soon as the one before is done, on any day */
 export const FREE = 3;
+/** the chapter where the people at the stations are met: it cannot be done before it opens */
+export const MEET = 5;
 /** messages kept for the menu */
 export const INBOX_MAX = 24;
 /** people's messages waiting to be shown, kept so that a closed page loses none */
 export const PENDING_MAX = 12;
 /** lines kept for "The story so far" */
 export const SOFAR_MAX = 20;
+/** scenes kept as shown */
+export const SAID_MAX = 200;
 
 /** Who speaks: the game itself, or a person, each with a look of their own. */
 export type Who = 'game' | 'pump' | 'flame' | 'shield' | 'neighbour' | 'friends' | 'tenants';
@@ -53,7 +61,7 @@ export interface Pending {
 }
 
 /** The people at the stations, by the job their station hands out. */
-export const PERSON_OF: Record<Exclude<JobKind, 'plain'>, Who> = { supply: 'pump', rush: 'flame', clean: 'shield' };
+export const PERSON_OF: Record<Exclude<JobKind, 'plain'>, Person> = { supply: 'pump', rush: 'flame', clean: 'shield' };
 export const STATION_JOBS: Array<Exclude<JobKind, 'plain'>> = ['supply', 'rush', 'clean'];
 
 export interface Message {
@@ -76,7 +84,10 @@ export interface Story {
   done: Record<number, { day: string; silent?: boolean }>;
   /** the first day of the story */
   first: string;
-  /** kinds of station job delivered since the story began */
+  /**
+   * kinds of station job delivered, for chapter 5: before it opens, since the story began; from then on,
+   * those of the people met by then and those delivered since
+   */
   kinds: JobKind[];
   /** the scenes already shown, each once */
   said: string[];
@@ -107,10 +118,14 @@ export interface Snapshot {
   partied: boolean;
   /** a whole building is owned */
   building: boolean;
+  /** the first home is a whole building: the house the neighbour lives in */
+  firstWhole?: boolean;
   /** tenants' disputes settled, in all */
   settled: number;
   /** where the open dispute stands, if one is open */
   dispute: Stage | null;
+  /** a court's order has brought new tenants to a home */
+  moved?: boolean;
 }
 
 const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
@@ -157,7 +172,8 @@ export function readStory(raw: string | null): Story {
       done,
       first: isDay(k.first) ? k.first : '',
       kinds: Array.isArray(k.kinds) ? [...new Set(k.kinds.filter((j): j is JobKind => JOBS.includes(j)))] : [],
-      said: Array.isArray(k.said) ? [...new Set(k.said.filter((s): s is string => typeof s === 'string'))].slice(0, 200) : [],
+      // the newest kept, like every other list: a scene just played is never the one forgotten
+      said: Array.isArray(k.said) ? [...new Set(k.said.filter((s): s is string => typeof s === 'string'))].slice(-SAID_MAX) : [],
       inbox,
       pending,
       turn: typeof k.turn === 'number' && Number.isInteger(k.turn) && k.turn >= 0 ? k.turn % 3 : 0,
@@ -261,7 +277,8 @@ export function advance(before: Story, s: Snapshot, today: string): Step {
   let changed = false;
   for (let guard = 0; guard < ALL + 2 && story.open >= 1 && story.open <= BUILT; guard++) {
     const n = story.open;
-    if (finished(n, s, story)) {
+    // the chapter where the people are met waits for its day: they write then, and their jobs count from there
+    if ((n !== MEET || story.opened) && finished(n, s, story)) {
       // done, whether it had opened or was waiting for its day: what a chapter asks may be done before it opens
       story.done[n] = { day: today };
       done.push(n);
@@ -278,11 +295,19 @@ export function advance(before: Story, s: Snapshot, today: string): Step {
       story.last = today;
       opened = n;
       changed = true;
+      // the people met so far keep the job done for them; the others write now, and theirs is still to do
+      if (n === MEET) story.kinds = metKinds(story);
     }
     break;
   }
   // nothing moved: the same story, so nothing is written again
   return { story: changed ? story : before, finished: done, early, opened };
+}
+
+/** The kinds of station job done for someone who has written: what chapter 5 counts as it opens. */
+function metKinds(story: Story): JobKind[] {
+  const seen = met(story);
+  return story.kinds.filter((k) => k !== 'plain' && seen.includes(PERSON_OF[k]));
 }
 
 /** A station's job was delivered: its kind is kept, for chapter 5. */
@@ -357,8 +382,8 @@ export function atStation(kind: Exclude<JobKind, 'plain'>, names: Names | undefi
 export interface Goal {
   /** what to do, in a line */
   text: string;
-  /** where the arrow can lead, if anywhere */
-  way: 'bank' | 'station' | 'home' | null;
+  /** where the arrow can lead, if anywhere: `flats` is the part of town with the worn-down flats */
+  way: 'bank' | 'station' | 'home' | 'flats' | null;
 }
 
 export interface GoalState extends Snapshot {
@@ -370,6 +395,10 @@ export interface GoalState extends Snapshot {
   buildingsAfter: number;
   /** the home of the open dispute, as the lines name it: "your flat on Königstraße" */
   disputeAt?: string;
+  /** chapter 3, before the first flat is offered: what the offer still waits for (too little cash; a run of three to end) */
+  flatWaits?: 'cash' | 'run';
+  /** chapter 8, before the tenants have written: a home here that waits to be renovated first, as the lines name it */
+  renovateFirst?: string;
 }
 
 /** What the open chapter asks, as it stands. */
@@ -380,9 +409,12 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
     case 2:
       return { text: 'One more delivery, and a flat of your own is in reach.', way: null };
     case 3:
-      return s.homes
-        ? { text: 'Repair your flat: take a job at a fuel, fire or police station. Their rings flash green.', way: 'station' }
-        : { text: 'Buy a worn-down flat. After your deliveries, the game shows you where.', way: null };
+      if (s.homes) return { text: 'Repair your flat: take a job at a fuel, fire or police station. Their rings flash green.', way: 'station' };
+      // shown where already: the arrow leads there
+      if (s.reno === 'find') return { text: 'Buy a worn-down flat: stop beside a building with a green $ sign.', way: 'flats' };
+      if (s.flatWaits === 'cash') return { text: `Buy a worn-down flat. One is offered once you carry $${FIXER_MIN}: a delivery or two more.`, way: null };
+      if (s.flatWaits === 'run') return { text: 'Buy a worn-down flat. Finish your run, and the game shows you where.', way: null };
+      return { text: 'Buy a worn-down flat. After your next delivery, the game shows you where.', way: null };
     case 4:
       return { text: `Keep your cash safe from fines: pay it in at a bank in ${s.town || 'your home town'}.`, way: 'bank' };
     case 5: {
@@ -393,13 +425,16 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
       return { text: `Do a job for ${list(kinds.map((k) => atStation(k, story.names)))}.`, way: 'station' };
     }
     case 6:
-      return { text: 'Throw a party at your flat: stop beside it.', way: 'home' };
+      // a party at any home counts: a house or a building as well as the first flat
+      return { text: `Throw a party at ${s.homes > 1 ? 'one of your homes' : 'your home'}: stop beside it.`, way: 'home' };
     case 7:
-      return s.reno === 'buy' || s.reno === 'rest' || s.reno === 'paint'
-        ? { text: 'Buy the rest of your building, repair it flat by flat, and choose its colour.', way: 'home' }
-        : s.homes >= s.buildingsAfter
-          ? { text: 'Own a whole building: stop beside one to see its price.', way: null }
-          : { text: `Own a whole building. They are for sale once you have ${s.buildingsAfter} homes.`, way: null };
+      // the first building, step by step: each line says the next step, and its way leads to it
+      if (s.reno === 'buy') return { text: 'Buy the rest of your building: stop beside it. Then repair it flat by flat, and choose its colour.', way: 'home' };
+      if (s.reno === 'rest') return { text: 'Repair your building flat by flat: each package from a fuel, fire or police station repairs one. Their rings flash green.', way: 'station' };
+      if (s.reno === 'paint') return { text: 'Every flat is repaired. One more package from a station brings the paint for the outside.', way: 'station' };
+      return s.homes >= s.buildingsAfter
+        ? { text: 'Own a whole building: stop beside one to see its price.', way: null }
+        : { text: `Own a whole building. They are for sale once you have ${s.buildingsAfter} homes.`, way: null };
     case 8: {
       const at = s.disputeAt || 'your home';
       switch (s.dispute) {
@@ -416,6 +451,8 @@ export function goal(n: number, s: GoalState, story: Story): Goal {
         case 'moving':
           return { text: `New tenants move into ${at} with your next delivery.`, way: null };
         default:
+          // one thing at a time in a part of town: a home being renovated here comes first, and the tenants write after
+          if (s.renovateFirst) return { text: `Your tenants have something to say. First ${s.renovateFirst} needs renovating: a package from any station brings what it needs.`, way: 'station' };
           return { text: `Your tenants have something to say: drive to one of your homes in ${s.town || 'your home town'}.`, way: 'home' };
       }
     }
@@ -432,6 +469,16 @@ function list(items: string[]): string {
 /** "Chapter 5 of 8 · The regulars" */
 export const heading = (n: number): string => `Chapter ${n} of ${ALL} · ${CHAPTERS[n - 1]}`;
 
+/** How each person at the stations says hello, by the job their station hands out. */
+export const HELLO: Record<Exclude<JobKind, 'plain'>, string> = {
+  supply: "Heard you're new around here. I always have loads that need a careful driver. Come by the pump.",
+  rush: 'Need someone quick. Come by the fire station.',
+  clean: 'If you can drive by the book, I have work for you. Police station, when you are ready.',
+};
+
+/** The people at the stations have said hello (the scene's key): on chapter 5's day, or later to a player whose chapter 5 was ticked before they wrote. */
+export const REGULARS = 'regulars';
+
 /** The scenes: what each person says, and when. Keys are kept in `Story.said`, so each is said once. */
 export const SCENES = {
   /** the first flat is bought */
@@ -447,23 +494,17 @@ export const SCENES = {
         clean: ['shield', "New windows for your flat. Drive by the book, or they don't arrive."] as [Who, string],
       }[kind],
     ],
-  /** chapter 5: the people not yet met */
+  /** chapter 5: the people not yet met, who say hello */
   regulars: (story: Story): Array<[Who, string]> => {
-    const all: Array<[Who, string]> = [
-      ['pump', "Heard you're new around here. I always have loads that need a careful driver. Come by the pump."],
-      ['flame', 'Need someone quick. Come by the fire station.'],
-      ['shield', 'If you can drive by the book, I have work for you. Police station, when you are ready.'],
-    ];
-    // not someone who has written, nor one whose kind of job is done already
+    // not someone who has written (or whose message waits): the one who brought the first flat's repair
     const seen = met(story);
-    const kindOf: Partial<Record<Who, JobKind>> = { pump: 'supply', flame: 'rush', shield: 'clean' };
-    return all.filter(([w]) => !seen.includes(w) && !story.kinds.includes(kindOf[w]!));
+    return STATION_JOBS.flatMap((k): Array<[Who, string]> => (seen.includes(PERSON_OF[k]) ? [] : [[PERSON_OF[k], HELLO[k]]]));
   },
-  /** a first job done for a person in chapter 5 */
-  thanks: (kind: Exclude<JobKind, 'plain'>): Array<[Who, string]> =>
+  /** a first job done for a person in chapter 5; `dented`: the car took harm on the way */
+  thanks: (kind: Exclude<JobKind, 'plain'>, dented = false): Array<[Who, string]> =>
     [
       {
-        supply: ['pump', "Delivered, and the load in one piece. You'll do."] as [Who, string],
+        supply: ['pump', dented ? "Delivered. A new dent on the way, but it's all here. You'll do." : "Delivered, and the load in one piece. You'll do."] as [Who, string],
         rush: ['flame', "That was quick. I'll call on you again."] as [Who, string],
         clean: ['shield', 'Clean all the way. Thank you.'] as [Who, string],
       }[kind],
@@ -481,8 +522,8 @@ export const SCENES = {
       ? ['neighbour', "The owner is selling the rest of the house. Honestly, you'd look after it better."]
       : ['neighbour', 'There are whole buildings for sale around here. You would look after one better than most.'],
   ],
-  /** chapter 7 is done */
-  buildingThanks: (): Array<[Who, string]> => [['neighbour', 'The whole house looks new. Thank you.']],
+  /** chapter 7 is done; `own`: by the house the neighbour lives in, not by a building bought elsewhere */
+  buildingThanks: (own = true): Array<[Who, string]> => [['neighbour', own ? 'The whole house looks new. Thank you.' : 'A whole building of your own. It is in good hands.']],
   /** Mira's scene: what she asks, with the car in words ("a pink van") */
   findAsk: (car: string): string => `A customer left her keys in while she paid, and someone drove off in her car: ${car}. Whoever took it won't keep it long, it'll be parked somewhere near. Can you find it and bring it back?`,
   findThanks: (): Array<[Who, string]> => [['pump', "You found it! She's so happy she says drive it for the rest of the day. And this is from me."]],
@@ -495,14 +536,25 @@ export const SCENES = {
 export const FIND_SCENE = 'find-car';
 
 /**
- * Whether the pump's scene may be offered today: once chapter 5 is done (Mira is met), from the day after,
- * once a day until it is played, and not while a chapter that opened today is still to do: the day's chapter
- * comes first (the brainstorm, section 13, point 6). A chapter left open from an earlier day doesn't hold it.
+ * Whether the pump's scene may be offered today: once chapter 5 is done and its people have said hello
+ * (Mira is met), from the day after, once a day until it is played, and not while a chapter that opened
+ * today is still to do: the day's chapter comes first (the brainstorm, section 13, point 6). A chapter left
+ * open from an earlier day doesn't hold it.
  */
 export function findDue(story: Story, today: string): boolean {
-  const met5 = story.done[5];
-  if (!met5 || met5.day === today || said(story, FIND_SCENE) || story.offered[FIND_SCENE] === today) return false;
+  const met5 = story.done[MEET];
+  if (!met5 || met5.day === today || !said(story, REGULARS) || said(story, FIND_SCENE) || story.offered[FIND_SCENE] === today) return false;
   return !(story.open <= BUILT && story.opened === today);
+}
+
+/**
+ * The hellos owed to a player whose chapter 5 was ticked before its people wrote: as the story first went
+ * live, a job of each kind done before the chapter's day finished it unseen. None once they have been said,
+ * and none when the chapter was played, as its thanks show.
+ */
+export function lateHellos(story: Story): Array<[Who, string]> {
+  if (!story.done[MEET] || said(story, REGULARS)) return [];
+  return STATION_JOBS.some((k) => said(story, `thanks-${k}`)) ? [] : SCENES.regulars(story);
 }
 
 /** The scene was offered today. */

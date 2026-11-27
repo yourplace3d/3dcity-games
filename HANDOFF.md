@@ -15,6 +15,17 @@ lives.
   owner can open it).
 - **Next, the owner's word:** "We'll do a review gameplay next": the owner plays it, and the guessed numbers
   (listed below) get tuned from that play.
+- **Not live, waiting for the owner's word: the story debugged** (branch `claude/find-the-car`, 27 November,
+  evening). The owner asked for a code review of the whole story mode ("Does it make sense?"), then "Start
+  debugging". Twelve findings, each reproduced as a failing test and fixed, and one more found on the way;
+  all of it, with reasons, in the brainstorm, section 18. The four that broke the story for a player:
+  chapter 5 was ticked unseen for anyone who had done a job at each kind of station before its day, so its
+  people never wrote (it now waits for its day: **a change to rule 1, for the owner to confirm**); chapters
+  6, 7 and 8 were stuck in the home town wherever no home stood in the part of town loaded (the Story tab
+  now goes to the home: "Go to your flat on Lindenstraße"); "Show the way" could lead to a station whose
+  package was an ordinary job; chapter 7 pointed at the building while its next step was at a station.
+  The players of the first live day whose chapter 5 was ticked unseen get its hellos once. Unit tests and
+  `node tools/story-test.mjs` (which now plays these cases on Nuremberg's tiles) pass.
 
 ### The story (owner, 26 November: "improve the gameplay aka story now")
 

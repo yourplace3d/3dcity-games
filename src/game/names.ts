@@ -335,5 +335,28 @@ export function namesFor(lat: number, lon: number): Names {
   return { region: r.key, pump: pick(r.women), flame: pick(r.men), shield: pick(r.women), neighbour: either(), friends: [pick(r.women), pick(r.men), either()] };
 }
 
+/**
+ * First names for the tenants of a home (`dispute.ts`), from the home's own region: one or two, the same
+ * for the same `seed` (the home and how many times its tenants changed), none of them in `avoid`.
+ */
+export function tenantNames(lat: number, lon: number, seed: string, n: 1 | 2, avoid: string[] = []): string[] {
+  const r = regionAt(lat, lon);
+  let h = 2166136261;
+  for (const c of seed) {
+    h ^= c.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  const next = stream(h >>> 0);
+  const used = new Set(avoid);
+  const pick = (from: string[]): string => {
+    const left = from.filter((x) => !used.has(x));
+    const name = left[Math.floor(next() * left.length)] ?? from[0];
+    used.add(name);
+    return name;
+  };
+  const either = (): string => (next() < 0.5 ? pick(r.women) : pick(r.men));
+  return n === 1 ? [either()] : [pick(r.women), pick(r.men)];
+}
+
 /** For tests: every region's key and its lists. */
 export const REGION_LISTS: ReadonlyArray<Pick<Region, 'key' | 'women' | 'men'>> = REGIONS;

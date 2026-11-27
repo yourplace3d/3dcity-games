@@ -4,7 +4,7 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (26 November 2026, evening)
+## Right now (26 November 2026, night)
 
 - **Live:** `main` at `1114856`, deploy run 73 (26 November, 20:07 UTC), checked on the live site. In it, the
   same day: **the story, step A** (pull request #24, below); trees in woods, parks and gardens, standing on the
@@ -41,11 +41,30 @@ lives.
   wherever a home of the player's stands; the bank chapter waits for the home town, chapter 6 only where no
   home stands, chapter 7 only while the first building is being finished; no story in Where am I? or while a
   friend's run or party from a link is on; the Story tab shows once a place has been played on the page.
+- **Built, not live: step B, chapter 8 Landlord** (branch `claude/story-brainstorm`, pushed; waiting for the
+  owner to look at it and say yes before it goes live). The tenants' dispute as the owner chose it ("4c"): a
+  note in one of two moods; stopped beside the home, insist (a rush job, the part from a fire station) or
+  accept part (a supply run from a pump), or "Not now"; the choice that fits the note gets more time or a
+  lighter load; the drive decides. Insisting too late brings the court's order (a clean run with the police
+  officer and a colleague, a bill of 5 days' rent, new tenants with the next delivery); accepting part and
+  arriving dented, a new boiler at 3 days' rent. Settling the first ends the story ("That's the whole story so
+  far") with the trophy "The whole story"; after it, disputes come as events at the homes too. Also: the Story
+  tab's "The story so far", tenants who bring dessert to the next party. Every number is an estimate to tune
+  from play. Code: `src/game/dispute.ts`, the dispute's part of `src/homesUi.ts`, chapter 8 in `story.ts` and
+  `storyUi.ts`; the mission package can now be limited to one kind of station (`Game.special.kinds`). One code
+  review, its fixes in; unit tests (`tests/dispute.test.ts`) and `node tools/story-test.mjs`, which now plays
+  chapter 8 on Nuremberg's tiles, pass. Everything decided and why: brainstorm, section 16.
+- **Built, not live: find the car** (branch `claude/find-the-car`, on top of step B; pushed). The owner's
+  answers on chases (27 November): the edge of the loaded map and a dead end are natural ends of a chase, a
+  chased car going the wrong way takes you with it (fine), and the order is find the car and drive it back,
+  then an undercover chase (a tail, where offences count), then a wild one. The first is built: the pump
+  attendant's scene, from the day after chapter 5, a car in an orange circle on the maps, seen when near,
+  driven back to her pump. Brainstorm, section 17. Waiting for the owner's look, with step B.
+- **To ask the owner with step B:** the numbers (court's bill 5 days' rent, new boiler 3 days', a fifth less
+  rent for 7 days, the part's clock ×1.4, half the load), and whether disputes as events after chapter 8 should
+  come as often as renovations (now: a home bought 3 days ago or more, none there for 14 days, and at most
+  one thing open in a part of town).
 - **Next, in the owner's order** ("1-3 consequential", the daily story kept in view):
-  - *Step B, chapter 8 Landlord:* the tenants' dispute, decided by "reading people, then driving" (the owner's
-    "4c"): the tenants' message hints at what they need, the matching choice makes the job easier, the drive
-    settles it; four outcomes; escalation to the court's order with the police (a clean run, bill 5 days' rent).
-    Brainstorm, sections 8 and 13 (4). About 2.5 days (estimate). This replaces the old "step 2 at the homes".
   - *Step C, the people's own stories:* five jobs each for the pump, the fire station and the police, one scene
     a day, one choice each; after a couple of jobs each sends you to another town (the nearest built-in city,
     "Go there"); **car chases** go into the story (the owner: "definitely"), the first in the pump's story (a

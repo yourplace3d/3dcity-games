@@ -174,6 +174,7 @@ body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
 #bigmap-key .dot.me { background: #fff; border: 0; }
 #bigmap-key .dot.ring { background: var(--cyan); border: 2px solid #0c2a2e; width: 12px; height: 12px; }
 #bigmap-key .dot.ring.drop { background: var(--yellow); border-color: #2a2400; }
+#bigmap-key .dot.zone { width: 14px; height: 14px; background: rgba(255, 138, 31, 0.25); border: 2px dashed var(--ring-fuel); }
 #bigmap-key .dot.ring.fuel { background: var(--ring-fuel); border-color: #10161c; }
 #bigmap-key .dot.ring.fire { background: var(--ring-fire); border-color: #10161c; }
 #bigmap-key .dot.ring.police { background: var(--ring-police); border-color: #10161c; }
@@ -466,6 +467,8 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #party-link[hidden] { display: none; }
 #party .row { margin-top: 10px; }
 #party .kicker, #mission[data-kind='party'] .kicker { color: var(--party); }
+/* a card in parts (the tenants' words, then each choice): one line break each */
+#mission-text { white-space: pre-line; }
 #job[data-kind='party'] { box-shadow: 0 0 0 2px var(--party) inset; }
 
 /* a narrow phone (360 px): the four buttons at the top a little smaller and closer, so FM stays clear of the
@@ -505,6 +508,14 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 }
 .msg[data-who='friends'] { background: #3a3f47; color: var(--ink); border: 0; border-radius: 16px 16px 16px 5px; padding: 7px 12px 8px; }
 .msg[data-who='friends'] .from { color: var(--ring-party, #ff5cb8); text-transform: none; letter-spacing: 0; font-size: 12px; }
+/* the tenants: a note stuck to the door, in the green of homes, with a strip of tape at the top */
+.msg[data-who='tenants'] {
+  position: relative; background: #d9efcf; color: #1f3a1c; border: 0; border-radius: 2px; padding: 12px 12px 10px; rotate: 0.7deg;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  font-family: 'Noteworthy', 'Bradley Hand', 'Segoe Print', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif; font-weight: 600;
+}
+.msg[data-who='tenants']::before { content: ''; position: absolute; top: -5px; left: calc(50% - 22px); width: 44px; height: 12px; background: rgba(255, 255, 255, 0.55); rotate: -3deg; }
+.msg[data-who='tenants'] .from { color: #2f7a3a; opacity: 1; }
 
 #pane-story .story-now { display: grid; gap: 4px; padding: 12px 14px; border-radius: 12px; background: #2a2e35; }
 #pane-story .story-now small { color: var(--yellow); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
@@ -522,3 +533,4 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #pane-story h3 { margin: 14px 0 8px; font-size: 15px; }
 #pane-story .inbox { display: grid; gap: 8px; justify-items: start; max-height: 260px; overflow-y: auto; padding: 2px 2px 6px; }
 #pane-story .inbox .msg { max-width: 100%; }
+#pane-story .sofar { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 4px; color: var(--ink); }

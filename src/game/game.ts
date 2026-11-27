@@ -30,6 +30,7 @@ import {
 import type { Pt } from '../geo/polygon';
 import type { LngLat } from '../geo/projection';
 import { Car, collideCars, type CarKind } from './cars';
+import { closeIn, FIND_FAR, FIND_NEAR, CLOSE_IN_S, HAND_M, HAND_SPEED, seen, zoneAround, ZONE_MIN } from './find';
 import type { Input } from './input';
 import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, mayGo, RAIL_ON, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
@@ -99,6 +100,10 @@ export interface Job {
   hp0: number;
   /** a mission's package, going to `Game.special` */
   special?: boolean;
+  /** a supply run's load is lighter: this share of a heavy load's slowing */
+  light?: number;
+  /** the car the package came on board in, if any: whether the load took a dent is judged on it */
+  car0?: Car | null;
   /** a party's food (`Game.party`): no pay, and the time from pickup to door is what counts */
   party?: boolean;
   /** the clock it started with (s) */
@@ -117,6 +122,24 @@ export interface PartyRun {
   /** the last metres to the door on foot, up a lane too narrow for a car: they get time on the clock */
   walk?: number;
 }
+
+/**
+ * A car to find (`find.ts`): parked at `car`, somewhere in the circle around `zone`; once seen and taken, it
+ * goes to the ring at `to`. Kept as places on the earth, so a new square doesn't lose it.
+ */
+export interface FindRun {
+  car: LngLat;
+  th: number;
+  kind: CarKind;
+  colour: string;
+  zone: LngLat;
+  /** the circle's radius (m) */
+  r: number;
+  to: LngLat;
+}
+
+/** What happens while a car is looked for: seen, got in, out again, the circle closed in, back at the ring, wrecked, or put off. */
+export type FindEvent = 'spotted' | 'in' | 'out' | 'closer' | 'done' | 'wrecked' | 'dropped';
 
 export interface Hud {
   cash: number;
@@ -323,18 +346,40 @@ export class Game {
   /**
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
    * stations flash green in open play, and whichever is taken goes there, with the line for its kind.
+   * `kinds`: only the packages of these stations (a dispute's part comes from a fire station); `clock`:
+   * the clock is this much longer; `light`: a supply run's load slows the car this share of a heavy one's.
    */
-  special: { at: LngLat; say: Record<JobKind, string> } | null = null;
+  special: { at: LngLat; say: Record<JobKind, string>; kinds?: JobKind[]; clock?: number; light?: number } | null = null;
   /** A package for `special` has been picked up (its kind). */
   onSpecialTaken: (kind: JobKind) => void = () => undefined;
-  /** A package for `special` has been delivered. */
-  onSpecialDone: () => void = () => undefined;
+  /** A package for `special` has been delivered; `dented`: the car took harm on the way. */
+  onSpecialDone: (dented: boolean) => void = () => undefined;
+  /**
+   * A package for `special` did not get there: too late, the police caught the player or they were knocked
+   * out, a clean run was broken, or it was put down (a new run, or another place loaded).
+   */
+  onSpecialLost: (why: 'late' | 'caught' | 'offence' | 'dropped') => void = () => undefined;
   /** Something that makes a noise has happened; `strength` from 0 to 1 where it varies. */
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
   /** The party run being played, if any. */
   party: PartyRun | null = null;
+  /** The car being looked for (`FindRun`): while it is on, no other jobs and no run. */
+  find: FindRun | null = null;
+  /** What happened with the car looked for; `metres`: for 'done', how far it was driven back. */
+  onFind: (e: FindEvent, metres: number) => void = () => undefined;
+  private findStage: 'search' | 'seen' | 'back' = 'search';
+  private findCar: Car | null = null;
+  /** seconds of searching since the circle last closed in */
+  private findT = 0;
+  /** the ring around the car once seen, and the one it goes back to */
+  private findRing: Marker | null = null;
+  private findDrop: Marker | null = null;
+  /** "stop at the ring" has been said */
+  private findSlow = false;
+  /** where the car was when it was taken, on the earth: how far it was driven back */
+  private findFrom: LngLat | null = null;
   /**
    * A party run is over: the food got to the door (and how long it took from the pickup, s), it got cold
    * (the clock ran out), or it was lost (the player was caught or knocked out with it on board).
@@ -386,8 +431,9 @@ export class Game {
     this.from = null;
     this.lastFrom = null;
     this.offerT = 0;
-    if (this.job) this.endJob(false);
+    if (this.job) this.endJob(false, 'dropped');
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
+    this.stopFind('dropped');
   }
 
   /** Start counting a new run of deliveries; with a course, the run goes to its places. */
@@ -403,8 +449,9 @@ export class Game {
     const [x, y] = this.pos();
     this.course = { start: this.set?.start ?? this.world.proj.toLngLat(x, y), legs: [] };
     this.from = null;
-    if (this.job) this.endJob(false);
+    if (this.job) this.endJob(false, 'dropped');
     for (const m of this.pickups.splice(0)) this.scene.remove(m.mesh);
+    this.stopFind('dropped');
   }
 
   /** A party run from here: no run and no other jobs, only the food from its place to the door. */
@@ -589,6 +636,7 @@ export class Game {
     if (this.job) this.scene.remove(this.job.to.mesh);
     this.job = null;
     this.party = null;
+    this.stopFind('dropped');
     this.routeLine.visible = false;
     this.routePts = null;
     this.routeT = 0;
@@ -739,8 +787,8 @@ export class Game {
     return { remove: () => void group.remove(mesh) };
   }
 
-  private addCar(kind: CarKind, x: number, y: number, th: number): Car {
-    const c = new Car(kind);
+  private addCar(kind: CarKind, x: number, y: number, th: number, colour?: string): Car {
+    const c = colour ? new Car(kind, colour) : new Car(kind);
     c.x = x;
     c.y = y;
     c.th = th;
@@ -1625,7 +1673,7 @@ export class Game {
     if (this.job?.kind === 'clean') {
       this.onToast('That was a clean run: the job is gone', 'bad');
       this.onSound('late');
-      this.endJob(false);
+      this.endJob(false, 'offence');
     }
   }
 
@@ -1702,7 +1750,7 @@ export class Game {
     this.onSound('fine');
     // a party's food on board is lost with it: the party says so, and offers to fetch it again
     const food = !!this.job?.party;
-    if (this.job) this.endJob(false);
+    if (this.job) this.endJob(false, 'caught');
     if (food) {
       this.party = null;
       this.onPartyEnd('lost', 0);
@@ -1796,6 +1844,8 @@ export class Game {
         if (j.kind === 'supply' && this.car && this.car.hp >= j.hp0 - 1) bonus += Math.round((j.pay * 0.2) / 10) * 10;
         this.cash += j.pay + bonus;
         this.delivered++;
+        // a new dent on the car the load came on board in; a load moved to another car counts as dented
+        const dented = !!j.car0 && (j.car0.hp < j.hp0 - 1 || (!!this.car && this.car !== j.car0));
         const r = this.run;
         if (!r.over) {
           r.done++;
@@ -1805,7 +1855,7 @@ export class Game {
         } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
-        if (j.special) this.onSpecialDone();
+        if (j.special) this.onSpecialDone(dented);
         this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special });
         this.onSave();
         if (!r.over && r.done >= r.of) {
@@ -1815,7 +1865,7 @@ export class Game {
         }
       } else if (j.left <= 0) {
         this.onSound('late');
-        this.endJob(false);
+        this.endJob(false, 'late');
         if (j.party) {
           this.party = null;
           this.onPartyEnd('cold', 0);
@@ -1824,6 +1874,11 @@ export class Game {
       return;
     }
     if (!this.moved && this.speed() > 3) this.moved = true;
+    // a car to find: nothing else
+    if (this.find) {
+      this.findTick(dt);
+      return;
+    }
     // a party: one ring, at its food place, and nothing else
     if (this.party) {
       if (!this.pickups.length) this.pickups.push(this.markerAt(RING.party, this.party.pick));
@@ -1964,7 +2019,7 @@ export class Game {
 
   /** A package's colour this moment: its own, or green while a home waits for a station's package. */
   private ringNow(m: Marker): string {
-    return m.kind && this.flash ? RING.home : m.colour ?? RING[m.kind ?? 'plain'];
+    return this.flash && this.wanted(m) ? RING.home : m.colour ?? RING[m.kind ?? 'plain'];
   }
 
   /** Whether a package is a station's job, which is offered on a card before it is taken. */
@@ -1987,7 +2042,7 @@ export class Game {
     this.declined.add(m);
     const kind = m.kind!;
     // the mission's package goes to its place only when that is in the part of town loaded now (`take`)
-    const sp = this.special;
+    const sp = this.special && (!this.special.kinds || this.special.kinds.includes(kind)) ? this.special : null;
     const there = sp && ((([sx, sy]) => Math.abs(sx) < this.world.half - 10 && Math.abs(sy) < this.world.half - 10)(this.world.proj.toLocal(sp.at.lon, sp.at.lat)));
     this.onOffer!(kind, there ? sp!.say[kind] : null, (yes) => {
       if (!yes) {
@@ -2027,7 +2082,7 @@ export class Game {
     }
     const kind: JobKind = leg ? leg.kind ?? 'plain' : m.kind ?? 'plain';
     // a mission's package from a station: it goes to the mission's place, where a road leads there
-    const special = !leg && this.run.over && m.kind ? this.special : null;
+    const special = !leg && this.run.over && m.kind && (!this.special?.kinds || this.special.kinds.includes(m.kind)) ? this.special : null;
     if (special) {
       const [sx, sy] = w.proj.toLocal(special.at.lon, special.at.lat);
       // the street at the door where a car may go (an old town's lanes too), else the nearest main
@@ -2077,7 +2132,8 @@ export class Game {
       clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
     }[kind] as [number, number, string];
     // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
-    this.job = { to: marker, metres, left: isSpecial ? clock + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, ...(isSpecial ? { special: true } : {}) };
+    const light = isSpecial && kind === 'supply' && special!.light !== undefined ? { light: special!.light } : {};
+    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;
@@ -2121,6 +2177,7 @@ export class Game {
   /** Where you're headed: the drop-off, or else the nearest package. */
   private goal(): Marker | null {
     if (this.job) return this.job.to;
+    if (this.find) return this.findStage === 'back' ? this.findDrop : this.findRing;
     const [px, py] = this.pos();
     let best: Marker | null = null;
     let bd = Infinity;
@@ -2244,14 +2301,186 @@ export class Game {
     this.pilot(c, tx, ty, this.autoSpeed, this.autoAvoid, false, dt);
   }
 
-  private endJob(_done: boolean): void {
+  // ------------------------------------------------------------------ a car to find (`find.ts`)
+
+  /**
+   * A car to find near you: parked on a smaller street `FIND_NEAR` to `FIND_FAR` metres away, well inside
+   * the square, with the circle around it. It goes back to the road beside the fuel station nearest `back`
+   * (the story's pump), or the one nearest you. Null where there is no such place.
+   */
+  planFind(look: { kind: CarKind; colour: string }, back: LngLat | null): FindRun | null {
+    const w = this.world;
+    if (!w) return null;
+    const [px, py] = this.pos();
+    const [bx, by] = back ? w.proj.toLocal(back.lon, back.lat) : [px, py];
+    let pump: { x: number; y: number } | null = null;
+    let best = Infinity;
+    for (const s of w.services) {
+      const d = s.kind === 'fuel' ? Math.hypot(s.x - bx, s.y - by) : Infinity;
+      if (d < best) {
+        best = d;
+        pump = s;
+      }
+    }
+    const inside = (x: number, y: number, m: number) => Math.abs(x) < w.half - m && Math.abs(y) < w.half - m;
+    const n = pump && w.roads.nearest(pump.x, pump.y, 150, 'traffic');
+    if (!n) return null;
+    const [tx, ty] = w.roads.point(n.line, n.s);
+    if (!inside(tx, ty, 30)) return null;
+    for (let k = 0; k < 80; k++) {
+      const p = w.roads.randomPlace('drive', px, py, FIND_NEAR, FIND_FAR);
+      if (!p) return null;
+      const line = w.roads.lines[p.line];
+      // parked on a street, not on a main road nor in a yard
+      if (!line.traffic || line.kind === 'motorway' || line.kind === 'primary') continue;
+      const [x, y] = w.roads.lanePoint(p, line.w / 2 + 1);
+      if (!inside(x, y, 170) || Math.hypot(x - tx, y - ty) < 120) continue;
+      const [hx, hy] = w.roads.heading(p);
+      if (!w.free(x, y, 1.3) || !w.free(x + hx * 1.6, y + hy * 1.6, 1.2) || !w.free(x - hx * 1.6, y - hy * 1.6, 1.2) || this.carNear(x, y, 7)) continue;
+      const z = zoneAround([x, y]);
+      return { car: w.proj.toLngLat(x, y), th: Math.atan2(hy, hx), kind: look.kind, colour: look.colour, zone: w.proj.toLngLat(z.x, z.y), r: z.r, to: w.proj.toLngLat(tx, ty) };
+    }
+    return null;
+  }
+
+  /** Look for a car: whatever run or job was on ends, and nothing else is offered until it is back or put off. */
+  startFind(f: FindRun): void {
+    this.openPlay();
+    this.find = f;
+    this.findStage = 'search';
+    this.findT = 0;
+    this.findSlow = false;
+    this.findFrom = null;
+  }
+
+  /** The search is over: its rings go, and the car stays where it is. `why`: said to whoever listens. */
+  stopFind(why?: FindEvent): void {
+    if (!this.find) return;
+    this.find = null;
+    for (const m of [this.findRing, this.findDrop]) if (m) this.scene.remove(m.mesh);
+    this.findRing = null;
+    this.findDrop = null;
+    this.findCar = null;
+    if (why) this.onFind(why, 0);
+  }
+
+  /** Where the arrow points while a car is looked for: the circle until you are in it, the car once seen, then the ring. */
+  private findTarget(): { x: number; y: number; drop: boolean } | null {
+    const f = this.find;
+    if (!f) return null;
+    const c = this.findCar;
+    if (this.findStage === 'back' && this.findDrop) {
+      const [x, y] = this.local(this.findDrop);
+      return { x, y, drop: true };
+    }
+    if (this.findStage === 'seen' && c && !c.gone) return { x: c.x, y: c.y, drop: false };
+    const [zx, zy] = this.world.proj.toLocal(f.zone.lon, f.zone.lat);
+    const [px, py] = this.pos();
+    // inside the circle, no arrow: look around
+    return Math.hypot(zx - px, zy - py) > f.r * 0.85 ? { x: zx, y: zy, drop: false } : null;
+  }
+
+  private findTick(dt: number): void {
+    const f = this.find!;
+    const w = this.world;
+    const [px, py] = this.pos();
+    const [cx, cy] = w.proj.toLocal(f.car.lon, f.car.lat);
+    // the car where it was parked: put back when a new square left it behind
+    if ((!this.findCar || this.findCar.gone) && this.findStage !== 'back' && Math.abs(cx) < w.half - 8 && Math.abs(cy) < w.half - 8) {
+      this.findCar = this.addCar(f.kind, cx, cy, f.th, f.colour);
+    }
+    const c = this.findCar;
+    if (this.findStage === 'back' && (!c || c.gone)) {
+      // gone while it was being driven back: sunk in the water, say
+      this.endFind('wrecked');
+      return;
+    }
+    if (!c || c.gone) return;
+    if (c.hp <= 0) {
+      if (this.findStage === 'search') {
+        // knocked about by traffic before anyone saw it: it is found as it was parked
+        this.dropCar(c);
+        this.findCar = null;
+        return;
+      }
+      this.endFind('wrecked');
+      return;
+    }
+    if (this.car === c) {
+      if (this.findStage !== 'back') {
+        this.findStage = 'back';
+        if (this.findRing) this.scene.remove(this.findRing.mesh);
+        this.findRing = null;
+        this.findDrop ??= this.markerAt(DROP, f.to);
+        this.findFrom ??= w.proj.toLngLat(c.x, c.y);
+        this.onFind('in', 0);
+      }
+      const [dx, dy] = this.local(this.findDrop!);
+      const d = Math.hypot(dx - c.x, dy - c.y);
+      if (d < HAND_M && c.speed < HAND_SPEED) this.endFind('done');
+      else if (d < HAND_M && !this.findSlow) {
+        this.findSlow = true;
+        this.onToast('Stop at the ring to hand it over', 'info');
+      }
+      return;
+    }
+    if (this.findStage === 'back') {
+      // out of it again: the ring at the car, until you are back in; parked where it was left
+      this.findStage = 'seen';
+      f.car = w.proj.toLngLat(c.x, c.y);
+      f.th = c.th;
+      this.onFind('out', 0);
+    }
+    if (this.findStage === 'seen') {
+      this.findRing ??= this.markerAt(RING.supply, w.proj.toLngLat(c.x, c.y));
+      this.findRing.at = w.proj.toLngLat(c.x, c.y);
+      return;
+    }
+    // looking: seen once near enough with a clear view; after a while the circle closes in on it
+    const d = Math.hypot(c.x - px, c.y - py);
+    if (seen(d, d < 45 && !w.solids.blocked(px, py, c.x, c.y))) {
+      this.findStage = 'seen';
+      this.onSound('pickup');
+      this.onFind('spotted', 0);
+      return;
+    }
+    this.findT += dt;
+    if (this.findT > CLOSE_IN_S && f.r > ZONE_MIN) {
+      this.findT = 0;
+      const [zx, zy] = w.proj.toLocal(f.zone.lon, f.zone.lat);
+      const z = closeIn({ x: zx, y: zy, r: f.r }, [cx, cy]);
+      f.zone = w.proj.toLngLat(z.x, z.y);
+      f.r = z.r;
+      this.onFind('closer', 0);
+    }
+  }
+
+  /** Back at the ring, or wrecked on the way: the search is over, and how far it was driven back is said. */
+  private endFind(e: 'done' | 'wrecked'): void {
+    const c = this.findCar;
+    const from = this.findFrom && this.world.proj.toLocal(this.findFrom.lon, this.findFrom.lat);
+    const [ex, ey] = c && !c.gone ? [c.x, c.y] : this.pos();
+    const metres = from ? Math.hypot(ex - from[0], ey - from[1]) * 1.3 : 0;
+    this.stopFind();
+    this.onFind(e, metres);
+    this.onSave();
+  }
+
+  private endJob(done: boolean, why?: 'late' | 'caught' | 'offence' | 'dropped'): void {
     this.routeLine.visible = false;
     // the way to the drop-off goes with it; the next is worked out at once
     this.routePts = null;
     this.routeT = 0;
     if (!this.job) return;
+    const special = !!this.job.special;
     this.scene.remove(this.job.to.mesh);
     this.job = null;
+    if (special && !done) this.onSpecialLost(why ?? 'dropped');
+  }
+
+  /** Whether a station's package is one the mission's drop-off waits for: its ring flashes green. */
+  private wanted(m: Marker): boolean {
+    return !!m.kind && (!this.special?.kinds || this.special.kinds.includes(m.kind));
   }
 
   /** Whether the mission's drop-off is in the square being played, where a package can be taken to it. */
@@ -2265,12 +2494,12 @@ export class Game {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
     // a home waits for a package from a station: those rings flash green, the colour of homes
     const blink = (this.flash = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35);
-    for (const m of [...this.pickups, ...(this.job ? [this.job.to] : [])]) {
+    for (const m of [...this.pickups, ...(this.job ? [this.job.to] : []), ...(this.findRing ? [this.findRing] : []), ...(this.findDrop ? [this.findDrop] : [])]) {
       const [x, y] = this.local(m);
       const inside = Math.abs(x) < this.world.half && Math.abs(y) < this.world.half;
       m.mesh.visible = inside;
       if (m.kind) {
-        const want = blink ? RING.home : m.colour ?? RING[m.kind];
+        const want = blink && this.wanted(m) ? RING.home : m.colour ?? RING[m.kind];
         if (m.shown !== want) {
           tintMarker(m.mesh, want);
           m.shown = want;
@@ -2281,7 +2510,7 @@ export class Game {
       // the ring lies flat: on a slope it is lifted over the highest ground under it, or the slope hides part of it
       m.mesh.position.set(x, this.world.groundY(x, y) + riseUnder((gx, gy) => this.world.groundY(gx, gy), x, y, 5 * pulse), -y);
       // flashing for a home it is a quarter bigger too, so it shows to those who can't tell red from green
-      const grow = blink && m.kind ? 1.25 : 1;
+      const grow = blink && this.wanted(m) ? 1.25 : 1;
       m.mesh.scale.set(pulse * grow, 1, pulse * grow);
     }
   }
@@ -2309,7 +2538,7 @@ export class Game {
 
     let fastest = 0;
     for (const c of this.cars) {
-      c.heavy = c === this.car && this.job?.kind === 'supply';
+      c.heavy = c === this.car && this.job?.kind === 'supply' ? (this.job.light ?? 1) : 0;
       c.knock = 0;
       fastest = Math.max(fastest, c.speed);
     }
@@ -2586,15 +2815,33 @@ export class Game {
   }
 
   /** What the little map draws: you, the rings, the way there, and the police while they're after you. */
-  mapView(): { x: number; y: number; th: number; pickups: Array<{ at: Pt; colour: string }>; drop: Pt | null; cops: Pt[]; route: Pt[] | null; routeColour: string } {
+  mapView(): {
+    x: number;
+    y: number;
+    th: number;
+    pickups: Array<{ at: Pt; colour: string }>;
+    drop: Pt | null;
+    cops: Pt[];
+    route: Pt[] | null;
+    routeColour: string;
+    /** the circle to search for a car, and the car once seen */
+    zone: { x: number; y: number; r: number } | null;
+    sought: { at: Pt; colour: string } | null;
+  } {
     const [x, y] = this.pos();
+    const f = this.find;
+    const zone = f && this.findStage === 'search' ? (([zx, zy]) => ({ x: zx, y: zy, r: f.r }))(this.world.proj.toLocal(f.zone.lon, f.zone.lat)) : null;
+    const car = this.findCar;
+    const sought = f && car && !car.gone && this.findStage !== 'search' && this.car !== car ? { at: [car.x, car.y] as Pt, colour: f.colour } : null;
     return {
       x,
       y,
       // backing up, the arrowhead shows the way you are going, not the way the bonnet points
       th: this.car ? (this.car.forward < -0.5 ? this.car.th + Math.PI : this.car.th) : this.me.th,
       pickups: this.job ? [] : this.pickups.map((m) => ({ at: this.local(m), colour: this.ringNow(m) })),
-      drop: this.job ? this.local(this.job.to) : null,
+      drop: this.job ? this.local(this.job.to) : this.findDrop ? this.local(this.findDrop) : null,
+      zone,
+      sought,
       cops: this.heat > 0 ? this.cars.filter((c) => c.driver === 'cop' && !c.gone).map((c): Pt => [c.x, c.y]) : [],
       route: this.routePts,
       routeColour: this.routeColour(),
@@ -2609,6 +2856,9 @@ export class Game {
     if (this.job) {
       const [x, y] = this.local(this.job.to);
       best = { x, y, d: Math.hypot(x - px, y - py), kind: 'drop', colour: DROP };
+    } else if (this.find) {
+      const t = this.findTarget();
+      if (t) best = { x: t.x, y: t.y, d: Math.hypot(t.x - px, t.y - py), kind: t.drop ? 'drop' : 'guide', colour: t.drop ? DROP : RING.supply };
     } else if (this.guide && !this.party) {
       best = { ...this.guide, d: Math.hypot(this.guide.x - px, this.guide.y - py), kind: 'guide', colour: RING.home };
     } else {

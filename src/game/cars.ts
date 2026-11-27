@@ -158,8 +158,8 @@ export class Car {
   stale = 0;
   /** the hardest knock this step (m/s), for sounds, damage and the law */
   knock = 0;
-  /** carrying a heavy load: slower away, slower to stop, and held back more by a hill */
-  heavy = false;
+  /** carrying a heavy load: slower away, slower to stop, and held back more by a hill; 1 a full load, 0.5 half as much, 0 none */
+  heavy = 0;
   /** how much of a knock becomes damage: 1 for an ordinary car, less for a sturdy one */
   dent = 1;
   gone = false;
@@ -204,11 +204,13 @@ export class Car {
     fy = Math.sin(this.th);
     let vf = this.vx * fx + this.vy * fy;
     let vl = this.vx * fy - this.vy * fx;
-    const top = this.spec.top * (this.hp < 35 ? 0.7 : 1) * (this.heavy ? 0.85 : 1);
+    const load = this.heavy;
+    const top = this.spec.top * (this.hp < 35 ? 0.7 : 1) * (1 - 0.15 * load);
+    const pulls = 1 - 0.28 * load;
     if (c.throttle > 0 && !dead) {
-      if (vf < top) vf += this.spec.acc * (this.heavy ? 0.72 : 1) * c.throttle * dt * (1 - 0.55 * Math.max(0, vf) / top);
+      if (vf < top) vf += this.spec.acc * pulls * c.throttle * dt * (1 - 0.55 * Math.max(0, vf) / top);
     } else if (c.throttle < 0) {
-      if (vf > 0.4) vf = Math.max(0, vf + (this.heavy ? 13 : 20) * c.throttle * dt);
+      if (vf > 0.4) vf = Math.max(0, vf + (20 - 7 * load) * c.throttle * dt);
       else if (!dead) vf = Math.max(-8, vf + 6 * c.throttle * dt);
     }
     // hills, for the car you drive: uphill holds it back, downhill carries it, never so much that a
@@ -216,13 +218,13 @@ export class Car {
     if (this.driver === 'player' && (Math.abs(vf) > 0.6 || c.throttle !== 0)) {
       const slope = (world.groundY(this.x + fx * 2.5, this.y + fy * 2.5) - world.groundY(this.x - fx * 2.5, this.y - fy * 2.5)) / 5;
       if (Math.abs(slope) > 0.025) {
-        let pull = Math.min((this.heavy ? 30 : 21) * Math.abs(slope), this.spec.acc * (this.heavy ? 0.6 : 0.62));
+        let pull = Math.min((21 + 9 * load) * Math.abs(slope), this.spec.acc * (0.62 - 0.02 * load));
         // uphill under power, below a crawl the hill takes less than the engine gives: slow, never stuck.
         // On a touch screen the throttle is how far the stick is pushed, and less in a bend, so without
         // this a steep bend with a heavy load stopped the car (Salvador, 23 November).
         // A light touch still feels the hill: it never takes less than `HILL_FLOOR` of its pull.
         if (slope > 0 && c.throttle > 0 && !dead && vf < CRAWL) {
-          const drive = this.spec.acc * (this.heavy ? 0.72 : 1) * c.throttle * (1 - (0.55 * Math.max(0, vf)) / top);
+          const drive = this.spec.acc * pulls * c.throttle * (1 - (0.55 * Math.max(0, vf)) / top);
           pull = Math.min(pull, Math.max(drive - CLIMB, pull * HILL_FLOOR));
         }
         // backing up a hill (facing downhill): the same, with reverse's drive

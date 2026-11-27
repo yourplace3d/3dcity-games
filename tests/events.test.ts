@@ -8,7 +8,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const none = (o: Partial<Events> = {}): Events => ({ open: [], last: '', first: '2026-11-20', renovated: {}, ...o });
+const none = (o: Partial<Events> = {}): Events => ({ open: [], last: '', first: '2026-11-20', renovated: {}, disputed: {}, settled: 0, lower: {}, moved: {}, glad: [], ...o });
 const now = (o: Partial<EventNow> = {}): EventNow => ({ today: '2026-11-24', playedS: 100, deliveredHere: 1, sinceCardS: 999, busy: false, ...o });
 
 describe('when something happens at a home', () => {
@@ -48,10 +48,10 @@ describe('renovation', () => {
   });
 
   it('reads what is kept, and nothing odd', () => {
-    expect(readEvents(null, true)).toEqual({ open: [], last: '', first: 'before', renovated: {} });
+    expect(readEvents(null, true)).toEqual({ open: [], last: '', first: 'before', renovated: {}, disputed: {}, settled: 0, lower: {}, moved: {}, glad: [] });
     expect(readEvents('nonsense', false).first).toBe('');
     const kept = readEvents('{"v":1,"open":[{"home":"a@1,2","kind":"renovate","began":"2026-11-24","waiting":384},{"home":"b","kind":"fire","began":"2026-11-24"}],"last":"2026-11-24","first":"2026-11-20","renovated":{"c":19990,"d":"x"}}', true);
-    expect(kept).toEqual({ open: [{ home: 'a@1,2', kind: 'renovate', began: '2026-11-24', waiting: 384 }], last: '2026-11-24', first: '2026-11-20', renovated: { c: 19990 } });
+    expect(kept).toEqual({ open: [{ home: 'a@1,2', kind: 'renovate', began: '2026-11-24', waiting: 384 }], last: '2026-11-24', first: '2026-11-20', renovated: { c: 19990 }, disputed: {}, settled: 0, lower: {}, moved: {}, glad: [] });
   });
 });
 
@@ -69,7 +69,7 @@ describe('rent and renovation', () => {
       host: { game, save: vi.fn(), toast },
       homes: { v: 1, homes: [flat, house], paidDay: '2000-01-01' },
       reno: { stage: 'done' },
-      events: { open: [{ home: homeKey(house), kind: 'renovate', began: '2026-11-23', waiting: 528 }], last: '', first: 'before', renovated: {} },
+      events: { open: [{ home: homeKey(house), kind: 'renovate', began: '2026-11-23', waiting: 528 }], last: '', first: 'before', renovated: {}, disputed: {}, settled: 0, lower: {}, moved: {}, glad: [] },
       owned: new Map(),
       lesson: { stage: 'done', rent: true },
       shown: '',
@@ -141,7 +141,7 @@ describe('when the first-home mission waits', () => {
       homes: { v: 1, homes: [old], paidDay: '' },
       // the flat is repaired; the rest of the building is for sale, maybe for a long time
       reno: { stage: 'buy', units: 4 },
-      events: { open: [], last: '', first: 'before', renovated: {} },
+      events: { open: [], last: '', first: 'before', renovated: {}, disputed: {}, settled: 0, lower: {}, moved: {}, glad: [] },
       owned: new Map([[lot, old]]),
       world: { model: { paintBuilding: vi.fn() } },
       playedS: 100,

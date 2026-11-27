@@ -20,7 +20,7 @@ export type TrophyId =
   | 'car' | 'delivery' | 'run' | 'home' | 'bank'
   | 'homes5' | 'building' | 'painted' | 'towns2' | 'rent1000'
   | 'lost' | 'clean' | 'rush' | 'deliveries100'
-  | 'places5' | 'places20' | 'guessed';
+  | 'places5' | 'places20' | 'guessed' | 'story';
 
 export interface Trophy {
   id: TrophyId;
@@ -61,6 +61,7 @@ export const GROUPS: Group[] = [
       { id: 'painted', name: 'A fresh coat', how: 'Paint a house or building you own', sign: '<path d="M15 16h28v12H15z"/><path d="M43 21h5v13H31v6" fill="none" stroke="#16181c" stroke-width="4"/><path d="M28 40h6v12h-6z"/>' },
       { id: 'towns2', name: 'Two towns', how: 'Own homes in two towns', sign: `${house(21, 36, 0.8)}${house(43, 36, 0.8)}` },
       { id: 'rent1000', name: '$1,000 a day', how: 'Own homes that pay $1,000 rent a day', sign: word('$', 36) },
+      { id: 'story', name: 'The whole story', how: 'Play the story to its last chapter: settle a dispute with your tenants', sign: '<path d="M10 18c8-3 15-2 21 3v30c-6-5-13-6-21-3z"/><path d="M54 18c-8-3-15-2-21 3v30c6-5 13-6 21-3z"/>' },
     ],
   },
   {
@@ -96,6 +97,8 @@ export interface Snapshot {
   painted: boolean;
   towns: number;
   rentPerDay: number;
+  /** the story's last chapter is done */
+  story?: boolean;
 }
 
 export interface Kept {
@@ -135,6 +138,7 @@ export function earnedBy(s: Snapshot, places: number): TrophyId[] {
   if (s.delivered >= 100) out.push('deliveries100');
   if (places >= 5) out.push('places5');
   if (places >= 20) out.push('places20');
+  if (s.story) out.push('story');
   return out;
 }
 

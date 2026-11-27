@@ -397,6 +397,12 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
         party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
         kicker: (what) => story?.kicker(what),
+        people: {
+          note: (who, from, text, strip) => story?.note(who, from, text, strip),
+          record: (text) => story?.record(text),
+          officer: () => story?.officer() ?? '',
+          names: () => story?.peopleNames() ?? [],
+        },
       });
       (window as unknown as { homes: HomesUi }).homes = homes;
       story = new StoryUi({
@@ -411,8 +417,16 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         goHome,
         closeMenu: () => setPause(false),
         stored: () => changed(),
+        card: missionCard,
       });
       (window as unknown as { story: StoryUi }).story = story;
+      // a car to look for: the note on the open jobs goes, as there are none meanwhile
+      {
+        const g = game;
+        g.ticks.push(() => {
+          if (g.find && !$('openjobs').hidden) openJobs(false);
+        });
+      }
       // trophies: what happens in play, and now and then what the player has
       {
         const g = game;
@@ -440,6 +454,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
             painted: mine.homes.some((h) => !!h.colour),
             towns: towns.length,
             rentPerDay: towns.reduce((n, t) => n + t.rent, 0),
+            story: !!story?.done(8),
           });
         });
       }
@@ -595,7 +610,7 @@ function welcomeHome(what: string, rent: string, worn: boolean): void {
 }
 /** A card over the game that waits for a yes or a no (the homes' mission). */
 let missionAnswer: ((yes: boolean) => void) | null = null;
-function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now'): void {
+function missionCard(title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker = 'Private mission open now', later = ''): void {
   welcoming = true;
   $('mission-kicker').textContent = kicker;
   $('mission').dataset.kind = kicker === 'Party' || kicker === 'Invitation' ? 'party' : '';
@@ -607,10 +622,13 @@ function missionCard(title: string, text: string, yes: string, no: string, answe
   $('btn-mission-yes').textContent = yes;
   $('btn-mission-no').textContent = no;
   $('btn-mission-no').hidden = !no;
+  // a third button, which answers nothing: the card comes again another time
+  $('btn-mission-later').textContent = later;
+  $('btn-mission-later').hidden = !later;
   missionAnswer = answer;
   $('mission').hidden = false;
 }
-function closeMission(yes: boolean): void {
+function closeMission(yes: boolean | null): void {
   $('mission').hidden = true;
   welcoming = false;
   if (game) game.held = false;
@@ -618,10 +636,11 @@ function closeMission(yes: boolean): void {
   before = 0;
   const answer = missionAnswer;
   missionAnswer = null;
-  answer?.(yes);
+  if (yes !== null) answer?.(yes);
 }
 $('btn-mission-yes').addEventListener('click', () => closeMission(true));
 $('btn-mission-no').addEventListener('click', () => closeMission(false));
+$('btn-mission-later').addEventListener('click', () => closeMission(null));
 /** The game waits behind a card of its own (a party's end), or goes on. */
 function cover(on: boolean): void {
   welcoming = on;
@@ -1029,6 +1048,8 @@ function showBoard(run: Score | null): void {
 let openJobsT = 0;
 function openJobs(show: boolean): void {
   clearTimeout(openJobsT);
+  // while a car is looked for there are no jobs to point at
+  if (show && game?.find) return;
   $('openjobs').hidden = !show;
   if (show) openJobsT = window.setTimeout(() => openJobs(false), 16000);
 }
@@ -1378,6 +1399,11 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
     $('btn-switch').textContent = 'Call off the party';
     return;
   }
+  if (game?.find) {
+    $('pause-line').textContent = 'You are looking for a customer’s car.';
+    $('btn-switch').textContent = 'Stop looking';
+    return;
+  }
   $('pause-line').textContent = jobs ? 'You are doing open jobs.' : rival ? `You are on the run ${rival.name || 'someone'} sent you.` : 'You are on a run of three deliveries.';
   $('btn-switch').textContent = jobs ? 'Start a run of three' : 'Do open jobs instead';
 }
@@ -1397,6 +1423,11 @@ $('btn-switch').addEventListener('click', () => {
   if (game.party) {
     setPause(false);
     party?.callOff();
+    return;
+  }
+  if (game.find) {
+    setPause(false);
+    game.stopFind('dropped');
     return;
   }
   const toJobs = !game.run.over;

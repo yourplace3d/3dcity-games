@@ -14,17 +14,39 @@ the streets, buildings, water and hills come from the same map squares as
 - **A story in eight chapters** (`src/game/story.ts`, `src/storyUi.ts`; the brainstorm is `docs/brainstorm-story.md`). It puts what the game
   has in order: Arrival, Making rent, A roof over your head (the worn-down flat), Safe money (the bank), The
   regulars (a job at each kind of station), Housewarming (a party), The whole building, and Landlord (the
-  tenants' dispute, not built yet). The first visit plays straight through to the first flat; after that,
+  tenants' dispute). The first visit plays straight through to the first flat; after that,
   one new chapter on each new day you play, and a missed day loses nothing. What a chapter asks may be done
   before it opens. A player who is further on starts at the chapter they are on. The game speaks plainly;
   whoever gives a task writes a message, each on a paper of their own: the pump's attendant on a till
   receipt, the fire station's on a pager, the police officer in a notebook, the neighbour on a card, the
-  friends in text messages. Nobody calls. Their first names come from the region of the first home
+  friends in text messages, the tenants on a green note stuck to the door. Nobody calls. Their first names come from the region of the first home
   (`src/game/names.ts`: 34 lists of 20, by rough boxes as for the windows) and are kept. From chapter 4 on
   the story happens in the home town; elsewhere the menu's **Story** tab says where it waits and goes there.
   No message interrupts a run of three, and there is no story in Where am I? or on a friend's link. Each
   chapter finished in play is counted (`chapter`, its number), once a browser; chapters ticked for a player
-  who was further on are not. Kept as `3da-story`.
+  who was further on are not. The Story tab also keeps "The story so far": each choice, and how it went.
+  Kept as `3da-story`.
+- **Landlord, the tenants' dispute** (chapter 8, `src/game/dispute.ts`; then one of the things that happen at
+  the homes). The tenants of a home in the home town stop paying (a whole building first) and leave a note in
+  one of two moods, chosen at random: the heating is broken, or money is tight. Their rent waits at the
+  building. Stop beside it and choose: **insist on all of it** (a rush job: the part from a fire station) or
+  **accept part of it** (a supply run: what the flat needs, from a fuel station); "Not now" puts it off. The
+  choice that fits the note gets a longer clock (×1.4) or a lighter load (half the slowing). In time, insisting
+  brings all the rent that waited and a tip; too late, the court orders them out, and the officer and a
+  colleague are a clean run from a police station to the building: a bill of 5 days' rent, taken from the rent
+  that waited first, and new tenants with your next delivery. Accepting part without a new dent brings what
+  waited, at a fifth less rent for 7 days; dented, the old boiler gives up, and a package from any station
+  brings a new one at 3 days' rent. Tenants are made up per home (ten kinds, first names of the home's
+  region) and stay until the court's order; those it went well with bring dessert to your next party there.
+  From the first dispute settled on, disputes also come as events (a home bought 3 days ago or more, none
+  there for 14 days since the last was settled; nothing new begins in a part of town where something is open).
+- **Find the car** (`src/game/find.ts`), the pump attendant's first scene, from the day after chapter 5, in the
+  home town: a customer's car was taken while she paid. It is parked 250 to 520 m away, somewhere in an orange
+  circle on the little and big maps (never in its middle; after a minute it closes in). The car is pink or lime
+  green, a colour no other car has. Seen within 40 m with a clear view, it gets a ring; get in and stop at the
+  yellow ring by the pump. Pays like a supply run of the way back, and the customer lends you the car for the
+  day. While it is on there is nothing else; a run, a party or another place puts it off until the next day.
+  The first of the chases: a tail and a wild chase are to follow. Settling the first one ends the story and earns the trophy "The whole story".
 - **Where am I?**, the third choice on the start screen: you are put down in one of about sixty well-known cities without
   being told which. Drive around, then pick the city from four names (two of the wrong ones are cities
   nearby). A pick at once is worth 1,000 points, each second of looking costs 4, a wrong pick 250 and
@@ -68,9 +90,9 @@ the streets, buildings, water and hills come from the same map squares as
   the roof and on both maps. **Real estate**, a tab of the menu (☰, or the house button beside it, whose ring
   fills with home points), lists them by town with what each pays: *Go there* starts beside one, and in the
   town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
-  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 17 things to do.
-  Now and then something happens at a home (for now: it needs renovating); its rent waits at the building
-  until a station's package solves it. Tapping "Bank" in the money box shows the way to the nearest bank. Cash and homes come along to every place you play: a new place is not a new game.
+  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 18 things to do.
+  Now and then something happens at a home (it needs renovating, or, after the story's chapter 8, the
+  tenants stop paying); its rent waits at the building until it is solved. Tapping "Bank" in the money box shows the way to the nearest bank. Cash and homes come along to every place you play: a new place is not a new game.
   Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
 - **Parties.** Stop beside a home you own (or tap *Party* beside it in Real estate) to throw one: friends

@@ -25,7 +25,18 @@ export const RENOVATE_AFTER_DAYS = 7;
 /** seconds of play after a card before an event's card may come, so two do not follow at once */
 export const AFTER_CARD_S = 30;
 
-export type EventKind = 'renovate';
+export type EventKind = 'renovate' | 'dispute';
+
+/** The tenants' mood in a dispute (`dispute.ts`): something is broken, or money is tight. */
+export type Mood = 'broken' | 'tight';
+/**
+ * Where a dispute stands: the tenants wait to talk; the job of the choice made (insist: a rush job;
+ * accept part: a supply run); the court's order (a clean run with the officers); a replacement (a package
+ * from any station); new tenants, who move in with the next delivery.
+ */
+export type Stage = 'talk' | 'insist' | 'accept' | 'court' | 'replace' | 'moving';
+const MOODS: Mood[] = ['broken', 'tight'];
+const STAGES: Stage[] = ['talk', 'insist', 'accept', 'court', 'replace', 'moving'];
 
 export interface HomeEvent {
   /** the home, as `homeKey` names it */
@@ -35,6 +46,12 @@ export interface HomeEvent {
   began: string;
   /** rent that has waited at the building since */
   waiting: number;
+  /** a dispute: the tenants' mood */
+  mood?: Mood;
+  /** a dispute: where it stands */
+  stage?: Stage;
+  /** a dispute: the story's chapter 8 */
+  chapter?: boolean;
 }
 
 export interface Events {
@@ -45,6 +62,16 @@ export interface Events {
   first: string;
   /** each home renovated, with the day (days since 1970) */
   renovated: Record<string, number>;
+  /** each home's last dispute, with the day it began (days since 1970) */
+  disputed: Record<string, number>;
+  /** disputes settled, in all: from the first on, they also come as events */
+  settled: number;
+  /** homes whose rent is a fifth lower until this day (days since 1970, the last day it is), as agreed in a dispute */
+  lower: Record<string, number>;
+  /** how many times each home's tenants have changed: the court's order brings new ones */
+  moved: Record<string, number>;
+  /** homes whose tenants it went well with: they come to the next party there, once */
+  glad: string[];
 }
 
 /** A home's name in the events: its map number and its place, as a map number alone may repeat. */
@@ -52,25 +79,42 @@ export function homeKey(h: { id: string; lat: number; lon: number }): string {
   return `${h.id}@${h.lat.toFixed(5)},${h.lon.toFixed(5)}`;
 }
 
+/** A record of numbers by home, keeping only whole numbers. */
+function days(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (v && typeof v === 'object') for (const [h, d] of Object.entries(v)) if (typeof d === 'number' && Number.isFinite(d)) out[h] = Math.floor(d);
+  return out;
+}
+
 export function readEvents(raw: string | null, hasHomes: boolean): Events {
-  const none: Events = { open: [], last: '', first: hasHomes ? 'before' : '', renovated: {} };
+  const none: Events = { open: [], last: '', first: hasHomes ? 'before' : '', renovated: {}, disputed: {}, settled: 0, lower: {}, moved: {}, glad: [] };
   try {
     const k = JSON.parse(raw ?? 'null') as Partial<Events> | null;
     if (!k || typeof k !== 'object') return none;
     const day = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
     const open = Array.isArray(k.open)
-      ? k.open.flatMap((e) =>
-          e && typeof e.home === 'string' && e.kind === 'renovate' && day(e.began)
-            ? [{ home: e.home, kind: e.kind, began: e.began, waiting: typeof e.waiting === 'number' && Number.isFinite(e.waiting) && e.waiting > 0 ? Math.round(e.waiting) : 0 }]
-            : [],
-        )
+      ? k.open.flatMap((e): HomeEvent[] => {
+          if (!e || typeof e.home !== 'string' || !day(e.began)) return [];
+          const waiting = typeof e.waiting === 'number' && Number.isFinite(e.waiting) && e.waiting > 0 ? Math.round(e.waiting) : 0;
+          if (e.kind === 'renovate') return [{ home: e.home, kind: e.kind, began: e.began, waiting }];
+          if (e.kind !== 'dispute' || !MOODS.includes(e.mood as Mood)) return [];
+          const stage = STAGES.includes(e.stage as Stage) ? (e.stage as Stage) : 'talk';
+          return [{ home: e.home, kind: e.kind, began: e.began, waiting, mood: e.mood, stage, ...(e.chapter ? { chapter: true } : {}) }];
+        })
       : [];
-    const renovated: Record<string, number> = {};
-    if (k.renovated && typeof k.renovated === 'object') {
-      for (const [h, d] of Object.entries(k.renovated)) if (typeof d === 'number' && Number.isFinite(d)) renovated[h] = Math.floor(d);
-    }
     const first = k.first === 'before' ? 'before' : day(k.first) || none.first;
-    return { open, last: day(k.last), first, renovated };
+    return {
+      // one open at a home at most
+      open: open.filter((e, i) => open.findIndex((o) => o.home === e.home) === i),
+      last: day(k.last),
+      first,
+      renovated: days(k.renovated),
+      disputed: days(k.disputed),
+      settled: typeof k.settled === 'number' && Number.isInteger(k.settled) && k.settled > 0 ? k.settled : 0,
+      lower: days(k.lower),
+      moved: days(k.moved),
+      glad: Array.isArray(k.glad) ? [...new Set(k.glad.filter((g): g is string => typeof g === 'string'))].slice(-50) : [],
+    };
   } catch {
     return none;
   }

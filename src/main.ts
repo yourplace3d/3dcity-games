@@ -1591,12 +1591,12 @@ function storyQuiet(): boolean {
   return !!secret || !!rival || !!linkParty || (!!partyShown && !!game?.party);
 }
 
-/** The story's way home: the town of the first home, beside it. */
-function goHome(): void {
+/** The story's way home: the town of the first home, beside it; or beside the home `to`, where a chapter happens. */
+function goHome(to?: { lat: number; lon: number; place: string }): void {
   setPause(false);
   // the home town's place: the first home's, as the banks go by
-  const at = homes?.homeTownAt();
-  const place = homes?.homeTownName() ?? '';
+  const at = to ? { lat: to.lat, lon: to.lon } : homes?.homeTownAt();
+  const place = to ? to.place : (homes?.homeTownName() ?? '');
   if (!at) return;
   save();
   setScreen('start');

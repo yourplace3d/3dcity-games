@@ -378,8 +378,8 @@ export class Game {
   private findDrop: Marker | null = null;
   /** "stop at the ring" has been said */
   private findSlow = false;
-  /** where the car was when it was taken: how far it was driven back */
-  private findFrom: [number, number] | null = null;
+  /** where the car was when it was taken, on the earth: how far it was driven back */
+  private findFrom: LngLat | null = null;
   /**
    * A party run is over: the food got to the door (and how long it took from the pickup, s), it got cold
    * (the clock ran out), or it was lost (the player was caught or knocked out with it on board).
@@ -2177,6 +2177,7 @@ export class Game {
   /** Where you're headed: the drop-off, or else the nearest package. */
   private goal(): Marker | null {
     if (this.job) return this.job.to;
+    if (this.find) return this.findStage === 'back' ? this.findDrop : this.findRing;
     const [px, py] = this.pos();
     let best: Marker | null = null;
     let bd = Infinity;
@@ -2389,8 +2390,19 @@ export class Game {
       this.findCar = this.addCar(f.kind, cx, cy, f.th, f.colour);
     }
     const c = this.findCar;
+    if (this.findStage === 'back' && (!c || c.gone)) {
+      // gone while it was being driven back: sunk in the water, say
+      this.endFind('wrecked');
+      return;
+    }
     if (!c || c.gone) return;
     if (c.hp <= 0) {
+      if (this.findStage === 'search') {
+        // knocked about by traffic before anyone saw it: it is found as it was parked
+        this.dropCar(c);
+        this.findCar = null;
+        return;
+      }
       this.endFind('wrecked');
       return;
     }
@@ -2400,7 +2412,7 @@ export class Game {
         if (this.findRing) this.scene.remove(this.findRing.mesh);
         this.findRing = null;
         this.findDrop ??= this.markerAt(DROP, f.to);
-        this.findFrom ??= [c.x, c.y];
+        this.findFrom ??= w.proj.toLngLat(c.x, c.y);
         this.onFind('in', 0);
       }
       const [dx, dy] = this.local(this.findDrop!);
@@ -2413,8 +2425,10 @@ export class Game {
       return;
     }
     if (this.findStage === 'back') {
-      // out of it again: the ring at the car, until you are back in
+      // out of it again: the ring at the car, until you are back in; parked where it was left
       this.findStage = 'seen';
+      f.car = w.proj.toLngLat(c.x, c.y);
+      f.th = c.th;
       this.onFind('out', 0);
     }
     if (this.findStage === 'seen') {
@@ -2444,8 +2458,9 @@ export class Game {
   /** Back at the ring, or wrecked on the way: the search is over, and how far it was driven back is said. */
   private endFind(e: 'done' | 'wrecked'): void {
     const c = this.findCar;
-    const from = this.findFrom;
-    const metres = from && c ? Math.hypot(c.x - from[0], c.y - from[1]) * 1.3 : 0;
+    const from = this.findFrom && this.world.proj.toLocal(this.findFrom.lon, this.findFrom.lat);
+    const [ex, ey] = c && !c.gone ? [c.x, c.y] : this.pos();
+    const metres = from ? Math.hypot(ex - from[0], ey - from[1]) * 1.3 : 0;
     this.stopFind();
     this.onFind(e, metres);
     this.onSave();

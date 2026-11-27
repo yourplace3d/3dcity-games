@@ -1399,6 +1399,11 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
     $('btn-switch').textContent = 'Call off the party';
     return;
   }
+  if (game?.find) {
+    $('pause-line').textContent = 'You are looking for a customer’s car.';
+    $('btn-switch').textContent = 'Stop looking';
+    return;
+  }
   $('pause-line').textContent = jobs ? 'You are doing open jobs.' : rival ? `You are on the run ${rival.name || 'someone'} sent you.` : 'You are on a run of three deliveries.';
   $('btn-switch').textContent = jobs ? 'Start a run of three' : 'Do open jobs instead';
 }
@@ -1418,6 +1423,11 @@ $('btn-switch').addEventListener('click', () => {
   if (game.party) {
     setPause(false);
     party?.callOff();
+    return;
+  }
+  if (game.find) {
+    setPause(false);
+    game.stopFind('dropped');
     return;
   }
   const toJobs = !game.run.over;

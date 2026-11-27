@@ -1068,6 +1068,12 @@ export class HomesUi {
     return (banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '') + (lost > 0 ? ` ${money(lost)} did not fit: your cash and your bank are full.` : '');
   }
 
+  /** Money paid to the player by a scene of the story: as cash, the rest to the bank at the most cash one can hold. */
+  payOut(amount: number): void {
+    const extra = this.credit(amount);
+    if (extra) this.host.toast(extra.trim(), 'info', 7000);
+  }
+
   /** A bill: from the cash first, then, in the home town, the bank; never below nothing. Returns what was paid. */
   private charge(amount: number): number {
     const game = this.host.game;

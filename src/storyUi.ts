@@ -256,8 +256,8 @@ export class StoryUi {
       const h = this.host.homes();
       if (h && !h.dispute()) h.startDispute();
     }
-    // the pump's scene: a car to find, once the day's chapter has had its turn
-    if (next < 0 && this.visitSaid && this.playedS >= SCENE_AFTER_S && performance.now() - this.shownAt > LINE_S * 1000) this.offerFind();
+    // the pump's scene: a car to find, once the day's chapter has had its turn (and not as the tenants' card opens)
+    if (next < 0 && !this.host.blocked() && this.visitSaid && this.playedS >= SCENE_AFTER_S && performance.now() - this.shownAt > LINE_S * 1000) this.offerFind();
   }
 
   // ------------------------------------------------------------ the people's scenes
@@ -269,13 +269,11 @@ export class StoryUi {
   private offerFind(): void {
     const { game } = this.host;
     const today = this.today();
-    if (!findDue(this.story, today) || !this.atHome() || game.job || game.party || game.find || !game.run.over || !game.world) return;
+    if (!findDue(this.story, today) || !this.atHome() || game.job || game.party || game.find || !game.run.over || !game.world || game.auto) return;
+    // one card at a time (the tenants' may have opened this moment), and one thing at a time: not while a
+    // home waits for a station's package here
+    if (this.host.blocked() || (game.special && game.specialHere())) return;
     const homes = this.host.homes();
-    // one thing at a time: not while a package is wanted at a home
-    const d = homes?.dispute();
-    if (d && d.stage !== 'talk' && d.stage !== 'moving') return;
-    const reno = homes?.mine().reno?.stage;
-    if (reno && reno !== 'done' && reno !== 'buy') return;
     this.set(offer(this.story, FIND_SCENE, today));
     const look = LOOKS[Math.floor(Math.random() * LOOKS.length)];
     const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
@@ -316,8 +314,12 @@ export class StoryUi {
     else {
       // back at the pump, or wrecked on the way: played either way
       const pay = e === 'done' ? findPay(metres) : Math.round(findPay(metres) / 20) * 10;
-      this.host.game.cash += pay;
-      this.host.game.onSave();
+      const homes = this.host.homes();
+      if (homes) homes.payOut(pay);
+      else {
+        this.host.game.cash += pay;
+        this.host.game.onSave();
+      }
       const who = this.story.names?.pump ?? 'The pump';
       this.set(record(say(this.story, FIND_SCENE), e === 'done' ? `${who}'s customer got her car back.` : "You found the customer's car, and the tow truck took it back.", this.today()));
       this.enqueue(e === 'done' ? SCENES.findThanks() : SCENES.findWrecked());

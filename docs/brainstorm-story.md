@@ -785,6 +785,13 @@ the scene in `src/storyUi.ts`, the circle in `src/game/minimap.ts`.
   run, throwing a party or loading another place puts it off; the Story tab has "Stop looking". It comes again
   the next day.
 - **Kept as places on the earth,** so a new square that leaves the parked car behind puts it back where it was.
+- **One code review;** what it changed: a car lost in the water on the way back ends the search (it was
+  stuck); how far it was driven is kept on the earth, so a new square on the way doesn't spoil the pay; a car
+  left on the way is put back where it was left, not where it was first parked; the pump's card never opens
+  in the same moment as the tenants'; not in self-driving, nor while any home waits for a package here; pay
+  beyond the most cash one can hold goes to the bank; the drawn way and the subway lead to the car or the
+  ring; the pause menu says what is on and offers "Stop looking"; a parked car knocked about by traffic before
+  anyone saw it is simply found as it was parked.
 - **Tested:** unit tests (`tests/find.test.ts`); `node tools/find-test.mjs` plays the scene on Nuremberg's tiles,
   moving the player by hand (the test browser runs too slowly to drive): the card, the circle, the car put back
   after a new square, the circle closing in, seen, in, out and in again, handed over.

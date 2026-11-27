@@ -136,6 +136,32 @@ try {
   assert.equal(s.sofar.at(-1).text, "Laura's customer got her car back.");
   assert.ok(await page.evaluate(() => !!game.car), 'still at the wheel of the customer’s car, for the day');
 
+  console.log('Another search, the car lost in the water on the way back: over, not stuck');
+  await page.evaluate(() => game.startFind(game.planFind({ kind: 'van', colour: '#e0569b' }, null)));
+  await page.waitForFunction(() => game.findCar && !game.findCar.gone);
+  await page.evaluate(() => {
+    if (game.car) {
+      game.car.vx = 0;
+      game.car.vy = 0;
+      game.action();
+    }
+    const c = game.findCar;
+    game.me.x = c.x + Math.cos(c.th + Math.PI / 2) * 2.2;
+    game.me.y = c.y + Math.sin(c.th + Math.PI / 2) * 2.2;
+    game.action();
+  });
+  await page.waitForFunction(() => game.car === game.findCar && game.findStage === 'back');
+  await page.evaluate(() => {
+    // as sinking does: out of it, and the car gone
+    const c = game.car;
+    game.car = null;
+    c.driver = 'none';
+    game.dropCar(c);
+  });
+  await page.waitForFunction(() => game.find === null);
+  await line('Found, but wrecked');
+  assert.equal(await page.evaluate(() => game.pickups.length >= 0 && !game.find), true);
+
   assert.deepEqual(errors, [], 'no errors on the page');
   console.log('Find checks passed');
 } finally {

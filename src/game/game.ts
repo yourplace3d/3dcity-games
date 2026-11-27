@@ -50,6 +50,10 @@ const PEOPLE = 26;
 const PARKED = 70;
 const WALK_SPEED = 6.2;
 const MAX_HEAT = 4;
+/** followed only for the wrong way: how far behind the police car keeps (m), how near it counts as stopping for it (m), and how many seconds of driving the right way before it lets go */
+const FOLLOW_M = 18;
+const FOLLOW_STOP_M = 30;
+const FOLLOW_COOL_S = 6;
 
 /** What a vehicle keeps to: its rails, or the streets. */
 const railsOf = (kind: CarKind): 'tram' | 'train' | null => (kind === 'tram' || kind === 'train' ? kind : null);
@@ -270,6 +274,13 @@ export class Game {
   private spawnT = 0;
   private copT = 0;
   private caughtT = 0;
+  /**
+   * The heat is for the wrong way down a one-way street and nothing else: the police follow, at a distance,
+   * and never catch for it (the owner, 27 November: "catching after only seeing wrong direction is too
+   * much"). It goes once the player drives the right way again, stops for them, or is out of their sight.
+   * Any other offence makes it a chase like any other.
+   */
+  private soft = false;
   /** how many places for a package in a row had no road leading to them */
   private noWay = 0;
   /** where tracks and a street cross at different heights, by the metre, worked out once a frame (`apart`) */
@@ -918,6 +929,8 @@ export class Game {
     const net = w.roads;
     const [px, py] = this.pos();
     const chase = this.chasing(c);
+    // only the wrong way: behind you at a distance and giving way like any driver, never at you
+    const follow = chase && this.soft;
     const toMe = Math.hypot(px - c.x, py - c.y);
     let tx: number;
     let ty: number;
@@ -931,7 +944,7 @@ export class Game {
       const lead = Math.min(1, toMe / 30);
       tx = px + vx * lead;
       ty = py + vy * lead;
-      limit = toMe < 14 ? 12 + this.speed() : 33;
+      limit = follow ? (toMe > 40 ? 33 : clamp(this.speed() + (toMe - FOLLOW_M) * 0.5, 0, 33)) : toMe < 14 ? 12 + this.speed() : 33;
       c.path = this.attach(c.x, c.y, c.th, 'drive') ?? c.path;
     } else {
       if (!c.path) {
@@ -1041,7 +1054,7 @@ export class Game {
         }
       }
     }
-    this.pilot(c, tx, ty, limit, !chase, chase, dt);
+    this.pilot(c, tx, ty, limit, !chase || follow, chase && !follow, dt);
   }
 
   /**
@@ -1667,6 +1680,8 @@ export class Game {
     // one crash is one offence, however many things it hit
     if (this.clock < this.offenceAt) return;
     this.offenceAt = this.clock + 1.2;
+    // whatever it is, it is more than the wrong way (`wrongWay` says so itself when that is all)
+    this.soft = false;
     const before = Math.ceil(this.heat);
     this.heat = Math.min(MAX_HEAT, this.heat + points);
     if (Math.ceil(this.heat) > before) this.onToast(text, 'bad');
@@ -1677,23 +1692,33 @@ export class Game {
     }
   }
 
+  /** Whether the player is driving the wrong way down a one-way street now: along it, not across it at a junction. */
+  private againstOneWay(): boolean {
+    const c = this.car;
+    if (!c || c.speed < 3) return false;
+    const w = this.world;
+    const n = w.roads.nearest(c.x, c.y, 12, 'drive');
+    if (!n) return false;
+    const l = w.roads.lines[n.line];
+    if (!l.oneway || n.d > l.w / 2 + 1.5) return false;
+    // along the street, not across it: crossing a one-way street at a junction is no offence
+    const [hx, hy] = w.roads.heading({ line: n.line, s: n.s, dir: l.oneway });
+    return (c.vx * hx + c.vy * hy) / c.speed <= -0.7;
+  }
+
   /**
    * Driving the wrong way down a one-way street costs nothing by itself; a police car that sees it
-   * follows you. Seen means as near and as clear a view as keeps a chase going (`law`).
+   * follows you (`soft`): at a distance, and without ever catching you for it. Seen means as near and as
+   * clear a view as keeps a chase going (`law`).
    */
   private wrongWay(cops: Car[]): void {
     const c = this.car;
-    if (!c || this.heat > 0 || c.speed < 3) return;
+    if (!c || this.heat > 0 || !this.againstOneWay()) return;
     const w = this.world;
-    const n = w.roads.nearest(c.x, c.y, 12, 'drive');
-    if (!n) return;
-    const l = w.roads.lines[n.line];
-    if (!l.oneway || n.d > l.w / 2 + 1.5) return;
-    // along the street, not across it: crossing a one-way street at a junction is no offence
-    const [hx, hy] = w.roads.heading({ line: n.line, s: n.s, dir: l.oneway });
-    if ((c.vx * hx + c.vy * hy) / c.speed > -0.7) return;
     if (!cops.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < 75 && !w.solids.blocked(o.x, o.y, c.x, c.y))) return;
-    this.offence(1, 'Wrong way down a one-way street: the police saw you');
+    this.offence(1, 'Wrong way down a one-way street: the police follow you until you turn off it or stop');
+    // only if it counted (one offence a moment): from no heat, this is all there is
+    if (this.heat > 0) this.soft = true;
   }
 
   private law(dt: number): void {
@@ -1703,6 +1728,7 @@ export class Game {
     this.wrongWay(cops);
     if (this.heat <= 0) {
       this.caughtT = 0;
+      this.soft = false;
       return;
     }
     let seen = false;
@@ -1712,10 +1738,20 @@ export class Game {
       // a police car that can't get to you gives way to one that can
       c.stale = d > 90 && c.speed < 2 ? c.stale + dt : 0;
       if (c.stale > 4) this.dropCar(c);
-      if (d < 75 && !w.solids.blocked(c.x, c.y, px, py)) seen = true;
-      if (d < 8.5) close = true;
+      const clear = d < 75 && !w.solids.blocked(c.x, c.y, px, py);
+      if (clear) seen = true;
+      // one that only follows keeps its distance: stopping in its sight is stopping for it
+      if (this.soft ? clear && d < FOLLOW_STOP_M : d < 8.5) close = true;
     }
-    if (!seen) {
+    if (this.soft) {
+      // only the wrong way: the right way again for a moment, or out of their sight, and they let it go
+      if (!this.againstOneWay()) this.heat -= dt / FOLLOW_COOL_S;
+      if (!seen) this.heat -= dt / 13;
+      if (this.heat <= 0) {
+        this.letGo('The police let it go');
+        return;
+      }
+    } else if (!seen) {
       this.heat -= dt / 13;
       if (this.heat <= 0) {
         this.heat = 0;
@@ -1731,8 +1767,20 @@ export class Game {
     }
     if (close && this.speed() < 2.2) {
       this.caughtT += dt;
-      if (this.caughtT > 1.3) this.fine('Caught!', 0.25);
+      // stopped for the police: caught and fined in a chase; for the wrong way alone, a warning
+      if (this.caughtT > 1.3) {
+        if (this.soft) this.letGo('The police let you off with a warning: no fine for the wrong way');
+        else this.fine('Caught!', 0.25);
+      }
     } else this.caughtT = Math.max(0, this.caughtT - dt);
+  }
+
+  /** The police who followed for the wrong way alone give it up: nothing is paid, nothing on board is lost. */
+  private letGo(text: string): void {
+    this.heat = 0;
+    this.caughtT = 0;
+    this.soft = false;
+    this.onToast(text, 'good');
   }
 
   /** Stopped by the police or knocked out: pay up and start again a few streets away. */
@@ -1744,6 +1792,7 @@ export class Game {
     this.emit({ kind: 'fined' });
     this.heat = 0;
     this.caughtT = 0;
+    this.soft = false;
     this.me.hp = 100;
     this.frozen = 1.6;
     this.onFlash(cost > 0 ? `${title}  −$${cost}` : title);

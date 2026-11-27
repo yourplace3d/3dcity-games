@@ -150,6 +150,17 @@ lives.
   a police car that sees it follows you (one heat, so a clean run is gone too). Crossing one at a junction
   doesn't count. `wrongWay` in `src/game/game.ts`, tests in `tests/oneway.test.ts`. Put live on the owner's
   word ("Oneway streets go up too", 26 November).
+- **The police too hard for it (owner, 27 November, after playing: "The police is too hard on the player now.
+  Catching after only seeing wrong direction is too much").** Branch `claude/police-wrong-way`, merged by pull
+  request and put live on the owner's word ("put the police fix live", 27 November). One heat for the wrong way had made it a chase like any other: the
+  police car drove straight at the player, and stopping beside it was "Caught!", a quarter of the cash gone and
+  the package with it, though the arrow's own way leads down one-way streets. Now, while the wrong way is all
+  there is (`Game.soft`): the police car follows about 18 m behind and gives way like any driver; it never
+  catches. Six seconds of driving the right way, or stopping in its sight, ends it with a warning and no fine;
+  out of sight it cools as before. Any other offence on top makes it a chase as it always was. Left as it was:
+  a clean run is gone when the police see the wrong way (it asks for a drive by the book). The numbers
+  (`FOLLOW_M`, `FOLLOW_STOP_M`, `FOLLOW_COOL_S`) are estimates to tune from play. Tests in
+  `tests/oneway.test.ts`; `node tools/police-test.mjs` plays it on a one-way street in Nuremberg.
 
 ## Where things stand
 

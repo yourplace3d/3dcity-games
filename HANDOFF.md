@@ -9,9 +9,10 @@ lives.
 - **Going live on the owner's word** ("Yes put it live", 27 November, night): **the story debugged** (branch
   `claude/find-the-car`, by pull request into `main`, then the Pages workflow on `main`). It goes live with
   the three open questions answered by what is built; they stay open for the owner (just below).
-- **Live before it:** `main` at `8ea52c3`, deploy run 77 (27 November, 22:15 UTC): **the Discord invite**
-  (pull request #31, another session: a small card once after chapter 2, a line on the menu's first tab, a
-  click counted as `discord`; the entry "Discord: a small, feedback-first server" below). On top of run 76
+- **Live before it:** `main` at `613ef08`, deploy run 78 (27 November, 22:36 UTC): **the Discord invite**
+  (pull requests #31 and #32, another session; runs 77 and 78: a small card once after chapter 2, a line on
+  the menu's first tab and one at the very bottom of the main menu, a click counted as `discord`; the entry
+  "Discord: a small, feedback-first server" below). On top of run 76
   (21:45 UTC, "put the police fix live"): **the police only follow for the wrong way** (#30; the entry "The
   police too hard for it" below). Run 75 (14:16 UTC, "Put all live now"): **story chapter 8, Landlord** and
   **Find the car** (#29, both below); run 74 (tree shadows that end before water, #26) and, from 26
@@ -44,7 +45,7 @@ lives.
   loads handed out an ordinary job instead of the home's package (about 3 homes in 10 for chapter 8's
   one-kind jobs). The spot at a home's door is now kept as a place on the earth, and its package can be
   taken up to 2 km away (`DOOR_REACH_M` in `src/game/game.ts`, an estimate to tune).
-  **A third review, before going live** (with `main`'s Discord invite merged in), found nothing serious and
+  **A third review, before going live** (with `main`'s Discord invite merged in, twice, as it grew), found nothing serious and
   three edges of the door's fix, each reproduced as a failing test and fixed: the door kept is used too
   where the home lies at the rim of the next part of town with its street cut off (`dropFor`); with two
   homes waiting and neither in the part of town loaded, the stations stay with the home they served last

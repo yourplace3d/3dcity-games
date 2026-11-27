@@ -53,13 +53,19 @@ export interface BuildingFeature {
   isPart: boolean;
 }
 
-export type AreaKind = 'water' | 'green' | 'forest' | 'farmland' | 'sand' | 'plaza';
+/**
+ * 'rock' (bare rock, scree), 'ice' (glaciers) and 'built' (what a part of town is used for: homes,
+ * shops, industry, schools, a quarry; the map's word in `cls`) only colour the ground.
+ */
+export type AreaKind = 'water' | 'green' | 'forest' | 'farmland' | 'sand' | 'plaza' | 'rock' | 'ice' | 'built';
 
 export interface AreaFeature {
   kind: AreaKind;
   polys: Polygon[];
   /** from the map tiles: the map's own word for it (water: pond, lake, river, swimming_pool, ocean; land: pitch, stadium, playground, cemetery; land cover: park, garden, grass, meadow) */
   cls?: string;
+  /** land cover only: the map's broad class (wood, grass, wetland, farmland, sand, rock, ice), `cls` being the finer word */
+  cover?: string;
 }
 
 export type LineKind =

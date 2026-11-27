@@ -432,6 +432,11 @@ called `3DA` on the desktop (`~/Desktop/3DA`) and were too large to send to the 
   `?ref=youtube` arrivals were counted in that time; `play_counts` was fine. Fixed and tested
   (`docs/supabase/link_counts_fix.sql`). After any change to a counting function, call it once inside
   `begin; … rollback;` to see it works.
+- **Discord: a small, feedback-first server (owner, 27 November 2026; replaces the line below).** The plan
+  is the doc "3DA Discord: setup handoff". In the game (`src/discord.ts`): a small card that can be closed,
+  once, after chapter `CARD_AFTER` (2 or 3, the owner's choice), and a line on the menu's first tab. Both
+  stay hidden until `INVITE` holds a real invite; nothing on the first screen, nothing in a baked build.
+  A click is counted as `discord` with the chapter or `menu`, once a browser for each place.
 - **Discord: not yet (owner, 17 November 2026).** An empty server puts the first people off and needs
   looking after. The owner reserves a server and its name now, with no link in the game. Open it, and add
   an invite button to the menu (a plain link, nothing counted), once a handful of players come back daily

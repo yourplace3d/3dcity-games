@@ -1156,6 +1156,18 @@ function put(id: string, html: string): void {
   $(id).innerHTML = html;
 }
 
+const escHtml = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+/** The line over the game while a customer's car is looked for: the step the player is at, and how far. */
+function findLine(f: NonNullable<Hud['find']>, car: string): string {
+  const what = escHtml(car || 'the customer’s car');
+  const far = f.metres === null ? '' : ` · ${fmtM(f.metres)}`;
+  if (f.stage === 'search') return `Find ${what} · <b class="find">orange circle</b>${far}`;
+  if (f.stage === 'look') return `Look around the circle for ${what}`;
+  if (f.stage === 'seen') return `There it is: get in${far}`;
+  return `Drive it back to the pump · <b>yellow ring</b>${far}`;
+}
+
 function paint(h: Hud): void {
   put('cash', fmtMoney(h.cash));
   const heat = $('heat').children;
@@ -1172,8 +1184,14 @@ function paint(h: Hud): void {
   if (h.carHp !== null) put('speed', `${Math.round(h.kmh)}<small>km/h</small>`);
   $('run').hidden = !h.run;
   if (h.run) put('run', `Run ${Math.min(h.run.n, h.run.of)}/${h.run.of} · ${fmtMoney(h.run.score)}${rival ? ` <small>to beat ${fmtMoney(rival.score)}</small>` : ''}`);
-  $('job').hidden = !h.job;
-  if (h.job) {
+  $('job').hidden = !h.job && !h.find;
+  if (!h.job && h.find) {
+    // looking for a customer's car: what to do now, always in sight (the owner, 27 November 2026: "one must
+    // be able to read the task somewhere"; the cards and toasts that said it were gone after a few seconds)
+    $('job').classList.remove('late');
+    $('job').dataset.kind = 'find';
+    put('job', findLine(h.find, story?.soughtCar() ?? ''));
+  } else if (h.job) {
     $('job').classList.toggle('late', h.job.left < 10);
     $('job').dataset.kind = h.job.party ? 'party' : h.job.kind;
     if (h.job.party) put('job', `${party?.hudLabel() ?? 'Party'} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
@@ -1401,7 +1419,8 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
     return;
   }
   if (game?.find) {
-    $('pause-line').textContent = 'You are looking for a customer’s car.';
+    const car = story?.soughtCar() || 'the customer’s car';
+    $('pause-line').textContent = `You are looking for a customer’s car. Find ${car} in the orange circle on the little map, get in, and drive it back to the yellow ring at the pump.`;
     $('btn-switch').textContent = 'Stop looking';
     return;
   }

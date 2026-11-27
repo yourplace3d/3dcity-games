@@ -160,6 +160,12 @@ export interface Hud {
   sights: Array<{ name: string; ndcX: number; ndcY: number; metres: number | null }>;
   /** the run of deliveries being scored: which one is next, and the score so far */
   run: { n: number; of: number; score: number } | null;
+  /**
+   * A car being looked for, so the task can be read while playing: `search` on the way to the orange circle,
+   * `look` inside it, `seen` once the car has been seen (get in), `back` driving it to the pump's ring;
+   * `metres` to where the arrow points, null inside the circle.
+   */
+  find: { stage: 'search' | 'look' | 'seen' | 'back'; metres: number | null } | null;
 }
 
 /** What happened in play, for whoever listens (the trophies). */
@@ -2429,6 +2435,16 @@ export class Game {
     return Math.hypot(zx - px, zy - py) > f.r * 0.85 ? { x: zx, y: zy, drop: false } : null;
   }
 
+  /** The step of the search the player is at, for the line on the screen. */
+  private findHud(): Hud['find'] {
+    if (!this.find) return null;
+    const t = this.findTarget();
+    const [px, py] = this.pos();
+    const metres = t ? Math.hypot(t.x - px, t.y - py) : null;
+    if (this.findStage === 'search') return { stage: t ? 'search' : 'look', metres };
+    return { stage: this.findStage, metres };
+  }
+
   private findTick(dt: number): void {
     const f = this.find!;
     const w = this.world;
@@ -2956,6 +2972,7 @@ export class Game {
         return [{ name: s.name, ndcX: v.x / over, ndcY: v.y / over, metres: d }];
       }),
       run: this.run.over ? null : { n: this.run.done + 1, of: this.run.of, score: this.run.score },
+      find: this.findHud(),
     };
   }
 }

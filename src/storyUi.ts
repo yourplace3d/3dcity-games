@@ -277,6 +277,10 @@ export class StoryUi {
 
   /** the car being looked for, in words ("a pink van") */
   private findCar = '';
+  /** the car looked for, as the customer put it ("a red hatchback"), or '' when it isn't known (after a reload) */
+  soughtCar(): string {
+    return this.findCar;
+  }
 
   /** Mira asks: a customer's car is gone. In the home town, when nothing else is on, once a day until played. */
   private offerFind(): void {

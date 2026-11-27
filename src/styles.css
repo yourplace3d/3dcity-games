@@ -470,6 +470,8 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 /* a card in parts (the tenants' words, then each choice): one line break each */
 #mission-text { white-space: pre-line; }
 #job[data-kind='party'] { box-shadow: 0 0 0 2px var(--party) inset; }
+#job[data-kind='find'] { border-color: rgba(255, 138, 31, 0.6); }
+#job b.find { color: #ff8a1f; }
 
 /* a narrow phone (360 px): the four buttons at the top a little smaller and closer, so FM stays clear of the
    cash. Last in the sheet, after each button's own rules */

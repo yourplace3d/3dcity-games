@@ -178,7 +178,9 @@ describe('the player on one-way streets', () => {
     (g as unknown as { parkCars: () => void }).parkCars = vi.fn();
     await g.start({ lon: 0, lat: 0 });
     for (const c of g.cars.splice(0)) c.gone = true;
-    const inside = g as unknown as { addCar: (k: string, x: number, y: number, th: number) => Car; law: (dt: number) => void };
+    const inside = g as unknown as { addCar: (k: string, x: number, y: number, th: number) => Car; law: (dt: number) => void; offence: (points: number, text: string) => void; drive: (c: Car, dt: number) => void; clock: number; copT: number };
+    // no more police than the test puts there
+    inside.copT = 1e9;
     const me = inside.addCar('sedan', 100, 1, east ? 0 : Math.PI);
     me.driver = 'player';
     me.vx = east ? 10 : -10;
@@ -205,6 +207,115 @@ describe('the player on one-way streets', () => {
     const { g, inside } = await driving(false, true, true);
     inside.law(0.05);
     expect(g.heat).toBe(0);
+  });
+
+  /** the law for `seconds`, a twentieth of a second at a time */
+  const pass = (inside: { law: (dt: number) => void; clock: number }, seconds: number) => {
+    for (let t = 0; t < seconds; t += 0.05) {
+      inside.clock += 0.05;
+      inside.law(0.05);
+    }
+  };
+
+  it('for the wrong way alone the police never catch you: stopped beside them, a warning and no fine', async () => {
+    const { g, inside, me } = await driving(false, true);
+    const said: string[] = [];
+    g.onToast = (t) => said.push(t);
+    const flashed: string[] = [];
+    g.onFlash = (t) => flashed.push(t);
+    g.cash = 1000;
+    g.job = { kind: 'supply', special: true, to: { at: { lon: 0, lat: 0 }, mesh: new Group() } } as unknown as typeof g.job;
+    inside.law(0.05);
+    expect(g.heat).toBe(1);
+    expect(said[0]).toContain('the police follow you');
+    // you stop, with the police car right beside you: in a chase that is "Caught!"
+    me.vx = 0;
+    const cop = g.cars.find((c) => c.driver === 'cop')!;
+    cop.x = me.x + 5;
+    pass(inside, 2);
+    expect(g.heat).toBe(0);
+    expect(g.cash).toBe(1000);
+    expect(g.job).not.toBeNull();
+    expect(flashed).toEqual([]);
+    expect(said.at(-1)).toBe('The police let you off with a warning: no fine for the wrong way');
+    // and you are still in your car, where you were
+    expect(g.car).toBe(me);
+  });
+
+  it('they let it go once you drive the right way again, in their sight or out of it', async () => {
+    const { g, inside, me } = await driving(false, true);
+    const said: string[] = [];
+    g.onToast = (t) => said.push(t);
+    const lost = vi.fn();
+    g.events.push((e) => e.kind === 'lost' && lost());
+    inside.law(0.05);
+    expect(g.heat).toBe(1);
+    // still the wrong way, still seen: they keep following
+    pass(inside, 8);
+    expect(g.heat).toBe(1);
+    // turned round: the right way, with the police car still in sight
+    me.vx = 10;
+    pass(inside, 3);
+    expect(g.heat).toBeGreaterThan(0);
+    pass(inside, 3.5);
+    expect(g.heat).toBe(0);
+    expect(said.at(-1)).toBe('The police let it go');
+    // nobody was shaken off: that is for a chase
+    expect(lost).not.toHaveBeenCalled();
+  });
+
+  it('anything on top of the wrong way makes it a chase: caught then means a fine', async () => {
+    const { g, inside, me } = await driving(false, true);
+    const flashed: string[] = [];
+    g.onFlash = (t) => flashed.push(t);
+    g.cash = 1000;
+    inside.law(0.05);
+    expect(g.heat).toBe(1);
+    // a crash while they follow
+    inside.clock += 5;
+    inside.offence(1, 'That was a crash');
+    expect(g.heat).toBe(2);
+    me.vx = 0;
+    const cop = g.cars.find((c) => c.driver === 'cop')!;
+    cop.x = me.x + 5;
+    pass(inside, 2);
+    expect(flashed).toEqual(['Caught!  −$250']);
+    expect(g.cash).toBe(750);
+  });
+
+  it('a chase for anything else is as it was: stopped beside the police, caught and fined', async () => {
+    const { g, inside, me } = await driving(true, true);
+    const flashed: string[] = [];
+    g.onFlash = (t) => flashed.push(t);
+    g.cash = 1000;
+    inside.offence(1, 'You knocked someone over');
+    me.vx = 0;
+    const cop = g.cars.find((c) => c.driver === 'cop')!;
+    cop.x = me.x + 5;
+    pass(inside, 2);
+    expect(flashed).toEqual(['Caught!  −$250']);
+  });
+
+  it('the police car that follows keeps behind you; one that chases comes at you', async () => {
+    const speedAt = async (chase: boolean) => {
+      const { g, inside } = await driving(false, true);
+      inside.law(0.05);
+      if (chase) {
+        inside.clock += 5;
+        inside.offence(1, 'That was a crash');
+      }
+      // the police car 12 m behind you, going your way at your speed
+      const cop = g.cars.find((c) => c.driver === 'cop')!;
+      cop.x = 112;
+      cop.y = 1;
+      cop.th = Math.PI;
+      cop.vx = -10;
+      for (let i = 0; i < 20; i++) inside.drive(cop, 0.05);
+      return cop.controls.throttle;
+    };
+    // following: nearer than it means to be, it eases off; chasing: foot down
+    expect(await speedAt(false)).toBeLessThan(0);
+    expect(await speedAt(true)).toBeGreaterThan(0);
   });
 
   it('crossing a one-way street at a junction is no offence', async () => {

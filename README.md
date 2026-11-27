@@ -39,7 +39,14 @@ the streets, buildings, water and hills come from the same map squares as
   brings a new one at 3 days' rent. Tenants are made up per home (ten kinds, first names of the home's
   region) and stay until the court's order; those it went well with bring dessert to your next party there.
   From the first dispute settled on, disputes also come as events (a home bought 3 days ago or more, none
-  there for 14 days since the last was settled; nothing new begins in a part of town where something is open). Settling the first one ends the story and earns the trophy "The whole story".
+  there for 14 days since the last was settled; nothing new begins in a part of town where something is open).
+- **Find the car** (`src/game/find.ts`), the pump attendant's first scene, from the day after chapter 5, in the
+  home town: a customer's car was taken while she paid. It is parked 250 to 520 m away, somewhere in an orange
+  circle on the little and big maps (never in its middle; after a minute it closes in). The car is pink or lime
+  green, a colour no other car has. Seen within 40 m with a clear view, it gets a ring; get in and stop at the
+  yellow ring by the pump. Pays like a supply run of the way back, and the customer lends you the car for the
+  day. While it is on there is nothing else; a run, a party or another place puts it off until the next day.
+  The first of the chases: a tail and a wild chase are to follow. Settling the first one ends the story and earns the trophy "The whole story".
 - **Where am I?**, the third choice on the start screen: you are put down in one of about sixty well-known cities without
   being told which. Drive around, then pick the city from four names (two of the wrong ones are cities
   nearby). A pick at once is worth 1,000 points, each second of looking costs 4, a wrong pick 250 and

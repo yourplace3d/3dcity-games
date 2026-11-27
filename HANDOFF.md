@@ -54,6 +54,12 @@ lives.
   `storyUi.ts`; the mission package can now be limited to one kind of station (`Game.special.kinds`). One code
   review, its fixes in; unit tests (`tests/dispute.test.ts`) and `node tools/story-test.mjs`, which now plays
   chapter 8 on Nuremberg's tiles, pass. Everything decided and why: brainstorm, section 16.
+- **Built, not live: find the car** (branch `claude/find-the-car`, on top of step B; pushed). The owner's
+  answers on chases (27 November): the edge of the loaded map and a dead end are natural ends of a chase, a
+  chased car going the wrong way takes you with it (fine), and the order is find the car and drive it back,
+  then an undercover chase (a tail, where offences count), then a wild one. The first is built: the pump
+  attendant's scene, from the day after chapter 5, a car in an orange circle on the maps, seen when near,
+  driven back to her pump. Brainstorm, section 17. Waiting for the owner's look, with step B.
 - **To ask the owner with step B:** the numbers (court's bill 5 days' rent, new boiler 3 days', a fifth less
   rent for 7 days, the part's clock ×1.4, half the load), and whether disputes as events after chapter 8 should
   come as often as renovations (now: a home bought 3 days ago or more, none there for 14 days, and at most

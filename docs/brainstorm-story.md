@@ -744,3 +744,50 @@ in `src/game/story.ts` and `src/storyUi.ts`.
 - **Tested:** unit tests (`tests/dispute.test.ts`: the rules, and the four outcomes played through the homes
   with stand-ins); `node tools/story-test.mjs` plays chapter 8 in a browser on Nuremberg's tiles, insisting,
   too late, through the court's order to the new tenants.
+
+## 17. Chases: the owner's answers (27 November), and the first built
+
+Asked whether chases are hard to build, and offered "find the car" as a gentler kind, the owner answered:
+
+- **The edge of the loaded square** "is not the problem: it can be just the natural end to the chase, car's
+  gone, try again". It mustn't get too difficult that way.
+- **One-way streets:** if the car being chased goes the wrong way, "you'll do it wrong as well, that's fine for
+  the game". In a later **undercover** chase (a tail) an offence would count, of course.
+- **Dead ends** "can also be a lucky coincidence, and therefore the natural end of a chase".
+- **The order:** first find it and drive it back; then the undercover chase (a tail); then a wild one. "Can get
+  really complex."
+
+### Find the car and drive it back (built; branch `claude/find-the-car`, not live)
+
+The pump attendant's first scene: the first piece of her story (step C), and the base the chases build on.
+Code: `src/game/find.ts` (the rules), the find in `src/game/game.ts` (`planFind`, `startFind`, `findTick`),
+the scene in `src/storyUi.ts`, the circle in `src/game/minimap.ts`.
+
+- **When:** once chapter 5 is done (the three at the stations are met), from the next day on, in the home town,
+  once a day until it is played. The day's chapter comes first: not while a chapter that opened today is still
+  to do (one left open from an earlier day, such as a whole building still being saved for, doesn't hold it),
+  nor while a home waits for a station's package. About 30 seconds into a visit, when nothing else is on.
+- **The ask,** on a card headed with her name and the pump, kept on her receipt in the messages: "A customer
+  left her keys in while she paid, and someone drove off in her car: a pink van. Whoever took it won't keep it
+  long, it'll be parked somewhere near. Can you find it and bring it back?" "Find it" or "Not now" (tomorrow).
+- **The car** is parked 250 to 520 m away on a smaller street, in a colour no other car in the game has (pink or
+  lime green; a car, a van or a sports car), so it can be told apart.
+- **The search:** an orange circle 150 m across on the little map and the big map, with the car in it but never
+  in its middle. The arrow leads to the circle and stops inside it: look around. After a minute the circle
+  closes in on the car (half way, a little over half as wide, never under 55 m), so it never gets too hard.
+- **Seen** within 40 m with a clear view, or 14 m whatever is between. Then an orange ring lies around it, it
+  blinks on the little map, and the arrow points at it.
+- **Back:** get in; a yellow ring by the pump. Stop at it to hand the car over. It pays like a supply run of the
+  way back (at least $150), the attendant says thanks on her receipt, the customer lends you the car for the
+  rest of the day, and "The story so far" keeps it. Get out on the way and the ring waits until you are back in.
+  Wrecked on the way: half the pay, and the tow truck does the rest. Played either way.
+- **While it is on,** nothing else: no station jobs, no buying, no events at the homes, no parties. Starting a
+  run, throwing a party or loading another place puts it off; the Story tab has "Stop looking". It comes again
+  the next day.
+- **Kept as places on the earth,** so a new square that leaves the parked car behind puts it back where it was.
+- **Tested:** unit tests (`tests/find.test.ts`); `node tools/find-test.mjs` plays the scene on Nuremberg's tiles,
+  moving the player by hand (the test browser runs too slowly to drive): the card, the circle, the car put back
+  after a new square, the circle closing in, seen, in, out and in again, handed over.
+- **Next, in the owner's order:** the undercover chase (follow a car without being seen, and by the law), then a
+  wild one (the car flees; stay close until it gives up; lost when it gets away, reaches the edge of the loaded
+  map or for any other natural end; a dead end can end it in your favour).

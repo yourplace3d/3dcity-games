@@ -417,8 +417,16 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         goHome,
         closeMenu: () => setPause(false),
         stored: () => changed(),
+        card: missionCard,
       });
       (window as unknown as { story: StoryUi }).story = story;
+      // a car to look for: the note on the open jobs goes, as there are none meanwhile
+      {
+        const g = game;
+        g.ticks.push(() => {
+          if (g.find && !$('openjobs').hidden) openJobs(false);
+        });
+      }
       // trophies: what happens in play, and now and then what the player has
       {
         const g = game;
@@ -1040,6 +1048,8 @@ function showBoard(run: Score | null): void {
 let openJobsT = 0;
 function openJobs(show: boolean): void {
   clearTimeout(openJobsT);
+  // while a car is looked for there are no jobs to point at
+  if (show && game?.find) return;
   $('openjobs').hidden = !show;
   if (show) openJobsT = window.setTimeout(() => openJobs(false), 16000);
 }

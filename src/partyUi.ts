@@ -142,7 +142,7 @@ export class PartyUi {
   can(home: Home): boolean {
     const g = this.host.game;
     const homes = this.host.homes();
-    return !!homes && homes.isHere(home) && !homes.wornDown(home) && !g.job && !g.party && !this.playing;
+    return !!homes && homes.isHere(home) && !homes.wornDown(home) && !g.job && !g.party && !g.find && !this.playing;
   }
 
   /** The home points a party now would pay: the first of the day, as many of `PARTY_POINTS` as fit under `POINTS_MAX`. */

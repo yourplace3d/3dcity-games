@@ -1021,7 +1021,7 @@ export class HomesUi {
       deliveredHere: game.delivered - Math.max(0, this.deliveredBefore),
       sinceCardS: this.playedS - this.cardAtS,
       // the first-home mission has the stations' packages while it wants one
-      busy: !!game.job || !!game.party || this.rentLine !== null || wantsJob(this.reno),
+      busy: !!game.job || !!game.party || !!game.find || this.rentLine !== null || wantsJob(this.reno),
     };
     if (!eventDue(this.events, n)) return;
     // one thing at a time in a part of town: the stations' packages go to one home, and a dispute takes only one kind
@@ -1153,7 +1153,7 @@ export class HomesUi {
   startDispute(): boolean {
     const { game } = this.host;
     if (!this.world || !this.host.card || this.host.quiet?.() || this.host.blocked?.()) return false;
-    if (game.job || game.party || !game.run.over || this.rentLine !== null || wantsJob(this.reno)) return false;
+    if (game.job || game.party || game.find || !game.run.over || this.rentLine !== null || wantsJob(this.reno)) return false;
     if (this.events.open.some((e) => e.kind === 'dispute' && e.chapter) || this.playedS - this.cardAtS < 8) return false;
     // one thing at a time in a part of town: a renovation open here is done first
     if (this.events.open.some((e) => this.lotOf(this.homeOfEvent(e)))) return false;
@@ -1547,7 +1547,7 @@ export class HomesUi {
       bank = this.banks.some((b) => Math.hypot(b.rx - px, b.ry - py) < BANK_ROAD_M || Math.hypot(b.x - px, b.y - py) < BANK_M);
       let best = BESIDE_M;
       // on a job, only the job: nothing to buy until it is done (the owner, 23 November); a party alike
-      if (!game.job && !game.party) for (const lot of world.lots) {
+      if (!game.job && !game.party && !game.find) for (const lot of world.lots) {
         if (Math.abs(lot.x - px) > 120 || Math.abs(lot.y - py) > 120) continue;
         const d = distanceTo(lot, px, py);
         if (d < best) {

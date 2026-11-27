@@ -174,6 +174,7 @@ body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
 #bigmap-key .dot.me { background: #fff; border: 0; }
 #bigmap-key .dot.ring { background: var(--cyan); border: 2px solid #0c2a2e; width: 12px; height: 12px; }
 #bigmap-key .dot.ring.drop { background: var(--yellow); border-color: #2a2400; }
+#bigmap-key .dot.zone { width: 14px; height: 14px; background: rgba(255, 138, 31, 0.25); border: 2px dashed var(--ring-fuel); }
 #bigmap-key .dot.ring.fuel { background: var(--ring-fuel); border-color: #10161c; }
 #bigmap-key .dot.ring.fire { background: var(--ring-fire); border-color: #10161c; }
 #bigmap-key .dot.ring.police { background: var(--ring-police); border-color: #10161c; }

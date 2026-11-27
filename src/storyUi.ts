@@ -17,6 +17,8 @@ import { namesFor } from './game/names';
 import { countPlay } from './linkCount';
 import type { JobKind, ServiceKind } from './game/services';
 import { kindsFor } from './game/dispute';
+import { describeCar, findPay, KINDS, LOOKS } from './game/find';
+import type { FindEvent } from './game/game';
 import {
   addNote,
   addPending,
@@ -25,12 +27,15 @@ import {
   begin,
   BUILT,
   CHAPTERS,
+  FIND_SCENE,
+  findDue,
   friendFor,
   goal,
   heading,
   keep,
   loadStory,
   noteJob,
+  offer,
   record,
   said,
   say,
@@ -61,6 +66,8 @@ export interface StoryHost {
   closeMenu: () => void;
   /** say that something changed, for saving online */
   stored: () => void;
+  /** a card over the game that waits for an answer; `kicker`: who asks */
+  card: (title: string, text: string, yes: string, no: string, answer: (yes: boolean) => void, kicker?: string) => void;
 }
 
 /** seconds a person's message shows, and the game's line */
@@ -83,6 +90,8 @@ const SERVICE_OF: Record<Exclude<JobKind, 'plain'>, ServiceKind> = { supply: 'fu
 type Queued = { who: Who; text: string; heading?: string; again?: boolean; from?: string; anywhere?: boolean };
 /** seconds into a visit before chapter 8's tenants write: after the chapter's line has been read */
 const DISPUTE_AFTER_S = 16;
+/** seconds into a visit before a person's scene is offered: after the day's chapter has had its turn */
+const SCENE_AFTER_S = 30;
 
 
 export class StoryUi {
@@ -114,6 +123,7 @@ export class StoryUi {
       before(kind);
       this.specialTaken(kind);
     };
+    game.onFind = (e, metres) => this.found(e, metres);
   }
 
   /**
@@ -246,6 +256,77 @@ export class StoryUi {
       const h = this.host.homes();
       if (h && !h.dispute()) h.startDispute();
     }
+    // the pump's scene: a car to find, once the day's chapter has had its turn
+    if (next < 0 && this.visitSaid && this.playedS >= SCENE_AFTER_S && performance.now() - this.shownAt > LINE_S * 1000) this.offerFind();
+  }
+
+  // ------------------------------------------------------------ the people's scenes
+
+  /** the car being looked for, in words ("a pink van") */
+  private findCar = '';
+
+  /** Mira asks: a customer's car is gone. In the home town, when nothing else is on, once a day until played. */
+  private offerFind(): void {
+    const { game } = this.host;
+    const today = this.today();
+    if (!findDue(this.story, today) || !this.atHome() || game.job || game.party || game.find || !game.run.over || !game.world) return;
+    const homes = this.host.homes();
+    // one thing at a time: not while a package is wanted at a home
+    const d = homes?.dispute();
+    if (d && d.stage !== 'talk' && d.stage !== 'moving') return;
+    const reno = homes?.mine().reno?.stage;
+    if (reno && reno !== 'done' && reno !== 'buy') return;
+    this.set(offer(this.story, FIND_SCENE, today));
+    const look = LOOKS[Math.floor(Math.random() * LOOKS.length)];
+    const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
+    const car = describeCar(look.word, kind.word);
+    const ask = SCENES.findAsk(car);
+    const names = this.story.names;
+    this.set(keep(this.story, { who: 'pump', from: sender('pump', names), text: ask, day: today }));
+    this.host.card(
+      'A customer’s car is gone',
+      `“${ask}” Look in the orange circle on the little map. Once you see it, get in and drive it back to the pump.`,
+      'Find it',
+      'Not now',
+      (yes) => {
+        if (!yes) return;
+        const at = homes?.homeTownAt() ?? null;
+        const plan = game.planFind({ kind: kind.kind, colour: look.colour }, at);
+        if (!plan) {
+          this.toast('No good street for it here. She’ll ask again tomorrow.');
+          return;
+        }
+        this.findCar = car;
+        game.startFind(plan);
+        this.toast(`Drive to the orange circle and look around for ${car}.`);
+      },
+      names ? sender('pump', names) : 'The pump',
+    );
+  }
+
+  /** What happens while the car is looked for. */
+  private found(e: FindEvent, metres: number): void {
+    if (this.host.quiet()) return;
+    const car = this.findCar || 'the car';
+    if (e === 'spotted') this.toast(`There it is: ${car}. Get in.`);
+    else if (e === 'closer') this.toast('Someone saw it nearby: the circle is smaller now.');
+    else if (e === 'in') this.toast('Now back to the pump: the yellow ring. Stop at it to hand it over.');
+    else if (e === 'out') this.toast('Get back in to take it to the pump.');
+    else if (e === 'dropped') this.toast('The search is off. She’ll ask again another day.');
+    else {
+      // back at the pump, or wrecked on the way: played either way
+      const pay = e === 'done' ? findPay(metres) : Math.round(findPay(metres) / 20) * 10;
+      this.host.game.cash += pay;
+      this.host.game.onSave();
+      const who = this.story.names?.pump ?? 'The pump';
+      this.set(record(say(this.story, FIND_SCENE), e === 'done' ? `${who}'s customer got her car back.` : "You found the customer's car, and the tow truck took it back.", this.today()));
+      this.enqueue(e === 'done' ? SCENES.findThanks() : SCENES.findWrecked());
+      this.toast(`${e === 'done' ? 'Handed over' : 'Found, but wrecked'}  +$${pay}`);
+    }
+  }
+
+  private toast(text: string): void {
+    this.host.show(messageEl('game', '', text), 5500);
   }
 
   /** The story moves on with what the player has done. */
@@ -536,7 +617,23 @@ export class StoryUi {
     const n = story.open;
     const now = document.createElement('div');
     now.className = 'story-now';
-    if (n >= 1 && n <= BUILT) {
+    if (this.host.game.find && playing) {
+      // a car being looked for: what to do, and a way to stop
+      const head = document.createElement('small');
+      head.textContent = this.story.names ? sender('pump', this.story.names) : 'The pump';
+      const title = document.createElement('b');
+      title.textContent = 'A customer’s car is gone';
+      const text = document.createElement('p');
+      text.textContent = `Find ${this.findCar || 'the car'} in the orange circle on the little map, get in, and drive it back to the pump.`;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = 'Stop looking';
+      b.addEventListener('click', () => {
+        this.host.closeMenu();
+        this.host.game.stopFind('dropped');
+      });
+      now.append(head, title, text, b);
+    } else if (n >= 1 && n <= BUILT) {
       const g = this.goalOf(n);
       const head = document.createElement('small');
       head.textContent = `Chapter ${n} of ${ALL}`;

@@ -90,6 +90,8 @@ export interface Story {
   names?: Names;
   /** "The story so far": each choice made, and how it went, newest last */
   sofar: Array<{ day: string; text: string }>;
+  /** the people's scenes offered, with the last day each was: offered once a day until played */
+  offered: Record<string, string>;
 }
 
 /** What the game holds, as the story reads it. */
@@ -117,7 +119,7 @@ const JOBS: JobKind[] = ['plain', 'supply', 'rush', 'clean'];
 
 /** A story that has not begun. */
 export function none(): Story {
-  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [], pending: [], turn: 0, sofar: [] };
+  return { open: 0, opened: '', last: '', done: {}, first: '', kinds: [], said: [], inbox: [], pending: [], turn: 0, sofar: [], offered: {} };
 }
 
 export function readStory(raw: string | null): Story {
@@ -144,6 +146,8 @@ export function readStory(raw: string | null): Story {
           )
           .slice(-PENDING_MAX)
       : [];
+    const offered: Record<string, string> = {};
+    if (k.offered && typeof k.offered === 'object') for (const [key, d] of Object.entries(k.offered)) if (isDay(d)) offered[key] = d;
     const sofar = Array.isArray(k.sofar) ? k.sofar.flatMap((l) => (l && isDay(l.day) && typeof l.text === 'string' ? [{ day: l.day, text: l.text.slice(0, 200) }] : [])).slice(-SOFAR_MAX) : [];
     const names = readNames(k.names);
     return {
@@ -159,6 +163,7 @@ export function readStory(raw: string | null): Story {
       turn: typeof k.turn === 'number' && Number.isInteger(k.turn) && k.turn >= 0 ? k.turn % 3 : 0,
       ...(names ? { names } : {}),
       sofar,
+      offered,
     };
   } catch {
     return none();
@@ -478,7 +483,30 @@ export const SCENES = {
   ],
   /** chapter 7 is done */
   buildingThanks: (): Array<[Who, string]> => [['neighbour', 'The whole house looks new. Thank you.']],
+  /** Mira's scene: what she asks, with the car in words ("a pink van") */
+  findAsk: (car: string): string => `A customer left her keys in while she paid, and someone drove off in her car: ${car}. Whoever took it won't keep it long, it'll be parked somewhere near. Can you find it and bring it back?`,
+  findThanks: (): Array<[Who, string]> => [['pump', "You found it! She's so happy she says drive it for the rest of the day. And this is from me."]],
+  findWrecked: (): Array<[Who, string]> => [['pump', 'Well, you found it. The tow truck will do the rest. Thanks all the same.']],
 };
+
+// ---------------------------------------------------------------- the people's scenes
+
+/** Mira's first scene: a customer's car to find and drive back (`find.ts`; the owner, 27 November). */
+export const FIND_SCENE = 'find-car';
+
+/**
+ * Whether the pump's scene may be offered today: once chapter 5 is done (Mira is met), from the day after,
+ * once a day until it is played, and not while a chapter that opened today is still to do: the day's chapter
+ * comes first (the brainstorm, section 13, point 6). A chapter left open from an earlier day doesn't hold it.
+ */
+export function findDue(story: Story, today: string): boolean {
+  const met5 = story.done[5];
+  if (!met5 || met5.day === today || said(story, FIND_SCENE) || story.offered[FIND_SCENE] === today) return false;
+  return !(story.open <= BUILT && story.opened === today);
+}
+
+/** The scene was offered today. */
+export const offer = (story: Story, key: string, today: string): Story => ({ ...story, offered: { ...story.offered, [key]: today } });
 
 /** Which friend says a friends' message: the first, the second, the third, in turn. */
 export function friendFor(story: Story): number {

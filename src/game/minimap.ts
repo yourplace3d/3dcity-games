@@ -1,7 +1,7 @@
 /**
  * The little map in the corner: the streets around you, north up like the game itself, with the
- * way to the next ring drawn in, the rings, the subway entrances, and the police when they're
- * after you. The streets of a square are painted once; each frame only moves that picture.
+ * way to the next ring drawn in, the rings, the subway entrances, the police when they're
+ * after you, and the circle to search when a car is to be found. The streets of a square are painted once; each frame only moves that picture.
  *
  * The same drawing makes the big map a tap on the little one opens: the whole loaded square,
  * standing still, with you moving on it.
@@ -213,6 +213,23 @@ export class Minimap {
     for (const { at, colour } of view.pickups) {
       const [sx, sy] = pinned(at[0], at[1]);
       dot(sx, sy, 4.5, colour, '#10161c');
+    }
+    // a car to find: the circle to search, in the pump's orange, and the car once seen
+    if (view.zone) {
+      const [sx, sy] = at(view.zone.x, view.zone.y);
+      ctx.beginPath();
+      ctx.arc(sx, sy, Math.max(6 * dpr, view.zone.r * m), 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 138, 31, 0.18)';
+      ctx.fill();
+      ctx.setLineDash([6 * dpr, 4 * dpr]);
+      ctx.lineWidth = 2 * dpr;
+      ctx.strokeStyle = '#ff8a1f';
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    if (view.sought && Math.floor(performance.now() / 350) % 2 === 0) {
+      const [sx, sy] = pinned(view.sought.at[0], view.sought.at[1]);
+      dot(sx, sy, 5, view.sought.colour, '#fff');
     }
     if (view.drop) {
       const [sx, sy] = pinned(view.drop[0], view.drop[1]);

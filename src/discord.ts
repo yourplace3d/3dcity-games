@@ -14,8 +14,8 @@
 import { countDiscord } from './linkCount';
 import { BAKED } from './geo/mapCache';
 
-/** The game's invite link, from the owner. Empty: no card and no menu link. */
-export const INVITE = '';
+/** The game's invite link, from the owner (27 November 2026). Empty: no card and no menu link. */
+export const INVITE = 'https://discord.gg/Y5JjN8s6Q';
 /** The chapter after which the card shows: the owner's choice, 2 (more players) or 3 (the more invested). */
 export const CARD_AFTER = 2;
 

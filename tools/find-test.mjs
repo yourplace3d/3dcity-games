@@ -100,9 +100,10 @@ try {
   });
   await line('There it is');
   assert.ok(await page.evaluate(() => !!game.mapView().sought), 'the car blinks on the little map');
-  // the camera catches up, and the ring lies around the car
+  // the ring lies around the car with the game's next step (a slow test browser can take seconds over one),
+  // and the camera catches up
+  await page.waitForFunction(() => !!game.findRing, null, { timeout: 30000 }).catch(() => assert.fail('a ring around it'));
   await page.waitForTimeout(2500);
-  assert.ok(await page.evaluate(() => !!game.findRing), 'a ring around it');
   await shot('03-seen');
   await page.evaluate(() => {
     const c = game.findCar;

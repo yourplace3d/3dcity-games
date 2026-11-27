@@ -88,6 +88,31 @@ describe('rent and renovation', () => {
     vi.useRealTimers();
   });
 
+  it('with two homes waiting and neither in this part of town, the stations stay with the home they served', () => {
+    const { u, game } = ui();
+    const sync = () => (u as unknown as { syncSpecial: () => void }).syncSpecial();
+    const at = () => (game.special as unknown as { at: { lat: number; lon: number } } | null)?.at;
+    const inner = u as unknown as { events: Events; owned: Map<object, Home> };
+    // the flat has waited since yesterday, the house since today
+    inner.events = { ...inner.events, open: [{ home: homeKey(flat), kind: 'renovate', began: '2026-11-22', waiting: 0 }, ...inner.events.open] };
+    // nothing served yet, and neither in the part of town loaded: the newest
+    sync();
+    expect(at()).toEqual({ lat: house.lat, lon: house.lon });
+    // the flat's part of town: the flat
+    inner.owned = new Map([[{}, flat]]);
+    sync();
+    expect(at()).toEqual({ lat: flat.lat, lon: flat.lon });
+    // across the line where the next part of town loads, to a station there: still the flat, whose door the game keeps
+    inner.owned = new Map();
+    sync();
+    expect(at()).toEqual({ lat: flat.lat, lon: flat.lon });
+    // the house's part of town: the house
+    inner.owned = new Map([[{}, house]]);
+    sync();
+    expect(at()).toEqual({ lat: house.lat, lon: house.lon });
+    vi.useRealTimers();
+  });
+
   it('at the most cash one can hold, the rent that waited goes to the bank', () => {
     const { u, game, toast } = ui();
     Object.assign(u, { saved: 0 });

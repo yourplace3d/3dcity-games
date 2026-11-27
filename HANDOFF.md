@@ -4,35 +4,33 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (27 November 2026, late evening)
+## Right now (27 November 2026, night)
 
-- **Live:** `main` at `636dc98`, deploy run 76 (27 November, 21:45 UTC), on the owner's word ("put the police
-  fix live"). In it: **the police only follow for the wrong way** (pull request #30: no catching and no fine
-  for the wrong way down a one-way street alone; the entry "The police too hard for it" below). Checked on the
-  live site: its bundle is byte-identical to the one built from the tested branch. On top of run 75 (27
-  November, 14:16 UTC, "Put all live now"): **story chapter 8, Landlord** and **Find the car** (pull request
-  #29, both below); run 74 (tree shadows that end before water, #26) and, from 26 November, **the story, step
-  A** (#24); trees in woods, parks and gardens (#23, #25, another session: `docs/trees.md`); rivers with quay
-  walls and real bridges (#12); the thin-map warning (#20); police following a player going the wrong way
-  (#13). What run 75 shipped, in detail with screenshots: https://claude.ai/artifact/PY7n1roKgTCUGwK32GBUf1
-  (a private page; the owner can open it).
+- **Going live on the owner's word** ("Yes put it live", 27 November, night): **the story debugged** (branch
+  `claude/find-the-car`, by pull request into `main`, then the Pages workflow on `main`). It goes live with
+  the three open questions answered by what is built; they stay open for the owner (just below).
+- **Live before it:** `main` at `8ea52c3`, deploy run 77 (27 November, 22:15 UTC): **the Discord invite**
+  (pull request #31, another session: a small card once after chapter 2, a line on the menu's first tab, a
+  click counted as `discord`; the entry "Discord: a small, feedback-first server" below). On top of run 76
+  (21:45 UTC, "put the police fix live"): **the police only follow for the wrong way** (#30; the entry "The
+  police too hard for it" below). Run 75 (14:16 UTC, "Put all live now"): **story chapter 8, Landlord** and
+  **Find the car** (#29, both below); run 74 (tree shadows that end before water, #26) and, from 26
+  November, **the story, step A** (#24); trees in woods, parks and gardens (#23, #25, another session:
+  `docs/trees.md`); rivers with quay walls and real bridges (#12); the thin-map warning (#20); police
+  following a player going the wrong way (#13). What run 75 shipped, in detail with screenshots:
+  https://claude.ai/artifact/PY7n1roKgTCUGwK32GBUf1 (a private page; the owner can open it).
 - **Next, the owner's word:** "We'll do a review gameplay next": the owner plays it, and the guessed numbers
   (listed below) get tuned from that play.
 - **Waiting on the owner, in short** (each is told in full further down):
-  1. *The story debugged* is not live: say the word, and answer its three questions (just below).
+  1. *The story debugged,* three questions (just below).
   2. *The police:* whether being seen going the wrong way should still end a clean run (it does), and the
      numbers of the following (18 m behind, 6 s the right way).
-  3. *A Discord invite, counted:* the invite link, where it shows, its wording (below).
-- **Not live, waiting for the owner's word: the story debugged** (branch `claude/find-the-car`, 27 November,
-  evening; `main` with the police fix is merged into it, and the 344 unit tests pass on the two together).
-  **Three questions for the owner:** (1) chapter 5 is now the one chapter that cannot be done before it
-  opens, the one exception to rule 1; the other way keeps the rule, and chapter 5 then finishes the moment
-  it opens for anyone who did the jobs before. (2) A home's package can be taken up to 2 km from it
-  (`DOOR_REACH_M`), a guess. (3) Put off with "Later", the first-flat card now comes again after every
-  further delivery: too often? **Before it goes live:** another code review, as its second half changes how
-  a home's package finds its drop-off (`dropFor`, `keepDoor` in `src/game/game.ts`), which renovations and the
-  first flat's repair use too. To put it live: pull request from `claude/find-the-car` into `main`, merge,
-  run the Pages workflow on `main`.
+- **The story debugged: three questions for the owner,** each live as built until answered: (1) chapter 5 is
+  now the one chapter that cannot be done before it opens, the one exception to rule 1; the other way keeps
+  the rule, and chapter 5 then finishes the moment it opens for anyone who did the jobs before. (2) A home's
+  package can be taken up to 2 km from it (`DOOR_REACH_M`), a guess; out there its clock allows for a way by
+  road of 1.6 times the straight line (`DOOR_WAY`), a guess too. (3) Put off with "Later", the first-flat
+  card now comes again after every further delivery: too often?
   The owner asked for a code review of the whole story mode ("Does it make sense?"), then "Start
   debugging". Twelve findings, each reproduced as a failing test and fixed, and one more found on the way;
   all of it, with reasons, in the brainstorm, section 18. The four that broke the story for a player:
@@ -45,26 +43,24 @@ lives.
   of the fixes, found something older than the story: a station across the line where the next part of town
   loads handed out an ordinary job instead of the home's package (about 3 homes in 10 for chapter 8's
   one-kind jobs). The spot at a home's door is now kept as a place on the earth, and its package can be
-  taken up to 2 km away (`DOOR_REACH_M` in `src/game/game.ts`, an estimate to tune). Unit tests and
-  `node tools/story-test.mjs` (which now plays these cases on Nuremberg's tiles) pass.
-  **`node tools/find-test.mjs` failed now and then** on this branch: of six runs, four passed and two failed,
-  at two different steps. One was a fixed pause too short beside another browser test (it now waits for the
-  ring). The other, the second search never showing its car, was not reproduced; the likeliest cause is the
-  test starting a search without looking whether a street was found for it (it now tries a few times, says
-  so, and prints where things stand if it happens again). The find's own code is not touched by the branch.
-  Run the browser tests one at a time: two at once slow the test browser enough to break their waits.
-- **A Discord invite, counted (27 November, 21:30 UTC; a message from the session that keeps the database,
-  "3da-waitlist / Supabase"). Nothing built in the game.** As that session tells it (not checked from here):
-  the owner asked it for a count, and the server side is live since 21:29 UTC (migration
-  `play_counts_discord`): `count_play('discord', where)` counts a click on the invite per day, `where` being
-  the chapter after which the invite was shown (`'1'` to `'8'`) or `'menu'`; anything else counts as
-  `'other'`. Read: `select day, detail, n from play_counts where kind = 'discord' order by day desc, detail;`
-  The game's side waits for the owner: the invite link (the Discord server may not exist yet), where it shows
-  (that session's advice, and this one's: once after chapter 3, plus a link in the menu, not on the start
-  screen), and the wording. Then: the invite, the count on a click (once a browser for each place, never from
-  a test browser, as the other counts), and `docs/supabase/play_counts.sql` brought in line with the server
-  (`'discord'` among the kinds; its detail check after `'chapter'`'s; the table's comment). On a branch of
-  its own.
+  taken up to 2 km away (`DOOR_REACH_M` in `src/game/game.ts`, an estimate to tune).
+  **A third review, before going live** (with `main`'s Discord invite merged in), found nothing serious and
+  three edges of the door's fix, each reproduced as a failing test and fixed: the door kept is used too
+  where the home lies at the rim of the next part of town with its street cut off (`dropFor`); with two
+  homes waiting and neither in the part of town loaded, the stations stay with the home they served last
+  (`syncSpecial`, `src/homesUi.ts`); and the clock of a package whose way is only guessed allows for 1.6
+  times the straight line, not a run's 1.35, as the tenants' part coming late brings the court's order
+  (`DOOR_WAY`). Left as it is: the door is kept in memory only (after a reload or "Go to", a station across
+  the line gives an ordinary job until the home's part of town has been driven out of once). The merge
+  itself needed one thing: the story's screen test now tells its stand-in browser that the Discord's card
+  has been shown. 351 unit tests pass, and the browser tests on real tiles, one at a time:
+  `node tools/story-test.mjs`, `tools/find-test.mjs`, `tools/police-test.mjs`, `tools/ui-test.mjs`.
+  **`node tools/find-test.mjs` failed now and then** on this branch before: of six runs, four passed and two
+  failed, at two different steps. One was a fixed pause too short beside another browser test (it now waits
+  for the ring). The other, the second search never showing its car, was not reproduced; the likeliest cause
+  is the test starting a search without looking whether a street was found for it (it now tries a few times,
+  says so, and prints where things stand if it happens again). Run the browser tests one at a time: two at
+  once slow the test browser enough to break their waits.
 
 ### The story (owner, 26 November: "improve the gameplay aka story now")
 

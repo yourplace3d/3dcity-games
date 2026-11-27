@@ -329,12 +329,15 @@ export class HomesUi {
       this.host.game.special = { at: { lat: first.lat, lon: first.lon }, say: jobLines(r) };
       return;
     }
-    // a home with something a package solves: one in the part of town being played first
+    // a home with something a package solves: one in the part of town being played first; with none here,
+    // the one the stations served last (the game keeps the way to its door a little beyond its part of
+    // town: a station across that line would hand its package to another home's name, as an ordinary job)
     const open = this.events.open.flatMap((e) => {
       const h = this.homeOfEvent(e);
       return h && (e.kind === 'renovate' || kindsFor(e.stage ?? 'talk')) ? [{ e, h }] : [];
     });
-    const o = [...open].reverse().find((x) => this.lotOf(x.h)) ?? open.at(-1);
+    const was = this.host.game.special?.at;
+    const o = [...open].reverse().find((x) => this.lotOf(x.h)) ?? open.find((x) => was && x.h.lat === was.lat && x.h.lon === was.lon) ?? open.at(-1);
     if (!o) {
       this.host.game.special = null;
       return;

@@ -799,7 +799,7 @@ the scene in `src/storyUi.ts`, the circle in `src/game/minimap.ts`.
   wild one (the car flees; stay close until it gives up; lost when it gets away, reaches the edge of the loaded
   map or for any other natural end; a dead end can end it in your favour).
 
-## 18. The whole story reviewed and debugged (27 November; branch `claude/find-the-car`, not live)
+## 18. The whole story reviewed and debugged (27 November; branch `claude/find-the-car`; put live on the owner's word, "Yes put it live", 27 November)
 
 The owner asked for a code review of the whole story mode ("Does it make sense?"), then "Start debugging".
 The review found twelve places where the story broke as a player meets it. Each was first reproduced as a
@@ -866,6 +866,25 @@ failing test, then fixed. One fix changes a rule of section 4, so it is first he
     job done already): whoever has not written when chapter 5 is open or done now says hello, once.
   - The pump's thanks spoke of a dent when the load had only been moved to another car: it now goes by harm
     to the car the load came on board in.
+- **A third review, before going live,** read the fixes with `main`'s Discord invite merged in and found
+  nothing serious: no crash, nothing paid or charged twice, no dead end. Three edges of the door's fix, each
+  reproduced as a failing test and fixed:
+  - **The home at the rim of the next part of town.** Parts of town overlap by half, so after the next one
+    loads the home is often still in it, at its rim, with its street cut off there. The door kept was not
+    looked at in that case, and the station handed out an ordinary job with "No road from here to your
+    building": the very thing the fix was for. The door kept is now used there too (`dropFor`).
+  - **Two homes waiting.** With something open at two homes and neither in the part of town loaded, the
+    stations went to the newer one's name, so leaving the older home's part of town for a station across
+    the line lost its package all the same. The stations now stay with the home they served last, until
+    another waiting home is in the part of town loaded (`syncSpecial` in `src/homesUi.ts`).
+  - **The clock where the way is only guessed.** Beyond what the part of town shows, the way by road was
+    guessed as a run's is: 1.35 times the straight line. A run that comes late costs a package; the part
+    for the tenants that comes late brings the court's order. The guess for a home's door is now 1.6 times
+    the straight line (`DOOR_WAY` in `src/game/game.ts`, an estimate to tune): more time, and a little more
+    pay. A station across a river with one bridge far off can still be too far for its clock.
+  - Left as it is: the door is kept in memory only, so after a reload or "Go to" a station across the line
+    gives an ordinary job until the home's part of town has been driven out of once; and a player whose
+    messages from the people at the stations have rolled out of the 24 kept gets their hello once more.
 - **Tested:** 38 more unit tests (`tests/story.test.ts`; `tests/storyUi.test.ts`, new: the story on screen
   with stand-ins for the game and the homes; `tests/door.test.ts`, new: a package taken beyond the home's
   part of town; `tests/dispute.test.ts`, `tests/find.test.ts`). `node tools/story-test.mjs` now plays the

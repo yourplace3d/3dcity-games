@@ -100,6 +100,52 @@ describe('a home’s package across the edge of its square', () => {
     expect(g.job?.special).toBeFalsy();
   });
 
+  it('still goes to the home at the rim of the next square, where its street is cut off: the door kept is used', async () => {
+    /** a square whose middle is `north` metres north of the first one's, with the streets given as places on the earth */
+    const squareOf = (north: number, streets: Array<Array<[number, number]>>): World =>
+      ({
+        ...square(0),
+        roads: new RoadNet(streets.map((pts) => ({ kind: 'minor', pts: pts.map(([x, y]) => [x, y - north] as [number, number]), widthM: 6, bridge: false })), 750),
+        proj: { toLocal: (lon: number, lat: number): [number, number] => [lon, lat - north], toLngLat: (x: number, y: number) => ({ lon: x, lat: y + north }) },
+      }) as unknown as World;
+    // the home's street runs east to west; another leads north from it to a pump
+    vi.spyOn(World, 'load').mockResolvedValue(squareOf(0, [[[-740, 0], [740, 0]], [[0, 0], [0, 740]]]));
+    const g = new Game({ clientWidth: 800, clientHeight: 600 } as HTMLCanvasElement, false);
+    (g as unknown as { parkCars: () => void }).parkCars = vi.fn();
+    await g.start({ lon: 0, lat: 0 });
+    g.car = null;
+    g.run.over = true;
+    const inner = g as unknown as { swap: (w: World) => void; take: (m: unknown) => boolean; markerAt: (c: string, at: { lon: number; lat: number }) => { kind?: string } };
+    const far = { lon: 300, lat: 20 };
+    g.special = { at: far, say };
+    // the player drives north: the next square is 750 m further north, and the home lies at its rim
+    // (730 m south of its middle), where the map of that square has nothing of the home's street
+    g.me.x = 0;
+    g.me.y = 500;
+    inner.swap(squareOf(750, [[[0, 10], [0, 1490]], [[-740, 750], [740, 750]]]));
+    expect(g.specialHere()).toBe(true);
+    const m = inner.markerAt(RING.supply, { lon: 0, lat: 760 });
+    m.kind = 'supply';
+    expect(inner.take(m)).toBe(true);
+    expect(g.job?.special).toBe(true);
+    // the drop-off is on the street at the home's door, as it was found before the square went
+    expect(g.job!.to.at.lon).toBeGreaterThan(260);
+    expect(g.job!.to.at.lon).toBeLessThan(340);
+    expect(g.job!.to.at.lat).toBeCloseTo(0);
+  });
+
+  it('allows for a longer way by road than a run does, where the way is only guessed: being late costs a home dearly', async () => {
+    const { g, inner, takeAt } = await playing(0);
+    g.special = { at: home, say };
+    g.me.x = 500;
+    g.me.y = 0;
+    inner.swap(square(750));
+    expect(takeAt(550)).toBe(true);
+    expect(g.job?.special).toBe(true);
+    // 600 m as the crow flies from the player to the door: a run's drop-off out there is guessed at 1.35 times that
+    expect(g.job!.metres).toBeGreaterThan(600 * 1.5);
+  });
+
   it('is an ordinary job where the home was never in a square loaded: nothing is known of its door', async () => {
     const { g, takeAt } = await playing(750);
     g.special = { at: home, say };

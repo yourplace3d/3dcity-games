@@ -178,6 +178,11 @@ const OFFER_SPEED = 1.5;
 const STATION_M = 35;
 /** how far from a mission's door a station's package still goes to it, once the next square has left its building behind (m, as the crow flies) */
 const DOOR_REACH_M = 2000;
+/**
+ * the way by road to a door beyond what the square shows, guessed from the straight line: more than a run's
+ * guess (1.35), as its clock is set by it, and a home's package that comes late can cost a court's order
+ */
+const DOOR_WAY = 1.6;
 /** the autopilot leaves a wedged car and walks when the drop-off is this much further by road than the party's walk (m) */
 const WALK_AUTO_M = 80;
 /** The most cash a player can hold, for now: above it, pay and rent are not added. */
@@ -2561,8 +2566,9 @@ export class Game {
    * The drop-off for a mission's package: a yellow ring where a road leads to it from the player, and how
    * far that is. In the square of its place, the street at the door where a car may go (an old town's
    * lanes too), else the nearest main road: the lane at the door can be a yard's driveway that no road
-   * leads to. Once the next square has left the place behind, the door as it was last found. Null where
-   * neither gives one: the package is then an ordinary job's.
+   * leads to. Once the next square has left the place behind, or holds it at its rim with its street cut
+   * off there, the door as it was last found. Null where neither gives one: the package is then an
+   * ordinary job's.
    */
   private dropFor(sp: { at: LngLat }): { marker: Marker; metres: number } | null {
     const w = this.world;
@@ -2581,14 +2587,15 @@ export class Game {
         }
         this.scene.remove(cand.mesh);
       }
-      return null;
+      // no road to it in this square: squares overlap by half, so the place can lie at the rim of the next
+      // one, where its street is cut off. The door found before is still the way
     }
     const door = this.doorOf(sp);
     if (!door) return null;
-    // beyond the square, the way by road is not known: as for a run's drop-off out there, a guess from the straight line
+    // the way by road is not known from here: a guess from the straight line (`DOOR_WAY`)
     const marker = this.markerAt(DROP, door);
     const [tx, ty] = this.local(marker);
-    return { marker, metres: Math.hypot(tx - px, ty - py) * 1.35 };
+    return { marker, metres: Math.hypot(tx - px, ty - py) * DOOR_WAY };
   }
 
   /** Before the square goes: the door of a mission's place in it is found and kept, if it is not known yet. */

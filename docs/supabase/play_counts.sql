@@ -14,6 +14,8 @@
 --   select day, detail, n from play_counts where kind = 'chapter' order by day desc, detail;
 -- Clicks on the Discord invite, by place:
 --   select day, detail, n from play_counts where kind = 'discord' order by day desc, detail;
+-- The main menu's Discord line sends 'start', which this function does not know and counts as 'other'
+-- (nothing else sends an unknown detail), so 'other' is the main menu until 'start' is added here.
 --
 -- Read it with:
 --   select day, kind, detail, n from play_counts order by day desc, kind, detail;

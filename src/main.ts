@@ -1420,6 +1420,7 @@ $('tab-trophies').addEventListener('click', () => setPause(true, 'trophies'));
 $('btn-continue').addEventListener('click', () => setPause(false));
 // the Discord, on the menu's first tab: only once the owner has set an invite (`discord.ts`)
 discordLine($('discord-menu'));
+discordLine($('discord-start'), 'start');
 $('pause').addEventListener('click', (e) => e.target === e.currentTarget && setPause(false));
 $('btn-switch').addEventListener('click', () => {
   if (!game) return;

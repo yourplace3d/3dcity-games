@@ -7,7 +7,8 @@ const LINK = 'https://discord.gg/abc123';
 
 describe('the Discord invite', () => {
   it('shows nothing until a real invite is set', () => {
-    expect(INVITE === '' || isInvite(INVITE)).toBe(true);
+    // the invite set in the game is a real one, or none at all
+    expect((INVITE as string) === '' || isInvite(INVITE)).toBe(true);
     expect(inviting('')).toBe(false);
     expect(inviting('https://example.com/abc')).toBe(false);
     expect(inviting('http://discord.gg/abc')).toBe(false);

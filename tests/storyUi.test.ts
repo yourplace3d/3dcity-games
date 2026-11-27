@@ -66,7 +66,8 @@ interface Town {
 
 function setup(story: Story, town: Partial<Town> = {}) {
   vi.stubGlobal('navigator', { webdriver: true });
-  vi.stubGlobal('localStorage', { getItem: () => null, setItem: vi.fn() });
+  // this browser has had the Discord's card (`discord.ts`): it is not what these tests are about
+  vi.stubGlobal('localStorage', { getItem: (k: string) => (k === '3da-discord' ? '{"card":true}' : null), setItem: vi.fn() });
   vi.stubGlobal('document', { createElement: (tag: string) => new El(tag) });
   const t: Town = { homes: [flat], here: [flat], inTown: true, reno: 'done', dispute: null, moved: false, worn: null, flats: 'none', partied: true, ...town };
   const homes = {

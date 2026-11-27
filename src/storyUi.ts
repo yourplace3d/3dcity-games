@@ -15,6 +15,7 @@ import { isCoords } from './homesList';
 import { loadParties } from './game/party';
 import { namesFor } from './game/names';
 import { countPlay } from './linkCount';
+import { cardDue, inviteCard, loadSeen } from './discord';
 import type { JobKind, ServiceKind } from './game/services';
 import { kindsFor } from './game/dispute';
 import { FIXER_MIN } from './game/renovation';
@@ -96,6 +97,9 @@ const SERVICE_OF: Record<Exclude<JobKind, 'plain'>, ServiceKind> = { supply: 'fu
 type Queued = { who: Who; text: string; heading?: string; again?: boolean; from?: string; anywhere?: boolean };
 /** seconds into a visit before chapter 8's tenants write: after the chapter's line has been read */
 const DISPUTE_AFTER_S = 16;
+/** seconds into a visit before the Discord's card, and how long it shows */
+const DISCORD_AFTER_S = 12;
+const DISCORD_CARD_S = 20;
 /** seconds into a visit before a person's scene is offered: after the day's chapter has had its turn */
 const SCENE_AFTER_S = 30;
 
@@ -318,8 +322,17 @@ export class StoryUi {
       const h = this.host.homes();
       if (h && !h.dispute()) h.startDispute();
     }
+    // the Discord's card, once, after its chapter: when nothing else is said, and before any scene's card
+    if (next < 0 && this.visitSaid && this.playedS >= DISCORD_AFTER_S && performance.now() - this.shownAt > LINE_S * 1000 && cardDue((n) => this.done(n), loadSeen())) this.inviteDiscord();
     // the pump's scene: a car to find, once the day's chapter has had its turn (and not as the tenants' card opens)
     if (next < 0 && !this.host.blocked() && this.visitSaid && this.playedS >= SCENE_AFTER_S && performance.now() - this.shownAt > LINE_S * 1000) this.offerFind();
+  }
+
+  /** The Discord's card (`discord.ts`): small, over the game, and it waits for nobody. */
+  private inviteDiscord(): void {
+    this.shownAt = performance.now();
+    const el = inviteCard(() => el.remove());
+    this.host.show(el, DISCORD_CARD_S * 1000);
   }
 
   // ------------------------------------------------------------ the people's scenes

@@ -487,6 +487,13 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 .msg .from { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.8; }
 .msg[data-who='game'] .from { color: var(--yellow); opacity: 1; }
 .toast.msg.tap { text-decoration: none; }
+/* the Discord's card (discord.ts): it can be clicked on a touch screen too, and closed */
+.toast.discord { pointer-events: auto; background: #2a2e35; border-color: #5865f2; }
+.toast.discord .from { color: #9aa3ff; }
+.toast.discord .row { display: flex; gap: 12px; align-items: center; margin-top: 4px; }
+.toast.discord a { color: #fff; background: #5865f2; border-radius: 10px; padding: 6px 12px; text-decoration: none; font-weight: 800; }
+.toast.discord button { background: none; border: 0; color: var(--dim); font: inherit; text-decoration: underline; cursor: pointer; padding: 6px 0; }
+#discord-menu a { color: #9aa3ff; }
 .msg[data-who='pump'] {
   background: #fbfaf6; color: #2b2b2b; border: 0; border-radius: 2px; padding: 9px 12px 15px;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Courier New', monospace; font-weight: 500; font-size: 13px;

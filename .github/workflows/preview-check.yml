@@ -1,0 +1,85 @@
+name: Preview check
+
+# Plays each pull request's build in a real browser (software graphics, the real map servers) and
+# keeps the pictures and a short report on the `preview-shots` branch, under pr-<n>/<commit>/, so
+# the change can be looked at, by a person or by Claude, before it goes live.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Play it and take pictures
+    # only branches of this repository: the pictures are pushed to this repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build as a preview
+        env:
+          VITE_PREVIEW: pr-${{ github.event.pull_request.number }}
+        run: npm run build
+
+      # in a folder of its own: npm install --no-save inside the project fails on this lockfile
+      - name: Install a browser
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright
+          # the runner's own Google Chrome: Playwright's download may not support a new runner image yet
+          google-chrome --version
+          echo "NODE_PATH=$RUNNER_TEMP/pw/node_modules" >> "$GITHUB_ENV"
+
+      - name: Play it
+        id: play
+        continue-on-error: true
+        env:
+          CHROME_CHANNEL: chrome
+        run: node tools/preview-check.mjs dist shots
+
+      - name: Keep the pictures
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          dir="pr-${NUMBER}/${SHA:0:7}"
+          work=$(mktemp -d); cp -R shots "$work/shots"
+          for attempt in 1 2 3 4 5; do
+            rm -rf "$work/repo" && mkdir "$work/repo" && cd "$work/repo"
+            git init -q
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            if git fetch -q --depth=1 "$url" preview-shots 2>/dev/null; then git checkout -q -B preview-shots FETCH_HEAD; else git checkout -q --orphan preview-shots; fi
+            rm -rf "$dir" && mkdir -p "$dir" && cp -R "$work/shots/." "$dir/"
+            git add -A && git commit -qm "Pictures of pull request #${NUMBER} at ${SHA:0:7}"
+            if git push -q "$url" preview-shots; then echo "kept in $dir"; exit 0; fi
+            sleep $((attempt * 3))
+          done
+          exit 1
+
+      - name: Fail if the game did not play
+        if: steps.play.outcome != 'success'
+        run: |
+          echo "::error::The preview did not reach a playable city. See the pictures on the preview-shots branch."
+          exit 1

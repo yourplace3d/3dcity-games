@@ -798,3 +798,96 @@ the scene in `src/storyUi.ts`, the circle in `src/game/minimap.ts`.
 - **Next, in the owner's order:** the undercover chase (follow a car without being seen, and by the law), then a
   wild one (the car flees; stay close until it gives up; lost when it gets away, reaches the edge of the loaded
   map or for any other natural end; a dead end can end it in your favour).
+
+## 18. The whole story reviewed and debugged (27 November; branch `claude/find-the-car`; put live on the owner's word, "Yes put it live", 27 November)
+
+The owner asked for a code review of the whole story mode ("Does it make sense?"), then "Start debugging".
+The review found twelve places where the story broke as a player meets it. Each was first reproduced as a
+failing test, then fixed. One fix changes a rule of section 4, so it is first here.
+
+- **Chapter 5 can no longer be done before it opens** (a change to rule 1; **for the owner to confirm**). Rule
+  1 lets every chapter be done early, and chapter 5 counted every station job since the story began. The first
+  flat's repair is a station job, and a player who did a job at the other two kinds of station on day 1 or 2
+  had chapter 5 ticked unseen: Theo and Ana never wrote, there were no thanks, and Mira later asked a favour
+  as a stranger. Now chapter 5 waits for its day. As it opens, the job done for someone who has written (the
+  one who brought the flat's repair) still counts, the two who have not written say hello, and the chapter
+  asks for one job for each of them, as section 6 planned it ("the two station people not yet met: one job
+  for each"). Every other chapter keeps rule 1. A player whose chapter 5 was ticked unseen while the story was
+  first live gets the hellos once, in the home town, before Mira's scene.
+- **A chapter waits at its home, not only in its town.** The home town is 25 km around the first home, but a
+  part of town is 1.5 km across: a player who loads the city by its name stands in the centre, often without a
+  home in sight. Chapters 6, 7 and 8 said "drive to one of your homes" and offered an arrow that could not
+  show; chapter 8's tenants never wrote. Now the story names the home ("Waits at your flat on Lindenstraße, in
+  another part of town") and the Story tab's button goes there ("Go to your flat on Lindenstraße"), as "Go to
+  Nuremberg" does from another town. The same for the first flat's repair (chapter 3) and for a dispute's
+  package: away from the home it is for, "Show the way" led to a station whose package was an ordinary job.
+  New tenants after a court's order come with the next delivery anywhere, so nothing sends the player back
+  for them.
+- **Chapter 7 says its next step, and its way leads there:** to the building to buy the rest (the first
+  building, not any home that stands nearer), to a station while it is repaired flat by flat and for the
+  paint.
+- **Chapter 8 says when a renovation comes first.** One thing at a time in a part of town (section 16): with a
+  home waiting to be renovated there, the tenants don't write, and the chapter only said "drive to one of your
+  homes". It now says that the renovation comes first, and leads to a station for it. (Found while fixing, not
+  by the review.)
+- **Chapter 3 keeps its promise.** After "Later" on the first-home card, the offer never came again until the
+  page was loaded anew. It now comes again after the next delivery, and the Story tab says what it waits for
+  (the next delivery, the end of a run, or $200 in cash); once the flats have been shown, it says so and "Show
+  the way" tells where the arrow leads.
+- **The people's messages fit what happened.** In chapter 5 a person thanks only for the one job the chapter
+  asks for them, and the pump's thanks no longer praises "the load in one piece" after a dented run. A hello
+  that still waited (the chapter opened away from home) is dropped once that person's job is done, so no
+  invitation follows the thanks. Mira's ask is kept with the messages only once it is taken on: put off daily,
+  it had filled them with asks about a different car each day. The neighbour thanks for "the whole house" only
+  when the building is the one they live in.
+- **The dispute's words fit the home and the drive:** "a cold house" in a house, the court's order "for your
+  flat" or "your house", and in "The story so far" a part lost on the way (caught, knocked out) "never
+  arrived" instead of "came too late". Chapter 6 says "your home", as a party counts at any home.
+- **The end** no longer says the people's stories "come in a later update" after one of them has been played
+  ("have more for you: their own stories go on in later updates"), nor "tenants who know you" after a court's
+  order brought new ones ("and new tenants").
+- **Kept as shown:** the newest 200 scenes, not the first 200, so a scene just played is never played again.
+- **A second review, of these fixes,** found one thing older than the story and four slips:
+  - **A home's package across the edge of its part of town** (in the game since the renovations of 23
+    November). A part of town is 1.5 km across and the next one loads 450 m from its middle. A station across
+    that line had its ring flashing green, then handed out an ordinary job: by the time the player stood there,
+    the home was no longer in the part of town loaded. Counted with made-up stations alone: for a job that
+    takes one kind of station (chapter 8's part, load and officers) this hit about 3 homes in 10 from the part
+    of town the home's own "Go to" loads, and about 1 in 25 had no station that worked from anywhere. Now the
+    spot at the home's door is kept as a place on the earth when the next part of town loads, and a package
+    for it can be taken up to 2 km away (`Game.door`, `DOOR_REACH_M`, an estimate); the rings keep flashing
+    green, and the Story tab offers "Show the way", not "Go to", while that holds. This also serves the first
+    flat's repair, the building's, and every renovation.
+  - "Show the way" to the worn-down flats said "You are there" after the player had driven off again: it now
+    points the arrow back.
+  - Chapter 8 named a renovation in another town as coming first: only one in the home town holds the
+    tenants back.
+  - One kind of story kept from the first live days still missed a hello (chapter 5 opened with someone's
+    job done already): whoever has not written when chapter 5 is open or done now says hello, once.
+  - The pump's thanks spoke of a dent when the load had only been moved to another car: it now goes by harm
+    to the car the load came on board in.
+- **A third review, before going live,** read the fixes with `main`'s Discord invite merged in and found
+  nothing serious: no crash, nothing paid or charged twice, no dead end. Three edges of the door's fix, each
+  reproduced as a failing test and fixed:
+  - **The home at the rim of the next part of town.** Parts of town overlap by half, so after the next one
+    loads the home is often still in it, at its rim, with its street cut off there. The door kept was not
+    looked at in that case, and the station handed out an ordinary job with "No road from here to your
+    building": the very thing the fix was for. The door kept is now used there too (`dropFor`).
+  - **Two homes waiting.** With something open at two homes and neither in the part of town loaded, the
+    stations went to the newer one's name, so leaving the older home's part of town for a station across
+    the line lost its package all the same. The stations now stay with the home they served last, until
+    another waiting home is in the part of town loaded (`syncSpecial` in `src/homesUi.ts`).
+  - **The clock where the way is only guessed.** Beyond what the part of town shows, the way by road was
+    guessed as a run's is: 1.35 times the straight line. A run that comes late costs a package; the part
+    for the tenants that comes late brings the court's order. The guess for a home's door is now 1.6 times
+    the straight line (`DOOR_WAY` in `src/game/game.ts`, an estimate to tune): more time, and a little more
+    pay. A station across a river with one bridge far off can still be too far for its clock.
+  - Left as it is: the door is kept in memory only, so after a reload or "Go to" a station across the line
+    gives an ordinary job until the home's part of town has been driven out of once; and a player whose
+    messages from the people at the stations have rolled out of the 24 kept gets their hello once more.
+- **Tested:** 38 more unit tests (`tests/story.test.ts`; `tests/storyUi.test.ts`, new: the story on screen
+  with stand-ins for the game and the homes; `tests/door.test.ts`, new: a package taken beyond the home's
+  part of town; `tests/dispute.test.ts`, `tests/find.test.ts`). `node tools/story-test.mjs` now plays the
+  review's cases on Nuremberg's tiles: a job of each kind on day 1 and chapter 5 on its day all the same;
+  chapter 6 opened 3 km from the flat, with the way back to it; and in chapter 8 a walk into the next part of
+  town, after which the part still goes to the building.

@@ -9,7 +9,7 @@
  */
 
 import type { Game } from './game/game';
-import type { HomesUi } from './homesUi';
+import { homeName, type HomesUi } from './homesUi';
 import { BUILDINGS_AFTER, dayOf, type Home } from './game/homes';
 import { isCoords } from './homesList';
 import { loadParties } from './game/party';
@@ -18,8 +18,11 @@ import { countPlay } from './linkCount';
 import { cardDue, inviteCard, loadSeen } from './discord';
 import type { JobKind, ServiceKind } from './game/services';
 import { kindsFor } from './game/dispute';
-import { describeCar, findPay, KINDS, LOOKS } from './game/find';
+import { FIXER_MIN } from './game/renovation';
+import { findPay, KINDS, LOOKS } from './game/find';
 import type { FindEvent } from './game/game';
+import { money, T } from './i18n';
+import type { Case } from './lang/en';
 import {
   addNote,
   addPending,
@@ -33,11 +36,16 @@ import {
   friendFor,
   goal,
   heading,
+  HELLO,
+  hellosDue,
   keep,
   loadStory,
+  MEET,
   noteJob,
   offer,
+  PERSON_OF,
   record,
+  REGULARS,
   said,
   say,
   SCENES,
@@ -61,8 +69,8 @@ export interface StoryHost {
   blocked: () => boolean;
   /** no story now: a city is being guessed, or a friend's run or party from a link is played */
   quiet: () => boolean;
-  /** close the menu, and load the home town beside the first home */
-  goHome: () => void;
+  /** close the menu, and load the home town beside the first home, or the part of town of the home `to` */
+  goHome: (to?: Home) => void;
   /** close the menu */
   closeMenu: () => void;
   /** say that something changed, for saving online */
@@ -119,7 +127,7 @@ export class StoryUi {
     game.ticks.push((dt) => this.tick(dt));
     game.events.push((e) => {
       if (e.kind !== 'delivered' || e.job === 'plain' || this.host.quiet()) return;
-      this.job(e.job);
+      this.job(e.job, !!e.dented);
     });
     // the first package for the flat: the person of that station, met for the first time
     const before = game.onSpecialTaken;
@@ -189,8 +197,10 @@ export class StoryUi {
       saved: mine?.saved ?? 0,
       partied,
       building: homes.some((x) => x.kind === 'building'),
+      firstWhole: homes[0]?.kind === 'building',
       settled: h?.settled() ?? 0,
       dispute: h?.dispute()?.stage ?? null,
+      moved: h?.movedOut() ?? false,
     };
   }
 
@@ -217,26 +227,80 @@ export class StoryUi {
     return !h || !h.mine().homes.length || h.atHomeTown();
   }
 
-  /**
-   * Whether chapter `n` waits for the home town here. Only the bank (4) does always; a party (6) at any home
-   * counts, so it waits only where no home stands; the whole building (7) waits while it is the first one's.
-   */
-  private waitsHome(n: number): boolean {
-    if (this.atHome()) return false;
-    // the bank, and the tenants' dispute of chapter 8, are in the home town
-    if (n === 4 || n === 8) return true;
-    if (n === 6) return !this.homeHere();
-    if (n === 7) {
-      const r = this.snapshot().reno;
-      return r === 'buy' || r === 'rest' || r === 'paint';
-    }
-    return false;
+  /** The first home: the story's own, whose town is the home town. */
+  private first(): Home | null {
+    return this.host.homes()?.mine().homes[0] ?? null;
   }
 
   /** A home of the player's in the part of town being played: the first home if it is here. */
   private homeHere(): Home | null {
     const h = this.host.homes();
     return h?.mine().homes.find((x) => h.isHere(x)) ?? null;
+  }
+
+  /**
+   * The home chapter `n` happens at, wherever it stands; null when it needs none. The first flat's repair
+   * (3) and the first building (7) are the first home's. A party (6) at any home counts: one here, if one
+   * stands here. The tenants (8) are those of the open dispute's home; before they have written, of a home
+   * here; and once they have moved out, the new ones come with the next delivery, wherever it is made.
+   */
+  private homeOf(n: number): Home | null {
+    const h = this.host.homes();
+    if (!h) return null;
+    const reno = h.mine().reno?.stage ?? null;
+    if (n === 3) return reno === 'flat' ? this.first() : null;
+    if (n === 6) return this.homeHere() ?? this.first();
+    if (n === 7) return reno === 'buy' || reno === 'rest' || reno === 'paint' ? this.first() : null;
+    if (n === 8) {
+      const d = h.dispute();
+      if (d) return d.stage === 'moving' ? null : d.home;
+      return this.homeHere() ?? this.first();
+    }
+    return null;
+  }
+
+  /**
+   * Where chapter `n` waits, when it cannot be played in the part of town loaded now: the home to go to.
+   * Null when it can be played here. The bank (4) is the home town's, and so are the tenants until they have
+   * written (8). What happens at a home, or with a package for it, needs that home in this part of town:
+   * being in the home town is not enough, as that is 25 km around the first home and a part of town is
+   * 1.5 km across.
+   */
+  private elsewhere(n: number): Home | null {
+    const h = this.host.homes();
+    if (!h) return null;
+    if ((n === 4 || (n === 8 && !h.dispute())) && !this.atHome()) return this.first();
+    const home = this.homeOf(n);
+    if (!home || h.isHere(home)) return null;
+    // a package for it can still be taken a little beyond its part of town: the game keeps the way to its door
+    const { game } = this.host;
+    const sp = game.special;
+    return this.wantsPackage(n) && sp && sp.at.lat === home.lat && sp.at.lon === home.lon && game.specialHere() ? null : home;
+  }
+
+  /** Whether chapter `n`'s next step is a station's package for its home (not a stop beside the home). */
+  private wantsPackage(n: number): boolean {
+    const h = this.host.homes();
+    const reno = h?.mine().reno?.stage ?? null;
+    if (n === 3) return reno === 'flat';
+    if (n === 7) return reno === 'rest' || reno === 'paint';
+    const d = n === 8 ? h?.dispute() : null;
+    return !!d && !!kindsFor(d.stage);
+  }
+
+  /** Whether chapter `n` waits somewhere else: in the home town, or at a home in another part of town. */
+  private waitsHome(n: number): boolean {
+    return !!this.elsewhere(n);
+  }
+
+  /** Where a chapter waits, by name: "Nuremberg" from another town; within the home town, "your flat on Königstraße". */
+  private whereOf(to: Home): string {
+    return this.atHome() ? homeName(to) : this.town() || T.yourHomeTown;
+  }
+
+  /** The same as a line says it: "in Nuremberg", or "at your flat on Königstraße, in another part of town". */
+  private waitsAt(to: Home | null): string {
+    return to && this.atHome() ? T.waitsAtHome(homeName(to, 'dat')) : T.waitsIn(this.town() || T.yourHomeTown);
   }
 
   // ------------------------------------------------------------ each moment
@@ -275,11 +339,12 @@ export class StoryUi {
 
   // ------------------------------------------------------------ the people's scenes
 
-  /** the car being looked for, in words ("a pink van") */
-  private findCar = '';
-  /** the car looked for, as the customer put it ("a red hatchback"), or '' when it isn't known (after a reload) */
-  soughtCar(): string {
-    return this.findCar;
+  /** the car being looked for: its look and kind, by their place in `LOOKS` and `KINDS` */
+  private findCar: [number, number] | null = null;
+
+  /** the car being looked for, in words ("a pink van"), in the case asked */
+  private carWords(c: Case = 'nom'): string {
+    return this.findCar ? T.car(this.findCar[0], this.findCar[1], c) : T.theCar(c);
   }
 
   /** Mira asks: a customer's car is gone. In the home town, when nothing else is on, once a day until played. */
@@ -292,42 +357,43 @@ export class StoryUi {
     if (this.host.blocked() || (game.special && game.specialHere())) return;
     const homes = this.host.homes();
     this.set(offer(this.story, FIND_SCENE, today));
-    const look = LOOKS[Math.floor(Math.random() * LOOKS.length)];
-    const kind = KINDS[Math.floor(Math.random() * KINDS.length)];
-    const car = describeCar(look.word, kind.word);
-    const ask = SCENES.findAsk(car);
+    const lookAt = Math.floor(Math.random() * LOOKS.length);
+    const kindAt = Math.floor(Math.random() * KINDS.length);
+    const look = LOOKS[lookAt];
+    const kind = KINDS[kindAt];
+    const ask = SCENES.findAsk(T.car(lookAt, kindAt));
     const names = this.story.names;
-    this.set(keep(this.story, { who: 'pump', from: sender('pump', names), text: ask, day: today }));
     this.host.card(
-      'A customer’s car is gone',
-      `“${ask}” Look in the orange circle on the little map. Once you see it, get in and drive it back to the pump.`,
-      'Find it',
-      'Not now',
+      T.findTitle,
+      T.findCard(ask),
+      T.findIt,
+      T.notNow,
       (yes) => {
         if (!yes) return;
         const at = homes?.homeTownAt() ?? null;
         const plan = game.planFind({ kind: kind.kind, colour: look.colour }, at);
         if (!plan) {
-          this.toast('No good street for it here. She’ll ask again tomorrow.');
+          this.toast(T.findNoStreet);
           return;
         }
-        this.findCar = car;
+        // asked and taken on: her words are kept with the messages (put off, they would pile up there, a new car each day)
+        this.set(keep(this.story, { who: 'pump', from: sender('pump', names), text: ask, day: today }));
+        this.findCar = [lookAt, kindAt];
         game.startFind(plan);
-        this.toast(`Drive to the orange circle and look around for ${car}.`);
+        this.toast(T.findGo(this.carWords('dat')));
       },
-      names ? sender('pump', names) : 'The pump',
+      names ? sender('pump', names) : T.thePump,
     );
   }
 
   /** What happens while the car is looked for. */
   private found(e: FindEvent, metres: number): void {
     if (this.host.quiet()) return;
-    const car = this.findCar || 'the car';
-    if (e === 'spotted') this.toast(`There it is: ${car}. Get in.`);
-    else if (e === 'closer') this.toast('Someone saw it nearby: the circle is smaller now.');
-    else if (e === 'in') this.toast('Now back to the pump: the yellow ring. Stop at it to hand it over.');
-    else if (e === 'out') this.toast('Get back in to take it to the pump.');
-    else if (e === 'dropped') this.toast('The search is off. She’ll ask again another day.');
+    if (e === 'spotted') this.toast(T.findSpotted(this.carWords()));
+    else if (e === 'closer') this.toast(T.findCloser);
+    else if (e === 'in') this.toast(T.findIn);
+    else if (e === 'out') this.toast(T.findOut);
+    else if (e === 'dropped') this.toast(T.findDropped);
     else {
       // back at the pump, or wrecked on the way: played either way
       const pay = e === 'done' ? findPay(metres) : Math.round(findPay(metres) / 20) * 10;
@@ -337,10 +403,10 @@ export class StoryUi {
         this.host.game.cash += pay;
         this.host.game.onSave();
       }
-      const who = this.story.names?.pump ?? 'The pump';
-      this.set(record(say(this.story, FIND_SCENE), e === 'done' ? `${who}'s customer got her car back.` : "You found the customer's car, and the tow truck took it back.", this.today()));
+      const who = this.story.names?.pump ?? T.thePump;
+      this.set(record(say(this.story, FIND_SCENE), e === 'done' ? T.findSoFar(who) : T.findSoFarWrecked, this.today()));
       this.enqueue(e === 'done' ? SCENES.findThanks() : SCENES.findWrecked());
-      this.toast(`${e === 'done' ? 'Handed over' : 'Found, but wrecked'}  +$${pay}`);
+      this.toast(T.findPaid(e === 'done', money(pay)));
     }
   }
 
@@ -377,6 +443,13 @@ export class StoryUi {
     });
     if (r.opened) this.opened(r.opened, s);
     else if (began && r.story.opened && !r.finished.length) this.opened(r.story.open, s);
+    // chapter 5 has opened: the people at the stations not yet met say hello, once, after its line. (Also to
+    // a player whose chapter 5 was ticked before they wrote, as the story first went live.)
+    if (hellosDue(this.story)) {
+      const hellos = SCENES.regulars(this.story);
+      this.set(say(this.story, REGULARS));
+      if (hellos.length) this.enqueue(hellos);
+    }
   }
 
   /**
@@ -385,19 +458,22 @@ export class StoryUi {
    */
   private finished(n: number, story: Story, last: boolean, early: boolean): void {
     if (n === 6 && !early) this.enqueue(SCENES.partyThanks());
-    if (n === 7 && !early) this.enqueue(SCENES.buildingThanks());
+    const s = this.snapshot();
+    // the neighbour's thanks: for the house they live in, or for a building bought elsewhere
+    if (n === 7 && !early) this.enqueue(SCENES.buildingThanks(!!s.firstWhole));
     if (n < 3) return;
     const next = story.open;
     // the next one waits for another day, or for an update; one that opens at once says so itself
-    const after = !last ? '' : next > BUILT ? (next <= ALL ? `Chapter ${next}, ${CHAPTERS[next - 1]}, comes in a later update.` : `${this.three()} have stories of their own: they come in a later update.`) : !story.opened ? `Come back tomorrow for chapter ${next}: ${CHAPTERS[next - 1]}.` : '';
+    const after = !last ? '' : next > BUILT ? (next <= ALL ? T.laterUpdate(next, CHAPTERS[next - 1]) : this.later()) : !story.opened ? T.tomorrow(next, CHAPTERS[next - 1]) : '';
     const town = this.town();
     const body =
       n === 5 && !early
-        ? `${this.three()} know you now. They'll write when they need you.`
+        ? T.knowYou(this.three())
         : n === 8
-          ? `${this.snapshot().building ? `Your own building${town ? ` in ${town}` : ''}` : `Your own homes${town ? ` in ${town}` : ''}`}, and tenants who know you. That's the whole story so far.`
+          ? // after a court's order the tenants are new: they don't know the player yet
+            T.storyEnd(!!s.building, town, !!s.moved)
           : '';
-    if (body || after) this.line(`Chapter ${n} of ${ALL}: done`, [body, after].filter(Boolean).join(' '));
+    if (body || after) this.line(T.chapterDone(n, ALL), [body, after].filter(Boolean).join(' '));
   }
 
   /**
@@ -412,7 +488,6 @@ export class StoryUi {
     if (n === 7) this.enqueue(SCENES.building(s));
     if (this.waitsHome(n)) this.awayLine(n);
     else this.goalLine(n);
-    if (n === 5) this.enqueue(SCENES.regulars(this.story));
   }
 
   /** "Chapter 5 of 8 · The regulars": what it asks. */
@@ -421,14 +496,23 @@ export class StoryUi {
   }
 
   private goalOf(n: number) {
-    const d = this.host.homes()?.dispute();
-    const at = d ? `your ${d.home.kind}${d.home.street ? ` on ${d.home.street}` : ''}` : undefined;
-    return goal(n, { ...this.snapshot(), town: this.town(), buildingsAfter: BUILDINGS_AFTER, away: !this.atHome(), disputeAt: at }, this.story);
+    const h = this.host.homes();
+    const d = h?.dispute();
+    const { game } = this.host;
+    // the first flat is offered to a player with enough cash, once no run of three is on
+    const flatWaits = game.cash < FIXER_MIN ? ('cash' as const) : !game.run.over ? ('run' as const) : undefined;
+    // a home being renovated holds the tenants back only where they would write: in the home town, before they have
+    const worn = n === 8 && !d && this.atHome() ? h?.renovatingHere() : null;
+    return goal(
+      n,
+      { ...this.snapshot(), town: this.town(), buildingsAfter: BUILDINGS_AFTER, away: !this.atHome(), disputeAt: d ? (c) => homeName(d.home, c) : undefined, flatWaits, renovateFirst: worn ? homeName(worn) : undefined },
+      this.story,
+    );
   }
 
-  /** "Chapter 5, The regulars, waits in Nuremberg." */
+  /** "Chapter 8 of 8 · Landlord: waits in Nuremberg", or, within the home town, at the home it happens at. */
   private awayLine(n: number): void {
-    this.line(heading(n), `Waits in ${this.town() || 'your home town'}: the menu's Story tab takes you there.`, true);
+    this.line(heading(n), T.waitsLine(this.waitsAt(this.elsewhere(n))), true);
   }
 
   /** At the start of a visit, once: the chapter open now, or where it waits. */
@@ -440,15 +524,22 @@ export class StoryUi {
     else this.goalLine(n);
   }
 
-  /** A station's job was delivered: its kind, for chapter 5, and the person's thanks. */
-  private job(kind: Exclude<JobKind, 'plain'>): void {
+  /**
+   * A station's job was delivered: its kind, for chapter 5, and the person's thanks for the one job the
+   * chapter asks for them (not for another job for someone already met). `dented`: the car took harm.
+   */
+  private job(kind: Exclude<JobKind, 'plain'>, dented = false): void {
+    const asked = !this.story.kinds.includes(kind);
     const noted = noteJob(this.story, kind);
     if (noted !== this.story) this.set(noted);
     // a job delivered: the arrow to a station has done its work
     this.clearGuide();
-    if (this.story.open !== 5 || !this.story.opened || said(this.story, `thanks-${kind}`)) return;
-    this.set(say(this.story, `thanks-${kind}`));
-    this.enqueue(SCENES.thanks(kind));
+    if (this.story.open !== MEET || !this.story.opened || !asked || said(this.story, `thanks-${kind}`)) return;
+    // their hello still waited (for the home town, or for a card to go): with the job done it invites to nothing
+    const who = PERSON_OF[kind];
+    this.queue = this.queue.filter((q) => q.who !== who || q.text !== HELLO[kind]);
+    this.set(say(shown(this.story, who, HELLO[kind]), `thanks-${kind}`));
+    this.enqueue(SCENES.thanks(kind, dented));
   }
 
   /**
@@ -495,7 +586,12 @@ export class StoryUi {
   /** "Mira, Theo and Ana" */
   private three(): string {
     const n = this.story.names;
-    return n ? `${n.pump}, ${n.flame} and ${n.shield}` : 'The people at the stations';
+    return n ? T.three(n.pump, n.flame, n.shield) : T.thePeople;
+  }
+
+  /** What follows the last chapter: the people's own stories. True whether or not the pump's first scene has been played. */
+  private later(): string {
+    return T.moreLater(this.three());
   }
 
   // ------------------------------------------------------------ messages
@@ -603,27 +699,31 @@ export class StoryUi {
       homes?.wayToBank(false);
       return;
     }
-    // chapter 8: the way to the home of the dispute, or to the stations its stage takes
+    if (g.way === 'flats') {
+      // the first-home mission points there itself: say where it stands
+      const w = homes?.flatsWay() ?? 'none';
+      toast(w === 'arrow' ? T.wayFlatsArrow : w === 'here' ? T.wayFlatsHere : T.wayFlatsNone);
+      return;
+    }
+    // what happens at a home, or with a package for it, needs that home in this part of town: a station's
+    // package taken elsewhere would be an ordinary job
+    const to = this.elsewhere(n);
+    if (to) {
+      toast(T.wayElsewhere(this.waitsAt(to)));
+      return;
+    }
     const d = n === 8 ? homes?.dispute() : null;
-    if (d && g.way === 'home') {
-      if (!d.here || !homes?.showWay(d.home)) toast('Your tenants’ home is in another part of town.');
-      else toast('The arrow shows the way to your tenants.');
-      return;
-    }
-    if (d && g.way === 'station') {
-      const kinds = (kindsFor(d.stage) ?? []).filter((k): k is Exclude<JobKind, 'plain'> => k !== 'plain');
-      toast(this.toStation(kinds) ? 'The arrow shows the nearest station.' : 'No station in this part of town: drive on, and the next one shows.');
-      return;
-    }
     if (g.way === 'home') {
-      const here = this.homeHere();
-      if (!here || !homes?.showWay(here)) toast('None of your homes is in this part of town.');
-      else toast('The arrow shows the way to your home.');
+      // the home the chapter is about: the first building, the tenants' home, a home to throw a party at
+      const home = this.homeOf(n);
+      if (!home || !homes?.showWay(home)) toast(T.noHomeHere);
+      else toast(d ? T.wayTenants : T.wayHome);
       return;
     }
     if (g.way === 'station') {
-      const kinds = n === 5 ? STATION_JOBS.filter((k) => !this.story.kinds.includes(k)) : STATION_JOBS;
-      toast(this.toStation(kinds) ? 'The arrow shows the nearest station.' : 'No station in this part of town: drive on, and the next one shows.');
+      // chapter 8: the stations its stage takes; chapter 5: those of the people still to do a job for
+      const kinds = d ? (kindsFor(d.stage) ?? STATION_JOBS).filter((k): k is Exclude<JobKind, 'plain'> => k !== 'plain') : n === MEET ? STATION_JOBS.filter((k) => !this.story.kinds.includes(k)) : STATION_JOBS;
+      toast(this.toStation(kinds) ? T.wayStation : T.noStation);
     }
   }
 
@@ -639,14 +739,14 @@ export class StoryUi {
     if (this.host.game.find && playing) {
       // a car being looked for: what to do, and a way to stop
       const head = document.createElement('small');
-      head.textContent = this.story.names ? sender('pump', this.story.names) : 'The pump';
+      head.textContent = this.story.names ? sender('pump', this.story.names) : T.thePump;
       const title = document.createElement('b');
-      title.textContent = 'A customer’s car is gone';
+      title.textContent = T.findTitle;
       const text = document.createElement('p');
-      text.textContent = `Find ${this.findCar || 'the car'} in the orange circle on the little map, get in, and drive it back to the pump.`;
+      text.textContent = T.findMenu(this.carWords('acc'));
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = 'Stop looking';
+      b.textContent = T.stopLooking;
       b.addEventListener('click', () => {
         this.host.closeMenu();
         this.host.game.stopFind('dropped');
@@ -655,23 +755,25 @@ export class StoryUi {
     } else if (n >= 1 && n <= BUILT) {
       const g = this.goalOf(n);
       const head = document.createElement('small');
-      head.textContent = `Chapter ${n} of ${ALL}`;
+      head.textContent = T.chapterOf(n, ALL);
       const title = document.createElement('b');
       title.textContent = CHAPTERS[n - 1];
       const text = document.createElement('p');
-      const home = !this.waitsHome(n);
-      text.textContent = !story.opened ? `Opens on your next day of play. Chapter ${n - 1} is done.` : home ? g.text : `This chapter happens in ${this.town() || 'your home town'}. ${g.text}`;
+      // where it waits, if not here: the home town, or within it the home it happens at
+      const to = this.elsewhere(n);
+      const where = to ? this.whereOf(to) : '';
+      text.textContent = !story.opened ? T.opensNext(n - 1) : to ? T.happensAt(this.waitsAt(to), g.text) : g.text;
       now.append(head, title, text);
       if (story.opened && playing) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'primary';
-        if (!home) {
-          b.textContent = `Go to ${this.town() || 'your home town'}`;
-          b.addEventListener('click', () => this.host.goHome());
+        if (to) {
+          b.textContent = T.goTo(where);
+          b.addEventListener('click', () => this.host.goHome(to));
           now.append(b);
         } else if (g.way) {
-          b.textContent = 'Show the way';
+          b.textContent = T.showWay;
           b.addEventListener('click', () => this.showWay());
           now.append(b);
         }
@@ -680,16 +782,16 @@ export class StoryUi {
       const title = document.createElement('b');
       const text = document.createElement('p');
       if (BUILT < ALL) {
-        title.textContent = 'You are up to date';
-        text.textContent = `Chapter ${BUILT + 1}, ${(CHAPTERS as readonly string[])[BUILT]}, comes in a later update.`;
+        title.textContent = T.upToDate;
+        text.textContent = T.laterUpdate(BUILT + 1, CHAPTERS[BUILT]);
       } else {
-        title.textContent = 'The whole story, played';
-        text.textContent = `${this.three()} have stories of their own: they come in a later update.`;
+        title.textContent = T.wholeStory;
+        text.textContent = this.later();
       }
       now.append(title, text);
     } else {
       const text = document.createElement('p');
-      text.textContent = 'Your story begins as you play.';
+      text.textContent = T.storyBegins;
       now.append(text);
     }
     const list = document.createElement('ol');
@@ -701,7 +803,7 @@ export class StoryUi {
       const name = document.createElement('span');
       name.textContent = CHAPTERS[c - 1];
       const note = document.createElement('small');
-      note.textContent = state === 'done' ? 'Done' : state === 'open' ? 'Now' : state === 'later' ? 'Coming' : '';
+      note.textContent = state === 'done' ? T.stateDone : state === 'open' ? T.stateNow : state === 'later' ? T.stateComing : '';
       li.append(name, note);
       list.append(li);
     }
@@ -709,7 +811,7 @@ export class StoryUi {
     // each choice made, and how it went
     if (story.sofar.length) {
       const h = document.createElement('h3');
-      h.textContent = 'The story so far';
+      h.textContent = T.storySoFar;
       const ul = document.createElement('ul');
       ul.className = 'sofar';
       for (const l of [...story.sofar].reverse()) {
@@ -722,7 +824,7 @@ export class StoryUi {
     const inbox = [...story.inbox].reverse().slice(0, 12);
     if (inbox.length) {
       const h = document.createElement('h3');
-      h.textContent = 'Messages';
+      h.textContent = T.messages;
       box.append(h);
       const msgs = document.createElement('div');
       msgs.className = 'inbox';
@@ -731,7 +833,7 @@ export class StoryUi {
     }
     const foot = document.createElement('p');
     foot.className = 'small';
-    foot.textContent = 'One new chapter on each new day you play. Nothing is lost on a day you miss: the chapter waits.';
+    foot.textContent = T.storyFoot;
     box.append(foot);
   }
 }

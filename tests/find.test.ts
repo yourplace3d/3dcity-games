@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { closeIn, describeCar, findPay, LOOKS, NEAR_M, SEE_M, seen, zoneAround, ZONE_MIN, ZONE_R } from '../src/game/find';
-import { FIND_SCENE, findDue, none, offer, readStory, say, type Story } from '../src/game/story';
+import { FIND_SCENE, findDue, none, offer, readStory, REGULARS, say, type Story } from '../src/game/story';
 
 describe('the circle to search', () => {
   it('holds the car, never in its middle', () => {
@@ -46,12 +46,14 @@ describe('the pump\'s scene', () => {
   const D0 = '2026-11-25';
   const D1 = '2026-11-26';
   const D2 = '2026-11-27';
-  const after5 = (o: Partial<Story> = {}): Story => ({ ...none(), done: { 1: { day: D0 }, 2: { day: D0 }, 3: { day: D0 }, 4: { day: D0 }, 5: { day: D1 } }, open: 6, opened: D1, last: D1, ...o });
+  const after5 = (o: Partial<Story> = {}): Story => ({ ...none(), done: { 1: { day: D0 }, 2: { day: D0 }, 3: { day: D0 }, 4: { day: D0 }, 5: { day: D1 } }, open: 6, opened: D1, last: D1, said: [REGULARS], ...o });
 
   it('comes once chapter 5 is done, from the next day on', () => {
     expect(findDue(none(), D2)).toBe(false);
     expect(findDue(after5(), D1)).toBe(false);
     expect(findDue(after5(), D2)).toBe(true);
+    // not from a stranger: only once the people at the stations have said hello
+    expect(findDue(after5({ said: [] }), D2)).toBe(false);
   });
 
   it('waits while a chapter that opened today is still to do; one left from another day doesn\'t hold it', () => {

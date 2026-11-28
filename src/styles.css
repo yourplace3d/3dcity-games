@@ -301,6 +301,9 @@ body.touch #btn-sound { font-size: 22px; padding: 12px 15px; right: calc(72px + 
 #modes button span { font-size: 13px; font-weight: 400; line-height: 1.3; color: var(--dim); }
 #modes button[aria-pressed='true'] { border-color: var(--yellow); background: #2f2c1c; }
 #modes button[aria-pressed='true'] b { color: var(--yellow); }
+#lang { justify-content: center; }
+#lang button { padding: 6px 12px; font-size: 13px; }
+#lang button[aria-pressed='true'] { border-color: var(--yellow); color: var(--yellow); }
 @media (max-width: 460px) { #modes { grid-template-columns: 1fr; } }
 /* the menu over the game (☰, P or Esc): paused, real estate, trophies; a long list scrolls */
 #pause { place-items: start center; overflow: auto; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); -webkit-user-select: text; user-select: text; touch-action: auto; }
@@ -470,8 +473,6 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 /* a card in parts (the tenants' words, then each choice): one line break each */
 #mission-text { white-space: pre-line; }
 #job[data-kind='party'] { box-shadow: 0 0 0 2px var(--party) inset; }
-#job[data-kind='find'] { border-color: rgba(255, 138, 31, 0.6); }
-#job b.find { color: #ff8a1f; }
 
 /* a narrow phone (360 px): the four buttons at the top a little smaller and closer, so FM stays clear of the
    cash. Last in the sheet, after each button's own rules */

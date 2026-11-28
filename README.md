@@ -16,12 +16,15 @@ the streets, buildings, water and hills come from the same map squares as
   regulars (a job at each kind of station), Housewarming (a party), The whole building, and Landlord (the
   tenants' dispute). The first visit plays straight through to the first flat; after that,
   one new chapter on each new day you play, and a missed day loses nothing. What a chapter asks may be done
-  before it opens. A player who is further on starts at the chapter they are on. The game speaks plainly;
+  before it opens, except chapter 5: its people say hello on its day, and it asks for one job for each of
+  those who had not written before. A player who is further on starts at the chapter they are on. The game speaks plainly;
   whoever gives a task writes a message, each on a paper of their own: the pump's attendant on a till
   receipt, the fire station's on a pager, the police officer in a notebook, the neighbour on a card, the
   friends in text messages, the tenants on a green note stuck to the door. Nobody calls. Their first names come from the region of the first home
   (`src/game/names.ts`: 34 lists of 20, by rough boxes as for the windows) and are kept. From chapter 4 on
   the story happens in the home town; elsewhere the menu's **Story** tab says where it waits and goes there.
+  What happens at a home (a party, the first building, the tenants, a package for it) waits at that home: in
+  another part of the home town the tab says "Go to your flat on Lindenstraße" instead of showing a way.
   No message interrupts a run of three, and there is no story in Where am I? or on a friend's link. Each
   chapter finished in play is counted (`chapter`, its number), once a browser; chapters ticked for a player
   who was further on are not. The Story tab also keeps "The story so far": each choice, and how it went.
@@ -92,7 +95,9 @@ the streets, buildings, water and hills come from the same map squares as
   town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
   delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 18 things to do.
   Now and then something happens at a home (it needs renovating, or, after the story's chapter 8, the
-  tenants stop paying); its rent waits at the building until it is solved. Tapping "Bank" in the money box shows the way to the nearest bank. Cash and homes come along to every place you play: a new place is not a new game.
+  tenants stop paying); its rent waits at the building until it is solved. A station's package for a home can
+  be taken up to 2 km from it: the spot at its door is kept as a place on the earth, so the next part of town
+  loading on the way to a station doesn't turn the package into an ordinary job. Tapping "Bank" in the money box shows the way to the nearest bank. Cash and homes come along to every place you play: a new place is not a new game.
   Each player owns their own copy of the city. What you own is kept in the browser
   (`3da-homes`) beside your cash, so online saving carries it along (`src/game/homes.ts`, `src/homesUi.ts`).
 - **Parties.** Stop beside a home you own (or tap *Party* beside it in Real estate) to throw one: friends
@@ -232,6 +237,18 @@ the streets, buildings, water and hills come from the same map squares as
 | Menu: pause, real estate, trophies | `P` or `Esc` | **☰** at the top; the house button opens real estate |
 | Route line on the road | `G` | the button on the big map |
 | Back onto the road when stuck | `R` | |
+
+## Languages
+
+English and German (since 28 November 2026). The game speaks the language picked under the start screen's
+English/Deutsch switch (kept as `3da-lang`), else the browser's, else English. Every text a player reads lives
+in `src/lang/en.ts`, with the German of each in `src/lang/de.ts`: a table of the same shape, so a text missing
+in German fails the type check. A text with numbers or names in it is a small function, so each language
+builds its own sentence. The page's own texts carry `data-t`, `data-th` or `data-ta` in `index.html`
+(`src/i18n.ts`). **A new text goes into both tables.** German needs the case of a home or a car
+in a sentence, so lines about them take a `Case` and ask `T.homeRef` or `T.car` for the words. The story's
+messages are kept as they were said: those received before a switch stay in that language. Not yet moved
+over: the add-on in 3da-full.
 
 ## Run it
 

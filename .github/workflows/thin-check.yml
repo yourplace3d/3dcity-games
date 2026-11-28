@@ -1,0 +1,18 @@
+name: Thin check (temporary)
+on:
+  push:
+    branches: [claude/project-thread-z9mftg]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with: { node-version: 22, cache: npm }
+      - run: npm ci && npm i --no-save playwright && npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: |
+          npx vite preview --port 4173 --strictPort &
+          sleep 3
+          curl -s "https://photon.komoot.io/api/?limit=5&q=Perth" | head -c 4000; echo
+          node tools/thin-check.mjs "Perth" "Perth, Scotland" "Perth, Western Australia" "Sydney" "Melbourne" "Brisbane" "Adelaide" "Auckland" "Canberra" "Dallas" "Houston" "Denver" "Calgary" "Phoenix" "Atlanta" "Dubai" "Singapore" "Hong Kong" "Glasgow" "Edinburgh" "Manchester" "Berlin" "Hamburg" "London" "Paris" "New York" "Tokyo" "Rio"

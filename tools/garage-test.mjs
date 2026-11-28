@@ -37,8 +37,9 @@ try {
   const panel = async (rows) => {
     await page.waitForFunction((n) => !document.querySelector('#forsale').hidden && document.querySelector('#forsale > b')?.textContent === 'Garage' && (n === null || document.querySelectorAll('#forsale .kept').length === n), rows ?? null, { timeout: 60000 });
     return page.evaluate(() => ({
-      lines: [...document.querySelectorAll('#forsale > p')].map((p) => p.textContent),
-      buttons: [...document.querySelectorAll('#forsale > button')].map((b) => `${b.textContent}${b.disabled ? ' (off)' : ''}`),
+      // the lines on keeping cars: what comes before the part on the garage's own job (tools/care-test.mjs)
+      lines: [...document.querySelectorAll('#forsale > p')].filter((p) => !document.querySelector('#forsale > b.part') || p.compareDocumentPosition(document.querySelector('#forsale > b.part')) & Node.DOCUMENT_POSITION_FOLLOWING).map((p) => p.textContent),
+      buttons: [...document.querySelectorAll('#forsale > button:not(.care)')].map((b) => `${b.textContent}${b.disabled ? ' (off)' : ''}`),
       rows: [...document.querySelectorAll('#forsale .kept')].map((r) => `${r.querySelector('span').textContent}: ${[...r.querySelectorAll('button')].map((b) => b.textContent).join(' | ')}`),
     }));
   };
@@ -110,7 +111,7 @@ try {
   assert.deepEqual(p.buttons, [`Park this ${word(first.kind)} here`]);
   assert.deepEqual(p.rows, []);
   await shot('02-drive-up');
-  await page.locator('#forsale > button').click();
+  await page.locator('#forsale > button:not(.care)').click();
   assert.equal(await page.evaluate(() => game.car), null, 'on foot, where the car stood');
   let cars = await kept();
   assert.equal(cars.length, 1);
@@ -125,23 +126,23 @@ try {
 
   console.log('Three spots: the fourth car finds none');
   const second = await driveUp();
-  await page.waitForFunction((w) => document.querySelector('#forsale > button')?.textContent === `Park this ${w} here`, word(second.kind));
-  await page.locator('#forsale > button').click();
+  await page.waitForFunction((w) => document.querySelector('#forsale > button:not(.care)')?.textContent === `Park this ${w} here`, word(second.kind));
+  await page.locator('#forsale > button:not(.care)').click();
   const third = await driveUp();
-  await page.waitForFunction((w) => document.querySelector('#forsale > button')?.textContent === `Park this ${w} here`, word(third.kind));
-  await page.locator('#forsale > button').click();
+  await page.waitForFunction((w) => document.querySelector('#forsale > button:not(.care)')?.textContent === `Park this ${w} here`, word(third.kind));
+  await page.locator('#forsale > button:not(.care)').click();
   cars = await kept();
   assert.deepEqual(cars.map((c) => c.id), [1, 2, 3]);
   // all three under the one place, the city's
   assert.equal(new Set(cars.map((c) => `${c.lat},${c.lon}`)).size, 1);
   const fourth = await driveUp();
-  await page.waitForFunction(() => document.querySelector('#forsale > button')?.disabled === true);
+  await page.waitForFunction(() => document.querySelector('#forsale > button:not(.care)')?.disabled === true);
   p = await panel(3);
   assert.deepEqual(p.lines[0], 'Your cars in this town: 3 of 3 spots taken.');
   assert.deepEqual(p.buttons, ['Full: sell a car to make room (off)']);
   assert.equal(p.rows.length, 3);
   await shot('03-full', page.locator('#forsale'));
-  await page.locator('#forsale > button').click({ force: true });
+  await page.locator('#forsale > button:not(.care)').click({ force: true });
   assert.equal((await kept()).length, 3, 'a press on the button that is off parks nothing');
 
   console.log('A kept car taken out: on the street by the garage, and the player in it');
@@ -163,7 +164,7 @@ try {
   assert.equal(await page.evaluate(([k, col]) => game.cars.filter((o) => !o.gone && o.driver === 'none' && o.kind === k && o.colour === col).length >= 1, [fourth.kind, fourth.colour]), true);
   // stood back on the garage's spot: its own panel
   await page.evaluate(() => Object.assign(game.car, { x: garage.spots[window.at].rx, y: garage.spots[window.at].ry, vx: 0, vy: 0 }));
-  await page.waitForFunction(() => document.querySelector('#forsale > button')?.textContent === 'Leave it here');
+  await page.waitForFunction(() => document.querySelector('#forsale > button:not(.care)')?.textContent === 'Leave it here');
   p = await panel(2);
   assert.equal(p.lines[1], `This ${word(second.kind)} is kept here. Leave it anywhere: it comes back.`);
   assert.equal(p.rows.length, 2, 'the other two');
@@ -190,10 +191,10 @@ try {
 
   console.log('Leave it here: back in, and on foot');
   await page.evaluate(() => Object.assign(game.car, { x: garage.spots[window.at].rx, y: garage.spots[window.at].ry, vx: 0, vy: 0 }));
-  await page.waitForFunction(() => document.querySelector('#forsale > button')?.textContent === 'Leave it here');
-  await page.locator('#forsale > button').click();
+  await page.waitForFunction(() => document.querySelector('#forsale > button:not(.care)')?.textContent === 'Leave it here');
+  await page.locator('#forsale > button:not(.care)').click();
   assert.equal(await page.evaluate(() => game.car === null && garage.out.size === 0), true);
-  await page.waitForFunction(() => document.querySelectorAll('#forsale .kept').length === 3 && !document.querySelector('#forsale > button'));
+  await page.waitForFunction(() => document.querySelectorAll('#forsale .kept').length === 3 && !document.querySelector('#forsale > button:not(.care)'));
 
   console.log('Sold, at the second press: its spot is free');
   const cash = await page.evaluate(() => game.cash);
@@ -210,8 +211,8 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll('#toasts > *')].some((e) => e.textContent.startsWith('Sold: ')), null, { timeout: 60000 });
   // and the fourth car can be parked now
   const fifth = await driveUp();
-  await page.waitForFunction((w) => document.querySelector('#forsale > button')?.textContent === `Park this ${w} here` && !document.querySelector('#forsale > button').disabled, word(fifth.kind));
-  await page.locator('#forsale > button').click();
+  await page.waitForFunction((w) => document.querySelector('#forsale > button:not(.care)')?.textContent === `Park this ${w} here` && !document.querySelector('#forsale > button:not(.care)').disabled, word(fifth.kind));
+  await page.locator('#forsale > button:not(.care)').click();
   cars = await kept();
   assert.deepEqual(cars.map((c) => c.id), [2, 3, 4], 'a number is never given twice');
 
@@ -257,7 +258,7 @@ try {
   p = await panel(0);
   assert.deepEqual(p.lines, ['Park a car here and it is yours: 3 spots in this town.']);
   assert.deepEqual(p.rows, []);
-  await page.locator('#forsale > button').click();
+  await page.locator('#forsale > button:not(.care)').click();
   cars = await kept();
   assert.deepEqual(cars.map((c) => c.id), [2, 3, 4, 5]);
   assert.equal(cars[3].kind, munich.kind);
@@ -303,8 +304,8 @@ try {
   await page.locator('#forsale .kept').nth(0).getByText('Take it').click();
   assert.equal(await page.evaluate(() => game.car?.kind), 'police');
   await page.evaluate(() => Object.assign(game.car, { x: garage.spots[window.at].rx, y: garage.spots[window.at].ry, vx: 0, vy: 0 }));
-  await page.waitForFunction(() => document.querySelector('#forsale > button')?.textContent === 'Leave it here');
-  await page.locator('#forsale > button').click();
+  await page.waitForFunction(() => document.querySelector('#forsale > button:not(.care)')?.textContent === 'Leave it here');
+  await page.locator('#forsale > button:not(.care)').click();
   p = await panel(1);
   assert.deepEqual(p.rows, ['Police car: Take it | Give it up']);
   await page.locator('#forsale .kept button.sell').click();

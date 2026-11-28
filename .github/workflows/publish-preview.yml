@@ -1,0 +1,118 @@
+name: Publish preview
+
+# Puts a preview built by preview.yml on the site and posts its link on the pull request, or takes
+# it down when the pull request is closed. Runs from main, after each preview build.
+
+on:
+  workflow_run:
+    workflows: [Preview build]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  place:
+    name: Place preview
+    # only pull requests from branches of this repository: a preview runs on the game's own address
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      number: ${{ steps.read.outputs.number }}
+      action: ${{ steps.read.outputs.action }}
+      sha: ${{ steps.read.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download the preview
+        uses: actions/download-artifact@v4
+        with:
+          name: preview
+          path: ${{ runner.temp }}/preview
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read it
+        id: read
+        env:
+          DIR: ${{ runner.temp }}/preview
+        run: |
+          number=$(cat "$DIR/number"); action=$(cat "$DIR/action"); sha=$(cat "$DIR/sha")
+          [[ $number =~ ^[0-9]+$ ]] || { echo "bad number"; exit 1; }
+          [[ $action =~ ^(preview|remove)$ ]] || { echo "bad action"; exit 1; }
+          [[ $sha =~ ^[0-9a-f]{40}$ ]] || { echo "bad sha"; exit 1; }
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          echo "action=$action" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Put it on the site branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DIR: ${{ runner.temp }}/preview
+          NUMBER: ${{ steps.read.outputs.number }}
+          ACTION: ${{ steps.read.outputs.action }}
+        run: |
+          if [ "$ACTION" = remove ]; then tools/site/update.sh remove "$NUMBER"
+          else tools/site/update.sh preview "$NUMBER" "$DIR/dist"; fi
+
+  deploy:
+    name: Deploy
+    needs: place
+    runs-on: ubuntu-latest
+    # shared with the live deploy: one at a time, each publishing the site branch as it is when it starts
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout the site branch
+        uses: actions/checkout@v6
+        with:
+          ref: site
+          path: site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  link:
+    name: Post the link
+    needs: [place, deploy]
+    if: needs.place.outputs.action == 'preview'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Post or update the preview link on the pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ needs.place.outputs.number }}
+          SHA: ${{ needs.place.outputs.sha }}
+        run: |
+          url="https://${REPO%%/*}.github.io/${REPO#*/}/preview/pr-${NUMBER}/"
+          body=$(printf '%s\n' \
+            '<!-- preview-link -->' \
+            "**Play this version:** $url" \
+            '' \
+            "Built from ${SHA:0:7}. It keeps its own copy of your progress, does not count plays and does not save online, so the live game is untouched. It is taken down when the pull request is closed.")
+          id=$(gh api "repos/$REPO/issues/$NUMBER/comments" --paginate --jq '.[] | select(.body | startswith("<!-- preview-link -->")) | .id' | head -1)
+          if [ -n "$id" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$id" -f body="$body" >/dev/null
+          else gh api "repos/$REPO/issues/$NUMBER/comments" -f body="$body" >/dev/null; fi

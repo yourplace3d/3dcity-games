@@ -282,6 +282,7 @@ export const en = {
   letGo: 'The police let it go',
   lostThem: 'You lost them',
   warning: 'The police let you off with a warning: no fine for the wrong way',
+  heatFirst: 'Stay out of their sight to cool off; stop next to a patrol car and you pay a fine.',
   tooLate: 'Too late: the job is gone',
   stopForJob: 'Stop at the ring to see the job',
   noDropOff: 'No drop-off for this job from here: try another station',

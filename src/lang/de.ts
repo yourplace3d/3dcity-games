@@ -291,6 +291,7 @@ export const de: Texts = {
   letGo: 'Die Polizei lässt es gut sein',
   lostThem: 'Du hast sie abgehängt',
   warning: 'Die Polizei belässt es bei einer Verwarnung: keine Strafe für die falsche Richtung',
+  heatFirst: 'Bleib außer Sicht, um dich abzukühlen; hältst du neben einem Streifenwagen, zahlst du eine Strafe.',
   tooLate: 'Zu spät: Der Auftrag ist weg',
   stopForJob: 'Halt am Ring an, um den Auftrag zu sehen',
   noDropOff: 'Von hier gibt es kein Ziel für diesen Auftrag: versuch eine andere Wache',

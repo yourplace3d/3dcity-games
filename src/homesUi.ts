@@ -31,6 +31,8 @@ const BESIDE_M = 7;
 const DOOR_M = 3.5;
 /** in the car, stopped this near a door: a word to get out and walk there (m) */
 const PARK_NEAR_DOOR_M = 45;
+/** seconds inside the tenants' door before the talk's card, while their voices are heard */
+const INSIDE_S = 2.2;
 /** how near a bank one has to stop: its spot on the road, or the bank itself on foot (m) */
 const BANK_ROAD_M = 9;
 const BANK_M = 14;
@@ -227,6 +229,8 @@ export class HomesUi {
   private talked: Home | null = null;
   /** the home whose door the player was told to walk to, until they drive off, so it is said once a stop */
   private toldDoor: Home | null = null;
+  /** the home the player has just gone in at (`Game.goInside`): its card comes when they are out again */
+  private goneIn: Home | null = null;
   /** a home's door, worked out once for the square loaded (`doorPoint`) */
   private doorKept: { world: World; home: Home; at: { x: number; y: number } } | null = null;
   /** the bank the arrow points at, and the point it shows (kept, so the arrow can be told from others') */
@@ -1170,6 +1174,17 @@ export class HomesUi {
       this.talked = this.toldDoor = null;
       return;
     }
+    // in through the door: their voices, then out again where one went in, and the choice
+    if (this.goneIn) {
+      if (game.inside) return;
+      const was = this.goneIn;
+      this.goneIn = null;
+      if (was === h) {
+        game.onSound('door');
+        this.talk(h);
+        return;
+      }
+    }
     const [px, py] = game.pos();
     const toDoor = Math.hypot(door.x - px, door.y - py);
     const ready = !!this.host.card && !this.host.blocked?.() && !this.host.quiet?.() && !game.job && !game.party && !game.find;
@@ -1193,7 +1208,11 @@ export class HomesUi {
     }
     if (this.talked === h || !ready) return;
     this.talked = h;
-    this.talk(h);
+    this.goneIn = h;
+    game.goInside(INSIDE_S);
+    game.onSound('door');
+    // the voices behind the door: cross over the cold flat, worried over the money
+    game.onSound(this.eventOf(h)?.mood === 'tight' ? 'mumbleSad' : 'mumbleAngry');
   }
 
   /** A home's tenants: the same until the court's order brings new ones. */

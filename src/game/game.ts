@@ -371,6 +371,8 @@ export class Game {
   /** a door to walk to, on foot (a home's tenants who want to talk): a small green ring there */
   visit: { x: number; y: number } | null = null;
   private readonly visitMesh = markerMesh(RING.home);
+  /** seconds left inside a door (`goInside`): you and the door's ring are out of sight, and stand still */
+  private insideS = 0;
   /** the way to `guide` as a marker, for the little map's line: made again when the guide changes */
   private guideMark: { for: { x: number; y: number }; m: Marker } | null = null;
   /**
@@ -1530,6 +1532,7 @@ export class Game {
 
   /** Get into the car beside you, or out of the one you're in. */
   action(): void {
+    if (this.insideS > 0) return;
     if (this.frozen > 0) return;
     // an add-on may take the press for something of its own
     for (const take of this.actions) if (take()) return;
@@ -2459,6 +2462,21 @@ export class Game {
     return Math.hypot(zx - px, zy - py) > f.r * 0.85 ? { x: zx, y: zy, drop: false } : null;
   }
 
+  /**
+   * On foot, in through a door for a moment (the owner, 28 November 2026: talking to the tenants, "the figure
+   * vanishes for a moment, then reappears in the spot it vanished"): out of sight for `seconds` of play.
+   */
+  goInside(seconds: number): void {
+    if (this.car) return;
+    this.insideS = seconds;
+    this.me.vx = this.me.vy = 0;
+  }
+
+  /** Whether you are inside a door just now (`goInside`). */
+  get inside(): boolean {
+    return this.insideS > 0;
+  }
+
   /** The step of the search the player is at, for the line on the screen. */
   private findHud(): Hud['find'] {
     if (!this.find) return null;
@@ -2643,7 +2661,7 @@ export class Game {
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
     const v = this.visit;
-    this.visitMesh.visible = !!v;
+    this.visitMesh.visible = !!v && this.insideS <= 0;
     if (v) {
       this.visitMesh.position.set(v.x, this.world.groundY(v.x, v.y) + 0.05, -v.y);
       // a door's ring: about a person wide, not a car's
@@ -2690,6 +2708,7 @@ export class Game {
     if (this.auto && live) this.autopilot(dt);
     else if (this.car && !this.sinking) this.steerMine(this.car, input, dt);
     else if (this.car) Object.assign(this.car.controls, { throttle: 0, steer: 0, handbrake: false });
+    else if (live && this.insideS > 0) this.insideS = Math.max(0, this.insideS - dt);
     else if (live) this.walk(input, dt);
     for (const c of this.cars) if (!c.gone && (c.driver === 'ai' || c.driver === 'cop')) this.drive(c, dt);
 
@@ -2828,7 +2847,7 @@ export class Game {
         c.lights.forEach((l, i) => ((l.material as MeshStandardMaterial).emissiveIntensity = on < 0 ? 0.25 : on === i ? 3 : 0.1));
       }
     }
-    this.me.mesh.visible = !this.car;
+    this.me.mesh.visible = !this.car && this.insideS <= 0;
     const mine = this.mine;
     this.mineRing.visible = !this.car && !!mine && !mine.gone && mine.hp > 0;
     if (mine && this.mineRing.visible) this.mineRing.position.set(mine.x, w.groundY(mine.x, mine.y) + 0.6, -mine.y);

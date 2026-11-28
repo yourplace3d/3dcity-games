@@ -7,7 +7,9 @@
  * nothing starts before that. Off is remembered.
  */
 
-export type Sfx = 'pickup' | 'deliver' | 'run' | 'late' | 'fine' | 'splash' | 'crash' | 'door' | 'subway';
+export type Sfx = 'pickup' | 'deliver' | 'run' | 'late' | 'fine' | 'splash' | 'crash' | 'door' | 'subway' | Mumble;
+/** voices behind a door, words not to be made out (`Sound.mumble`): cross, worried, or glad */
+export type Mumble = 'mumbleAngry' | 'mumbleSad' | 'mumbleHappy';
 
 /** What can be heard around the player right now. */
 export interface Ears {
@@ -227,6 +229,57 @@ export class Sound {
     o.stop(t + len + 0.03);
   }
 
+  /**
+   * Two voices talking behind a door, made here and nowhere recorded: a buzz through a mouth-like filter,
+   * one syllable after another, the pitch and the filter moving with each, so it sounds like speech no one
+   * can make out (the owner, 28 November 2026: "an indistinguishable mumbling comic sound, depending on the
+   * mission happy or angry"). Cross: low, loud, clipped, falling; worried: soft and sinking; glad: high,
+   * bouncing up. About `len` seconds.
+   */
+  private mumble(mood: Mumble, len: number): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.out) return;
+    const voice = {
+      mumbleAngry: { base: 150, spread: 0.35, vol: 0.55, syl: 0.11, gap: 0.03, slide: -0.25, wave: 'sawtooth' as OscillatorType },
+      mumbleSad: { base: 190, spread: 0.15, vol: 0.45, syl: 0.17, gap: 0.08, slide: -0.2, wave: 'sawtooth' as OscillatorType },
+      mumbleHappy: { base: 240, spread: 0.3, vol: 0.45, syl: 0.12, gap: 0.05, slide: 0.3, wave: 'square' as OscillatorType },
+    }[mood];
+    let at = 0.05;
+    let who = 0;
+    while (at < len) {
+      // a phrase of a few syllables, then the other voice (yours a little lower)
+      const words = 3 + Math.floor(Math.random() * 4);
+      const pitch = voice.base * (who === 0 ? 1 : 0.78);
+      for (let i = 0; i < words && at < len; i++) {
+        const t = ctx.currentTime + at;
+        const d = voice.syl * (0.7 + Math.random() * 0.7);
+        const hz = pitch * (1 + (Math.random() - 0.5) * voice.spread);
+        const o = ctx.createOscillator();
+        o.type = voice.wave;
+        o.frequency.setValueAtTime(hz, t);
+        o.frequency.linearRampToValueAtTime(hz * (1 + voice.slide * (i + 1) / words), t + d);
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.Q.value = 4;
+        // the mouth opening and closing: the vowel moves within a syllable
+        const vowel = 500 + Math.random() * 900;
+        f.frequency.setValueAtTime(vowel, t);
+        f.frequency.linearRampToValueAtTime(vowel * (0.6 + Math.random() * 0.8), t + d);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(voice.vol, t + 0.02);
+        g.gain.setValueAtTime(voice.vol, t + d * 0.6);
+        g.gain.linearRampToValueAtTime(0, t + d);
+        o.connect(f).connect(g).connect(this.out);
+        o.start(t);
+        o.stop(t + d + 0.02);
+        at += d + voice.gap * (0.5 + Math.random());
+      }
+      at += 0.12 + Math.random() * 0.15;
+      who = 1 - who;
+    }
+  }
+
   private burst(len: number, vol: number, hz: number, kind: BiquadFilterType = 'lowpass'): void {
     const ctx = this.ctx;
     if (!ctx || !this.out || !this.noise) return;
@@ -284,6 +337,11 @@ export class Sound {
         break;
       case 'subway':
         this.burst(1.3, 0.14, 420);
+        break;
+      case 'mumbleAngry':
+      case 'mumbleSad':
+      case 'mumbleHappy':
+        this.mumble(what, 1.8);
         break;
     }
   }

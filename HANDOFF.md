@@ -19,16 +19,25 @@ lives.
     of time; the written stories stay, as the first times a person asks (the owner: "Can't they coexist?");
     **one place for cars, the garage,** a fourth kind of place from the map's car dealers and repair garages
     (made up where there is none), which hands out the car delivery (a new dent ends it), sells the special
-    cars once delivered without a dent, and keeps them; in the home town the player's car stands beside
-    them at the start of a visit. No garage at a home and no bay at a pump: the owner feared that would
-    confuse, and it would.
-  - **Wait for the owner's answers before building any of it.**
-- **The trophies wait for that plan.** The owner: "We should not need to reinvent it too much. There's lots
-  of solutions already existent in games". Proposed: the list stays as built; a counting trophy says how far
-  along it is ("312 of 500"); "Not a dent" waits for the car delivery (29 now, 30 with the garage). The
-  branch below stays as it is until the owner has answered.
-- **Built, not live: twelve more trophies, 30 in all** (the owner, 28 November, with all but one of the 18
-  earned: "We can now add some more of these maybe?"). Branch `claude/more-trophies`, from `main` at
+    cars once delivered without a dent, and keeps them. No garage at a home and no bay at a pump: the
+    owner feared that would confuse, and it would. The owner built on this in round 3 without saying yes
+    in so many words.
+  - *Round 3, the owner on keeping cars:* saved only at the garage, by driving a car there and adding it;
+    once added it is never gone, wherever it is left; three cars for each city at first, more later;
+    choosing a car from home and having it brought is for "maybe at some point". **Asked and open:** which
+    cars can be added (recommended: any the player arrives in that was not taken from its driver, free; a
+    special car is bought once delivered without a dent).
+  - **Wait for the owner's word before building the garage, the cars or the cycle.**
+- **The trophies after the owner's look: 29 for now, built, not live.** The owner: "Shouldn't be too
+  overwhelming", then "We should not need to reinvent it too much. There's lots of solutions already
+  existent in games". So the list stays the usual one, and a trophy that counts something says how far
+  along it is (a thin bar and "312 of 500"; `counted`, `Trophies.sofar` in `src/trophies.ts`). "Not a dent"
+  is held back for the garage's car delivery, so it never changes its meaning once earned; it comes back
+  as the 30th. `docs/plan-returning-players.md`, section 12, at its end. **Still for the owner to say:**
+  which of the eleven new ones to keep, and when it goes live.
+- **How the new trophies came about: twelve more at first, 30 in all** (the owner, 28 November, with all but
+  one of the 18 earned: "We can now add some more of these maybe?"; the entry above says what changed
+  since). Branch `claude/more-trophies`, from `main` at
   `8bc9651`; no pull request yet. **The choice of the twelve is this session's, for the owner to strike from
   and add to;** it goes live only on the owner's word. Real estate: Ten homes, Five towns, Good as new (a
   home renovated), Full house (a party thrown). Driving: Not a dent (a supply run), By the book (a police

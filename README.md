@@ -93,7 +93,7 @@ the streets, buildings, water and hills come from the same map squares as
   the roof and on both maps. **Real estate**, a tab of the menu (☰, or the house button beside it, whose ring
   fills with home points), lists them by town with what each pays: *Go there* starts beside one, and in the
   town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
-  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 30 things to do, from a first car to ten homes in five towns, each station's job done the way its card asks, a package brought in a bus, and a place played far from home.
+  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 29 things to do, from a first car to ten homes in five towns, a police station's job, a package brought in a bus, and a place played far from home; one that counts something says how far along it is ("312 of 500").
   Now and then something happens at a home (it needs renovating, or, after the story's chapter 8, the
   tenants stop paying); its rent waits at the building until it is solved. A station's package for a home can
   be taken up to 2 km from it: the spot at its door is kept as a place on the earth, so the next part of town

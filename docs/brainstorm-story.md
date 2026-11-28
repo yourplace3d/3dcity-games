@@ -1120,3 +1120,28 @@ What each place is for, afterwards:
 3. Buying a car, and the car at the start of a visit.
 4. Chapters 6 to 8 a day apart; the cycle with its levels.
 5. The written scenes of the people, one at a time, into the same list.
+
+### Round 3: how cars are kept (the owner, 28 November)
+
+The owner: "Ah yes and the saving of cars I would do only in the garage but instead of it being gone if it's
+not being parked there after a run. You can just add them. Maybe at some point you will be able to choose
+from them beginning at your home, the car's being delivered or whatever. And a garage will have probably a
+max capacity per city which later can be enlarged ... let's go with three cars per garage first."
+
+Read as, and said back to the owner:
+
+- **A car is saved only at the garage:** the player drives it there and adds it.
+- **Added is kept.** It need not be parked back there after a run, and it is never gone: left anywhere, or
+  wrecked, it is at the garage again.
+- **Taking one out is at the garage,** for now. Choosing one when a visit starts at home, with the car
+  brought there, is for later ("maybe at some point"). So the rule of round 2, the player's car beside them
+  at the start of a visit, waits.
+- **Three cars for each city** at first, the same three at whichever garage of that city the player drives
+  to; more room later. A full garage asks which car to let go.
+
+**Open, asked of the owner: which cars can be added.**
+1. *Any car the player arrives in,* free, unless it was taken from its driver (which also leaves out police
+   cars and buses, as none of those is ever parked). A special car is still bought at the garage once it has
+   been delivered without a dent, and buying it takes one of the three places. *Recommended:* the garage has a
+   use on the first day, before any special car, and three places then mean choosing.
+2. *Only special cars.* Simpler to say, but the garage keeps nothing until the first special car is bought.

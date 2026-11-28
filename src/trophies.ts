@@ -6,8 +6,12 @@
  * Their own look: a flat disc in the colour of their group with a plain sign on it, grey until earned.
  * Kept in the browser under `3da-trophies`, so saving online carries them along.
  *
- * 30 since 28 November 2026 (the owner, with all but one of the 18 earned: "We can now add some more of
- * these maybe?"). A trophy is earned in one of two ways: by what the player has (`earnedBy`, looked at once
+ * 29 since 28 November 2026 (the owner, with all but one of the 18 earned: "We can now add some more of
+ * these maybe?"). The list is the usual one of consoles and phones, on purpose (the owner: "We should not
+ * need to reinvent it too much"): a badge grey until earned, a count at the top, and for a trophy that
+ * counts something how far along it is. "Not a dent" is held back for the garage's car delivery, where it
+ * is the whole point (`docs/brainstorm-story.md`, section 19): a trophy must not change its meaning once
+ * players have earned it. A trophy is earned in one of two ways: by what the player has (`earnedBy`, looked at once
  * a second, so a player who is further on earns what fits at once, in one line), or by something that
  * happens in play (`earnedIn`, from the game's events). A new one needs its line in `GROUPS`, its id in
  * `TrophyId`, and its rule in one of the two.
@@ -31,7 +35,7 @@ export const SIGHT_POINTS = 800;
 export type TrophyId =
   | 'car' | 'delivery' | 'run' | 'home' | 'bank'
   | 'homes5' | 'homes10' | 'building' | 'painted' | 'renovated' | 'towns2' | 'towns5' | 'rent1000' | 'party' | 'story'
-  | 'lost' | 'clean' | 'rush' | 'supply' | 'book' | 'found' | 'bus' | 'deliveries100' | 'deliveries500'
+  | 'lost' | 'clean' | 'rush' | 'book' | 'found' | 'bus' | 'deliveries100' | 'deliveries500'
   | 'places5' | 'places20' | 'far' | 'equator' | 'guessed' | 'sight';
 
 export interface Trophy {
@@ -87,7 +91,6 @@ export const GROUPS: Group[] = [
       { id: 'lost', name: 'Shaken off', how: 'Lose the police', sign: '<path d="M12 40c8-14 20-18 32-16v-7l10 11-10 11v-7c-10-1-20 2-28 12z"/>' },
       { id: 'clean', name: 'A clean run', how: 'Finish a run of three without being caught, wrecked or knocked out', sign: '<path d="M14 33l6-6 8 8 16-17 6 6-22 23z"/>' },
       { id: 'rush', name: 'Time to spare', how: 'Finish a rush job with 30 seconds left', sign: '<circle cx="32" cy="35" r="15" fill="none" stroke="#16181c" stroke-width="5"/><path d="M29 12h6v6h-6zM30 35V25h4v10z"/><path d="M32 33l7 5-2 3-7-5z"/>' },
-      { id: 'supply', name: 'Not a dent', how: 'Finish a supply run with no new dent on the car', sign: '<path d="M17 25h18l11 9v19H17z"/><path d="M21 14h13v11h-4v-7h-5v7h-4z"/><path d="M24 33l13 14M37 33L24 47" fill="none" stroke="#2bd4e0" stroke-width="3"/>' },
       { id: 'book', name: 'By the book', how: 'Finish a police station’s job: no law broken on the way', sign: '<path d="M32 10l19 6v15c0 11-7 19-19 24-12-5-19-13-19-24V16z"/><path d="M22 32l7 7 13-14" fill="none" stroke="#2bd4e0" stroke-width="5"/>' },
       { id: 'found', name: 'Found it', how: 'Find the car the pump asks you to look for, and drive it back', sign: '<circle cx="28" cy="28" r="12" fill="none" stroke="#16181c" stroke-width="6"/><path d="M36 38l4-4 12 12-4 4z"/>' },
       { id: 'bus', name: 'By bus', how: 'Deliver a package in a bus', sign: '<path d="M9 44V24a5 5 0 0 1 5-5h36a5 5 0 0 1 5 5v20z"/><path d="M14 24h9v9h-9zM27 24h9v9h-9zM40 24h10v9H40z" fill="#2bd4e0"/><circle cx="20" cy="45" r="5.5"/><circle cx="44" cy="45" r="5.5"/>' },
@@ -154,28 +157,68 @@ export function readTrophies(raw: string | null): Kept {
 }
 
 /**
+ * What a trophy that counts something counts: how much of it the player has, and how much it asks. Null for
+ * the others.
+ */
+export function counted(id: TrophyId, s: Snapshot, places: number): [number, number] | null {
+  switch (id) {
+    case 'homes5':
+      return [s.homes, 5];
+    case 'homes10':
+      return [s.homes, 10];
+    case 'towns2':
+      return [s.towns, 2];
+    case 'towns5':
+      return [s.towns, 5];
+    case 'rent1000':
+      return [s.rentPerDay, 1000];
+    case 'deliveries100':
+      return [s.delivered, 100];
+    case 'deliveries500':
+      return [s.delivered, 500];
+    case 'places5':
+      return [places, 5];
+    case 'places20':
+      return [places, 20];
+    default:
+      return null;
+  }
+}
+
+/** "6 of 10", "$456 of $1,000": how far along a counting trophy is, in words. */
+export function sofarText(id: TrophyId, [have, need]: [number, number]): string {
+  const n = (v: number) => `${id === 'rent1000' ? '$' : ''}${Math.round(v).toLocaleString('en-US')}`;
+  return `${n(have)} of ${n(need)}`;
+}
+
+/**
  * Which trophies a snapshot earns. `places`: how many places, a town apart, have been played; `across`:
  * places north and south of the equator are among those played.
  */
 export function earnedBy(s: Snapshot, places: number, across = false): TrophyId[] {
   const out: TrophyId[] = [];
+  // a trophy that counts something is earned when the count is full: one place for each number
+  const full = (id: TrophyId): boolean => {
+    const c = counted(id, s, places);
+    return !!c && c[0] >= c[1];
+  };
   if (s.car) out.push('car');
   if (s.delivered >= 1) out.push('delivery');
   if (s.homes >= 1) out.push('home');
   if (s.saved > 0) out.push('bank');
-  if (s.homes >= 5) out.push('homes5');
-  if (s.homes >= 10) out.push('homes10');
+  if (full('homes5')) out.push('homes5');
+  if (full('homes10')) out.push('homes10');
   if (s.building) out.push('building');
   if (s.painted) out.push('painted');
   if (s.renovated) out.push('renovated');
-  if (s.towns >= 2) out.push('towns2');
-  if (s.towns >= 5) out.push('towns5');
-  if (s.rentPerDay >= 1000) out.push('rent1000');
+  if (full('towns2')) out.push('towns2');
+  if (full('towns5')) out.push('towns5');
+  if (full('rent1000')) out.push('rent1000');
   if (s.partied) out.push('party');
-  if (s.delivered >= 100) out.push('deliveries100');
-  if (s.delivered >= 500) out.push('deliveries500');
-  if (places >= 5) out.push('places5');
-  if (places >= 20) out.push('places20');
+  if (full('deliveries100')) out.push('deliveries100');
+  if (full('deliveries500')) out.push('deliveries500');
+  if (full('places5')) out.push('places5');
+  if (full('places20')) out.push('places20');
   if ((s.fromHome ?? 0) >= FAR_KM) out.push('far');
   if (across) out.push('equator');
   if (s.story) out.push('story');
@@ -192,10 +235,9 @@ export function earnedIn(e: GameEvent, fullRun: boolean, car: CarKind | null): T
   if (e.kind === 'run' && fullRun) out.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
   if (e.kind === 'found') out.push('found');
   if (e.kind === 'delivered') {
-    // each station's job done the way its card asks: time left on the fire station's, no new dent on the
-    // pump's (in a car: on foot there is none to dent), and the police's is gone at the first offence
+    // a station's job done the way its card asks: time left on the fire station's; the police's is gone
+    // at the first offence, so delivered means clean
     if (e.job === 'rush' && e.left >= 30) out.push('rush');
-    if (e.job === 'supply' && car && !e.dented) out.push('supply');
     if (e.job === 'clean') out.push('book');
     if (car === 'bus') out.push('bus');
   }
@@ -211,6 +253,8 @@ export class Trophies {
   private kept: Kept;
   /** the place being played: it counts for the furthest place though no more places are kept */
   private here: [number, number] | null = null;
+  /** what the player had when last looked at: for how far along a counting trophy is */
+  private last: Snapshot | null = null;
   /** said when trophies are earned: their names */
   onEarned: (names: string[]) => void = () => undefined;
   /** what is kept changed: for saving online */
@@ -251,7 +295,18 @@ export class Trophies {
   }
 
   check(s: Snapshot, now = Date.now()): TrophyId[] {
+    this.last = s;
     return this.give(earnedBy(s, this.kept.places.length, this.across()), now);
+  }
+
+  /**
+   * How far along a trophy that counts something is, while it is not earned and something of it is there:
+   * what the player has of what it asks. Null for the others, and until a place has been played on the page.
+   */
+  sofar(id: TrophyId): [number, number] | null {
+    if (!this.last || this.kept.got[id]) return null;
+    const c = counted(id, this.last, this.kept.places.length);
+    return c && c[0] > 0 ? [Math.min(c[0], c[1]), c[1]] : null;
   }
 
   /** The places played, as points: those kept (one that is no point is left out), and the one being played. */
@@ -343,6 +398,20 @@ export function drawTrophies(list: HTMLElement, line: HTMLElement, t: Trophies):
       const s = document.createElement('small');
       s.textContent = day === null ? x.how : dateOf(day);
       li.append(icon, b, s);
+      // the usual thin bar and its number, on a trophy that counts something and is on its way
+      const far = day === null ? t.sofar(x.id) : null;
+      if (far) {
+        const bar = document.createElement('span');
+        bar.className = 'sofar';
+        const fill = document.createElement('i');
+        fill.style.width = `${Math.round((far[0] / far[1]) * 100)}%`;
+        fill.style.background = g.colour;
+        bar.append(fill);
+        const n = document.createElement('small');
+        n.className = 'sofar-n';
+        n.textContent = sofarText(x.id, far);
+        li.append(bar, n);
+      }
       grid.append(li);
     }
     box.append(head, grid);

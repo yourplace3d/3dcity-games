@@ -767,3 +767,24 @@ renovation and the party as the trophies ask for them; 372 unit tests pass. In a
 tiles: `node tools/trophies-test.mjs` (a player like the owner comes back and earns seven at once in one
 line; the tab says "23 of 30 earned" with every new one in its group; a supply run, a police job and a bus;
 Where am I?), and `node tools/find-test.mjs` now ends with "Found it".
+
+### After the owner's look (28 November): 29 for now, and how far along
+
+The owner on the list of 30: "Shouldn't be too overwhelming", and then, asked whether to fold the list or
+put steps on a disc: "We should not need to reinvent it too much. There's lots of solutions already existent
+in games". So nothing of the kind was invented:
+
+- **The list stays as it is,** the usual one of consoles and phones: a badge grey until earned, a count at the
+  top, group by group.
+- **A trophy that counts something says how far along it is,** as such lists do: a thin bar in its group's
+  colour and the number under it ("312 of 500", "$840 of $1,000"). Nine count something: homes 5 and 10, towns
+  2 and 5, $1,000 a day, deliveries 100 and 500, places 5 and 20. Not shown at nothing, so a new player's
+  list is not full of empty bars, nor on a trophy earned. The number each asks is in one place
+  (`counted` in `src/trophies.ts`); `earnedBy` reads it there.
+- **"Not a dent" is held back: 29 for now.** The car delivery planned for the garage (the story's
+  brainstorm, section 19) is the mission where a dent ends the job, and the trophy belongs there. Given now
+  for a supply run, it would have to change its meaning after players had earned it. It comes back with that
+  mission, as the 30th. A supply run still pays more without a new dent.
+- **Tested:** `tests/trophies.test.ts` (each counting trophy earned exactly when its count is full; said for
+  one on its way and not for one earned, not begun or that counts nothing); `node tools/trophies-test.mjs`
+  now also plays a player on the way (6 homes in 3 towns, 312 deliveries) and reads the six bars.

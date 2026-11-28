@@ -421,11 +421,15 @@ body.secret #toasts { top: calc(80px + env(safe-area-inset-top)); }
 #homes-list { display: grid; gap: 14px; margin: 12px 0 6px; }
 .trophy-group { margin: 14px 0 4px; }
 ul.trophies { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; }
-ul.trophies li { display: grid; justify-items: center; text-align: center; gap: 2px; }
+/* each trophy packs from the top, so the names of a row stand level whatever is under them */
+ul.trophies li { display: grid; justify-items: center; align-content: start; text-align: center; gap: 2px; }
 ul.trophies .disc svg { width: 64px; height: 64px; display: block; }
 ul.trophies b { font-size: 13px; font-weight: 700; line-height: 1.2; }
 ul.trophies small { font-size: 11px; color: var(--dim); line-height: 1.25; }
 ul.trophies li.locked b { color: var(--dim); }
+/* how far along a trophy that counts something is: the usual thin bar, and the number under it */
+ul.trophies .sofar { display: block; width: 64px; height: 4px; margin-top: 3px; border-radius: 2px; background: #2a2e35; overflow: hidden; }
+ul.trophies .sofar i { display: block; height: 100%; border-radius: 2px; }
 
 /* the house button: a ring that fills with home points, and how many flats they buy now */
 #btn-estate { pointer-events: auto; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(112px + env(safe-area-inset-right)); width: 44px; height: 38px; padding: 0; display: grid; place-items: center; cursor: pointer; }

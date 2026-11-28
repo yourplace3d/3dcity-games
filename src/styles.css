@@ -554,11 +554,23 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #pane-story .sofar { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 4px; color: var(--ink); }
 
 /* driving skill (skill.ts): the total under the cash, the combo open, words floating up from the car */
-#skill { color: #ffb347; font-weight: 700; font-size: 13px; margin-top: -4px; white-space: nowrap; }
-#skill[hidden] { display: none; }
-#skill::before { content: '◆ '; font-size: 11px; }
-#skill.bump { animation: skill-bump 0.6s; }
-@keyframes skill-bump { 30% { transform: scale(1.25); color: #fff3a6; } }
+#skill { display: grid; gap: 3px; margin-top: -2px; }
+#skill-lv { color: #ffb347; font-weight: 700; font-size: 12px; white-space: nowrap; }
+#skill-lv::before { content: '◆ '; font-size: 10px; }
+#skill .meter { position: relative; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+#skill .meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; transition: width 0.3s; }
+#skill .fill { background: #ffb347; }
+#skill .pend { background: rgba(255, 179, 71, 0.4); }
+#skill.bump #skill-lv { animation: skill-bump 0.6s; }
+@keyframes skill-bump { 30% { color: #fff3a6; } }
+body.touch #skill-lv { font-size: 14px; }
+body.touch #skill .meter { height: 7px; }
+#levelup { position: fixed; left: 50%; top: 34%; z-index: 2; translate: -50% -50%; display: grid; justify-items: center; gap: 4px; padding: 16px 28px 14px; border-radius: 18px; background: rgba(20, 22, 27, 0.88); border: 2px solid #ffb347; box-shadow: 0 0 40px rgba(255, 179, 71, 0.45); text-align: center; pointer-events: none; animation: levelup 3.6s forwards; max-width: 86vw; }
+#levelup[hidden] { display: none; }
+#levelup small { color: #ffb347; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: 14px; }
+#levelup b { font-size: clamp(24px, 5vw, 38px); font-weight: 800; color: #fff3a6; }
+#levelup span { color: var(--dim); font-size: 13px; }
+@keyframes levelup { 0% { opacity: 0; scale: 0.6; } 10% { opacity: 1; scale: 1.08; } 16% { scale: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
 .combo { bottom: calc(118px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); font-weight: 800; color: #ffb347; border-color: rgba(255, 179, 71, 0.6); white-space: nowrap; text-align: center; }
 .combo small { color: var(--ink); font-weight: 600; margin-left: 6px; }
 .combo.drifting { box-shadow: 0 0 14px rgba(255, 179, 71, 0.55); }

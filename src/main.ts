@@ -1279,7 +1279,7 @@ function skillSaid(e: SkillEvent, at: [number, number] | null): void {
     void s.offsetWidth;
     s.classList.add('bump');
     if (e.combo > 1) pop(T.skillBanked(e.points), [near[0], near[1] + 0.12], 'big');
-    if (e.levelUp !== null) toast(T.skillLevelUp(T.skillLevels[e.levelUp]), 'good', 4200);
+    if (e.levelUp !== null) levelUp(e.levelUp);
     changed();
   } else if (e.kind === 'lost') {
     pop(T.skillChainLost, near, 'bad');
@@ -1290,11 +1290,37 @@ function skillSaid(e: SkillEvent, at: [number, number] | null): void {
   }
 }
 
+/** A new level: a banner across the middle for a few seconds, over the game but not in its way. */
+let levelT = 0;
+function levelUp(level: number): void {
+  $('levelup-title').textContent = T.levelUpTitle;
+  $('levelup-name').textContent = T.levelUpName(level + 1, T.skillLevels[level]);
+  $('levelup-next').textContent = T.levelUpNext;
+  const el = $('levelup');
+  el.hidden = true;
+  void el.offsetWidth;
+  el.hidden = false;
+  clearTimeout(levelT);
+  levelT = window.setTimeout(() => (el.hidden = true), 3600);
+}
+
 /** The total under the cash (once there is any), and the combo open. */
 function paintSkill(h: Hud): void {
   const s = h.skill;
-  $('skill').hidden = s.total <= 0 && s.combo === 0;
-  put('skill', s.total.toLocaleString(lang));
+  // the level and a bar to the next, the open combo shown paler on top of it
+  const { level, from, next } = levelOf(s.total);
+  put('skill-lv', T.skillHud(level + 1, T.skillLevels[level]));
+  const share = (n: number) => (next === null ? 100 : Math.min(100, Math.round(((n - from) / (next - from)) * 1000) / 10));
+  const fill = share(s.total);
+  const pend = share(s.total + s.pending);
+  if (last['skill-fill'] !== String(fill)) {
+    last['skill-fill'] = String(fill);
+    $('skill').querySelector<HTMLElement>('.fill')!.style.width = `${fill}%`;
+  }
+  if (last['skill-pend'] !== String(pend)) {
+    last['skill-pend'] = String(pend);
+    $('skill').querySelector<HTMLElement>('.pend')!.style.width = `${pend}%`;
+  }
   const combo = $('combo');
   combo.hidden = s.combo < 2;
   combo.classList.toggle('drifting', s.drifting);
@@ -1312,7 +1338,7 @@ function drawSkill(box: HTMLElement): void {
   const name = document.createElement('b');
   name.textContent = T.skillLabel;
   const sub = document.createElement('small');
-  sub.textContent = T.skillHead(T.skillLevels[level], total);
+  sub.textContent = T.skillHead(level + 1, T.skillLevels[level], total);
   head.append(name, sub);
   const meter = document.createElement('div');
   meter.className = 'meter';

@@ -761,8 +761,11 @@ export const en = {
   skillBanked: (points: number) => `Driving skill +${points}`,
   skillChainLost: 'Combo lost',
   skillCrash: (points: number) => `Crash: driving skill −${points}`,
-  skillLevelUp: (level: string) => `Driving skill: you’re now ${level}!`,
-  skillHead: (level: string, total: number) => `${level} · ${total.toLocaleString('en')} points`,
+  skillHead: (n: number, level: string, total: number) => `Level ${n}, ${level} · ${total.toLocaleString('en')} points`,
+  skillHud: (n: number, level: string) => `Lv ${n} · ${level}`,
+  levelUpTitle: 'Level up!',
+  levelUpName: (n: number, level: string) => `Level ${n}: ${level}`,
+  levelUpNext: 'Driving skill will open up new vehicles and hidden places.',
   skillNext: (left: number, next: string) => `${left.toLocaleString('en')} more to ${next}`,
   skillTop: 'The top level. Keep going.',
   skillCounts: (near: number, drift: number, best: number, combo: number) =>

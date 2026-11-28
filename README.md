@@ -229,8 +229,10 @@ the streets, buildings, water and hills come from the same map squares as
   (sliding about 19° or more off the nose for half a second) each earn points, shown popping up beside the car.
   Moves within 3 seconds build a combo that multiplies (up to ×5), banked when it goes quiet or you get out. A
   crash loses the combo and takes 10 off the total, never below the start of the level reached. Skill is never
-  spent; seven levels (Rookie to Legend) are where later unlocks will hang. The total sits under the cash, the
-  level and counts of each move at the top of the Trophies tab. Kept as `3da-skill`, so saving online carries it.
+  spent; seven levels (Rookie to Legend) are where later unlocks will hang. Driving has its own levels (the owner's choice: "its
+  own driving levels", not one player level): the level and a bar to the next sit under the cash, the open
+  combo shown paler on the bar, and reaching a level brings a "Level up!" banner with a fanfare. The counts of
+  each move are at the top of the Trophies tab. Kept as `3da-skill`, so saving online carries it.
   On a touch screen, which has no handbrake, holding the brake in a hard turn at speed slides the car. Every
   number is one line in `src/game/skill.ts`, to tune from play. Also new: tyre marks while sliding, a burst
   and the pay floating up at each delivery, a slow moment after a run's last, and a camera that can turn with

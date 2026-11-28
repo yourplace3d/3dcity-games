@@ -46,6 +46,13 @@ lives.
 
 ## Earlier the same day (28 November 2026, morning)
 
+- **Driving skill, in a pull request, not live** (the owner: "Driving skills which in future will open up
+  different vehicles hidden gems"; skill only grows, unlocks at levels; "Crashes can cost you points maybe?"):
+  near misses and drifts earn skill, combos multiply, a crash loses the combo and 10 points but never a level.
+  Also tyre marks, a delivery burst, a slow moment after a run, and a camera that turns with the car (keys only,
+  off by default). README, "Driving skill". Every number is a guess to tune from play. Tried only on the stand-in
+  map (`tools/stand-in-map.mjs`), not on real tiles or an iPad.
+
 - **Built, not live: no job pays more than $300** (branch `claude/job-pay-cap`, from `main`; no pull request).
   The owner, 28 November: "Jobs should not pay more than 300 ever... with rents there's already too much
   money involved". Open jobs had come to pay about a thousand dollars and more after fifty deliveries, a

@@ -1,7 +1,8 @@
 // Plays a build of the game in a real browser and takes pictures, so a change can be seen before it
 // goes live. Run by .github/workflows/preview-check.yml on every pull request.
 //   node tools/preview-check.mjs <dist folder> <out folder>
-// Writes a picture per place and screen size, and report.json with what happened.
+// Writes a picture per place and screen size, and report.json with what happened. A change can add steps
+// of its own that play it and take more pictures: `tools/preview-steps.mjs`, see there.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { preview } from 'vite';
@@ -18,6 +19,12 @@ const sizes = [
   { name: 'phone', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
 ];
 const places = (process.env.PLACES || 'Hamburg').split(',');
+let steps = null;
+try {
+  steps = (await import('./preview-steps.mjs')).default;
+} catch {
+  /* none for this change */
+}
 for (const size of sizes) {
   for (const place of places) {
     const ctx = await browser.newContext({ viewport: size.viewport, hasTouch: size.hasTouch, isMobile: size.isMobile });
@@ -44,6 +51,16 @@ for (const size of sizes) {
     }
     run.seconds = Math.round((Date.now() - t0) / 1000);
     await page.screenshot({ path: `${out}/${size.name}-${place}.png` });
+    // a change can add its own steps to show itself (tools/preview-steps.mjs): each step's pictures and notes
+    // go into the report; a step that fails is noted, and the check still counts only reaching play
+    if (run.screen === 'play' && steps) {
+      run.steps = [];
+      try {
+        await steps(page, { size: size.name, place, out, note: (n) => run.steps.push(n) });
+      } catch (e) {
+        run.steps.push(`failed: ${String(e.message).slice(0, 300)}`);
+      }
+    }
     report.runs.push(run);
     await ctx.close();
   }

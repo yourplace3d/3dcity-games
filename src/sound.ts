@@ -7,7 +7,9 @@
  * nothing starts before that. Off is remembered.
  */
 
-export type Sfx = 'pickup' | 'deliver' | 'run' | 'late' | 'fine' | 'splash' | 'crash' | 'door' | 'subway' | Mumble;
+export type Sfx = 'pickup' | 'deliver' | 'run' | 'late' | 'fine' | 'splash' | 'crash' | 'door' | 'subway' | Mumble | Skill;
+/** driving skill (`game/skill.ts`): a move (higher with each in the chain), a chain banked, a chain lost, a new level */
+export type Skill = 'skill' | 'bank' | 'chainLost' | 'level';
 /** voices behind a door, words not to be made out (`Sound.mumble`): cross, worried, or glad */
 export type Mumble = 'mumbleAngry' | 'mumbleSad' | 'mumbleHappy';
 
@@ -340,6 +342,24 @@ export class Sound {
         break;
       case 'subway':
         this.burst(1.3, 0.14, 420);
+        break;
+      case 'skill': {
+        // a quick rising pair, a step higher for each move in the chain
+        const hz = 520 * 2 ** (Math.min(5, Math.max(1, Math.round(strength * 5))) * 2 / 12);
+        this.note(hz, 0, 0.08, 0.1, 'triangle');
+        this.note(hz * 1.5, 0.05, 0.14, 0.1, 'triangle');
+        break;
+      }
+      case 'bank':
+        this.note(988, 0, 0.12, 0.12);
+        this.note(1319, 0.07, 0.28, 0.12);
+        break;
+      case 'chainLost':
+        this.note(392, 0, 0.12, 0.1, 'triangle');
+        this.note(294, 0.09, 0.26, 0.1, 'triangle');
+        break;
+      case 'level':
+        [784, 988, 1175, 1568].forEach((hz, i) => this.note(hz, i * 0.09, 0.4, 0.13, 'triangle'));
         break;
       case 'mumbleAngry':
       case 'mumbleSad':

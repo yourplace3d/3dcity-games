@@ -279,3 +279,37 @@ describe("a station's job on a card", () => {
     expect(g.job?.kind).toBe('rush');
   });
 });
+
+describe('a slide on a touch screen', () => {
+  const stick = (x: number, y: number, brake: boolean) => ({ moveX: x, moveY: y, stick: true, throttle: 0, steer: 0, brake, handbrake: false });
+  type Steer = { steerMine: (c: Car, input: ReturnType<typeof stick>, dt: number) => void };
+
+  it('holding the brake in a hard turn at speed pulls the handbrake instead of stopping', async () => {
+    vi.spyOn(World, 'load').mockResolvedValue(world());
+    const g = game();
+    await g.start({ lon: 0, lat: 0 });
+    const car = g.cars[0];
+    g.seat(car);
+    car.th = 0;
+    car.vx = 15;
+    car.vy = 0;
+    // the stick points north, the car goes east: a hard left
+    (g as unknown as Steer).steerMine(car, stick(0, 1, true), 0.02);
+    expect(car.controls).toMatchObject({ handbrake: true, steer: 1, throttle: 1 });
+  });
+
+  it('brakes as before going straight, or slowly', async () => {
+    vi.spyOn(World, 'load').mockResolvedValue(world());
+    const g = game();
+    await g.start({ lon: 0, lat: 0 });
+    const car = g.cars[0];
+    g.seat(car);
+    car.th = 0;
+    car.vx = 15;
+    (g as unknown as Steer).steerMine(car, stick(1, 0.1, true), 0.02);
+    expect(car.controls).toMatchObject({ handbrake: false, throttle: -1 });
+    car.vx = 5;
+    (g as unknown as Steer).steerMine(car, stick(0, 1, true), 0.02);
+    expect(car.controls).toMatchObject({ handbrake: false, throttle: -1 });
+  });
+});

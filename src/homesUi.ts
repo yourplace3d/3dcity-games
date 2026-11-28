@@ -32,7 +32,7 @@ const DOOR_M = 3.5;
 /** in the car, stopped this near a door: a word to get out and walk there (m) */
 const PARK_NEAR_DOOR_M = 45;
 /** seconds inside the tenants' door before the talk's card, while their voices are heard */
-const INSIDE_S = 2.2;
+const INSIDE_S = 2.8;
 /** how near a bank one has to stop: its spot on the road, or the bank itself on foot (m) */
 const BANK_ROAD_M = 9;
 const BANK_M = 14;

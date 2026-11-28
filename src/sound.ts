@@ -230,54 +230,57 @@ export class Sound {
   }
 
   /**
-   * Two voices talking behind a door, made here and nowhere recorded: a buzz through a mouth-like filter,
+   * Two people talking behind a door, made here and nowhere recorded: a buzz through a mouth-like filter,
    * one syllable after another, the pitch and the filter moving with each, so it sounds like speech no one
    * can make out (the owner, 28 November 2026: "an indistinguishable mumbling comic sound, depending on the
-   * mission happy or angry"). Cross: low, loud, clipped, falling; worried: soft and sinking; glad: high,
-   * bouncing up. About `len` seconds.
+   * mission happy or angry"; "make it two people talk, so there is like one answer"). The tenant speaks
+   * first, in their mood (cross: low, loud, clipped, falling; worried: soft and sinking; glad: high,
+   * bouncing up), then you answer once: a deeper, rounder, calm voice. About `len` seconds.
    */
   private mumble(mood: Mumble, len: number): void {
     const ctx = this.ctx;
     if (!ctx || !this.out) return;
-    const voice = {
-      mumbleAngry: { base: 150, spread: 0.35, vol: 0.55, syl: 0.11, gap: 0.03, slide: -0.25, wave: 'sawtooth' as OscillatorType },
-      mumbleSad: { base: 190, spread: 0.15, vol: 0.45, syl: 0.17, gap: 0.08, slide: -0.2, wave: 'sawtooth' as OscillatorType },
-      mumbleHappy: { base: 240, spread: 0.3, vol: 0.45, syl: 0.12, gap: 0.05, slide: 0.3, wave: 'square' as OscillatorType },
+    const tenant = {
+      mumbleAngry: { base: 175, spread: 0.4, vol: 0.55, syl: 0.1, gap: 0.025, slide: -0.3, wave: 'sawtooth' as OscillatorType, vowel: 900 },
+      mumbleSad: { base: 210, spread: 0.15, vol: 0.45, syl: 0.16, gap: 0.07, slide: -0.25, wave: 'sawtooth' as OscillatorType, vowel: 800 },
+      mumbleHappy: { base: 250, spread: 0.3, vol: 0.45, syl: 0.11, gap: 0.04, slide: 0.35, wave: 'square' as OscillatorType, vowel: 1000 },
     }[mood];
-    let at = 0.05;
-    let who = 0;
-    while (at < len) {
-      // a phrase of a few syllables, then the other voice (yours a little lower)
-      const words = 3 + Math.floor(Math.random() * 4);
-      const pitch = voice.base * (who === 0 ? 1 : 0.78);
-      for (let i = 0; i < words && at < len; i++) {
+    // you: an octave-ish lower, steady, rounder vowels, a little rise at the end as if asking
+    const you = { base: 105, spread: 0.12, vol: 0.6, syl: 0.14, gap: 0.05, slide: 0.15, wave: 'sawtooth' as OscillatorType, vowel: 550 };
+    const phrase = (v: typeof you, from: number, until: number): number => {
+      let at = from;
+      const words = Math.max(2, Math.round((until - from) / (v.syl + v.gap)));
+      for (let i = 0; i < words && at < until; i++) {
         const t = ctx.currentTime + at;
-        const d = voice.syl * (0.7 + Math.random() * 0.7);
-        const hz = pitch * (1 + (Math.random() - 0.5) * voice.spread);
+        const d = v.syl * (0.7 + Math.random() * 0.7);
+        const hz = v.base * (1 + (Math.random() - 0.5) * v.spread);
         const o = ctx.createOscillator();
-        o.type = voice.wave;
+        o.type = v.wave;
         o.frequency.setValueAtTime(hz, t);
-        o.frequency.linearRampToValueAtTime(hz * (1 + voice.slide * (i + 1) / words), t + d);
+        o.frequency.linearRampToValueAtTime(hz * (1 + (v.slide * (i + 1)) / words), t + d);
         const f = ctx.createBiquadFilter();
         f.type = 'bandpass';
         f.Q.value = 4;
         // the mouth opening and closing: the vowel moves within a syllable
-        const vowel = 500 + Math.random() * 900;
+        const vowel = v.vowel * (0.6 + Math.random() * 0.9);
         f.frequency.setValueAtTime(vowel, t);
         f.frequency.linearRampToValueAtTime(vowel * (0.6 + Math.random() * 0.8), t + d);
         const g = ctx.createGain();
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(voice.vol, t + 0.02);
-        g.gain.setValueAtTime(voice.vol, t + d * 0.6);
+        g.gain.linearRampToValueAtTime(v.vol, t + 0.02);
+        g.gain.setValueAtTime(v.vol, t + d * 0.6);
         g.gain.linearRampToValueAtTime(0, t + d);
-        o.connect(f).connect(g).connect(this.out);
+        o.connect(f).connect(g).connect(this.out!);
         o.start(t);
         o.stop(t + d + 0.02);
-        at += d + voice.gap * (0.5 + Math.random());
+        at += d + v.gap * (0.5 + Math.random());
       }
-      at += 0.12 + Math.random() * 0.15;
-      who = 1 - who;
-    }
+      return at;
+    };
+    // the tenant says their piece (with a breath in the middle), a pause, and your answer
+    const mid = phrase(tenant, 0.05, len * 0.3);
+    const said = phrase(tenant, mid + 0.12, len * 0.6);
+    phrase(you, said + 0.3, len);
   }
 
   private burst(len: number, vol: number, hz: number, kind: BiquadFilterType = 'lowpass'): void {
@@ -341,7 +344,7 @@ export class Sound {
       case 'mumbleAngry':
       case 'mumbleSad':
       case 'mumbleHappy':
-        this.mumble(what, 1.8);
+        this.mumble(what, 2.3);
         break;
     }
   }

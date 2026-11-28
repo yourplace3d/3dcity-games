@@ -25,7 +25,7 @@ import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './
 import { fullNote } from './full';
 import { wireRadio } from './radio';
 import { keepClear } from './clearOf';
-import { RING, serviceIcon, type ServiceKind } from './game/services';
+import { jobCash, RING, serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
@@ -1190,7 +1190,9 @@ function paint(h: Hud): void {
     if (h.job.party) put('job', `${party?.hudLabel() ?? T.party} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
     else {
       const what = { plain: T.jobPlain, supply: T.jobSupply, rush: T.jobRush, clean: T.jobClean }[h.job.kind];
-      put('job', `${h.run ? `${what} ${h.run.n}/${h.run.of}` : what} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+      // the money on the line is the cash the job pays, which stops at a job's most: in a run a delivery
+      // can be worth more to the score, and the line at the door says both
+      put('job', `${h.run ? `${what} ${h.run.n}/${h.run.of}` : what} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)} · <b>${fmtMoney(jobCash(h.job.pay))}</b>`);
     }
   }
   $('hint').hidden = !h.hint;

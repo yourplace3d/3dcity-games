@@ -301,6 +301,9 @@ body.touch #btn-sound { font-size: 22px; padding: 12px 15px; right: calc(72px + 
 #modes button span { font-size: 13px; font-weight: 400; line-height: 1.3; color: var(--dim); }
 #modes button[aria-pressed='true'] { border-color: var(--yellow); background: #2f2c1c; }
 #modes button[aria-pressed='true'] b { color: var(--yellow); }
+#lang { justify-content: center; }
+#lang button { padding: 6px 12px; font-size: 13px; }
+#lang button[aria-pressed='true'] { border-color: var(--yellow); color: var(--yellow); }
 @media (max-width: 460px) { #modes { grid-template-columns: 1fr; } }
 /* the menu over the game (☰, P or Esc): paused, real estate, trophies; a long list scrolls */
 #pause { place-items: start center; overflow: auto; padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); -webkit-user-select: text; user-select: text; touch-action: auto; }
@@ -474,6 +477,10 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 /* a card in parts (the tenants' words, then each choice): one line break each */
 #mission-text { white-space: pre-line; }
 #job[data-kind='party'] { box-shadow: 0 0 0 2px var(--party) inset; }
+#job[data-kind='find'] { border-color: rgba(255, 138, 31, 0.6); }
+#job b.find { color: #ff8a1f; }
+#job[data-kind='story'] { border-color: rgba(95, 208, 138, 0.6); }
+#job b.home { color: #5fd08a; }
 
 /* a narrow phone (360 px): the four buttons at the top a little smaller and closer, so FM stays clear of the
    cash. Last in the sheet, after each button's own rules */
@@ -544,4 +551,8 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #pane-story h3 { margin: 14px 0 8px; font-size: 15px; }
 #pane-story .inbox { display: grid; gap: 8px; justify-items: start; max-height: 260px; overflow-y: auto; padding: 2px 2px 6px; }
 #pane-story .inbox .msg { max-width: 100%; }
+/* what is on now: first, marked; what was said before: dimmed */
+#pane-story .inbox .msg.now { box-shadow: 0 0 0 2px var(--yellow); }
+#pane-story .inbox .msg.old { opacity: 0.55; }
+#pane-story .inbox .now-tag { justify-self: start; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #1c1c1c; background: var(--yellow); border-radius: 4px; padding: 1px 6px; }
 #pane-story .sofar { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 4px; color: var(--ink); }

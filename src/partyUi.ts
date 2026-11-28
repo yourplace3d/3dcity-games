@@ -11,7 +11,7 @@ import { linkHome } from './challenge';
 import { homeKey } from './game/events';
 import type { Game } from './game/game';
 import { dayOf, type Home } from './game/homes';
-import { foodName, foodPlace, loadParties, narrowWalk, occasion, OCCASIONS, packParty, PARTY_MIN, PARTY_POINTS, pickFood, pointsDue, storeParties, WALK_MAX, type FoodSpot, type SentParty } from './game/party';
+import { loadParties, narrowWalk, OCCASIONS, packParty, PARTY_MIN, PARTY_POINTS, pickFood, pointsDue, storeParties, WALK_MAX, type FoodSpot, type SentParty } from './game/party';
 import { RING_CLEAR_M, ringAlong, serviceIcon } from './game/services';
 import { POINTS_MAX } from './game/homePoints';
 import type { World } from './game/world';
@@ -19,16 +19,16 @@ import type { RouteField } from './game/roads';
 import type { LngLat } from './geo/projection';
 import type { HomesUi } from './homesUi';
 import { isCoords } from './homesList';
+import { T } from './i18n';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 /** 1:42, 0:58 */
 export const clockText = (s: number) => {
   const r = Math.round(Math.max(0, s));
   return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
 };
 /** "12 s", "1:05" for a difference in time */
-const gap = (s: number) => (s < 60 ? `${Math.round(s)} s` : clockText(s));
+const gap = (s: number) => (s < 60 ? T.gapSeconds(s) : clockText(s));
 /** a door is the road beside the home: a lane a car may take (an old town's too) within this, else a main road within `DOOR_FAR` */
 const DOOR_NEAR = 60;
 const DOOR_FAR = 200;
@@ -80,6 +80,8 @@ interface Playing {
   where: string;
   /** "your", "Lena's", "your friend's": whose party it is */
   whose: string;
+  /** whose party, for the texts: null the player's own, '' a friend with no name, else the friend's name */
+  host: string | null;
   /** "flat", for the player's own; '' for a friend's */
   kind: string;
   occasion: number;
@@ -98,20 +100,18 @@ interface Playing {
 
 /** Who sent their time back in a link ("Max", "a friend"); '' for the host's own invitation. */
 export function backBy(s: SentParty): string {
-  return s.back ? s.by || 'a friend' : '';
+  return s.back ? s.by || T.aFriend : '';
 }
 
 /** The line under the place's name as a party's link opens. */
 export function arriveLine(s: SentParty): string {
   const back = backBy(s);
-  return back ? `${cap(back)}’s time to beat: ${clockText(s.seconds)}` : `${s.name ? `${s.name}’s` : 'A friend’s'} ${occasion(s.occasion)}: you are invited`;
+  return T.partyArrive(back, clockText(s.seconds), s.name, s.occasion);
 }
 
 /** How a party ends at a home whose lanes are narrow: a word for the card, one for the pickup. */
 function laneWords(walk: number, corner: boolean, whose: string): { card: string; say: string } {
-  if (corner) return { card: ` The lanes to ${whose} door are too narrow for a car, so the friends meet you at the corner where a car can go.`, say: ': the friends meet you at the corner, the lanes are too narrow for a car' };
-  if (walk) return { card: ` The lane to ${whose} door is too narrow for a car: park where it gets narrow and walk the last ${walk} m. The clock allows for it.`, say: `. Walk the last ${walk} m: the lane is too narrow for a car` };
-  return { card: '', say: '' };
+  return { card: T.laneCard(walk, corner, whose), say: T.laneSay(walk, corner) };
 }
 
 export class PartyUi {
@@ -159,7 +159,7 @@ export class PartyUi {
   /** The button beside a home: with the points, while a party would still pay them. */
   label(_home: Home): string {
     const n = this.pays();
-    return n ? `Throw a party · ${n} home ${n === 1 ? 'point' : 'points'}` : 'Throw a party';
+    return T.throwParty(n);
   }
 
   /** What the button depends on, so the panel is drawn again when it changes. */
@@ -170,13 +170,13 @@ export class PartyUi {
   /** On the job bar: what is on board. */
   hudLabel(): string {
     const p = this.playing;
-    return p ? cap(p.spot.food === 'shop' ? 'drinks and snacks' : 'pizza') : 'Party';
+    return p ? T.partyHud(p.spot.food === 'shop') : T.party;
   }
 
   /** For the menu: what the party is, while one is on. */
   pauseLine(): string {
     const p = this.playing;
-    return p ? `You are fetching ${foodName(p.spot.food)} for ${p.whose} ${occasion(p.occasion)}.` : '';
+    return p ? T.partyPause(p.spot.food === 'shop', p.occasion, p.host) : '';
   }
 
   /** The card that starts a party at a home: what it asks, and what it pays. */
@@ -188,29 +188,25 @@ export class PartyUi {
     const key = homeKey(home);
     const plan = this.plan(world, key, lot);
     if (!plan) {
-      this.host.toast('No way by road from here to a place for food: try another of your homes.', 'bad', 6000);
+      this.host.toast(T.partyNoRoute, 'bad', 6000);
       return;
     }
     const { door, spot } = plan;
     const occ = Math.floor(Math.random() * OCCASIONS.length);
-    const food = foodName(spot.food);
     const due = pointsDue(this.store, this.today());
     const pays = this.pays();
     const best = this.store.best[key];
     // a run of three under way, or one a friend sent, stops for the party
     const run = !this.host.game.run.over;
-    const where = `your ${home.kind}${home.street ? ` on ${home.street}` : ''}`;
+    const where = T.homeRef(home.kind, home.street, 'dat');
     const lane = laneWords(door.walk, door.corner, 'your');
     const at = door;
     const it = spot;
     this.host.card(
-      `${cap(occasion(occ))} at your ${home.kind}`,
-      `Friends are coming over tonight, and nobody got the food. Fetch ${food} from ${foodPlace(spot.food)}${spot.invented ? ' around the corner' : ''}: the pink sign, and the arrow shows the way. Then bring ${spot.food === 'shop' ? 'them' : 'it'} to your door before ${spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}: the clock starts when you pick ${spot.food === 'shop' ? 'them' : 'it'} up.${lane.card}` +
-        (pays === PARTY_POINTS ? ` A party is worth ${PARTY_POINTS} home points, once a day.` : pays ? ` Today it is worth ${pays} home ${pays === 1 ? 'point' : 'points'}: your points are nearly full.` : due ? ` Your home points are full, so this one is for fun: spend some on a home, and a party pays again.` : ` Today’s ${PARTY_POINTS} party points are yours already: this one is for fun.`) +
-        (best ? ` Your best: ${clockText(best)} from pickup to door.` : '') +
-        (run ? ' The run you are on stops here.' : ''),
-      'Let’s go',
-      'Not now',
+      T.partyAtHome(occ, home.kind),
+      T.partyOffer(spot.food === 'shop', !!spot.invented, lane.card, pays, PARTY_POINTS, !!due, best ? clockText(best) : null, run),
+      T.letsGo,
+      T.notNow,
       (yes) => {
         if (!yes || !this.can(home)) return;
         // the home's food place is kept as the party starts, with what the whole way showed
@@ -219,9 +215,9 @@ export class PartyUi {
           storeParties(this.store);
           this.host.save?.();
         }
-        this.begin({ key, where, whose: 'your', kind: home.kind, occasion: occ, spot: it, home: { lat: home.lat, lon: home.lon }, door: at.ll, walk: at.walk, corner: at.corner, sent: null });
+        this.begin({ key, where, whose: 'your', host: null, kind: home.kind, occasion: occ, spot: it, home: { lat: home.lat, lon: home.lon }, door: at.ll, walk: at.walk, corner: at.corner, sent: null });
       },
-      'Party',
+      T.party,
     );
   }
 
@@ -234,8 +230,9 @@ export class PartyUi {
     const whose = mine ? 'your' : s.name ? `${s.name}’s` : 'your friend’s';
     const p: Playing = {
       key: mine ? homeKey(mine) : null,
-      where: mine ? `your ${mine.kind}${mine.street ? ` on ${mine.street}` : ''}` : `${whose} place`,
+      where: mine ? T.homeRef(mine.kind, mine.street, 'dat') : T.friendPlace(s.name),
       whose,
+      host: mine ? null : s.name,
       kind: mine?.kind ?? '',
       occasion: s.occasion,
       spot: { food: s.food, invented: s.invented, shop: s.shop, pick: s.pick },
@@ -245,23 +242,16 @@ export class PartyUi {
       corner: s.corner,
       sent: s,
     };
-    const food = foodName(s.food);
-    const it = s.food === 'shop' ? 'them' : 'it';
     const lane = laneWords(s.walk, s.corner, mine ? 'your' : s.name ? 'their' : 'the');
     const back = backBy(s);
-    const fetch = `fetch ${it} from ${foodPlace(s.food)} with the pink sign (the arrow shows the way), and bring ${it} ${mine ? 'to your door' : 'back here'} before ${s.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}. The clock starts at the pickup.${lane.card}`;
-    const text = back
-      ? `${cap(back)} brought ${food} to ${whose} ${occasion(s.occasion)} in ${clockText(s.seconds)}. Your turn: take a car, ${fetch}`
-      : mine
-        ? `Friends are coming over tonight, and nobody got the food. Take a car, ${fetch}${s.seconds ? ` The time in this link: ${clockText(s.seconds)}.` : ''}`
-        : `${s.name || 'Your friend'} has friends over tonight, and ${food} ${s.food === 'shop' ? 'are' : 'is'} still missing. Take a car, ${fetch}${s.seconds ? ` ${cap(s.by || s.name || 'your friend')} did it in ${clockText(s.seconds)}.` : ''}`;
+    const text = T.partySent(s.food === 'shop', back, !!mine, s.name, s.by, s.occasion, s.seconds ? clockText(s.seconds) : null, lane.card);
     this.host.card(
-      mine ? `${cap(occasion(s.occasion))} at your ${mine.kind}` : `${cap(whose)} ${occasion(s.occasion)}`,
-      text + (mine && this.pays() ? ` A party is worth ${this.pays()} home ${this.pays() === 1 ? 'point' : 'points'} today.` : ''),
-      'Let’s go',
+      mine ? T.partyAtHome(s.occasion, mine.kind) : T.partyFriendTitle(s.occasion, s.name),
+      text + (mine && this.pays() ? T.partyPaysToday(this.pays()) : ''),
+      T.letsGo,
       '',
       () => this.begin(p),
-      'Invitation',
+      T.invitation,
     );
   }
 
@@ -270,7 +260,7 @@ export class PartyUi {
     if (!this.playing) return;
     this.host.game.endParty();
     this.drop();
-    this.host.toast('Party called off. The open jobs are back.', 'info');
+    this.host.toast(T.partyCalledOff, 'info');
     this.host.closed?.();
   }
 
@@ -279,10 +269,9 @@ export class PartyUi {
     this.playing = p;
     p.told = false;
     this.doorField = null;
-    const food = p.spot.food === 'shop' ? 'Drinks and snacks are on board: get them' : 'The pizza is on board: get it';
     const lane = laneWords(p.walk, p.corner, p.whose);
     this.host.started?.();
-    g.startParty({ pick: p.spot.pick, door: p.door, walk: p.walk, say: `${food} to ${p.where} before ${p.spot.food === 'shop' ? 'the drinks get warm' : 'it gets cold'}${lane.say}` });
+    g.startParty({ pick: p.spot.pick, door: p.door, walk: p.walk, say: T.partyOnBoard(p.spot.food === 'shop', p.where, lane.say) });
     this.markFood();
   }
 
@@ -327,7 +316,7 @@ export class PartyUi {
         const r = this.doorField.f && g.world.roads.route(this.doorField.f, x, y, 0);
         if (r && r.metres < p.walk + 15) {
           p.told = true;
-          this.host.toast(`Leave the car here and walk the last bit: the lane to ${p.where} is too narrow for a car.`, 'info', 6000);
+          this.host.toast(T.partyWalk(p.where), 'info', 6000);
         }
       }
     }
@@ -478,18 +467,18 @@ export class PartyUi {
     const p = this.playing;
     this.drop();
     if (!p) return;
-    const food = foodName(p.spot.food);
+    const shop = p.spot.food === 'shop';
     if (end !== 'done') {
       this.host.card(
-        end === 'lost' ? `${cap(food)} ${p.spot.food === 'shop' ? 'are' : 'is'} gone` : `${cap(food)} got ${p.spot.food === 'shop' ? 'warm' : 'cold'}`,
-        `${end === 'lost' ? `${cap(food)} didn’t make it through that` : `The clock ran out before ${food} got to ${p.where}`}. The friends are still waiting: the same place, the same way.`,
-        'Try again',
-        'Not now',
+        T.partyFailTitle(end === 'lost', shop),
+        T.partyFailText(end === 'lost', shop, p.where),
+        T.tryAgain,
+        T.notNow,
         (yes) => {
           if (!yes) return this.host.closed?.();
           if (!this.host.game.job && !this.host.game.party) this.begin(p);
         },
-        'Party',
+        T.party,
       );
       return;
     }
@@ -497,12 +486,12 @@ export class PartyUi {
     let text: string;
     // against the time in the link it came by
     const s = p.sent;
-    const them = s ? s.by || s.name || 'your friend' : '';
+    const them = s ? s.by || s.name || T.yourFriend : '';
     const d = s ? seconds - s.seconds : 0;
-    const versus = !s?.seconds ? '' : Math.abs(d) < 0.5 ? `, just as fast as ${them}` : d < 0 ? `: ${gap(-d)} faster than ${them}` : `. ${cap(them)} was ${gap(d)} faster`;
+    const versus = !s?.seconds ? '' : T.partyVersus(d, them, gap(Math.abs(d)));
     if (!p.key) {
       const own = this.host.homes()?.mine().homes.length ?? 0;
-      text = `${cap(food)} got there in ${t} from the pickup${versus}.${own ? '' : ' A party of your own needs a home of your own: do a couple of deliveries, and you’ll be shown a cheap flat.'}`;
+      text = T.partyGuestDone(shop, t, versus, !!own);
     } else {
       const key = p.key;
       // a run to another food place than the home's own (an older link) is no best time for it
@@ -517,11 +506,11 @@ export class PartyUi {
       this.store = { ...this.store, paid: added ? this.today() : this.store.paid, best: ownRun ? { ...this.store.best, [key]: before ? Math.min(before, Math.round(seconds)) : Math.round(seconds) } : this.store.best };
       storeParties(this.store);
       this.host.save?.();
-      const record = ownRun && before && seconds < before - 0.5 ? ` Your best yet, ${gap(before - seconds)} faster than before.` : '';
-      const points = added ? ` +${added} home ${added === 1 ? 'point' : 'points'}.` : due ? ' Your home points are full: spend some on a home.' : ` Today’s party points are yours already; tomorrow’s party brings ${PARTY_POINTS} more.`;
+      const record = ownRun && before && seconds < before - 0.5 ? T.partyRecord(gap(before - seconds)) : '';
+      const points = T.partyPoints(added, !!due, PARTY_POINTS);
       // tenants it went well with in a dispute come to the next party at their home, once
       const guests = this.host.homes()?.guests(key) ?? '';
-      text = `${cap(food)} got to ${p.where} in ${t} from the pickup, ${p.spot.food === 'shop' ? 'still cold' : 'still warm'}${versus}.${record}${points}${guests ? ` ${guests}` : ''}`;
+      text = T.partyHostDone(shop, p.where, t, versus, `${record}${points}${guests ? ` ${guests}` : ''}`);
     }
     this.finished = {
       own: !!p.key,
@@ -546,18 +535,18 @@ export class PartyUi {
 
   /** The end of a party: how it went, and once, softly, an invitation. */
   private endCard(p: Playing, text: string): void {
-    const occ = occasion(p.occasion);
-    const them = p.sent?.name || 'your friend';
+    const them = p.sent?.name || T.yourFriend;
     const guest = !p.key;
-    $('party-title').textContent = guest ? `You brought ${foodName(p.spot.food)} to ${p.whose} ${occ}` : `${cap(occ)} can start`;
+    const shop = p.spot.food === 'shop';
+    $('party-title').textContent = guest ? T.partyGuestTitle(shop, p.occasion, p.host) : T.partyCanStart(p.occasion);
     $('party-text').textContent = text;
-    $('party-ask').textContent = guest ? `Let ${them} know you made it?` : `Someone still missing for tonight’s ${occ}?`;
-    $('btn-party-send').textContent = guest ? `Send ${them} your time` : 'Send them a link';
-    $('btn-party-no').textContent = guest ? 'No, just keep driving' : 'No, we’re a full house';
+    $('party-ask').textContent = guest ? T.partyAskGuest(them) : T.partyAskHost(p.occasion);
+    $('btn-party-send').textContent = guest ? T.partySendGuest(them) : T.partySendHost;
+    $('btn-party-no').textContent = guest ? T.partyNoGuest : T.partyNoHost;
     $<HTMLInputElement>('party-name').value = this.host.name();
     $('party-note').textContent = guest
-      ? `The link is ${them}’s ${occ} again, with your time.`
-      : `Whoever opens it starts at your ${p.kind} and fetches ${foodName(p.spot.food)} from the same place, against your ${clockText(this.finished?.seconds ?? 0)}.${this.store.warned ? '' : ` The link shows where your ${p.kind} is in the game.`}`;
+      ? T.partyNoteGuest(them, p.occasion)
+      : T.partyNoteHost(p.kind, shop, clockText(this.finished?.seconds ?? 0), !this.store.warned);
     $('party-link').hidden = true;
     this.host.cover(true);
     $('party').hidden = false;
@@ -575,21 +564,19 @@ export class PartyUi {
     }
     // the host's own party carries their name; a friend's time sent back carries the friend's as who set it,
     // and "a friend" where they gave none, so it is never read as the host's own time
-    const code = packParty({ ...f, name: f.own ? name : f.name, by: f.own ? name : name || 'a friend', back: !f.own });
+    const code = packParty({ ...f, name: f.own ? name : f.name, by: f.own ? name : name || T.aFriend, back: !f.own });
     const url = `${linkHome(location)}?p=${code}#${f.home.lat.toFixed(5)},${f.home.lon.toFixed(5)}`;
-    const food = foodName(f.food);
-    const occ = occasion(f.occasion);
     const text = f.own
-      ? `${cap(occ)} at my place${f.place && !isCoords(f.place) ? ` in ${f.place}` : ''} tonight: can you bring ${food}? I got ${f.food === 'shop' ? 'them' : 'it'} there in ${clockText(f.seconds)}.`
-      : `I brought ${food} to your ${occ} in ${clockText(f.seconds)}.`;
+      ? T.partyShareHost(f.occasion, f.place && !isCoords(f.place) ? f.place : '', f.food === 'shop', clockText(f.seconds))
+      : T.partyShareGuest(f.occasion, f.food === 'shop', clockText(f.seconds));
     const box = $<HTMLInputElement>('party-link');
     box.value = url;
     box.hidden = false;
     const note = $('party-note');
-    const after = f.own ? 'Whoever opens it comes to your party.' : 'Sent.';
+    const after = f.own ? T.partyAfterHost : T.partyAfterGuest;
     // after one, the way out reads as the end of the list, not as a no
-    $('btn-party-send').textContent = f.own ? 'Send it to someone else' : 'Send it again';
-    $('btn-party-no').textContent = f.own ? 'That’s everyone' : 'Keep driving';
+    $('btn-party-send').textContent = f.own ? T.partyAgainHost : T.partyAgainGuest;
+    $('btn-party-no').textContent = f.own ? T.partyDoneHost : T.keepDriving;
     try {
       // a phone offers its own list of apps to send with
       if (document.body.classList.contains('touch') && navigator.share) {
@@ -598,10 +585,10 @@ export class PartyUi {
         return;
       }
       await navigator.clipboard.writeText(`${text} ${url}`);
-      note.textContent = `Link copied. ${after}`;
+      note.textContent = T.linkCopied(after);
     } catch {
       box.select();
-      note.textContent = `Copy this link and send it. ${after}`;
+      note.textContent = T.copyLink(after);
     }
   }
 

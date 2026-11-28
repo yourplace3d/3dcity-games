@@ -36,8 +36,9 @@ import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, mayGo, RAIL_ON, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
-import { DROP, JOB_OF, RING, ringAlong, type JobKind } from './services';
+import { DROP, JOB_OF, jobCash, jobWorth, openPay, RING, ringAlong, type JobKind } from './services';
 import { partyClock } from './party';
+import { money, T } from '../i18n';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -160,6 +161,12 @@ export interface Hud {
   sights: Array<{ name: string; ndcX: number; ndcY: number; metres: number | null }>;
   /** the run of deliveries being scored: which one is next, and the score so far */
   run: { n: number; of: number; score: number } | null;
+  /**
+   * A car being looked for, so the task can be read while playing: `search` on the way to the orange circle,
+   * `look` inside it, `seen` once the car has been seen (get in), `back` driving it to the pump's ring;
+   * `metres` to where the arrow points, null inside the circle.
+   */
+  find: { stage: 'search' | 'look' | 'seen' | 'back'; metres: number | null } | null;
 }
 
 /** What happened in play, for whoever listens (the trophies). */
@@ -265,7 +272,7 @@ export class Game {
   set cash(v: number) {
     const was = this.money;
     this.money = Math.min(MAX_CASH, Math.max(0, Number.isFinite(v) ? v : 0));
-    if (this.money === MAX_CASH && was < MAX_CASH && was > 0) this.onToast('$1,000,000: the most cash you can hold for now. Spend some on homes.', 'good');
+    if (this.money === MAX_CASH && was < MAX_CASH && was > 0) this.onToast(T.maxCash(money(MAX_CASH)), 'good');
   }
   delivered = 0;
   heat = 0;
@@ -363,6 +370,13 @@ export class Game {
   held = false;
   /** A spot an add-on sends the player to (a mission's): the arrow points there, unless a package is on board. */
   guide: { x: number; y: number } | null = null;
+  /** a door to walk to, on foot (a home's tenants who want to talk): a small green ring there */
+  visit: { x: number; y: number } | null = null;
+  private readonly visitMesh = markerMesh(RING.home);
+  /** seconds left inside a door (`goInside`): you and the door's ring are out of sight, and stand still */
+  private insideS = 0;
+  /** the way to `guide` as a marker, for the little map's line: made again when the guide changes */
+  private guideMark: { for: { x: number; y: number }; m: Marker } | null = null;
   /**
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
    * stations flash green in open play, and whichever is taken goes there, with the line for its kind.
@@ -520,6 +534,8 @@ export class Game {
     this.ghost.visible = false;
     this.mineRing.rotation.x = -Math.PI / 2;
     this.mineRing.visible = false;
+    this.visitMesh.visible = false;
+    this.scene.add(this.visitMesh);
     this.routeLine.visible = false;
     this.camera.up.set(0, 0, -1);
     const geo = new SphereGeometry(0.6, 8, 6);
@@ -873,7 +889,7 @@ export class Game {
       this.me.vx = 0;
       this.me.vy = 0;
       this.frozen = 0.5;
-      this.onToast('The car sank. You swam back to the shore', 'bad');
+      this.onToast(T.carSank, 'bad');
     }
     this.dropCar(c);
   }
@@ -1468,7 +1484,7 @@ export class Game {
           p.t = 4.5;
           p.vx = c.vx * 0.7;
           p.vy = c.vy * 0.7;
-          if (c === this.car) this.offence(1, 'You knocked someone over');
+          if (c === this.car) this.offence(1, T.knockedOver);
         }
       }
       if (!this.car && this.frozen <= 0 && !apart(this.me)) {
@@ -1518,6 +1534,7 @@ export class Game {
 
   /** Get into the car beside you, or out of the one you're in. */
   action(): void {
+    if (this.insideS > 0) return;
     if (this.frozen > 0) return;
     // an add-on may take the press for something of its own
     for (const take of this.actions) if (take()) return;
@@ -1525,7 +1542,7 @@ export class Game {
     if (this.car) {
       const c = this.car;
       if (c.speed > 4) {
-        this.onToast('Slow down to get out', 'info');
+        this.onToast(T.slowDown, 'info');
         return;
       }
       const fx = Math.cos(c.th);
@@ -1534,7 +1551,7 @@ export class Game {
       const spots: Array<[number, number]> = [[-fy * out, fx * out], [fy * out, -fx * out], [-fx * (c.a + out), -fy * (c.a + out)], [fx * (c.a + out), fy * (c.a + out)]];
       const s = spots.find(([dx, dy]) => w.free(c.x + dx, c.y + dy, 0.4));
       if (!s) {
-        this.onToast('No room to get out here', 'info');
+        this.onToast(T.noRoom, 'info');
         return;
       }
       this.me.x = c.x + s[0];
@@ -1559,7 +1576,7 @@ export class Game {
       this.scene.add(mesh);
       const side = c.r + 1;
       this.people.push({ x: c.x + Math.sin(c.th) * side, y: c.y - Math.cos(c.th) * side, th: c.th, vx: 0, vy: 0, state: 'flee', t: 6, path: this.attach(c.x, c.y, c.th + Math.PI, 'walk'), side: 3, pace: 1.6, mesh });
-      this.offence(c.driver === 'cop' ? 2 : 1, c.driver === 'cop' ? 'You took a police car' : c.kind === 'bus' ? 'You took a bus' : 'You took someone’s car');
+      this.offence(c.driver === 'cop' ? 2 : 1, c.driver === 'cop' ? T.tookPolice : c.kind === 'bus' ? T.tookBus : T.tookCar);
     }
     c.driver = 'player';
     c.path = null;
@@ -1593,13 +1610,13 @@ export class Game {
       }
     });
     if (best < 0) {
-      this.onToast('No other station near here', 'info');
+      this.onToast(T.noOtherStation, 'info');
       return;
     }
     const to = w.stops[best];
     // riding only pays when it brings you closer
     if (goal && bd > Math.hypot(this.me.x - gx, this.me.y - gy)) {
-      this.onToast('No station closer to where you’re going', 'info');
+      this.onToast(T.noCloserStation, 'info');
       return;
     }
     const spots: Array<[number, number]> = [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]];
@@ -1611,7 +1628,7 @@ export class Game {
     this.frozen = 1.3;
     this.cam.x = this.me.x;
     this.cam.y = this.me.y;
-    this.onRide(to.name ? `Subway to ${to.name}` : 'Subway');
+    this.onRide(to.name ? T.subwayTo(to.name) : T.subway);
     this.onSound('subway');
   }
 
@@ -1704,7 +1721,7 @@ export class Game {
     this.heat = Math.min(MAX_HEAT, this.heat + points);
     if (Math.ceil(this.heat) > before) this.onToast(text, 'bad');
     if (this.job?.kind === 'clean') {
-      this.onToast('That was a clean run: the job is gone', 'bad');
+      this.onToast(T.cleanGone, 'bad');
       this.onSound('late');
       this.endJob(false, 'offence');
     }
@@ -1734,7 +1751,7 @@ export class Game {
     if (!c || this.heat > 0 || !this.againstOneWay()) return;
     const w = this.world;
     if (!cops.some((o) => Math.hypot(o.x - c.x, o.y - c.y) < 75 && !w.solids.blocked(o.x, o.y, c.x, c.y))) return;
-    this.offence(1, 'Wrong way down a one-way street: the police follow you until you turn off it or stop');
+    this.offence(1, T.wrongWay);
     // only if it counted (one offence a moment): from no heat, this is all there is
     if (this.heat > 0) this.soft = true;
   }
@@ -1766,14 +1783,14 @@ export class Game {
       if (!this.againstOneWay()) this.heat -= dt / FOLLOW_COOL_S;
       if (!seen) this.heat -= dt / 13;
       if (this.heat <= 0) {
-        this.letGo('The police let it go');
+        this.letGo(T.letGo);
         return;
       }
     } else if (!seen) {
       this.heat -= dt / 13;
       if (this.heat <= 0) {
         this.heat = 0;
-        this.onToast('You lost them', 'good');
+        this.onToast(T.lostThem, 'good');
         this.emit({ kind: 'lost' });
       }
     }
@@ -1787,8 +1804,8 @@ export class Game {
       this.caughtT += dt;
       // stopped for the police: caught and fined in a chase; for the wrong way alone, a warning
       if (this.caughtT > 1.3) {
-        if (this.soft) this.letGo('The police let you off with a warning: no fine for the wrong way');
-        else this.fine('Caught!', 0.25);
+        if (this.soft) this.letGo(T.warning);
+        else this.fine(T.caught, 0.25);
       }
     } else this.caughtT = Math.max(0, this.caughtT - dt);
   }
@@ -1813,7 +1830,7 @@ export class Game {
     this.soft = false;
     this.me.hp = 100;
     this.frozen = 1.6;
-    this.onFlash(cost > 0 ? `${title}  −$${cost}` : title);
+    this.onFlash(cost > 0 ? `${title}  −${money(cost)}` : title);
     this.onSound('fine');
     // a party's food on board is lost with it: the party says so, and offers to fetch it again
     const food = !!this.job?.party;
@@ -1906,10 +1923,11 @@ export class Game {
       }
       if (j.metres < 6.5) {
         // what comes on top: time left over, three times as much on a rush job; on a supply run a
-        // fifth more for a car that took no harm
-        let bonus = Math.round((j.left * (j.kind === 'rush' ? 6 : 2)) / 10) * 10;
-        if (j.kind === 'supply' && this.car && this.car.hp >= j.hp0 - 1) bonus += Math.round((j.pay * 0.2) / 10) * 10;
-        this.cash += j.pay + bonus;
+        // fifth more for a car that took no harm. The cash is never more than a job's most; a run of
+        // three counts the whole worth as its score, so that runs compare with those made before
+        const worth = jobWorth(j.kind, j.pay, j.left, !!this.car && this.car.hp >= j.hp0 - 1);
+        const cash = jobCash(worth);
+        this.cash += cash;
         this.delivered++;
         // a new dent on the car the load came on board in; a load moved to another car counts as dented
         const harmed = !!j.car0 && j.car0.hp < j.hp0 - 1;
@@ -1917,10 +1935,10 @@ export class Game {
         const r = this.run;
         if (!r.over) {
           r.done++;
-          r.score += j.pay + bonus;
+          r.score += worth;
           if (this.from) this.course.legs.push({ from: this.from, to: j.to.at, kind: j.kind });
-          this.onToast(`Delivery ${r.done} of ${r.of}  +$${j.pay + bonus}`, 'good');
-        } else this.onToast(`Delivered  +$${j.pay + bonus}`, 'good');
+          this.onToast(`${T.deliveryOf(r.done, r.of)}  ${cash < worth ? T.forRunAndCash(money(worth), money(cash)) : `+${money(worth)}`}`, 'good');
+        } else this.onToast(`${T.delivered}  +${money(cash)}`, 'good');
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
         this.endJob(true);
         if (j.special) this.onSpecialDone(dented);
@@ -1937,7 +1955,7 @@ export class Game {
         if (j.party) {
           this.party = null;
           this.onPartyEnd('cold', 0);
-        } else this.onToast('Too late: the job is gone', 'bad');
+        } else this.onToast(T.tooLate, 'bad');
       }
       return;
     }
@@ -1973,7 +1991,7 @@ export class Game {
           return;
         } else if (d < 6.5 && !this.slowSaid) {
           this.slowSaid = true;
-          this.onToast('Stop at the ring to see the job', 'info');
+          this.onToast(T.stopForJob, 'info');
         }
       } else if (d < 6.5) {
         if (this.take(m)) return;
@@ -2121,12 +2139,12 @@ export class Game {
       }
       if (this.job || !this.pickups.includes(m)) return;
       if (!this.take(m)) {
-        this.onToast('No drop-off for this job from here: try another station', 'bad');
+        this.onToast(T.noDropOff, 'bad');
         return;
       }
       this.declined.delete(m);
       // `take` has set the job
-      if (there && !(this.job as Job | null)?.special) this.onToast('No road from here to your building: this one is an ordinary job', 'info');
+      if (there && !(this.job as Job | null)?.special) this.onToast(T.noRoadHome, 'info');
     });
   }
 
@@ -2180,18 +2198,20 @@ export class Game {
       } else this.scene.remove(cand.mesh);
     }
     if (!marker) return false;
-    // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows
+    // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows.
+    // Since no job pays more than `JOB_MAX`, that shows on short ways only: a longer one is at its kind's top
     const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? Math.min(this.delivered, OPEN_JOBS_GROW) : this.run.done) * 0.03)) / 10) * 10);
     // each kind of job has its own clock and its own pay
     const [clock, pay, say] = {
-      plain: [25 + metres / pace, base, 'Package on board: get it to the yellow ring'],
-      supply: [32 + metres / (pace * 0.8), Math.round((base * 1.25) / 10) * 10, 'Supply run: a heavy load, slow uphill and slow to stop. More pay for a car without a new dent'],
-      rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, 'Rush job: a short clock, and every second left over pays three times'],
-      clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, 'Clean run: pays well, but break the law on the way and the job is gone'],
+      plain: [25 + metres / pace, base, T.flashPlain],
+      supply: [32 + metres / (pace * 0.8), Math.round((base * 1.25) / 10) * 10, T.flashSupply],
+      rush: [10 + metres / (pace * 1.3), Math.round((base * 0.9) / 10) * 10, T.flashRush],
+      clean: [28 + metres / (pace * 0.9), Math.round((base * 1.7) / 10) * 10, T.flashClean],
     }[kind] as [number, number, string];
     // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
     const light = isSpecial && kind === 'supply' && special!.light !== undefined ? { light: special!.light } : {};
-    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
+    // an open job's own pay stops at its kind's top; a run's delivery keeps its worth, which is its score
+    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay: this.run.over ? openPay(kind, pay) : pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;
@@ -2236,6 +2256,15 @@ export class Game {
   private goal(): Marker | null {
     if (this.job) return this.job.to;
     if (this.find) return this.findStage === 'back' ? this.findDrop : this.findRing;
+    // a way asked for (a home, the bank, a station): the little map shows it too, not the nearest package
+    // (the owner, 28 November 2026: at the tenants' home, the arrow to the pump showed instead)
+    if (this.guide && !this.party) {
+      if (this.guideMark?.for !== this.guide) {
+        const at = this.world.proj.toLngLat(this.guide.x, this.guide.y);
+        this.guideMark = { for: this.guide, m: { at, mesh: new Group(), colour: RING.home } };
+      }
+      return this.guideMark.m;
+    }
     const [px, py] = this.pos();
     let best: Marker | null = null;
     let bd = Infinity;
@@ -2438,6 +2467,31 @@ export class Game {
     return Math.hypot(zx - px, zy - py) > f.r * 0.85 ? { x: zx, y: zy, drop: false } : null;
   }
 
+  /**
+   * On foot, in through a door for a moment (the owner, 28 November 2026: talking to the tenants, "the figure
+   * vanishes for a moment, then reappears in the spot it vanished"): out of sight for `seconds` of play.
+   */
+  goInside(seconds: number): void {
+    if (this.car) return;
+    this.insideS = seconds;
+    this.me.vx = this.me.vy = 0;
+  }
+
+  /** Whether you are inside a door just now (`goInside`). */
+  get inside(): boolean {
+    return this.insideS > 0;
+  }
+
+  /** The step of the search the player is at, for the line on the screen. */
+  private findHud(): Hud['find'] {
+    if (!this.find) return null;
+    const t = this.findTarget();
+    const [px, py] = this.pos();
+    const metres = t ? Math.hypot(t.x - px, t.y - py) : null;
+    if (this.findStage === 'search') return { stage: t ? 'search' : 'look', metres };
+    return { stage: this.findStage, metres };
+  }
+
   private findTick(dt: number): void {
     const f = this.find!;
     const w = this.world;
@@ -2478,7 +2532,7 @@ export class Game {
       if (d < HAND_M && c.speed < HAND_SPEED) this.endFind('done');
       else if (d < HAND_M && !this.findSlow) {
         this.findSlow = true;
-        this.onToast('Stop at the ring to hand it over', 'info');
+        this.onToast(T.stopToHand, 'info');
       }
       return;
     }
@@ -2612,6 +2666,13 @@ export class Game {
 
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
+    const v = this.visit;
+    this.visitMesh.visible = !!v && this.insideS <= 0;
+    if (v) {
+      this.visitMesh.position.set(v.x, this.world.groundY(v.x, v.y) + 0.05, -v.y);
+      // a door's ring: about a person wide, not a car's
+      this.visitMesh.scale.set(0.42 * pulse, 1, 0.42 * pulse);
+    }
     // a home waits for a package from a station: those rings flash green, the colour of homes
     const blink = (this.flash = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35);
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : []), ...(this.findRing ? [this.findRing] : []), ...(this.findDrop ? [this.findDrop] : [])]) {
@@ -2653,6 +2714,7 @@ export class Game {
     if (this.auto && live) this.autopilot(dt);
     else if (this.car && !this.sinking) this.steerMine(this.car, input, dt);
     else if (this.car) Object.assign(this.car.controls, { throttle: 0, steer: 0, handbrake: false });
+    else if (live && this.insideS > 0) this.insideS = Math.max(0, this.insideS - dt);
     else if (live) this.walk(input, dt);
     for (const c of this.cars) if (!c.gone && (c.driver === 'ai' || c.driver === 'cop')) this.drive(c, dt);
 
@@ -2684,8 +2746,8 @@ export class Game {
           const impact = collideCars(p, q);
           if (mine && impact > 5 && closing > 4) {
             const other = mine === p ? q : p;
-            if (other.driver === 'cop') this.offence(1, 'You rammed the police');
-            else if (other.driver === 'ai' && impact > 9) this.offence(1, 'That was a crash');
+            if (other.driver === 'cop') this.offence(1, T.rammedPolice);
+            else if (other.driver === 'ai' && impact > 9) this.offence(1, T.crash);
           }
         }
       }
@@ -2706,7 +2768,7 @@ export class Game {
         if (c === this.car) {
           if (!this.sinking) {
             this.sinking = { car: c, t: 0, shore: this.dry };
-            this.onToast('Splash!', 'bad');
+            this.onToast(T.splash, 'bad');
             this.onSound('splash');
           }
           continue;
@@ -2727,11 +2789,11 @@ export class Game {
     if (this.sinking) this.sink(dt);
     this.sweep();
     if (!this.car && live && w.inWater(this.me.x, this.me.y)) {
-      this.onToast('Splash!', 'bad');
+      this.onToast(T.splash, 'bad');
       this.onSound('splash');
       this.toRoad(0, 0);
     }
-    if (this.me.hp <= 0) this.fine('Knocked out!', 0.15);
+    if (this.me.hp <= 0) this.fine(T.knockedOut, 0.15);
     // the car you sit in is wrecked: it blows up, and a moment later you start again as when caught
     if (this.blowT > 0) {
       this.blowT -= dt;
@@ -2739,7 +2801,7 @@ export class Game {
       if (c) for (let i = 0; i < 2; i++) this.cloud(c.x + (Math.random() - 0.5) * 5, c.y + (Math.random() - 0.5) * 5, 0.8 + Math.random() * 2.5, pickOne(BLAST));
       if (this.blowT <= 0) {
         this.blown = null;
-        this.fine('Wrecked!', 0.15);
+        this.fine(T.wrecked, 0.15);
       }
     } else if (this.car && this.car.hp <= 0 && live) {
       this.blown = this.car;
@@ -2791,7 +2853,7 @@ export class Game {
         c.lights.forEach((l, i) => ((l.material as MeshStandardMaterial).emissiveIntensity = on < 0 ? 0.25 : on === i ? 3 : 0.1));
       }
     }
-    this.me.mesh.visible = !this.car;
+    this.me.mesh.visible = !this.car && this.insideS <= 0;
     const mine = this.mine;
     this.mineRing.visible = !this.car && !!mine && !mine.gone && mine.hp > 0;
     if (mine && this.mineRing.visible) this.mineRing.position.set(mine.x, w.groundY(mine.x, mine.y) + 0.6, -mine.y);
@@ -2995,8 +3057,8 @@ export class Game {
     let hint = '';
     if (!this.car) {
       const c = this.carInReach();
-      if (c) hint = c.driver === 'none' ? 'get in' : c.kind === 'bus' ? 'take this bus' : 'take this car';
-      else if (this.subwayHere() >= 0) hint = 'take the subway';
+      if (c) hint = c.driver === 'none' ? T.hintGetIn : c.kind === 'bus' ? T.hintTakeBus : T.hintTakeCar;
+      else if (this.subwayHere() >= 0) hint = T.hintSubway;
     } else if (this.car.hp <= 0) hint = 'wrecked';
     // an add-on's hint for what the press would do here comes before the game's own
     for (const say of this.hints) {
@@ -3027,6 +3089,7 @@ export class Game {
         return [{ name: s.name, ndcX: v.x / over, ndcY: v.y / over, metres: d }];
       }),
       run: this.run.over ? null : { n: this.run.done + 1, of: this.run.of, score: this.run.score },
+      find: this.findHud(),
     };
   }
 }

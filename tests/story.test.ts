@@ -107,9 +107,9 @@ describe('the story', () => {
   });
 
   it('says what chapter 8 asks, as the dispute stands', () => {
-    const st = { ...snap({ homes: 7, building: true }), town: 'Nuremberg', buildingsAfter: 6, disputeAt: 'your building on Königstraße' };
+    const st = { ...snap({ homes: 7, building: true }), town: 'Nuremberg', buildingsAfter: 6, disputeAt: () => 'your building on Königstraße' };
     expect(goal(8, st, none())).toEqual({ text: 'Your tenants have something to say: drive to one of your homes in Nuremberg.', way: 'home' });
-    expect(goal(8, { ...st, dispute: 'talk' }, none()).text).toBe('The tenants in your building on Königstraße have stopped paying: stop beside it and talk to them.');
+    expect(goal(8, { ...st, dispute: 'talk' }, none()).text).toBe('The tenants in your building on Königstraße have stopped paying: park near it, get out and walk to their door, the small green ring, to talk to them.');
     expect(goal(8, { ...st, dispute: 'insist' }, none()).way).toBe('station');
     expect(goal(8, { ...st, dispute: 'court' }, none()).text).toContain('by the book');
     expect(goal(8, { ...st, dispute: 'moving' }, none()).way).toBeNull();
@@ -292,7 +292,7 @@ describe('the story', () => {
     const st = { ...snap({ homes: 7, building: true }), town: 'Nuremberg', buildingsAfter: 6, renovateFirst: 'your flat on Lindenstraße' };
     expect(goal(8, st, none())).toEqual({ text: 'Your tenants have something to say. First your flat on Lindenstraße needs renovating: a package from any station brings what it needs.', way: 'station' });
     // once they have written, the dispute's own lines
-    expect(goal(8, { ...st, dispute: 'talk', disputeAt: 'your building on Königstraße' }, none()).way).toBe('home');
+    expect(goal(8, { ...st, dispute: 'talk', disputeAt: () => 'your building on Königstraße' }, none()).way).toBe('home');
   });
 
   it('thanks for the neighbour\'s own house, or for a building bought elsewhere', () => {

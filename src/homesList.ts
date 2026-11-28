@@ -7,6 +7,7 @@
 import { kmBetween } from './game/bank';
 import type { Home } from './game/homes';
 import { rentShare, type Reno } from './game/renovation';
+import { T } from './i18n';
 
 /** homes this near the first home of a town are listed with it (km): the spread of a big city */
 export const TOWN_KM = 15;
@@ -39,17 +40,16 @@ export interface Town {
 export const isCoords = (place: string): boolean => /^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$/.test(place.trim());
 
 function what(h: Home): string {
-  const on = h.street ? ` on ${h.street}` : '';
-  return h.kind === 'building' ? `The whole building${on}` : h.kind === 'house' ? `A house${on}` : `A flat${on}`;
+  return T.homeLine(h.kind, h.street);
 }
 
 /** How far the repairs of the first home have got (`game/renovation.ts`). */
 function repairs(r: Reno | null): string {
   if (!r) return '';
-  if (r.stage === 'flat') return 'Worn down: no rent until it is repaired';
-  if (r.stage === 'buy') return 'Repaired. The rest of the building is for sale';
-  if (r.stage === 'rest') return `${1 + (r.fixed ?? 0)} of ${r.units ?? 2} flats repaired`;
-  if (r.stage === 'paint') return 'Every flat repaired: paint for the outside comes next';
+  if (r.stage === 'flat') return T.repairsWorn;
+  if (r.stage === 'buy') return T.repairsBuy;
+  if (r.stage === 'rest') return T.repairsRest(1 + (r.fixed ?? 0), r.units ?? 2);
+  if (r.stage === 'paint') return T.repairsPaint;
   return '';
 }
 
@@ -84,8 +84,8 @@ export function drawHomes(
     const name = document.createElement('b');
     name.textContent = t.place;
     const sub = document.createElement('small');
-    const count = t.homes.length === 1 ? '1 home' : `${t.homes.length} homes`;
-    sub.textContent = `${count} · ${t.rent ? `${money(t.rent)} a day` : 'no rent yet'}${t.plate ? ' · your home plate, where the banks keep your savings' : ''}`;
+    const count = T.townHomes(t.homes.length);
+    sub.textContent = T.townSub(count, t.rent ? money(t.rent) : null, t.plate);
     head.append(name, sub);
     const ul = document.createElement('ul');
     for (const l of t.homes.slice(0, LIST_MAX)) {
@@ -94,12 +94,12 @@ export function drawHomes(
       const b = document.createElement('b');
       b.textContent = l.what;
       const s = document.createElement('small');
-      s.textContent = l.rent ? [`Pays ${money(l.rent)} a day`, l.note].filter(Boolean).join(' · ') : l.note || 'No rent yet';
+      s.textContent = l.rent ? [T.paysADay(money(l.rent)), l.note].filter(Boolean).join(' · ') : l.note || T.noRentYet;
       text.append(b, s);
       const here = act.here(l.home);
       const go = document.createElement('button');
       go.type = 'button';
-      go.textContent = here ? 'On the map' : 'Go there';
+      go.textContent = here ? T.onTheMap : T.goThere;
       go.addEventListener('click', () => (here ? act.show(l.home) : act.go(t, l.home)));
       li.append(text);
       // a party, where one can be thrown at this home now
@@ -119,7 +119,7 @@ export function drawHomes(
     if (t.homes.length > LIST_MAX) {
       const more = document.createElement('p');
       more.className = 'small';
-      more.textContent = `and ${t.homes.length - LIST_MAX} more`;
+      more.textContent = T.andMore(t.homes.length - LIST_MAX);
       box.append(more);
     }
     list.append(box);

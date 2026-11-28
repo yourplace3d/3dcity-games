@@ -8,6 +8,7 @@
  */
 
 import type { CarKind } from './cars';
+import { JOB_MAX } from './services';
 
 /** how far from you the car is parked (m) */
 export const FIND_NEAR = 250;
@@ -66,5 +67,5 @@ export function closeIn(zone: { x: number; y: number; r: number }, car: [number,
 /** Whether you see the car: near with a clear view, or very near. */
 export const seen = (metres: number, clear: boolean): boolean => metres < NEAR_M || (metres < SEE_M && clear);
 
-/** What finding it pays: like a supply run of the way back, at least $150, in tens. */
-export const findPay = (metres: number): number => Math.max(150, Math.round((metres * 0.75) / 10) * 10);
+/** What finding it pays: like a supply run of the way back, at least $150 and never more than a job's most, in tens. */
+export const findPay = (metres: number): number => Math.min(JOB_MAX, Math.max(150, Math.round((metres * 0.75) / 10) * 10));

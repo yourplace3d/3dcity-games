@@ -15,8 +15,8 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-    <script type="module" crossorigin src="./assets/index-c3Ae5MV3.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-DG7PIyYI.css">
+    <script type="module" crossorigin src="./assets/index-BCqwE81Z.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-CEbTh7fO.css">
   </head>
   <body data-screen="start">
     <div id="stage"><canvas id="scene"></canvas></div>
@@ -52,6 +52,7 @@
     <div id="hud" aria-live="off">
       <div class="panel stats">
         <b id="cash">$0</b>
+        <div id="skill" title="Driving skill" data-ta="title:skillLabel"><small id="skill-lv"></small><span class="meter"><i class="pend"></i><i class="fill"></i></span></div>
         <small id="saved" role="button" tabindex="0" data-ta="title:savedTitle" title="Money in the bank, safe from fines. Click for the way to the nearest bank." hidden></small>
         <span id="heat" aria-label="Police heat" data-ta="aria-label:heatLabel"><i></i><i></i><i></i><i></i></span>
         <span class="bar" title="You" data-ta="title:barYou"><i id="health"></i></span>
@@ -60,6 +61,8 @@
       </div>
       <div class="panel job" id="job" hidden></div>
       <div class="panel speed" id="speed" hidden></div>
+      <div class="panel combo" id="combo" hidden></div>
+      <div id="pops" aria-hidden="true"></div>
       <div class="panel hint" id="hint" hidden></div>
       <div class="panel" id="fps" hidden></div>
       <div class="panel loading" id="next" hidden data-t="loadingNext">Loading the next streets…</div>
@@ -97,6 +100,7 @@
 
     <div id="arrive" hidden><b id="arrive-place"></b><span id="arrive-line"></span></div>
     <div id="flash" hidden></div>
+    <div id="levelup" hidden><small id="levelup-title"></small><b id="levelup-name"></b><span id="levelup-next"></span></div>
 
     <section id="start">
       <div class="card">
@@ -162,6 +166,7 @@
             <button id="btn-switch"></button>
             <button id="btn-city" data-t="mainMenu">Main menu</button>
           </div>
+          <button id="btn-camera" class="camera" title="Keys only. With the touch stick the view stays north up. C switches it while you drive." data-ta="title:cameraTitle" data-t="cameraNorth">Camera: north up</button>
           <p class="small" data-t="pauseHow">☰, P or Esc opens this; P, Esc or ✕ closes it. The game waits while it is open.</p>
           <p class="small" id="discord-menu" hidden></p>
         </div>
@@ -174,6 +179,7 @@
           <p class="small" data-t="estateKept">Your cash, homes and trophies are kept in this browser and come along to every place you play. Each home pays rent on your first visit of a day, wherever you are.</p>
         </div>
         <div id="pane-trophies" role="tabpanel" hidden>
+          <section class="skill-card" id="skill-card"></section>
           <p class="small" id="trophies-line"></p>
           <div id="trophies-list"></div>
         </div>

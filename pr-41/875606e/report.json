@@ -1,0 +1,35 @@
+{
+ "base": "http://127.0.0.1:4173/",
+ "runs": [
+  {
+   "size": "ipad",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 13,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "after the drift: move:drift:14",
+    "after the pause: move:drift:14, banked::14",
+    "level shown: Lv 1 · Rookie"
+   ]
+  },
+  {
+   "size": "phone",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 11,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "after the drift: move:drift:14",
+    "after the pause: move:drift:14, banked::14",
+    "level shown: Lv 1 · Rookie"
+   ]
+  }
+ ]
+}

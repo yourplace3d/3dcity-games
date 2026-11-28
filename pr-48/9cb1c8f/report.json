@@ -1,0 +1,161 @@
+{
+ "base": "http://127.0.0.1:4173/",
+ "runs": [
+  {
+   "size": "ipad",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 17,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "after the drift: move:near:18, move:drift:28",
+    "after the pause: move:near:18, move:drift:28, banked::46",
+    "level shown: Lv 1 · Rookie"
+   ]
+  },
+  {
+   "size": "phone",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 13,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "after the drift: move:near:18, move:drift:28",
+    "after the pause: move:near:18, move:drift:28, banked::46",
+    "level shown: Lv 1 · Rookie"
+   ]
+  }
+ ],
+ "story": [
+  {
+   "size": "ipad",
+   "place": "story-tab",
+   "errors": [],
+   "failed": [],
+   "story": {
+    "text": "Dieses Kapitel spielt in Paris. Die Mieter in deinem Haus (Rue des Acacias) zahlen nicht mehr: Park in der Nähe, steig aus und geh zu ihrer Tür, dem kleinen grünen Ring, um mit ihnen zu reden.",
+    "button": "Hin: Paris",
+    "chapterTappable": true,
+    "messageTappable": true
+   },
+   "screen": "play",
+   "status": ""
+  },
+  {
+   "size": "phone",
+   "place": "story-tab",
+   "errors": [],
+   "failed": [],
+   "story": {
+    "text": "Dieses Kapitel spielt in Paris. Die Mieter in deinem Haus (Rue des Acacias) zahlen nicht mehr: Park in der Nähe, steig aus und geh zu ihrer Tür, dem kleinen grünen Ring, um mit ihnen zu reden.",
+    "button": "Hin: Paris",
+    "chapterTappable": true,
+    "messageTappable": true
+   },
+   "screen": "play",
+   "status": ""
+  }
+ ],
+ "garage": [
+  {
+   "size": "ipad",
+   "errors": [],
+   "garages": {
+    "here": 3,
+    "onTheMap": 3
+   },
+   "panel": {
+    "text": "Garage | Your cars in this town: 3 of 3 spots taken. | Sports car | Take it | Sell $200 | Bus | Take it | New paint $50 | Convertible | Take it | Sell $800 | A bus needs new paint before it can be sold. | A kept car is never lost: left anywhere, or wrecked, it is here again. | Car delivery | A customer’s car goes to its owner. A new dent on the way, and the job is gone. | Deliver a car $215 | For sale | Convertible | Buy $2,000",
+    "box": [
+     848,
+     170,
+     1168,
+     591
+    ],
+    "screen": [
+     1180,
+     820
+    ],
+    "scrolls": false,
+    "wider": 0
+   },
+   "delivery": {
+    "line": "Car, no dent · 780 m · $215",
+    "lineHeight": 38,
+    "car": "convertible",
+    "lines": [
+     "An old cream convertible, for a customer: take it to the yellow ring and stop there. A new dent, and the job is gone."
+    ]
+   },
+   "handedOver": [
+    "Handed over without a dent: +$215.",
+    "Trophy: Not a dent"
+   ],
+   "trophies": {
+    "line": "10 of 30 earned. Nothing is paid for them: they are for you, and for showing friends.",
+    "onTheWay": [
+     "Ten homes: 6 of 10",
+     "Five towns: 3 of 5",
+     "$1,000 a day: $840 of $1,000",
+     "500 deliveries: 312 of 500",
+     "Five places: 3 of 5",
+     "Twenty places: 3 of 20"
+    ]
+   },
+   "screen": "play"
+  },
+  {
+   "size": "phone",
+   "errors": [],
+   "garages": {
+    "here": 3,
+    "onTheMap": 3
+   },
+   "panel": {
+    "text": "Garage | Your cars in this town: 3 of 3 spots taken. | Sports car | Take it | Sell $200 | Bus | Take it | New paint $50 | Convertible | Take it | Sell $800 | A bus needs new paint before it can be sold. | A kept car is never lost: left anywhere, or wrecked, it is here again. | Car delivery | A customer’s car goes to its owner. A new dent on the way, and the job is gone. | Deliver a car $215 | For sale | Convertible | Buy $2,000",
+    "box": [
+     45,
+     210,
+     345,
+     619
+    ],
+    "screen": [
+     390,
+     844
+    ],
+    "scrolls": false,
+    "wider": 0
+   },
+   "delivery": {
+    "line": "Car, no dent · 710 m · $215",
+    "lineHeight": 34,
+    "car": "convertible",
+    "lines": [
+     "An old cream convertible, for a customer: take it to the yellow ring and stop there. A new dent, and the job is gone."
+    ]
+   },
+   "handedOver": [
+    "Handed over without a dent: +$215.",
+    "Trophy: Not a dent"
+   ],
+   "trophies": {
+    "line": "10 of 30 earned. Nothing is paid for them: they are for you, and for showing friends.",
+    "onTheWay": [
+     "Ten homes: 6 of 10",
+     "Five towns: 3 of 5",
+     "$1,000 a day: $840 of $1,000",
+     "500 deliveries: 313 of 500",
+     "Five places: 3 of 5",
+     "Twenty places: 3 of 20"
+    ]
+   },
+   "screen": "play"
+  }
+ ]
+}

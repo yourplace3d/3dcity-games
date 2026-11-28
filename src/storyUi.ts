@@ -768,6 +768,9 @@ export class StoryUi {
     const n = story.open;
     const now = document.createElement('div');
     now.className = 'story-now';
+    // what a tap on what is on now does: its button, the open chapter's line, the message marked "Now" (the
+    // owner, 28 November 2026: "this should be somehow selectable as well")
+    let act: (() => void) | null = null;
     if (this.host.game.find && playing) {
       // a car being looked for: what to do, and a way to stop
       const head = document.createElement('small');
@@ -784,6 +787,8 @@ export class StoryUi {
         this.host.game.stopFind('dropped');
       });
       now.append(head, title, text, b);
+      // back to the search
+      act = () => this.host.closeMenu();
     } else if (n >= 1 && n <= BUILT) {
       const g = this.goalOf(n);
       const head = document.createElement('small');
@@ -796,19 +801,17 @@ export class StoryUi {
       const where = to ? this.whereOf(to) : '';
       text.textContent = !story.opened ? T.opensNext(n - 1) : to ? T.happensAt(this.waitsAt(to), g.text) : g.text;
       now.append(head, title, text);
-      if (story.opened && playing) {
+      // the way there: to the town or part of town it happens in, from anywhere (the start screen too, where
+      // it was missing); or, playing where it happens, the way shown
+      const go = !story.opened ? null : to ? { label: T.goTo(where), run: () => this.host.goHome(to) } : playing && g.way ? { label: T.showWay, run: () => this.showWay() } : null;
+      if (go) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'primary';
-        if (to) {
-          b.textContent = T.goTo(where);
-          b.addEventListener('click', () => this.host.goHome(to));
-          now.append(b);
-        } else if (g.way) {
-          b.textContent = T.showWay;
-          b.addEventListener('click', () => this.showWay());
-          now.append(b);
-        }
+        b.textContent = go.label;
+        b.addEventListener('click', go.run);
+        now.append(b);
+        act = go.run;
       }
     } else if (n > BUILT) {
       const title = document.createElement('b');
@@ -832,6 +835,7 @@ export class StoryUi {
       const li = document.createElement('li');
       const state = story.done[c] ? 'done' : c === n && story.opened ? 'open' : c > BUILT ? 'later' : 'ahead';
       li.dataset.state = state;
+      if (state === 'open' && act) tappable(li, act);
       const name = document.createElement('span');
       name.textContent = CHAPTERS[c - 1];
       const note = document.createElement('small');
@@ -866,6 +870,7 @@ export class StoryUi {
       for (const m of now ? [now, ...inbox.filter((x) => x !== now)] : inbox) {
         const el = messageEl(m.who, m.from, m.text);
         el.classList.add(m === now ? 'now' : 'old');
+        if (m === now && act) tappable(el, act);
         if (m === now) {
           const tag = document.createElement('small');
           tag.className = 'now-tag';
@@ -881,6 +886,20 @@ export class StoryUi {
     foot.textContent = T.storyFoot;
     box.append(foot);
   }
+}
+
+/** Something on the Story tab that does what its "now" button does, when tapped or chosen with a key. */
+function tappable(el: HTMLElement, run: () => void): void {
+  el.classList.add('tap');
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
+  el.addEventListener('click', run);
+  el.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    e.stopPropagation();
+    run();
+  });
 }
 
 /** A message on its sender's paper: the game's line, Mira's receipt, Theo's pager, Ana's notebook, the neighbour's card, the friends' texts. */

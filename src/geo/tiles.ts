@@ -15,7 +15,7 @@ import { cacheGet, cacheSet } from './cache';
 import { BAKED, mapFetch } from './mapCache';
 import type { AreaFeature, AreaKind, FeatureSet, LineFeature, LineKind, Settlement, SettlementKind } from './osm';
 import { clipBuildingToRect, joinPieces } from './clip';
-import { clipPolygonToRect, ringBounds, signedArea, withOrientation, type Polygon, type Pt, type Ring } from './polygon';
+import { centroid, clipPolygonToRect, pointInRing, ringBounds, signedArea, withOrientation, type Polygon, type Pt, type Ring } from './polygon';
 import { lngLatToTile, makeProjector, type LngLat, type Projector } from './projection';
 
 export const TILEJSON_URL = 'https://tiles.openfreemap.org/planet';
@@ -248,6 +248,8 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
   const proj = makeProjector(center);
   const h = sizeM / 2;
   const buildings: TileBuilding[] = [];
+  /** outlines the tiles hide behind their building:parts (hide_3d) */
+  const outlines: TileBuilding[] = [];
   const colours: MappedColour[] = [];
   const areas: AreaFeature[] = [];
   const lines: LineFeature[] = [];
@@ -269,7 +271,10 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
     if (be > bw && bn > bs) {
       const toLocal = tileProjector(t, extentOf('building'), proj);
       eachFeature(layers.building, (f) => {
-        if (f.type !== 3 || f.properties.hide_3d) return; // hide_3d: outline drawn by its building:parts
+        if (f.type !== 3) return;
+        // hide_3d: an outline the tiles leave to its building:parts. Kept apart: where the parts don't reach
+        // the ground, it stands under them (`underParts`)
+        const hidden = !!f.properties.hide_3d;
         const height = Math.max(num(f.properties.render_height, 5), 1);
         // OpenMapTiles falls back to 5 m without a height or floor count; an exact 5 is nearly always that
         const heightKnown = f.properties.render_height != null && num(f.properties.render_height, 5) !== 5;
@@ -277,7 +282,7 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
         const colour = /^#[0-9a-f]{6}$/i.test(str(f.properties.colour)) ? str(f.properties.colour) : '';
         const id = f.id != null ? String(f.id) : '';
         for (const p of polygonsOf(f, toLocal)) {
-          if (colour) {
+          if (colour && !hidden) {
             // every recorded colour in the tile, also outside the square: buildings near its edge
             // then see the same neighbours from whichever square they are drawn in
             const [x0, y0, x1, y1] = ringBounds(p.outer);
@@ -290,11 +295,11 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
             const eps = 1e-6;
             const onSeam = (bw > -h && x0 <= bw + eps) || (be < h && x1 >= be - eps) || (bs > -h && y0 <= bs + eps) || (bn < h && y1 >= bn - eps);
             if (!onSeam) {
-              buildings.push({ poly: c, height, minHeight, heightKnown, id });
+              (hidden ? outlines : buildings).push({ poly: c, height, minHeight, heightKnown, id });
               continue;
             }
             // the pieces of one building are joined again, and only with each other
-            const key = `${height}|${minHeight}|${heightKnown ? 1 : 0}|${id}`;
+            const key = `${hidden ? 1 : 0}|${height}|${minHeight}|${heightKnown ? 1 : 0}|${id}`;
             const list = seamPieces.get(key);
             if (list) list.push(c);
             else seamPieces.set(key, [c]);
@@ -387,12 +392,55 @@ export function parseTiles(tiles: LoadedTile[], center: LngLat, sizeM: number): 
     collectPlaces(t, proj, settlements);
   }
   for (const [key, pieces] of seamPieces) {
-    const [h0, m0, k0, id] = key.split('|');
+    const [o0, h0, m0, k0, id] = key.split('|');
     const [height, minHeight, known] = [h0, m0, k0].map(Number);
-    for (const poly of joinPieces(pieces)) buildings.push({ poly, height, minHeight, heightKnown: known === 1, id });
+    for (const poly of joinPieces(pieces)) (o0 === '1' ? outlines : buildings).push({ poly, height, minHeight, heightKnown: known === 1, id });
   }
+  buildings.push(...underParts(buildings, outlines));
 
   return { buildings, colours, features: { areas, lines, coastlines: [], sea }, settlements: [...settlements.values()] };
+}
+
+/** a part starting this low stands on the ground (m; as `world.ts` sorts walls from roofs) */
+const GROUND_M = 2.6;
+/** the share of an outline its ground-level parts must cover for the outline to be left out */
+const PARTS_CARRY = 0.5;
+
+const polyArea = (p: Polygon) => Math.abs(signedArea(p.outer)) - p.holes.reduce((a, h) => a + Math.abs(signedArea(h)), 0);
+const inPoly = (pt: Pt, p: Polygon) => pointInRing(pt, p.outer) && !p.holes.some((h) => pointInRing(pt, h));
+
+/**
+ * The outlines (hide_3d) that must stand after all, as bases under their parts. The tiles hide a building's
+ * outline as soon as it has building:parts, which is right where the parts make up the whole building. But
+ * mappers often record only what sits on the roof (a mansard, a lift housing, a dome) as parts. With the
+ * outline gone, those parts floated in the air over an empty block: seen by the owner near the Opéra in
+ * Paris, 27 November 2026, small boxes hanging over streets and pavements. Where parts that start on the
+ * ground cover less than half the outline, the outline is put back, up to where its lowest floating part
+ * begins (or its own height, when nothing floats).
+ */
+export function underParts(parts: TileBuilding[], outlines: TileBuilding[]): TileBuilding[] {
+  if (!outlines.length) return [];
+  const centres = parts.map((b) => centroid(b.poly.outer));
+  const out: TileBuilding[] = [];
+  for (const o of outlines) {
+    const area = polyArea(o.poly);
+    if (area <= 0) continue;
+    const [x0, y0, x1, y1] = ringBounds(o.poly.outer);
+    let ground = 0;
+    let lowest = Infinity;
+    parts.forEach((b, i) => {
+      const c = centres[i];
+      if (c[0] < x0 || c[0] > x1 || c[1] < y0 || c[1] > y1 || !inPoly(c, o.poly)) return;
+      if (b.minHeight < GROUND_M) ground += polyArea(b.poly);
+      else lowest = Math.min(lowest, b.minHeight);
+    });
+    if (ground >= area * PARTS_CARRY) continue;
+    const floats = Number.isFinite(lowest);
+    const height = floats ? lowest : o.height;
+    if (height < GROUND_M) continue;
+    out.push({ ...o, height, minHeight: 0, heightKnown: o.heightKnown || floats });
+  }
+  return out;
 }
 
 function collectPlaces(t: LoadedTile, proj: Projector, into: Map<string, Settlement>): void {

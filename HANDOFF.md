@@ -71,6 +71,15 @@ Written by the session that built it, on the owner's "Handoff". **This note is o
   is live (Pages run 96, 28 November, 15:37 UTC: driving skill and the Story tab's tappable chapter).
   With that merge a car's hand-over got what every delivery has since driving skill, the burst of colour
   and the pay floating up (`Game.arrived`, called from `careTick`); nothing else of the garage changed.
+  Checked on that state: 442 unit tests, the browser tests `care`, `garage` and `ui`, and GitHub's
+  preview check at `9bc0086` (no errors on tablet or phone; its report gives the panel's box, which does
+  not scroll on a 390 px phone). **The story test stopped once at chapter 8** ("Your tenants have
+  something to say" never came: the chapter had not opened after the test's "next day"); a second run was
+  under way as this was written. `trophies`, `pay` and `find` were last run before this merge.
+- **Seen in the phone's pictures, older than the garage, left alone:** in `phone-car-delivery.png` the last
+  digit of the job line's pay is behind "★ Hamburg City Hall". That is a sight's name (`#sights`), drawn
+  where the sight is and held at the screen's edge when it is far, so it lies over whatever is there. It
+  moves as the player does. If the owner minds it, the names could keep clear of the lines at the top left.
 - **What the owner has said, and what not yet:** "1 yes … 3 yes" to the cap going live on its own (done)
   and to building the garage's job; then "can you do it this way now?", the preview. **The owner has not
   yet said they played #48, and has not said to put it live. Nothing is merged or deployed before that.**

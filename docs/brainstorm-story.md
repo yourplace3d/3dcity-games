@@ -1145,3 +1145,57 @@ Read as, and said back to the owner:
    been delivered without a dent, and buying it takes one of the three places. *Recommended:* the garage has a
    use on the first day, before any special car, and three places then mean choosing.
 2. *Only special cars.* Simpler to say, but the garage keeps nothing until the first special car is bought.
+
+### Round 4: any car, and selling (the owner, 28 November)
+
+Asked which cars can be added, the owner: "Any car you can get hold of can be parked there. And you can sell
+it if your spots is full".
+
+- **Any car:** a car, a sports car, a van, a police car, a bus, however it was come by. Only what runs on
+  rails is left out, as a tram or a train never gets to a garage.
+- **Selling** frees a spot. It can be done at any time, not only when the three are taken: the same button,
+  and one rule less.
+- **Two things set here, said to the owner, to be changed if wanted:**
+  - *A kept car sells for little* (a car $150, a van $180, a sports car $300; estimates). A delivery pays a
+    player with a few behind them $300 and more, so taking cars to sell them is never the better job.
+  - *A police car or a bus sells for what an ordinary car does* ($150). The owner's word is that any car can
+    be parked, and so it can; but the story's own rule is that no crime is rewarded (section 9, principle
+    7), and a price on a police car would be exactly that.
+
+## 20. The garage, first piece: keeping cars (built 28 November; branch `claude/garage`, not live)
+
+The owner's last three answers were all on how cars are kept, so that piece was built first: the place, and
+keeping, taking out and selling. The car delivery and the special cars come next and stand on it. Code:
+`src/game/garage.ts` (the rules, no screen), `src/garageUi.ts` (the symbols and the panel), the place in
+`src/game/services.ts` and `src/game/world.ts`.
+
+- **The place:** `World.garages`, from the map's points of interest of the kinds `car` (a dealer) and
+  `car_repair`, and made up where a part of town has neither (`inventServices`, with `garage` added at the
+  end of its list, so no made-up station or bank moves). One within 400 m, as dealers stand in rows in
+  places, and none within 70 m of a station's or a bank's symbol. Its sign: a car under a roof on steel
+  grey, a colour no other sign has; a dashed ring where it is made up. On the roof, the little map and the
+  big map, and in the big map's key.
+- **Stopping beside one** (within 9 m of its spot on the road or 14 m of its symbol, as at a bank) puts up
+  the panel of a building for sale, which the homes leave alone meanwhile (`HomesHost.garage`). Not with a
+  package on board, during a party's run, a search for a car or a run of three, nor while a city is being
+  guessed or the tour is on.
+- **Park this car here:** the car the player sits in is kept (its kind, its paint, and a top speed, pull
+  and toughness of its own where it has them, so the special cars to come are kept as they are), it leaves
+  the street, and the player stands where it stood.
+- **Three spots for each city** (`SPOTS`), a city being what lies within 25 km of the garage where its
+  first car was parked (`CITY_KM`, as wide as a home town). That place is kept with each of the city's cars.
+- **Take it:** the car stands at the kerb or in the lane by the garage, at its spot or up to 48 m along,
+  clear of walls, water and other cars, and the player sits in it at once. Whatever they came in stays
+  where it stands; a kept car they came in goes back in.
+- **Never lost:** a kept car taken out is not watched. Taking it out again, at any garage of its city, takes
+  away the one that was left about and stands a new one there, whole. The panel says so: "A kept car is
+  never lost: left anywhere, or wrecked, it is here again."
+- **Leave it here** puts a kept car back by hand, for a player who would rather walk on.
+- **Sell,** at the second press ("Really sell? $300"), so a car is not sold by a slip of the finger.
+- **For later, as the owner said:** choosing a car when a visit starts at home and having it brought; more
+  than three spots.
+- **Tested:** `tests/garage.test.ts` (the rules: which cars, three spots, a city's garages sharing them,
+  another city's own, selling, numbers never given twice, what is read back); `node tools/garage-test.mjs`
+  plays it on Nuremberg's and Munich's tiles, the player moved by hand.
+- **Open, for the owner:** the prices; whether a police car and a bus should sell at all; and whether a
+  repair bill for a wrecked car is wanted (now there is none: the garage hands it back whole).

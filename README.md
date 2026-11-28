@@ -77,6 +77,16 @@ the streets, buildings, water and hills come from the same map squares as
   The drop-off is a sight or public place where one lies at a fitting distance, otherwise a street.
 - **Where a part of town has no such station on the map, one is made up**, at a spot worked out from its
   position on the earth: the same on every visit and for every player. Its symbol has a dashed ring.
+- **Garages keep your cars.** A garage has a car under a roof on its sign, on its roof and on both maps. It
+  comes from the map's car dealers and repair garages and carries no name; where a part of town has none, one
+  is made up, with a dashed ring. Stop beside one in any car you got hold of and park it: it is yours from
+  then on. A city's garages have three spots between them, the same three at whichever of them you drive to.
+  A kept car can be taken out at any garage of its city: it stands on the street there and you sit in it.
+  Nothing has to be parked back: left anywhere, or wrecked, it is at the garage again. A kept car can be
+  sold, at the second press, which frees its spot; it pays little ($150 to $300), so that taking cars to
+  sell them never pays better than a delivery. Trams and trains stay on their rails and cannot be parked.
+  Not while a package is on board, a run of three is on, or a city is being guessed. Kept as `3da-garage`
+  (`src/game/garage.ts` for the rules, `src/garageUi.ts` for the panel).
 - **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
   the one before. What the three earn, less any fines, is the score; it goes on a scoreboard, with your
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
@@ -326,7 +336,11 @@ bridge pass the cars on it.
   a chapter on each following day with the people's messages, a player who is further on, the story away from the
   home town, and a phone. `SHOTS=<folder>` keeps a screenshot of each step.
 - `tools/trophies-test.mjs`: the trophies in a browser on real map tiles: a player who is further on earns what
-  fits at once, in one line; the tab lists all 30; the ones earned in play. `SHOTS=<folder>` keeps screenshots.
+  fits at once, in one line; the tab lists all 29, and says how far along a counting one is; the ones earned
+  in play. `SHOTS=<folder>` keeps screenshots.
+- `tools/garage-test.mjs`: the garage in a browser on real map tiles (Nuremberg, then Munich): its symbol on
+  the maps, a car parked and kept, three spots, a kept car taken out, left somewhere and taken out again, one
+  sold, the page loaded again, and another city with spots of its own. `SHOTS=<folder>` keeps screenshots.
 - `tools/selfdrive-test.mjs`: the game drives itself for eight game-minutes per place and reports deliveries
   and mishaps. A quick check after changes to roads, traffic or collisions.
 - `tools/film.mjs`: films a scene frame by frame at 1080p for trailers.

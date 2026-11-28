@@ -776,7 +776,7 @@ export class Game {
    * For add-ons: stand a car in the world, with nobody in it. `make` gives it a colour, a top
    * speed (m/s), a pull (m/s²) and how much of a knock becomes damage.
    */
-  place(kind: 'sedan' | 'sport' | 'van', x: number, y: number, th: number, make: { colour?: string; top?: number; acc?: number; dent?: number } = {}): Car {
+  place(kind: 'sedan' | 'sport' | 'van' | 'police' | 'bus', x: number, y: number, th: number, make: { colour?: string; top?: number; acc?: number; dent?: number } = {}): Car {
     const c = new Car(kind, make.colour, make.top || make.acc ? { ...(make.top ? { top: make.top } : {}), ...(make.acc ? { acc: make.acc } : {}) } : undefined);
     if (make.dent) c.dent = make.dent;
     c.x = x;
@@ -800,9 +800,14 @@ export class Game {
     this.dropCar(c);
   }
 
-  /** For add-ons: sit in a car that stands in the world. */
+  /** For add-ons: sit in a car that stands in the world. A car you sat in stays where it is, let go of. */
   seat(c: Car): void {
-    if (this.car && this.car !== c) this.car.driver = 'none';
+    if (this.car && this.car !== c) {
+      this.car.driver = 'none';
+      this.car.controls.throttle = 0;
+      this.car.controls.steer = 0;
+      this.car.controls.handbrake = false;
+    }
     c.driver = 'player';
     this.car = c;
   }

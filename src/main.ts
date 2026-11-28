@@ -14,6 +14,7 @@ import { drawHomes, homeTowns, isCoords } from './homesList';
 import { wireCloud } from './cloudUi';
 import { Sound } from './sound';
 import { addonHost } from './addon';
+import { GarageUi } from './garageUi';
 import { HomesUi } from './homesUi';
 import { arriveLine, PartyUi } from './partyUi';
 import { StoryUi } from './storyUi';
@@ -61,6 +62,7 @@ let game: Game | null = null;
 let homes: HomesUi | null = null;
 /** parties at the player's homes (`partyUi.ts`) */
 let party: PartyUi | null = null;
+let garage: GarageUi | null = null;
 /** the story (`storyUi.ts`): its chapters, the people's messages, the Story tab */
 let story: StoryUi | null = null;
 /** a friend's party from the link the page was opened with, until it starts */
@@ -396,6 +398,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         openHomes: () => setPause(true, 'estate'),
         quiet: () => !!secret,
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
+        garage: () => !!garage?.here(),
         party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
         kicker: (what) => story?.kicker(what),
         people: {
@@ -406,6 +409,10 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         },
       });
       (window as unknown as { homes: HomesUi }).homes = homes;
+      // garages: not while a city is being guessed (their symbols would be on the map all the same, as the
+      // stations' are), nor in the tour's first steps, where a panel would only be in the way
+      garage = new GarageUi({ game, toast, quiet: () => !!secret || step >= 0, stored: () => changed() });
+      (window as unknown as { garage: GarageUi }).garage = garage;
       story = new StoryUi({
         game,
         homes: () => homes,

@@ -355,6 +355,10 @@ html body.touch.radio-on #minimap[data-corner='tr'] { top: calc(184px + env(safe
 #forsale button:disabled { opacity: 0.45; cursor: default; }
 #forsale button.party { background: var(--party); color: #fff; border-color: transparent; }
 #forsale p.small { font-size: 12px; opacity: 0.8; }
+/* a car kept at a garage (`garageUi.ts`): its paint, its kind, and what can be done with it */
+#forsale .kept { display: grid; grid-template-columns: 14px 1fr auto auto; align-items: center; gap: 6px; }
+#forsale .kept i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.35); }
+#forsale .kept button { padding: 6px 10px; }
 #forsale .paints { display: flex; flex-wrap: wrap; gap: 6px; }
 #forsale .paints button.swatch { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); background: #30353e; color: var(--ink); text-align: center; font-weight: 700; }
 #forsale .paints button.swatch.on { border-color: var(--yellow); box-shadow: 0 0 0 2px #16181c inset; }

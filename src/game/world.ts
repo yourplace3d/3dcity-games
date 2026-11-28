@@ -30,7 +30,7 @@ import { kerbSpot, stopShapes, type StopSign, type StopSpot } from './stopShapes
 import { addWindows, styleWindows, windowsOn } from './windows';
 import { loadLandCover, placeTrees, SATELLITE_TREES, treeMesh, treesWanted, TRUNK_R } from './trees';
 import { carvePassagesInSteps, keepPassages, Roofs } from './passages';
-import { inventServices, PointGrid, readBanks, readFood, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type Service } from './services';
+import { inventServices, PointGrid, readBanks, readFood, readGarages, readReserved, readServices, serviceIcon, type Bank, type FoodPlace, type GaragePlace, type Service } from './services';
 
 export const AREA_SIZE_M = 1500;
 const GRID_STEP_M = 750;
@@ -350,6 +350,8 @@ export class World {
 
   /** banks, real and made up: not drawn here; the homes put their symbol up in the player's home town */
   readonly banks: Bank[] = [];
+  /** garages, real and made up: not drawn here; `garageUi.ts` puts their symbol up */
+  readonly garages: GaragePlace[] = [];
 
   /** restaurants and supermarkets, real and made up, where a party's food comes from: not drawn here; a party run puts up its own */
   readonly food: FoodPlace[] = [];
@@ -537,6 +539,12 @@ export class World {
     for (const b of [...realBanks.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(realBanks, world.proj, reach, roads, ['bank'])]) {
       if (!world.banks.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 250) && !world.services.some((o) => Math.hypot(o.x - b.x, o.y - b.y) < 70)) world.banks.push(b);
     }
+    // garages: car dealers and repair garages stand in rows in places, so one within 400 m, and none on top of
+    // a station's or a bank's symbol
+    const realGarages = readGarages(tiles, world.proj, 1e9);
+    for (const g of [...realGarages.filter((r) => Math.abs(r.x) < reach && Math.abs(r.y) < reach), ...inventServices(realGarages, world.proj, reach, roads, ['garage'])]) {
+      if (!world.garages.some((o) => Math.hypot(o.x - g.x, o.y - g.y) < 400) && ![...world.services, ...world.banks].some((o) => Math.hypot(o.x - g.x, o.y - g.y) < 70)) world.garages.push(g);
+    }
     // restaurants and supermarkets for the parties: of several within 60 m only the first is kept, and one is
     // made up where the map has none near (a made-up one is a restaurant)
     const realFood = readFood(tiles, world.proj, 1e9);
@@ -557,7 +565,7 @@ export class World {
       {
         areas: data.features.areas,
         lines: data.features.lines,
-        keepClear: [...sightPts, ...world.services.map((s): [number, number] => [s.x, s.y]), ...world.banks.map((b): [number, number] => [b.x, b.y]), ...world.reserved.map((r): [number, number] => [r.x, r.y])],
+        keepClear: [...sightPts, ...world.services.map((s): [number, number] => [s.x, s.y]), ...world.banks.map((b): [number, number] => [b.x, b.y]), ...world.garages.map((b): [number, number] => [b.x, b.y]), ...world.reserved.map((r): [number, number] => [r.x, r.y])],
         sights: sightPts,
         streets: readNamedStreets(tiles, world.proj, AREA_SIZE_M / 2),
         half: AREA_SIZE_M / 2,

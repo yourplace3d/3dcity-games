@@ -6,6 +6,18 @@ lives.
 
 ## Right now (28 November 2026)
 
+- **Built, not live: the garage, first piece** (branch `claude/garage`, on top of `claude/more-trophies`; no
+  pull request). The owner, asked which cars can be kept: "Any car you can get hold of can be parked there.
+  And you can sell it if your spots is full". A fourth kind of place, from the map's car dealers and repair
+  garages (made up where there is none): stop beside one, park the car you sit in, and it is kept; three
+  spots for each city; take a kept car out at any garage of its city; never lost, wherever it is left; sell
+  one at the second press. All of it: `docs/brainstorm-story.md`, section 20, and the README ("Garages keep
+  your cars"). Code: `src/game/garage.ts`, `src/garageUi.ts`. Tests: `tests/garage.test.ts`,
+  `node tools/garage-test.mjs`. **Set by this session and said to the owner, to be changed if wanted:** a
+  kept car sells for $150 to $300, less than a delivery pays; a police car or a bus sells for no more than an
+  ordinary car, as the story's rule is that no crime is rewarded. **Next on this branch, once the owner has
+  seen this:** the garage's own job, the car delivery (a new dent ends it), with two or three special cars,
+  and "Not a dent" as the 30th trophy.
 - **Being planned with the owner, nothing built: what comes after the story** (the owner, 28 November: "now
   it's maybe time to introduce a cycle… sort of random… always a little more difficult", "one more mission…
   a nice car which is not allowed to have a dent", "special cars… buy a garage so one can save that car",

@@ -135,6 +135,22 @@ export function readBanks(tiles: LoadedTile[], proj: Projector, half: number): B
   return readPoints(tiles, proj, half, { bank: 'bank' as const });
 }
 
+/**
+ * A garage: where cars are kept (`game/garage.ts`; the owner, 28 November 2026). From the map's car dealers
+ * and repair garages, and made up where a part of town has neither, as the stations are. Marked with a
+ * symbol, never named.
+ */
+export interface GaragePlace {
+  kind: 'garage';
+  x: number;
+  y: number;
+  invented?: boolean;
+}
+
+export function readGarages(tiles: LoadedTile[], proj: Projector, half: number): GaragePlace[] {
+  return readPoints(tiles, proj, half, { car: 'garage' as const, car_repair: 'garage' as const });
+}
+
 /** Where a party's food comes from: a restaurant (or fast food) for the pizza, a supermarket (or corner shop) for drinks and snacks. */
 export type FoodKind = 'restaurant' | 'shop';
 
@@ -189,9 +205,9 @@ function hash(a: number, b: number, c: number): number {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
 
-export type PlaceKind = ServiceKind | 'bank' | 'food';
+export type PlaceKind = ServiceKind | 'bank' | 'food' | 'garage';
 // a new kind goes at the end: each kind's made-up spots are worked out from its place in this list
-const ORDER: PlaceKind[] = ['fuel', 'fire', 'police', 'bank', 'food'];
+const ORDER: PlaceKind[] = ['fuel', 'fire', 'police', 'bank', 'food', 'garage'];
 
 /** A cell of the earth about 1.2 km across holds one made-up place of each kind, unless a real one is near. */
 const CELL_DEG = 0.011;
@@ -347,6 +363,44 @@ export function serviceIcon(kind: Exclude<PlaceKind, 'food'> | FoodKind, invente
     g.fillRect(32, 49, 64, 6);
     for (const cx of [38, 59, 80]) g.fillRect(cx, 58, 10, 28);
     g.fillRect(30, 89, 68, 9);
+  } else if (kind === 'garage') {
+    // a garage: a car under a roof, on steel grey, a colour no other sign has
+    disc('#b9c2cc');
+    g.fillStyle = '#16181c';
+    // the roof: a low gable on two posts
+    g.beginPath();
+    g.moveTo(64, 22);
+    g.lineTo(104, 44);
+    g.lineTo(98, 53);
+    g.lineTo(64, 34);
+    g.lineTo(30, 53);
+    g.lineTo(24, 44);
+    g.closePath();
+    g.fill();
+    g.fillRect(28, 48, 8, 46);
+    g.fillRect(92, 48, 8, 46);
+    // the car, from the front: a cab on a body, two lamps, two wheels
+    g.beginPath();
+    g.moveTo(50, 58);
+    g.lineTo(78, 58);
+    g.lineTo(84, 72);
+    g.lineTo(84, 90);
+    g.lineTo(44, 90);
+    g.lineTo(44, 72);
+    g.closePath();
+    g.fill();
+    g.fillRect(46, 88, 9, 10);
+    g.fillRect(73, 88, 9, 10);
+    g.fillStyle = '#b9c2cc';
+    g.beginPath();
+    g.moveTo(53, 62);
+    g.lineTo(75, 62);
+    g.lineTo(78, 70);
+    g.lineTo(50, 70);
+    g.closePath();
+    g.fill();
+    g.fillRect(48, 76, 8, 6);
+    g.fillRect(72, 76, 8, 6);
   } else {
     // a badge
     disc('#1f4fa8');

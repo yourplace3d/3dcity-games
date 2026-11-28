@@ -145,6 +145,8 @@ export interface HomesHost {
   quiet?: () => boolean;
   /** something lies over the game (the menu, the big map, a card): keys do nothing to the panel under it */
   blocked?: () => boolean;
+  /** the player has stopped beside a garage (`garageUi.ts`): the panel is the garage's meanwhile */
+  garage?: () => boolean;
   /** parties at the homes (`partyUi.ts`): whether one can be thrown at a home now, its button, and the card that starts it */
   party?: { can: (home: Home) => boolean; label: (home: Home) => string; tag: () => string; offer: (home: Home) => void };
   /** the story's name for a card, when it is the open chapter's own (`storyUi.ts`): the first home's, the bank's, the tenants' dispute's */
@@ -246,7 +248,7 @@ export class HomesUi {
     addEventListener('keydown', (e) => {
       if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden || this.host.blocked?.()) return;
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
-      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch):not(.party):not(.talk)')?.click();
+      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch):not(.party):not(.talk):not(.sell)')?.click();
     });
   }
 
@@ -1604,7 +1606,9 @@ export class HomesUi {
         }
       }
     }
-    if (bank) found = null;
+    // beside a garage the panel is the garage's (`garageUi.ts`): nothing of a building, and it is left alone
+    const garage = !bank && !!this.host.garage?.();
+    if (bank || garage) found = null;
     // tenants who want to talk: their card, once a stop
     if (!game.held && game.speed() >= 1.2) this.talked = null;
     const talker = found && found !== this.talked ? this.homeOf(found) : undefined;
@@ -1613,9 +1617,10 @@ export class HomesUi {
       this.talked = found;
       this.talk(talker);
     }
-    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()} ${this.host.party?.tag() ?? ''}` : '';
+    const shown = garage ? 'garage' : bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()} ${this.host.party?.tag() ?? ''}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
+    if (garage) return;
     this.panel.hidden = !shown;
     if (!shown) return;
     this.panel.replaceChildren();

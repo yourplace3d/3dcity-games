@@ -9,6 +9,7 @@
  */
 
 import { loadAddon } from './addon';
+import { T } from './i18n';
 
 const GATE = 'https://lecaoamodyjubwuvhpcq.supabase.co/functions/v1/addon-key';
 const KEPT = '3da-full-key';
@@ -47,7 +48,7 @@ async function ask(): Promise<FullNote | null> {
     history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : '') + location.hash);
     if (given === 'off') {
       keep(null);
-      return key ? { text: 'Extras off: the key is forgotten', kind: 'good' } : null;
+      return key ? { text: T.extrasOff, kind: 'good' } : null;
     }
     if (given.length >= 24) {
       key = given;
@@ -59,15 +60,15 @@ async function ask(): Promise<FullNote | null> {
     const res = await fetch(GATE, { headers: { 'x-full-key': key }, cache: 'no-store' });
     if (res.status === 401) {
       keep(null);
-      return { text: 'Extras: the key was not accepted', kind: 'bad' };
+      return { text: T.extrasRefused, kind: 'bad' };
     }
-    if (!res.ok) return { text: 'Extras could not be loaded', kind: 'bad' };
+    if (!res.ok) return { text: T.extrasFailed, kind: 'bad' };
     const version = res.headers.get('x-addon-version');
     const url = URL.createObjectURL(new Blob([await res.text()], { type: 'text/javascript' }));
     await loadAddon(url);
-    return { text: version ? `Extras on (test version ${version})` : 'Extras on', kind: 'good' };
+    return { text: T.extrasOn(version), kind: 'good' };
   } catch {
-    return { text: 'Extras could not be loaded', kind: 'bad' };
+    return { text: T.extrasFailed, kind: 'bad' };
   }
 }
 

@@ -238,6 +238,16 @@ the streets, buildings, water and hills come from the same map squares as
 | Route line on the road | `G` | the button on the big map |
 | Back onto the road when stuck | `R` | |
 
+## Languages
+
+English and German (since 28 November 2026). The game speaks the language picked under the start screen's
+English/Deutsch switch (kept as `3da-lang`), else the browser's, else English. Every text a player reads lives
+in `src/lang/en.ts`, with the German of each in `src/lang/de.ts`: a table of the same shape, so a text missing
+in German fails the type check. A text with numbers or names in it is a small function, so each language
+builds its own sentence. The page's own texts carry `data-t`, `data-th` or `data-ta` in `index.html`
+(`src/i18n.ts`). **A new text goes into both tables.** Not yet moved over: the homes, the party, the trophies
+and the story (those still show English), and the add-on in 3da-full.
+
 ## Run it
 
 ```bash

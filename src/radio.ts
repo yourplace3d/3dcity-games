@@ -19,6 +19,7 @@
  * Only streams at a secure address can play on this page, and a station that does not start
  * within a few seconds is skipped.
  */
+import { T } from './i18n';
 
 const KEPT = '3da-radio';
 /** whether the radio was left switched on: it then plays again in the next car, on the next visit too */
@@ -167,7 +168,7 @@ export function wireRadio(
     waiting = true;
     clearTimeout(giveUp);
     audio.pause();
-    if (!inCar()) show('The radio plays in a car');
+    if (!inCar()) show(T.radioInCar);
   }
 
   function play(): void {
@@ -179,7 +180,7 @@ export function wireRadio(
     }
     waiting = false;
     if (!stations.length) {
-      show('No station plays here');
+      show(T.radioNone);
       return;
     }
     const s = stations[at % stations.length];
@@ -195,7 +196,7 @@ export function wireRadio(
   /** the station playing, by name, or only by number while the town is to be guessed */
   function label(): string {
     const s = stations[at % stations.length];
-    return `${secret() ? 'Local radio' : s.name} · ${(at % stations.length) + 1} of ${stations.length}`;
+    return `${secret() ? T.radioLocal : s.name} · ${T.radioOf((at % stations.length) + 1, stations.length)}`;
   }
 
   function skip(): void {
@@ -206,7 +207,7 @@ export function wireRadio(
     }
     failed++;
     if (failed >= stations.length) {
-      show('No station plays here');
+      show(T.radioNone);
       return;
     }
     at++;
@@ -239,7 +240,7 @@ export function wireRadio(
     // a new town, new stations: asked again when you have come 30 km
     const far = !askedFor || Math.hypot(askedFor.lat - p.lat, (askedFor.lon - p.lon) * Math.cos((p.lat * Math.PI) / 180)) * 111 > 30;
     if (far) {
-      show('Looking for stations…');
+      show(T.radioLooking);
       try {
         const found = await stationsNear(p.lat, p.lon);
         if (request !== tuning || !on) return;
@@ -251,7 +252,7 @@ export function wireRadio(
         stations = [];
         on = false;
         show('');
-        say('The radio could not reach the station list', 'bad');
+        say(T.radioFailed, 'bad');
         return;
       }
       if (!on) return;
@@ -282,7 +283,7 @@ export function wireRadio(
   if (leftOn) {
     on = true;
     waiting = true;
-    show('The radio plays in a car');
+    show(T.radioInCar);
     const first = (): void => {
       removeEventListener('pointerdown', first, true);
       removeEventListener('keydown', first, true);

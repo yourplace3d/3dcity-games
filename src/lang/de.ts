@@ -85,7 +85,7 @@ export const de: Texts = {
   tagline: 'Fahr durch jede Stadt.',
   startIntro: 'Die echten Straßen und Gebäude jedes Orts der Welt, von oben gesehen. Geh zu einem Auto und nimm es, liefere gegen die Uhr für Geld (drei Lieferungen sind eine Runde, für die Bestenliste oder als Wettkampf mit Freunden) und häng die Polizei ab, wenn du unvorsichtig warst.',
   modesLabel: 'Was spielen',
-  modesMore: 'Andere Arten zu spielen',
+  modesMore: 'Verschiedene Spieloptionen',
   modeRun: 'Mit Freunden messen',
   modeRunText: 'Eine Runde aus drei Lieferungen gegen die Uhr. Schick sie Freunden: Wer ist schneller?',
   modeJobs: 'Aufträge erledigen',

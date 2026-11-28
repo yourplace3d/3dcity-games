@@ -24,10 +24,12 @@ import type { JobKind } from './services';
 import type { Names } from './names';
 import type { Stage } from './events';
 import { FIXER_MIN } from './renovation';
+import { money, T } from '../i18n';
+import type { Case } from '../lang/en';
 
 const STORE = '3da-story';
 
-export const CHAPTERS = ['Arrival', 'Making rent', 'A roof over your head', 'Safe money', 'The regulars', 'Housewarming', 'The whole building', 'Landlord'] as const;
+export const CHAPTERS: readonly string[] = T.chapters;
 /** chapters there are */
 export const ALL = CHAPTERS.length;
 /** chapters built so far: the rest come in an update */
@@ -358,25 +360,24 @@ export function sender(who: Who, names: Names | undefined): string {
   if (!names || who === 'game') return '';
   switch (who) {
     case 'pump':
-      return `${names.pump} · the pump`;
+      return T.senderPump(names.pump);
     case 'flame':
-      return `${names.flame} · the fire station`;
+      return T.senderFlame(names.flame);
     case 'shield':
-      return `${names.shield} · the police`;
+      return T.senderShield(names.shield);
     case 'neighbour':
-      return `${names.neighbour} · your neighbour`;
+      return T.senderNeighbour(names.neighbour);
     case 'friends':
-      return 'Your friends';
+      return T.yourFriends;
     case 'tenants':
-      return 'Your tenants';
+      return T.yourTenants;
   }
 }
 
 /** A person by name and station, for the game's own lines: "Theo at the fire station". */
 export function atStation(kind: Exclude<JobKind, 'plain'>, names: Names | undefined): string {
-  const where = { supply: 'the pump', rush: 'the fire station', clean: 'the police station' }[kind];
   const who = names ? { supply: names.pump, rush: names.flame, clean: names.shield }[kind] : '';
-  return who ? `${who} at ${where}` : where;
+  return T.atStation(kind, who);
 }
 
 export interface Goal {
@@ -393,8 +394,8 @@ export interface GoalState extends Snapshot {
   away?: boolean;
   /** homes it takes before whole buildings are for sale */
   buildingsAfter: number;
-  /** the home of the open dispute, as the lines name it: "your flat on Königstraße" */
-  disputeAt?: string;
+  /** the home of the open dispute, as the lines name it: "your flat on Königstraße", in the case asked */
+  disputeAt?: (c: Case) => string;
   /** chapter 3, before the first flat is offered: what the offer still waits for (too little cash; a run of three to end) */
   flatWaits?: 'cash' | 'run';
   /** chapter 8, before the tenants have written: a home here that waits to be renovated first, as the lines name it */
@@ -405,76 +406,64 @@ export interface GoalState extends Snapshot {
 export function goal(n: number, s: GoalState, story: Story): Goal {
   switch (n) {
     case 1:
-      return { text: 'Get in a car and deliver a package.', way: null };
+      return { text: T.goal1, way: null };
     case 2:
-      return { text: 'One more delivery, and a flat of your own is in reach.', way: null };
+      return { text: T.goal2, way: null };
     case 3:
-      if (s.homes) return { text: 'Repair your flat: take a job at a fuel, fire or police station. Their rings flash green.', way: 'station' };
+      if (s.homes) return { text: T.goal3Repair, way: 'station' };
       // shown where already: the arrow leads there
-      if (s.reno === 'find') return { text: 'Buy a worn-down flat: stop beside a building with a green $ sign.', way: 'flats' };
-      if (s.flatWaits === 'cash') return { text: `Buy a worn-down flat. One is offered once you carry $${FIXER_MIN}: a delivery or two more.`, way: null };
-      if (s.flatWaits === 'run') return { text: 'Buy a worn-down flat. Finish your run, and the game shows you where.', way: null };
-      return { text: 'Buy a worn-down flat. After your next delivery, the game shows you where.', way: null };
+      if (s.reno === 'find') return { text: T.goal3Find, way: 'flats' };
+      if (s.flatWaits === 'cash') return { text: T.goal3Cash(money(FIXER_MIN)), way: null };
+      if (s.flatWaits === 'run') return { text: T.goal3Run, way: null };
+      return { text: T.goal3Next, way: null };
     case 4:
-      return { text: `Keep your cash safe from fines: pay it in at a bank in ${s.town || 'your home town'}.`, way: 'bank' };
+      return { text: T.goal4(s.town || T.yourHomeTown), way: 'bank' };
     case 5: {
       const kinds = STATION_JOBS.filter((k) => !story.kinds.includes(k));
-      if (!kinds.length) return { text: 'Done: they all know you now.', way: null };
+      if (!kinds.length) return { text: T.goal5Done, way: null };
       // away, their stations are elsewhere, but a job at any station counts
-      if (s.away) return { text: `Do a job at ${list(kinds.map((k) => ({ supply: 'a fuel station', rush: 'a fire station', clean: 'a police station' })[k]))}: they count wherever you are.`, way: 'station' };
-      return { text: `Do a job for ${list(kinds.map((k) => atStation(k, story.names)))}.`, way: 'station' };
+      if (s.away) return { text: T.goal5Away(T.list(kinds.map((k) => T.aStation[k]))), way: 'station' };
+      return { text: T.goal5(T.list(kinds.map((k) => atStation(k, story.names)))), way: 'station' };
     }
     case 6:
       // a party at any home counts: a house or a building as well as the first flat
-      return { text: `Throw a party at ${s.homes > 1 ? 'one of your homes' : 'your home'}: stop beside it.`, way: 'home' };
+      return { text: T.goal6(s.homes > 1), way: 'home' };
     case 7:
       // the first building, step by step: each line says the next step, and its way leads to it
-      if (s.reno === 'buy') return { text: 'Buy the rest of your building: stop beside it. Then repair it flat by flat, and choose its colour.', way: 'home' };
-      if (s.reno === 'rest') return { text: 'Repair your building flat by flat: each package from a fuel, fire or police station repairs one. Their rings flash green.', way: 'station' };
-      if (s.reno === 'paint') return { text: 'Every flat is repaired. One more package from a station brings the paint for the outside.', way: 'station' };
+      if (s.reno === 'buy') return { text: T.goal7Buy, way: 'home' };
+      if (s.reno === 'rest') return { text: T.goal7Rest, way: 'station' };
+      if (s.reno === 'paint') return { text: T.goal7Paint, way: 'station' };
       return s.homes >= s.buildingsAfter
-        ? { text: 'Own a whole building: stop beside one to see its price.', way: null }
-        : { text: `Own a whole building. They are for sale once you have ${s.buildingsAfter} homes.`, way: null };
+        ? { text: T.goal7Own, way: null }
+        : { text: T.goal7Wait(s.buildingsAfter), way: null };
     case 8: {
-      const at = s.disputeAt || 'your home';
+      const at = s.disputeAt || ((_c: Case) => T.yourHome);
+      const text = T.goal8(s.dispute ?? '', at, s.town || T.yourHomeTown, s.renovateFirst ?? '');
       switch (s.dispute) {
         case 'talk':
-          return { text: `The tenants in ${at} have stopped paying: stop beside it and talk to them.`, way: 'home' };
+          return { text, way: 'home' };
         case 'insist':
-          return { text: `Bring the part for ${at} from a fire station, in time.`, way: 'station' };
         case 'accept':
-          return { text: `Bring what ${at} needs from a fuel station, with no new dent.`, way: 'station' };
         case 'court':
-          return { text: `Drive the officers from a police station to ${at}, by the book.`, way: 'station' };
         case 'replace':
-          return { text: `A package from any station brings the new boiler for ${at}.`, way: 'station' };
+          return { text, way: 'station' };
         case 'moving':
-          return { text: `New tenants move into ${at} with your next delivery.`, way: null };
+          return { text, way: null };
         default:
           // one thing at a time in a part of town: a home being renovated here comes first, and the tenants write after
-          if (s.renovateFirst) return { text: `Your tenants have something to say. First ${s.renovateFirst} needs renovating: a package from any station brings what it needs.`, way: 'station' };
-          return { text: `Your tenants have something to say: drive to one of your homes in ${s.town || 'your home town'}.`, way: 'home' };
+          return { text, way: s.renovateFirst ? 'station' : 'home' };
       }
     }
     default:
-      return { text: 'Comes in a later update.', way: null };
+      return { text: T.goalLater, way: null };
   }
 }
 
-function list(items: string[]): string {
-  if (items.length <= 1) return items.join('');
-  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
-}
-
 /** "Chapter 5 of 8 · The regulars" */
-export const heading = (n: number): string => `Chapter ${n} of ${ALL} · ${CHAPTERS[n - 1]}`;
+export const heading = (n: number): string => T.heading(n, ALL, CHAPTERS[n - 1]);
 
 /** How each person at the stations says hello, by the job their station hands out. */
-export const HELLO: Record<Exclude<JobKind, 'plain'>, string> = {
-  supply: "Heard you're new around here. I always have loads that need a careful driver. Come by the pump.",
-  rush: 'Need someone quick. Come by the fire station.',
-  clean: 'If you can drive by the book, I have work for you. Police station, when you are ready.',
-};
+export const HELLO: Record<Exclude<JobKind, 'plain'>, string> = { supply: T.hello.supply, rush: T.hello.rush, clean: T.hello.clean };
 
 /** The people at the stations have said hello (the scene's key): on chapter 5's day, or later to a player whose chapter 5 was ticked before they wrote. */
 export const REGULARS = 'regulars';
@@ -483,15 +472,15 @@ export const REGULARS = 'regulars';
 export const SCENES = {
   /** the first flat is bought */
   neighbourWelcome: (worn: boolean): Array<[Who, string]> => [
-    ['neighbour', worn ? 'Welcome to the house! The walls have been grey for years. Any of the stations nearby can bring what it needs.' : 'Welcome to the house! Good to have someone new on the stairs.'],
+    ['neighbour', T.neighbourWelcome(worn)],
   ],
   /** the first package for the flat is taken: the person of that station, met for the first time */
   firstRepair: (kind: Exclude<JobKind, 'plain'>): Array<[Who, string]> =>
     [
       {
-        supply: ['pump', "So you're the one in the grey flat. Here's your plaster. It's heavy: mind the corners."] as [Who, string],
-        rush: ['flame', 'A part for your boiler. Your flat has been cold long enough. Quick!'] as [Who, string],
-        clean: ['shield', "New windows for your flat. Drive by the book, or they don't arrive."] as [Who, string],
+        supply: ['pump', T.firstRepair.supply] as [Who, string],
+        rush: ['flame', T.firstRepair.rush] as [Who, string],
+        clean: ['shield', T.firstRepair.clean] as [Who, string],
       }[kind],
     ],
   /** chapter 5: the people not yet met, who say hello */
@@ -504,30 +493,30 @@ export const SCENES = {
   thanks: (kind: Exclude<JobKind, 'plain'>, dented = false): Array<[Who, string]> =>
     [
       {
-        supply: ['pump', dented ? "Delivered. A new dent on the way, but it's all here. You'll do." : "Delivered, and the load in one piece. You'll do."] as [Who, string],
-        rush: ['flame', "That was quick. I'll call on you again."] as [Who, string],
-        clean: ['shield', 'Clean all the way. Thank you.'] as [Who, string],
+        supply: ['pump', T.thanksSupply(dented)] as [Who, string],
+        rush: ['flame', T.thanksRush] as [Who, string],
+        clean: ['shield', T.thanksClean] as [Who, string],
       }[kind],
     ],
   /** chapter 6 opens */
   housewarming: (): Array<[Who, string]> => [
-    ['friends', "You've got a place and you didn't tell us?!"],
-    ['friends', "We're coming tonight. Nobody got food."],
+    ['friends', T.housewarming1],
+    ['friends', T.housewarming2],
   ],
   /** chapter 6 is done */
-  partyThanks: (): Array<[Who, string]> => [['friends', 'Best night in ages. Same again soon?']],
+  partyThanks: (): Array<[Who, string]> => [['friends', T.partyThanks]],
   /** chapter 7 opens */
   building: (s: Snapshot): Array<[Who, string]> => [
     s.reno === 'buy' || s.reno === 'rest' || s.reno === 'paint'
-      ? ['neighbour', "The owner is selling the rest of the house. Honestly, you'd look after it better."]
-      : ['neighbour', 'There are whole buildings for sale around here. You would look after one better than most.'],
+      ? ['neighbour', T.buildingRest]
+      : ['neighbour', T.buildingAny],
   ],
   /** chapter 7 is done; `own`: by the house the neighbour lives in, not by a building bought elsewhere */
-  buildingThanks: (own = true): Array<[Who, string]> => [['neighbour', own ? 'The whole house looks new. Thank you.' : 'A whole building of your own. It is in good hands.']],
+  buildingThanks: (own = true): Array<[Who, string]> => [['neighbour', T.buildingThanks(own)]],
   /** Mira's scene: what she asks, with the car in words ("a pink van") */
-  findAsk: (car: string): string => `A customer left her keys in while she paid, and someone drove off in her car: ${car}. Whoever took it won't keep it long, it'll be parked somewhere near. Can you find it and bring it back?`,
-  findThanks: (): Array<[Who, string]> => [['pump', "You found it! She's so happy she says drive it for the rest of the day. And this is from me."]],
-  findWrecked: (): Array<[Who, string]> => [['pump', 'Well, you found it. The tow truck will do the rest. Thanks all the same.']],
+  findAsk: (car: string): string => T.findAsk(car),
+  findThanks: (): Array<[Who, string]> => [['pump', T.findThanks]],
+  findWrecked: (): Array<[Who, string]> => [['pump', T.findWrecked]],
 };
 
 // ---------------------------------------------------------------- the people's scenes

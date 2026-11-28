@@ -1199,3 +1199,15 @@ keeping, taking out and selling. The car delivery and the special cars come next
   plays it on Nuremberg's and Munich's tiles, the player moved by hand.
 - **Open, for the owner:** the prices; whether a police car and a bus should sell at all; and whether a
   repair bill for a wrecked car is wanted (now there is none: the garage hands it back whole).
+
+### After the owner's word on pay (28 November): cars sell for less, and the garage speaks German
+
+- **The owner, told that a delivery paid $300 and more:** "Jobs should not pay more than 300 ever... with
+  rents there's already too much money involved". No job pays more than $300 now (`JOB_MAX`; branch
+  `claude/job-pay-cap`, merged into this one). So a kept car sells for less than was first set: a car $100,
+  a van $120, a sports car $200, a police car or a bus $100. The rule stays: selling a car one took must
+  never be the better job.
+- **German:** the live game gained a second language on 28 November, with every text in a table for each
+  language. The garage's words are in both (`src/lang/en.ts`, `src/lang/de.ts`, the block "the garage").
+  German needs its own sentence for each kind of car (der Sportwagen, das Auto), so those texts take the
+  kind, not a word. In German the place is "Garage", which is where a car is kept.

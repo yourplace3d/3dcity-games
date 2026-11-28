@@ -22,6 +22,8 @@
  * but no homes. Kept in the browser under `3da-points`, so saving online carries them along.
  */
 
+import { T } from '../i18n';
+
 const STORE = '3da-points';
 
 export const FLAT_POINTS = 2;
@@ -46,7 +48,7 @@ export function flatsFree(points: number): number {
 
 /** "1 more delivery", "3 more deliveries": what is missing before a home can be bought. */
 export function deliveries(n: number): string {
-  return `${n} more ${n === 1 ? 'delivery' : 'deliveries'}`;
+  return T.moreDeliveries(n);
 }
 
 /** The free home of the day: the day it was last taken, and the last day a delivery was made (YYYY-MM-DD). */

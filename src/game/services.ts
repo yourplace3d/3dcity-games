@@ -28,6 +28,37 @@ export type JobKind = 'plain' | 'supply' | 'rush' | 'clean';
 export const JOB_OF: Record<ServiceKind, JobKind> = { fuel: 'supply', fire: 'rush', police: 'clean' };
 
 /**
+ * The most cash a job pays, with everything that comes on top (the owner, 28 November 2026: "Jobs should not
+ * pay more than 300 ever... with rents there's already too much money involved"). Open jobs had come to
+ * pay about a thousand dollars and more after fifty deliveries, and a clean run 70 % more than that.
+ */
+export const JOB_MAX = 300;
+/**
+ * The most an open job's own pay comes to, by kind: a little under `JOB_MAX`, so that what comes on top
+ * still shows (time left on any job, three times as much on a rush job, a fifth more for a supply run
+ * without a new dent) and a job done well reaches about `JOB_MAX`. The police's clean run still pays
+ * best. Estimates, to tune from play.
+ */
+export const PAY_TOP: Record<JobKind, number> = { plain: 260, supply: 230, rush: 220, clean: 280 };
+
+/** An open job's own pay, from what its way and its kind come to: never more than its kind's top. */
+export const openPay = (kind: JobKind, pay: number): number => Math.min(PAY_TOP[kind], pay);
+
+/**
+ * What a delivered job is worth: its pay, and on top $2 for each second left on the clock, three times as
+ * much on a rush job, and on a supply run a fifth more for a car that took no harm (`whole`). In tens.
+ * A run of three counts this as its score.
+ */
+export function jobWorth(kind: JobKind, pay: number, left: number, whole: boolean): number {
+  let bonus = Math.round((left * (kind === 'rush' ? 6 : 2)) / 10) * 10;
+  if (kind === 'supply' && whole) bonus += Math.round((pay * 0.2) / 10) * 10;
+  return pay + bonus;
+}
+
+/** The cash a delivered job pays: what it is worth, and never more than `JOB_MAX`. */
+export const jobCash = (worth: number): number => Math.min(JOB_MAX, worth);
+
+/**
  * The colour of a package's ring, by who gives the job, in the colour of the giver's sign: orange at
  * the pump, red at the flame, blue at the badge, turquoise for a plain package from a street corner.
  * A party's food is pink, as its sign. While a home of yours waits for a package (a repair), the

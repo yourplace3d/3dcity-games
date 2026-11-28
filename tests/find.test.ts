@@ -38,7 +38,10 @@ describe('seeing the car', () => {
     expect(LOOKS.length).toBeGreaterThan(0);
     expect(describeCar('pink', 'van')).toBe('a pink van');
     expect(findPay(100)).toBe(150);
-    expect(findPay(600)).toBe(450);
+    expect(findPay(300)).toBe(230);
+    // never more than a job's most
+    expect(findPay(600)).toBe(300);
+    expect(findPay(5000)).toBe(300);
   });
 });
 

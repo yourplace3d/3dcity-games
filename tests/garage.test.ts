@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { canKeep, carsAt, carWord, cityOf, CITY_KM, freeSpots, none, park, priceOf, readGarage, sell, SPOTS, type Garage, type Make } from '../src/game/garage';
+import { canKeep, carsAt, cityOf, CITY_KM, freeSpots, none, park, priceOf, readGarage, sell, SPOTS, type Garage, type Make } from '../src/game/garage';
+import { JOB_MAX } from '../src/game/services';
+import { en } from '../src/lang/en';
+import { de } from '../src/lang/de';
 import { kmBetween } from '../src/game/bank';
 
 // two garages in Nuremberg, a few km apart; one in Munich
@@ -27,10 +30,14 @@ describe('which cars a garage keeps', () => {
     expect(canKeep('train')).toBe(false);
   });
 
-  it('in words', () => {
-    expect(carWord('sedan')).toBe('car');
-    expect(carWord('sport')).toBe('sports car');
-    expect(carWord('police')).toBe('police car');
+  it('in words, in both languages', () => {
+    expect(en.garageCar('sport')).toBe('Sports car');
+    expect(en.garagePark('police')).toBe('Park this police car here');
+    // German has its own sentence for each: der Sportwagen, das Auto
+    expect(de.garageCar('sport')).toBe('Sportwagen');
+    expect(de.garagePark('sport')).toBe('Diesen Sportwagen hier abstellen');
+    expect(de.garagePark('sedan')).toBe('Dieses Auto hier abstellen');
+    expect(de.garageMine('bus')).toMatch(/^Dieser Bus steht/);
   });
 });
 
@@ -105,7 +112,11 @@ describe('selling', () => {
   it('pays no more for a police car or a bus than for an ordinary car: taking one from its driver earns nothing extra', () => {
     expect(priceOf({ kind: 'police', colour: '#ffffff' })).toBeLessThanOrEqual(priceOf(red));
     expect(priceOf({ kind: 'bus', colour: '#ffffff' })).toBeLessThanOrEqual(priceOf(red));
-    for (const kind of ['sedan', 'sport', 'van', 'police', 'bus'] as const) expect(priceOf({ kind, colour: '#000000' })).toBeGreaterThan(0);
+    for (const kind of ['sedan', 'sport', 'van', 'police', 'bus'] as const) {
+      expect(priceOf({ kind, colour: '#000000' })).toBeGreaterThan(0);
+      // and never as much as a job done well: taking cars to sell them is not the better job
+      expect(priceOf({ kind, colour: '#000000' })).toBeLessThan(JOB_MAX);
+    }
   });
 });
 

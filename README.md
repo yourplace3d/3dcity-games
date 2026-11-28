@@ -63,8 +63,9 @@ the streets, buildings, water and hills come from the same map squares as
 - You start on foot beside a parked car. Walk up to any car and get in: parked ones are free, taking one
   with a driver in it is an offence.
 - **Turquoise rings** are packages. Drive through one and a **yellow ring** appears somewhere a few hundred
-  metres away: get there before the clock runs out for cash, with a bonus for time left. Jobs pay more
-  the more you have delivered.
+  metres away: get there before the clock runs out for cash, with a bonus for time left. **No job pays
+  more than $300**, with everything that comes on top (`JOB_MAX` in `src/game/services.ts`): rent is
+  where the money comes from.
 - **Open jobs.** A run stays three plain packages from street corners, so that runs compare. The open jobs
   are their own way to play, and a run's result also leads on to them. A short note says how to find them: a
   ring waits at the nearest fuel station, fire station and police station, as often as you go there, in the
@@ -73,7 +74,9 @@ the streets, buildings, water and hills come from the same map squares as
   - **Supply run** (fuel station): a heavy load. The car is slower away, slower to stop and slower uphill.
     It pays a quarter more, and a fifth on top for a car without a new dent.
   - **Rush job** (fire station): a short clock, and every second left over pays three times.
-  - **Clean run** (police station): pays 70 % more, but any offence on the way and the job is gone.
+  - **Clean run** (police station): pays best, but any offence on the way and the job is gone.
+  An open job's own pay stops a little under $300, by kind (`PAY_TOP`: a package $260, a supply run $230, a
+  rush job $220, a clean run $280), so that what comes on top still shows and a job done well reaches $300.
   The drop-off is a sight or public place where one lies at a fitting distance, otherwise a street.
 - **Where a part of town has no such station on the map, one is made up**, at a spot worked out from its
   position on the earth: the same on every visit and for every player. Its symbol has a dashed ring.
@@ -83,8 +86,8 @@ the streets, buildings, water and hills come from the same map squares as
   then on. A city's garages have three spots between them, the same three at whichever of them you drive to.
   A kept car can be taken out at any garage of its city: it stands on the street there and you sit in it.
   Nothing has to be parked back: left anywhere, or wrecked, it is at the garage again. A kept car can be
-  sold, at the second press, which frees its spot; it pays little ($150 to $300), so that taking cars to
-  sell them never pays better than a delivery. Trams and trains stay on their rails and cannot be parked.
+  sold, at the second press, which frees its spot; it pays little ($100 to $200), so that taking cars to
+  sell them never pays as well as a job. Trams and trains stay on their rails and cannot be parked.
   Not while a package is on board, a run of three is on, or a city is being guessed. Kept as `3da-garage`
   (`src/game/garage.ts` for the rules, `src/garageUi.ts` for the panel).
 - **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
@@ -132,7 +135,9 @@ the streets, buildings, water and hills come from the same map squares as
   from fines and pays for homes in the home plate, after the cash you carry. No interest, and rent comes in
   as cash (`src/game/bank.ts`, kept as `3da-bank`).
 - **Cash stops at $1,000,000** for now (`MAX_CASH` in `game.ts`): above it, pay and rent are not added, and
-  the game says so once. Open jobs pay more with each delivery made, up to the 50th; after that they no longer grow.
+  the game says so once. Open jobs pay more with each delivery made, up to the 50th; since no job pays more
+  than $300, that shows on short ways only. A run of three still counts what each delivery is worth as its
+  score, above $300 too, so that runs compare with those made before; the cash for it stops at $300.
 - **A place opens seen from above:** about a kilometre of it for a second, then the view comes down to you
   in three and a half seconds, so you see where in the town you are. You can move straight away. When a run ends
   the view rises again behind the result, and comes back down when you drive on.
@@ -248,6 +253,18 @@ the streets, buildings, water and hills come from the same map squares as
 | Route line on the road | `G` | the button on the big map |
 | Back onto the road when stuck | `R` | |
 
+## Languages
+
+English and German (since 28 November 2026). The game speaks the language picked under the start screen's
+English/Deutsch switch (kept as `3da-lang`), else the browser's, else English. Every text a player reads lives
+in `src/lang/en.ts`, with the German of each in `src/lang/de.ts`: a table of the same shape, so a text missing
+in German fails the type check. A text with numbers or names in it is a small function, so each language
+builds its own sentence. The page's own texts carry `data-t`, `data-th` or `data-ta` in `index.html`
+(`src/i18n.ts`). **A new text goes into both tables.** German needs the case of a home or a car
+in a sentence, so lines about them take a `Case` and ask `T.homeRef` or `T.car` for the words. The story's
+messages are kept as they were said: those received before a switch stay in that language. Not yet moved
+over: the add-on in 3da-full.
+
 ## Run it
 
 ```bash
@@ -341,6 +358,9 @@ bridge pass the cars on it.
 - `tools/garage-test.mjs`: the garage in a browser on real map tiles (Nuremberg, then Munich): its symbol on
   the maps, a car parked and kept, three spots, a kept car taken out, left somewhere and taken out again, one
   sold, the page loaded again, and another city with spots of its own. `SHOTS=<folder>` keeps screenshots.
+- `tools/pay-test.mjs`: what a job pays, in a browser on real map tiles: after 500 deliveries an open job of
+  each kind pays $300 and no more, and a run of three counts what a delivery is worth while its cash stops
+  at $300.
 - `tools/selfdrive-test.mjs`: the game drives itself for eight game-minutes per place and reports deliveries
   and mishaps. A quick check after changes to roads, traffic or collisions.
 - `tools/film.mjs`: films a scene frame by frame at 1080p for trailers.

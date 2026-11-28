@@ -148,11 +148,12 @@ export function park(g: Garage, make: Make, lat: number, lon: number, now: numbe
 }
 
 /**
- * What a kept car sells for (estimates, to tune from play). Little on purpose: less than a delivery pays
- * a player who has made a few, so that taking cars to sell them is never the better job, and a police car
- * or a bus sells for no more than an ordinary car, so that taking one from its driver earns nothing extra.
+ * What a kept car sells for (estimates, to tune from play). Little on purpose: no job pays more than $300
+ * (`JOB_MAX`; the owner: "with rents there's already too much money involved"), and taking a car to sell
+ * it must never be the better job. A police car or a bus sells for no more than an ordinary car, so that
+ * taking one from its driver earns nothing extra.
  */
-const PRICE: Record<KeptKind, number> = { sedan: 150, van: 180, sport: 300, police: 150, bus: 150 };
+const PRICE: Record<KeptKind, number> = { sedan: 100, van: 120, sport: 200, police: 100, bus: 100 };
 export const priceOf = (c: Make): number => PRICE[c.kind];
 
 /** Sell a kept car: its spot is free again. Null where there is no such car. */
@@ -160,9 +161,4 @@ export function sell(g: Garage, id: number): { garage: Garage; price: number } |
   const car = g.cars.find((c) => c.id === id);
   if (!car) return null;
   return { garage: { ...g, cars: g.cars.filter((c) => c !== car) }, price: priceOf(car) };
-}
-
-/** "sports car": a kind of car in words. */
-export function carWord(kind: KeptKind): string {
-  return { sedan: 'car', sport: 'sports car', van: 'van', police: 'police car', bus: 'bus' }[kind];
 }

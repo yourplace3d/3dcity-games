@@ -13,9 +13,10 @@
 
 import { SPECS, type Car } from './game/cars';
 import type { Game } from './game/game';
-import { canKeep, carsAt, carWord, loadGarage, park, priceOf, sell, SPOTS, storeGarage, type Garage, type KeptCar, type Make } from './game/garage';
+import { canKeep, carsAt, loadGarage, park, priceOf, sell, SPOTS, storeGarage, type Garage, type KeptCar, type KeptKind, type Make } from './game/garage';
 import { serviceIcon } from './game/services';
 import type { World } from './game/world';
+import { money, T } from './i18n';
 
 /** how near its spot on the road, or its symbol, one has to stop for a garage's panel (m): as at a bank */
 const ROAD_M = 9;
@@ -23,8 +24,6 @@ const NEAR_M = 14;
 /** a car taken out is stood this far along the street at most (m) */
 const STAND_REACH_M = 48;
 
-const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export interface GarageHost {
   game: Game;
@@ -144,30 +143,30 @@ export class GarageUi {
       return p;
     };
     const title = document.createElement('b');
-    title.textContent = 'Garage';
+    title.textContent = T.garage;
     // marks the panel as the garage's own, for when the player leaves
     title.dataset.garage = '1';
     panel.append(title);
-    line(cars.length ? `Your cars in this town: ${cars.length} of ${SPOTS} spots taken.` : `Park a car here and it is yours: ${SPOTS} spots in this town.`);
+    line(cars.length ? T.garageCars(cars.length, SPOTS) : T.garageEmpty(SPOTS));
 
     // the car driven up: park it, or, if it is a kept one, leave it here
     const car = game.car;
     const mine = this.mine();
     if (car && mine) {
-      line(`This ${carWord(car.kind as KeptCar['kind'])} is kept here. Leave it anywhere: it comes back.`, true);
+      line(T.garageMine(car.kind as KeptKind), true);
       const b = document.createElement('button');
-      b.textContent = 'Leave it here';
+      b.textContent = T.garageLeave;
       b.addEventListener('click', () => this.putBack(mine));
       panel.append(b);
     } else if (car && canKeep(car.kind)) {
       const b = document.createElement('button');
       const full = cars.length >= SPOTS;
-      b.textContent = full ? 'Full: sell a car to make room' : `Park this ${carWord(car.kind)} here`;
+      b.textContent = full ? T.garageFull : T.garagePark(car.kind);
       b.disabled = full;
       b.addEventListener('click', () => this.parkHere(spot));
       panel.append(b);
     } else if (car) {
-      line(`A ${car.kind} cannot be parked here.`, true);
+      line(T.garageOnRails(car.kind as 'tram' | 'train'), true);
     }
 
     for (const c of cars) {
@@ -177,18 +176,18 @@ export class GarageUi {
       const dot = document.createElement('i');
       dot.style.background = c.kind === 'police' ? '#f2f2ee' : c.kind === 'bus' ? '#e8b923' : c.colour;
       const name = document.createElement('span');
-      name.textContent = cap(carWord(c.kind));
+      name.textContent = T.garageCar(c.kind);
       const take = document.createElement('button');
-      take.textContent = 'Take it';
+      take.textContent = T.garageTake;
       take.addEventListener('click', () => this.take(spot, c.id));
       const sellB = document.createElement('button');
       sellB.className = 'sell';
-      sellB.textContent = this.sure === c.id ? `Really sell? ${money(priceOf(c))}` : `Sell ${money(priceOf(c))}`;
+      sellB.textContent = this.sure === c.id ? T.garageSellSure(money(priceOf(c))) : T.garageSell(money(priceOf(c)));
       sellB.addEventListener('click', () => this.sellCar(c.id));
       row.append(dot, name, take, sellB);
       panel.append(row);
     }
-    if (cars.length) line('A kept car is never lost: left anywhere, or wrecked, it is here again.', true);
+    if (cars.length) line(T.garageNeverLost, true);
   }
 
   private keep(g: Garage): void {
@@ -222,7 +221,7 @@ export class GarageUi {
     if (!r) return;
     game.remove(car);
     this.keep(r.garage);
-    this.host.toast(`Parked. This ${carWord(make.kind)} is yours now: take it out at a garage in this town whenever you like.`, 'good', 6000);
+    this.host.toast(T.garageParked(make.kind), 'good', 6000);
   }
 
   /** A kept car taken out is left at the garage: it goes back in, and the player stands where it stood. */
@@ -254,7 +253,7 @@ export class GarageUi {
     if (id !== was) this.fetch(id);
     const stand = this.standFor(spot, SPECS[kept.kind].len);
     if (!stand) {
-      this.host.toast('No room on the street here for it just now. Try a few metres on.', 'info', 5000);
+      this.host.toast(T.garageNoRoom, 'info', 5000);
       return;
     }
     const c = game.place(kept.kind, stand.x, stand.y, stand.th, { colour: kept.colour, top: kept.top, acc: kept.acc, dent: kept.dent });
@@ -276,7 +275,7 @@ export class GarageUi {
     this.fetch(id);
     this.host.game.cash += r.price;
     this.keep(r.garage);
-    this.host.toast(`Sold: ${money(r.price)}. Its spot is free.`, 'good', 5000);
+    this.host.toast(T.garageSold(money(r.price)), 'good', 5000);
   }
 
   /**

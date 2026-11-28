@@ -56,7 +56,7 @@ try {
     });
   const word = (kind) => ({ sedan: 'car', sport: 'sports car', van: 'van' })[kind];
   const Word = (kind) => word(kind).replace(/^./, (c) => c.toUpperCase());
-  const price = (kind) => ({ sedan: 150, sport: 300, van: 180 })[kind];
+  const price = (kind) => ({ sedan: 100, sport: 200, van: 120 })[kind];
   const money = (n) => `$${n.toLocaleString('en-US')}`;
 
   console.log('A player in Nuremberg: garages on the map');

@@ -14,10 +14,29 @@ lives.
   one at the second press. All of it: `docs/brainstorm-story.md`, section 20, and the README ("Garages keep
   your cars"). Code: `src/game/garage.ts`, `src/garageUi.ts`. Tests: `tests/garage.test.ts`,
   `node tools/garage-test.mjs`. **Set by this session and said to the owner, to be changed if wanted:** a
-  kept car sells for $150 to $300, less than a delivery pays; a police car or a bus sells for no more than an
-  ordinary car, as the story's rule is that no crime is rewarded. **Next on this branch, once the owner has
+  kept car sells for $100 to $200, less than a job pays now that none pays more than $300; a police car or
+  a bus sells for no more than an ordinary car, as the story's rule is that no crime is rewarded. **This
+  branch holds everything:** the newer `main` (German, the tenants' door), the pay cap and the trophies are
+  merged into it, and the garage's words are in both language tables. **Next on this branch, once the owner has
   seen this:** the garage's own job, the car delivery (a new dent ends it), with two or three special cars,
   and "Not a dent" as the 30th trophy.
+- **Built, not live: no job pays more than $300** (branch `claude/job-pay-cap`, from `main`; no pull request).
+  The owner, 28 November: "Jobs should not pay more than 300 ever... with rents there's already too much
+  money involved". Open jobs had come to pay about a thousand dollars and more after fifty deliveries, a
+  clean run 70 % more. Now the cash a delivered job pays stops at $300 with everything on top (`JOB_MAX` in
+  `src/game/services.ts`), and an open job's own pay stops a little under it by kind (`PAY_TOP`: a package
+  $260, a supply run $230, a rush job $220, a clean run $280; estimates), so that time left and a supply
+  run without a dent still show. The car found for the pump pays no more than $300 either. **A run of
+  three still counts what each delivery is worth as its score,** above $300 too: the scoreboards in
+  players' browsers and the runs friends sent hold scores made that way, and would be out of reach
+  otherwise; only its cash stops at $300 ("+$420 for the run · $300 cash"). For the owner to say if the
+  score should stop as well. Tests: `tests/pay.test.ts`, `node tools/pay-test.mjs`.
+- **Going live on the owner's word** ("Put it live", 28 November): **German** (pull request #35): the whole
+  game in English and German, an English/Deutsch switch under the start screen, German for German browsers.
+  README, "Languages": every new text goes into both `src/lang/en.ts` and `src/lang/de.ts`. Story messages
+  already received stay in the language they came in. Still English: the add-on in 3da-full. The in-game
+  screens in German were not seen in a browser before going live (map tiles blocked in the cloud).
+
 - **Being planned with the owner, nothing built: what comes after the story** (the owner, 28 November: "now
   it's maybe time to introduce a cycle… sort of random… always a little more difficult", "one more mission…
   a nice car which is not allowed to have a dent", "special cars… buy a garage so one can save that car",
@@ -61,6 +80,8 @@ lives.
   player has, `earnedIn` for what happens in play), the game's new event `found`. Tests:
   `tests/trophies.test.ts`, `node tools/trophies-test.mjs`. On this branch 372 unit tests pass, and the
   browser tests for the trophies, the car search, the menu and the story, one at a time.
+## Before that (27 November 2026, night)
+
 - **Live:** `main` at `8bc9651`, deploy run 79 (27 November, 23:30 UTC), on the owner's word ("Yes put it
   live"). In it: **the story debugged** (pull request #34 from `claude/find-the-car`; told in full just
   below). Checked on the live site: the page and its bundle are byte-identical to the ones built from the

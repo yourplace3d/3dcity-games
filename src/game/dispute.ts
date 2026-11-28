@@ -23,6 +23,8 @@
 import type { JobKind } from './services';
 import { tenantNames } from './names';
 import type { Mood, Stage } from './events';
+import { T } from '../i18n';
+import type { Case } from '../lang/en';
 
 /** a home bought this many days ago or more may have a dispute (estimate) */
 export const DISPUTE_AFTER_DAYS = 3;
@@ -127,65 +129,57 @@ function hash(s: string): number {
  */
 export function tenantsOf(home: { key: string; lat: number; lon: number }, moved: number, avoid: string[] = []): Tenants {
   const seed = `${home.key}#${moved}`;
-  const t = TENANTS[hash(seed) % TENANTS.length];
+  const i = hash(seed) % TENANTS.length;
+  const t = TENANTS[i];
   // new tenants are other people than those who just moved out
-  const before = moved > 0 ? tenantsOf(home, moved - 1, avoid).names.split(' and ') : [];
+  const before = moved > 0 ? tenantsOf(home, moved - 1, avoid).names.split(T.and) : [];
   const names = tenantNames(home.lat, home.lon, seed, t.two ? 2 : 1, [...avoid, ...before]);
-  return { names: names.join(' and '), what: t.what, two: t.two };
+  return { names: names.join(T.and), what: T.tenantWhat[i] ?? t.what, two: t.two };
 }
 
 // ---------------------------------------------------------------- what they say
 
-/** "flat" or "house": where the tenants live. In a whole building, one of its flats. */
-const placeWord = (kind: 'flat' | 'house' | 'building') => (kind === 'house' ? 'house' : 'flat');
-
 /** The tenants' first note: what they need is in it. */
 export function note(mood: Mood, t: Tenants, kind: 'flat' | 'house' | 'building'): string {
-  if (mood === 'broken') return `The heating's been broken for three weeks. We're not paying for a cold ${placeWord(kind)}.`;
-  return t.two ? "We're sorry. One of us lost a job this month. Can we talk?" : "I'm sorry. I lost my job this month. Can we talk?";
+  // in a whole building, they live in one of its flats
+  return T.tenantNote(mood === 'broken', t.two, kind !== 'house');
 }
 
 /** The card at the home: their words, and what each choice asks of the player. */
 export function choiceText(mood: Mood, t: Tenants, kind: 'flat' | 'house' | 'building'): string {
   return [
     `“${note(mood, t, kind)}” ${t.names}, ${t.what}.`,
-    'Insist on all of it: a rush job, the part for the boiler from a fire station. In time, they pay everything; too late, and it goes to court.',
-    `Accept part of it: a supply run, what the ${placeWord(kind)} needs from a fuel station. With no new dent, they pay what waited, at a fifth less rent for a week; dented, the old boiler gives up for good.`,
+    T.choiceInsist,
+    T.choiceAccept(kind !== 'house'),
   ].join('\n');
 }
 
 /** What a package for a dispute is, said as it is picked up: by the stage, and whether the choice fits. */
-export function pickupLines(stage: Stage, mood: Mood, where: string, officer: string): Record<JobKind, string> {
+export function pickupLines(stage: Stage, mood: Mood, where: string | ((c: Case) => string), officer: string): Record<JobKind, string> {
+  const at = typeof where === 'string' ? () => where : where;
   const all = (line: string): Record<JobKind, string> => ({ plain: line, supply: line, rush: line, clean: line });
-  if (stage === 'insist')
-    return all(fits(mood, stage) ? `The part for the heating at ${where}: what they need most, so a little more time. Quick all the same` : `The part for the boiler at ${where}: quick, the clock is short`);
-  if (stage === 'accept') return all(fits(mood, stage) ? `What ${where} needs: they need the break most, so a lighter load. No new dent` : `A heater and tools for ${where}: a heavy load, no new dent`);
-  if (stage === 'court') return all(`${officer} and a colleague, with the court's order: drive them to ${where} by the book`);
-  return {
-    plain: `A new boiler for ${where}: take it to the building`,
-    supply: `A new boiler for ${where}: a heavy load, take it to the building`,
-    rush: `A new boiler for ${where}: quick, the clock is short`,
-    clean: `A new boiler for ${where}: drive clean or the job is gone`,
-  };
+  if (stage === 'insist') return all(T.pickInsist(fits(mood, stage), at));
+  if (stage === 'accept') return all(T.pickAccept(fits(mood, stage), at));
+  if (stage === 'court') return all(T.pickCourt(officer, at));
+  return T.pickBoiler(at);
 }
 
 /** The tenants' answer, by how it went; `kind`: the home, for the word they use for it. */
 export function answer(stage: Stage, ok: boolean, mood: Mood, kind: 'flat' | 'house' | 'building' = 'flat'): string {
   if (stage === 'insist') {
-    if (ok) return mood === 'broken' ? "Warm again at last. Here's everything we owe, and a little extra." : "Here's all of it. It wasn't easy, but it's done.";
-    return mood === 'broken' ? `Still no heating. We're not paying for a cold ${placeWord(kind)}.` : "We just can't pay all of it. We're sorry.";
+    return T.answerInsist(ok, mood === 'broken', kind !== 'house');
   }
-  if (stage === 'accept') return ok ? "Thank you for understanding. We'll manage from here." : "The old boiler gave up this morning, for good. Nobody's fault: it was ancient.";
-  if (stage === 'replace') return ok ? 'Warm and working. Thank you.' : '';
+  if (stage === 'accept') return T.answerAccept(ok);
+  if (stage === 'replace') return ok ? T.answerReplace : '';
   return '';
 }
 
 /** The new tenants' first note, as they move in. */
-export const welcome = (): string => 'Thanks for having us! We love the place already.';
+export const welcome = (): string => T.tenantsWelcome;
 
 /** The officer's notes: the court's order for the home (a flat, a house, a building), and when it is carried out. */
-export const officerOrder = (kind: 'flat' | 'house' | 'building' = 'building'): string => `I have the court's order for your ${kind}. Pick us up at the station, and drive by the book.`;
-export const officerDone = (): string => "Done, and peacefully. They've found a place nearby.";
+export const officerOrder = (kind: 'flat' | 'house' | 'building' = 'building'): string => T.officerOrder(kind);
+export const officerDone = (): string => T.officerDone;
 
 /**
  * A line for "The story so far": what was chosen, and how it went. `late`: the part ran out of time; else
@@ -193,8 +187,8 @@ export const officerDone = (): string => "Done, and peacefully. They've found a 
  */
 export function storyLine(stage: Stage, ok: boolean, street: string, late = true): string {
   const at = street ? `${street}: ` : '';
-  if (stage === 'insist') return ok ? `${at}you insisted, and the part came in time. They paid all they owed.` : `${at}you insisted, the part ${late ? 'came too late' : 'never arrived'}, and the court ordered them out.`;
-  if (stage === 'accept') return ok ? `${at}you met them halfway, and the load arrived in one piece.` : `${at}you met them halfway, but the old boiler gave up for good.`;
+  if (stage === 'insist') return T.soFarInsist(at, ok, late);
+  if (stage === 'accept') return T.soFarAccept(at, ok);
   return '';
 }
 

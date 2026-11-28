@@ -1228,3 +1228,42 @@ need new paint".
 - **Tested:** `tests/garage.test.ts` (a police car is not sold and can be given up; a bus is sold only once
   painted, and is kept and shown painted); `node tools/garage-test.mjs` ends with a police car and a bus at
   the garage in Nuremberg.
+
+## 21. The garage's own job: a car to deliver (built 28 November; branch `claude/garage`, not live)
+
+The owner's "yes" to building it next (28 November). As planned in section 19 and its rounds; what was
+decided while building, each with its reason:
+
+- **It is a job, not a mode of its own.** The game's jobs already carry the arrow, the way on the road, the
+  line on the screen, and every "is something on?" the homes, the story and the parties ask. So the car
+  delivery is a job whose load is the car itself (`Job.care`), as a party's food is a job without pay.
+  `Game.startCare` begins it; `careTick` plays it; `Game.onCare` tells the garage how it went.
+- **Begun in the garage's panel** ("Deliver a car  $200"), on foot or in any car. The special car stands at
+  the kerb or in the lane by the garage and the player sits in it at once; what they came in stays where it
+  stands. Its owner's ring is 450 to 800 m off at first, as the crow flies, where a way by road leads.
+- **A new dent ends it:** a knock that takes more than a point off the car, which is what the game counts as
+  a dent (over about 29 km/h; the convertible dents at less, being more delicate). Wrecked, sunk or left
+  behind by the town, it is lost the same way. Nothing is paid and nothing is taken.
+- **No clock** (the owner's plan: "no clock at first"). The line reads "Car delivery · 420 m · $200 · not a
+  dent". It counts as a delivery, so it brings a home point and counts for the story like one.
+- **Handed over stopped at the ring, sitting in it** (within 7.5 m, slower than 2.5 m/s, as the car found
+  for the pump is). The car is its owner's then and leaves the game; an ordinary car is stood at the kerb
+  where there is room, so the player is not left on foot across town.
+- **A customer's car is not for keeping.** One that was not handed over stays on the street until the town
+  lets go of it, and the garage will not take it: "any car you can get hold of" would otherwise make every
+  special car free.
+- **Levels:** one up for each delivery done well, to the eighth (`CARE_TOP`). The way grows by 80 to 100 m
+  a level, the pay by $15 from $200, to $300 and no further. Failing changes nothing.
+- **Three special cars** (`SPECIALS`), each a look built from boxes: an old cream convertible, open, with
+  two seats and chrome at both ends (slow, dents at 1.6 times an ordinary car's rate); a long black
+  limousine, 6.2 m, from the second level; a dark-green coupé with a pale roof and two stripes, from the
+  fourth, faster than a police car.
+- **For sale once delivered** ("For sale" in the panel): $2,000, $3,000 and $4,000, estimates. Bought, a car
+  takes one of the city's three spots and is the car it is when taken out. It sells again for two fifths.
+- **"Not a dent"** is the 30th trophy: a car handed over is one without a dent.
+- **Both languages.** German needs a word for each car with its gender (das Cabrio, die Limousine, das
+  Coupé), so the texts take the car, not a word.
+- **Not built, for later:** a clock at the higher levels; the trade-in driven back; the garage's person
+  writing as the people of the stations do; the job as a card of the cycle.
+- **Tested:** `tests/specials.test.ts` (levels, way, pay, the cars, buying and keeping one, both languages),
+  the trophy in `tests/trophies.test.ts`; `node tools/care-test.mjs` plays it on Nuremberg's tiles.

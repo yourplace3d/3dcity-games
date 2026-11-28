@@ -1,6 +1,6 @@
 // The trophies in a browser, on real map tiles (Nuremberg): a player who is further on comes back after
-// the update of 28 November 2026 (29 trophies where there were 18) and earns what fits at once, in one
-// line; the Trophies tab lists all 29, and says how far along a counting one is; a package brought in a
+// the update of 28 November 2026 (30 trophies where there were 18) and earns what fits at once, in one
+// line; the Trophies tab lists all 30, and says how far along a counting one is; a package brought in a
 // bus, a police station's job, and a city known within 50 seconds in Where am I? each earn theirs; a
 // player on the way sees a bar and a number on each trophy that counts something. The deliveries are said
 // by hand, as the test browser runs too slowly to drive. Needs Playwright (see tools/ui-test.mjs).
@@ -43,7 +43,7 @@ try {
   const { packHomes } = await server.ssrLoadModule('/src/game/homes.ts');
   const { homeKey } = await server.ssrLoadModule('/src/game/events.ts');
   const { ALL } = await server.ssrLoadModule('/src/trophies.ts');
-  assert.equal(ALL.length, 29);
+  assert.equal(ALL.length, 30);
   const DAY = Date.UTC(2026, 10, 23) / 86400000; // 23 November 2026, as a trophy's day is kept
   const home = (id, lat, lon, place, kind = 'flat') => ({ id, lat, lon, kind, paid: 900, rent: 140, street: '', place, at: (DAY - 12) * 86400000, ...(kind === 'building' ? { colour: '#c96f4a' } : {}) });
   const homes = [
@@ -89,25 +89,26 @@ try {
   let have = await got();
   for (const id of ['homes10', 'renovated', 'towns5', 'party', 'deliveries500', 'far', 'equator']) assert.ok(have[id] > 0, id);
   // what is done in play is not given for what a player has
-  for (const id of ['book', 'found', 'bus', 'sight', 'story', 'places20']) assert.equal(have[id], undefined, id);
+  for (const id of ['care', 'book', 'found', 'bus', 'sight', 'story', 'places20']) assert.equal(have[id], undefined, id);
   // the days of the ones there were stay as they were
   assert.equal(have.car, DAY);
   assert.equal(Object.keys(have).length, before.length + 7);
 
-  console.log('The Trophies tab lists all 29, the new ones in their groups');
+  console.log('The Trophies tab lists all 30, the new ones in their groups');
   await page.keyboard.press('Escape');
   await page.locator('#tab-trophies').click();
-  assert.match(await page.locator('#trophies-line').textContent(), /^23 of 29 earned\./);
+  assert.match(await page.locator('#trophies-line').textContent(), /^23 of 30 earned\./);
   const groups = await page.evaluate(() => [...document.querySelectorAll('#trophies-list .trophy-group')].map((g) => [g.querySelector('.town-head b').textContent, g.querySelector('.town-head small').textContent, g.querySelectorAll('li').length, g.querySelectorAll('li.locked').length]));
   assert.deepEqual(groups, [
     ['Getting started', '5 of 5 earned', 5, 0],
     ['Real estate', '9 of 10 earned', 10, 1],
-    ['Driving', '5 of 8 earned', 8, 3],
+    ['Driving', '5 of 9 earned', 9, 4],
     ['Places', '4 of 6 earned', 6, 2],
   ]);
   const locked = await page.evaluate(() => [...document.querySelectorAll('#trophies-list li.locked')].map((li) => `${li.querySelector('b').textContent}: ${li.querySelector('small').textContent}`));
   assert.deepEqual(locked, [
     'The whole story: Play the story to its last chapter: settle a dispute with your tenants',
+    'Not a dent: Deliver a car for a garage: not a dent on the way',
     'By the book: Finish a police station’s job: no law broken on the way',
     'Found it: Find the car the pump asks you to look for, and drive it back',
     'By bus: Deliver a package in a bus',
@@ -146,7 +147,7 @@ try {
       },
       [job, car],
     );
-  // a supply run earns nothing of its own, with or without a dent: "Not a dent" waits for the car delivery
+  // a supply run earns nothing of its own, with or without a dent: "Not a dent" is the garage's car delivery (tools/care-test.mjs)
   await deliver('supply', 'van');
   await deliver('plain', 'sedan');
   have = await got();
@@ -211,7 +212,7 @@ try {
   await page.locator('#tab-trophies').click();
   have = await got();
   assert.deepEqual(Object.keys(have).filter((id) => !sofar.includes(id)), [], 'nothing more is earned at once');
-  assert.match(await page.locator('#trophies-line').textContent(), /^8 of 29 earned\./);
+  assert.match(await page.locator('#trophies-line').textContent(), /^8 of 30 earned\./);
   assert.deepEqual(await bars(), ['Ten homes: 6 of 10, 60%', 'Five towns: 3 of 5, 60%', '$1,000 a day: $840 of $1,000, 84%', '500 deliveries: 312 of 500, 62%', 'Five places: 3 of 5, 60%', 'Twenty places: 3 of 20, 15%']);
   // the bar sits within its trophy, under the words
   const out = await page.evaluate(() => [...document.querySelectorAll('#trophies-list li')].filter((li) => li.querySelector('.sofar') && (li.querySelector('.sofar').getBoundingClientRect().width > li.getBoundingClientRect().width || li.querySelector('.sofar').getBoundingClientRect().top < li.querySelector('small').getBoundingClientRect().bottom - 1)).length);

@@ -245,8 +245,10 @@ English/Deutsch switch (kept as `3da-lang`), else the browser's, else English. E
 in `src/lang/en.ts`, with the German of each in `src/lang/de.ts`: a table of the same shape, so a text missing
 in German fails the type check. A text with numbers or names in it is a small function, so each language
 builds its own sentence. The page's own texts carry `data-t`, `data-th` or `data-ta` in `index.html`
-(`src/i18n.ts`). **A new text goes into both tables.** Not yet moved over: the story
-(chapters, messages, the tenants' dispute), which still shows English, and the add-on in 3da-full.
+(`src/i18n.ts`). **A new text goes into both tables.** German needs the case of a home or a car
+in a sentence, so lines about them take a `Case` and ask `T.homeRef` or `T.car` for the words. The story's
+messages are kept as they were said: those received before a switch stay in that language. Not yet moved
+over: the add-on in 3da-full.
 
 ## Run it
 

@@ -348,7 +348,7 @@ export class HomesUi {
     const fit = fits(e.mood ?? 'broken', stage);
     this.host.game.special = {
       at,
-      say: pickupLines(stage, e.mood ?? 'broken', this.nameOf(h), this.host.people?.officer() || 'Two officers'),
+      say: pickupLines(stage, e.mood ?? 'broken', (c) => this.nameOf(h, c), this.host.people?.officer() || T.twoOfficers),
       kinds: kindsFor(stage) ?? undefined,
       ...(fit && stage === 'insist' ? { clock: CLOCK_FITS } : {}),
       ...(fit && stage === 'accept' ? { light: LIGHT_LOAD } : {}),
@@ -1195,14 +1195,14 @@ export class HomesUi {
     // the card says it: the note is kept with the messages
     this.host.people?.note('tenants', this.tenantsFrom(h, t), words, false);
     this.card(
-      'A note from your tenants',
-      `“${words}” ${t.names}, ${t.what}, in ${this.nameOf(h)}. Until it is settled, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. Stop beside it to talk to them.`,
-      'Show the way',
-      'Later',
+      T.noteTitle,
+      T.noteText(words, t.names, t.what, this.nameOf(h, 'dat'), money(this.rentOf(h))),
+      T.showWay,
+      T.later,
       (yes) => {
         if (yes) this.showWay(h);
       },
-      this.host.kicker?.('dispute') ?? 'Your tenants',
+      this.host.kicker?.('dispute') ?? T.yourTenants,
     );
   }
 
@@ -1213,13 +1213,13 @@ export class HomesUi {
     const t = this.tenantsAt(h);
     const mood = e.mood ?? 'broken';
     this.card(
-      'Your tenants want to talk',
+      T.talkTitle,
       choiceText(mood, t, h.kind),
-      'Insist on all of it',
-      'Accept part of it',
+      T.insistAll,
+      T.acceptPart,
       (insist) => this.choose(h, insist ? 'insist' : 'accept'),
-      this.host.kicker?.('dispute') ?? 'Your tenants',
-      'Not now',
+      this.host.kicker?.('dispute') ?? T.yourTenants,
+      T.notNow,
     );
   }
 
@@ -1230,11 +1230,9 @@ export class HomesUi {
     this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage } : o)) });
     this.syncSpecial();
     const fit = fits(e.mood ?? 'broken', stage);
-    const when = this.host.game.run.over ? 'their rings flash green' : 'once your run is over, their rings flash green';
+    const when = T.ringsGreen(this.host.game.run.over);
     this.say(
-      stage === 'insist'
-        ? `You insist on all of it. The part comes from a fire station, on a rush job: ${when}.${fit ? ' It’s what they need most: a little more time on the clock.' : ''}`
-        : `You accept part of it. What the ${h.kind === 'house' ? 'house' : 'flat'} needs comes from a fuel station, on a supply run: ${when}.${fit ? ' It’s what they need most: a lighter load.' : ''}`,
+      stage === 'insist' ? T.choseInsist(when, fit) : T.choseAccept(h.kind !== 'house', when, fit),
       'info',
       9000,
     );
@@ -1249,7 +1247,7 @@ export class HomesUi {
     const next = after(stage, ok);
     const t = this.tenantsAt(h);
     const from = this.tenantsFrom(h, t);
-    const kicker = this.host.kicker?.('dispute') ?? 'Your tenants';
+    const kicker = this.host.kicker?.('dispute') ?? T.yourTenants;
     const said = answer(stage, ok, e.mood ?? 'broken', h.kind);
     if (said) this.host.people?.note('tenants', from, said, true);
     const line = storyLine(stage, ok, h.street, late);
@@ -1268,19 +1266,19 @@ export class HomesUi {
       this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage: next, waiting: o.waiting - fromRent } : o)) });
       this.syncSpecial();
       this.host.people?.note('shield', '', officerDone(), true);
-      const how = fromRent >= bill ? ', paid from the rent that waited' : fromRent > 0 ? ', paid from the rent that waited and your money' : '';
-      this.say(`The court’s order is carried out: ${t.names} have moved out of ${this.nameOf(h)}. The bill of the court and the officers: ${money(bill)}${how}${paid < bill ? `; ${money(bill - paid)} of it you couldn’t pay` : ''}. New tenants move in with your next delivery.`, 'info', 11000);
+      const how = fromRent >= bill ? 'rent' : fromRent > 0 ? 'both' : 'money';
+      this.say(T.courtDone(t.names, this.nameOf(h, 'dat'), money(bill), how, paid < bill ? money(bill - paid) : null), 'info', 11000);
       return;
     }
     this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage: next } : o)) });
     this.syncSpecial();
     if (next === 'court' && stage === 'insist') {
-      const officer = this.host.people?.officer() || 'Two officers';
+      const officer = this.host.people?.officer() || null;
       this.host.people?.note('shield', '', officerOrder(h.kind), true);
       this.card(
-        'The court’s order',
-        `${t.names} still won’t pay, and the court has ordered them to move out of ${this.nameOf(h)}. ${officer === 'Two officers' ? 'Two officers carry' : `${officer} and a colleague carry`} out the order: pick them up at a police station and drive them there without breaking the law. Nobody is arrested: the tenants move out, and new ones move in. The bill of the court and the officers is high: ${money(courtBill(rent))}, five days of its rent.`,
-        'Got it',
+        T.courtTitle,
+        T.courtText(t.names, this.nameOf(h, 'dat'), officer, money(courtBill(rent))),
+        T.gotIt,
         '',
         () => undefined,
         kicker,
@@ -1289,9 +1287,9 @@ export class HomesUi {
     }
     if (next === 'replace' && stage === 'accept') {
       this.card(
-        'The old boiler gave up',
-        `In ${this.nameOf(h)} the old boiler has broken for good, and a new one costs ${money(replaceCost(rent))}, three days of its rent. One more package from any fuel, fire or police station brings it: ${this.host.game.run.over ? 'their rings flash green' : 'once your run is over, their rings flash green'}. Then it is settled, at the rent you agreed.`,
-        'Got it',
+        T.boilerTitle,
+        T.boilerText(this.nameOf(h, 'dat'), money(replaceCost(rent)), T.ringsGreen(this.host.game.run.over)),
+        T.gotIt,
         '',
         () => undefined,
         kicker,
@@ -1299,8 +1297,8 @@ export class HomesUi {
       return;
     }
     // the court's order or the new boiler, not there: they wait
-    if (stage === 'court') this.say('The officers wait at the police station: pick them up again, and drive by the book.', 'info', 7000);
-    else if (stage === 'replace') this.say(`The new boiler for ${this.nameOf(h)} waits: a package from any station brings it.`, 'info', 7000);
+    if (stage === 'court') this.say(T.officersWait, 'info', 7000);
+    else if (stage === 'replace') this.say(T.boilerWaits(this.nameOf(h, 'acc')), 'info', 7000);
   }
 
   /** A package for a home with something to solve did not get there. A dispute's choice turns on it; anything else waits. */
@@ -1338,12 +1336,12 @@ export class HomesUi {
     const net = e.waiting + tip - cost;
     const extra = net > 0 ? this.credit(net) : '';
     const paid = net < 0 ? this.charge(-net) : 0;
-    const waited = e.waiting ? `the ${money(e.waiting)} rent that waited is yours` : '';
+    const waited = e.waiting ? money(e.waiting) : null;
     const where = cap(this.nameOf(h));
     let text: string;
-    if (stage === 'insist') text = `${where}: settled. ${waited ? `${cap(waited)}, and the` : 'The'} tenants add ${money(tip)}.`;
-    else if (stage === 'accept') text = `${where}: settled.${waited ? ` ${cap(waited)}.` : ''} For a week their rent is a fifth lower: ${money(this.rentOf(h))} a day.`;
-    else text = `${where}: a new boiler, and it is settled. It cost ${money(cost)}${e.waiting ? `, paid from the ${money(e.waiting)} rent that waited` : ''}${paid ? `; ${money(paid)} came from your money` : ''}. For a week the rent is a fifth lower, as agreed.`;
+    if (stage === 'insist') text = T.settledInsist(where, waited, money(tip));
+    else if (stage === 'accept') text = T.settledAccept(where, waited, money(this.rentOf(h)));
+    else text = T.settledReplace(where, money(cost), waited, paid ? money(paid) : null);
     this.say(text + extra, 'good', 11000);
   }
 
@@ -1366,7 +1364,7 @@ export class HomesUi {
     const t = this.tenantsAt(h);
     this.host.people?.note('tenants', this.tenantsFrom(h, t), welcome(), true);
     const extra = e.waiting ? this.credit(e.waiting) : '';
-    this.say(`New tenants in ${this.nameOf(h)}: ${t.names}, ${t.what}.${e.waiting ? ` The ${money(e.waiting)} rent that waited there is yours.` : ''}${extra}`, 'good', 10000);
+    this.say(T.newTenants(this.nameOf(h, 'dat'), t.names, t.what, e.waiting ? money(e.waiting) : null, extra), 'good', 10000);
   }
 
   /** The tenants it went well with at a home come to the party there, once: the line that says so, or ''. */
@@ -1376,7 +1374,7 @@ export class HomesUi {
     this.setEvents({ ...this.events, glad: this.events.glad.filter((g) => g !== key) });
     if (!h) return '';
     const t = this.tenantsAt(h);
-    return `${t.names}, your tenant${t.two ? 's' : ''}, came too, and brought dessert.`;
+    return T.guests(t.names, t.two);
   }
 
   // ------------------------------------------------------------ home points

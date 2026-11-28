@@ -26,6 +26,7 @@ import { wireRadio } from './radio';
 import { keepClear } from './clearOf';
 import { RING, serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
+import { levelOf, LEVELS, type SkillEvent } from './game/skill';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
 import { findPlace, nearCity, placeAt, placeFromHash } from './places';
@@ -356,6 +357,9 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         );
       };
       game.onSound = (what, strength) => sound.play(what, strength);
+      game.onSkill = skillSaid;
+      game.onPop = (text, at) => pop(text, at, 'cash');
+      game.turnView = turnView();
       // let the last delivery's message be read before the result covers it
       // a run is counted as started when its first package is on board
       {
@@ -380,6 +384,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       controls.onReset = () => game!.reset();
       controls.onRoute = toggleRoute;
       controls.onMap = () => showMap(true);
+      controls.onCamera = () => setTurnView(!game!.turnView, true);
       game.showRoute = routeLine();
       (window as unknown as { game: Game }).game = game;
       party = new PartyUi({ game, homes: () => homes, toast, card: missionCard, cover, place: () => placeName, name: lastName, keepName, closed: partyClosed, save: () => save(), started: runOver });
@@ -1174,6 +1179,7 @@ function paint(h: Hud): void {
   // somewhere"): a job; else the car looked for, step by step; else the open chapter while its way is shown
   const far = (m: number | null) => (m === null ? '' : ` · ${fmtM(m)}`);
   const storyTask = !h.job && !h.find && h.target?.kind === 'guide' ? story?.taskLine(far(h.target.metres), h.target.metres) ?? null : null;
+  paintSkill(h);
   $('job').hidden = !h.job && !h.find && !storyTask;
   if (!h.job && h.find) {
     $('job').classList.remove('late');
@@ -1244,6 +1250,108 @@ function paint(h: Hud): void {
     }
   }
 }
+
+// ------------------------------------------------------------------ driving skill (game/skill.ts)
+
+/** A word floating up from a place on the screen (`at`: -1 … 1 each way, as the camera gives it). */
+function pop(text: string, at: [number, number], kind = ''): void {
+  if (!playing) return;
+  const el = document.createElement('div');
+  el.className = `pop ${kind}`;
+  el.textContent = text;
+  el.style.transform = `translate(${((at[0] + 1) / 2) * innerWidth}px, ${((1 - at[1]) / 2) * innerHeight - 30}px)`;
+  const box = $('pops');
+  box.append(el);
+  while (box.children.length > 6) box.firstElementChild!.remove();
+  setTimeout(() => el.remove(), 1300);
+}
+
+/** What the driving skill says: a move pops up from the car, a chain banked or lost, a crash's cost, a new level. */
+function skillSaid(e: SkillEvent, at: [number, number] | null): void {
+  const near: [number, number] = at ?? [0, 0];
+  if (e.kind === 'move') {
+    pop(`+${e.points} ${T.skillMove[e.move]}`, near, e.combo > 1 ? 'big' : '');
+    sound.play('skill', Math.min(1, e.combo / 5));
+  } else if (e.kind === 'banked') {
+    sound.play(e.levelUp !== null ? 'level' : 'bank');
+    const s = $('skill');
+    s.classList.remove('bump');
+    void s.offsetWidth;
+    s.classList.add('bump');
+    if (e.combo > 1) pop(T.skillBanked(e.points), [near[0], near[1] + 0.12], 'big');
+    if (e.levelUp !== null) toast(T.skillLevelUp(T.skillLevels[e.levelUp]), 'good', 4200);
+    changed();
+  } else if (e.kind === 'lost') {
+    pop(T.skillChainLost, near, 'bad');
+    sound.play('chainLost');
+  } else if (e.points > 0) {
+    pop(`−${e.points}`, [near[0], near[1] + 0.1], 'bad');
+    changed();
+  }
+}
+
+/** The total under the cash (once there is any), and the combo open. */
+function paintSkill(h: Hud): void {
+  const s = h.skill;
+  $('skill').hidden = s.total <= 0 && s.combo === 0;
+  put('skill', s.total.toLocaleString(lang));
+  const combo = $('combo');
+  combo.hidden = s.combo < 2;
+  combo.classList.toggle('drifting', s.drifting);
+  if (s.combo > 1) put('combo', `${T.skillCombo(Math.min(5, s.combo))}<small>${s.pending}</small>`);
+}
+
+/** The driving skill in the menu: the level, how far to the next, and the moves done. */
+function drawSkill(box: HTMLElement): void {
+  const s = game?.skill.save ?? null;
+  const total = s?.total ?? 0;
+  const { level, from, next } = levelOf(total);
+  box.replaceChildren();
+  const head = document.createElement('div');
+  head.className = 'town-head';
+  const name = document.createElement('b');
+  name.textContent = T.skillLabel;
+  const sub = document.createElement('small');
+  sub.textContent = T.skillHead(T.skillLevels[level], total);
+  head.append(name, sub);
+  const meter = document.createElement('div');
+  meter.className = 'meter';
+  const fill = document.createElement('i');
+  fill.style.width = `${next === null ? 100 : Math.round(((total - from) / (next - from)) * 100)}%`;
+  meter.append(fill);
+  const to = document.createElement('p');
+  to.className = 'small';
+  to.textContent = next === null ? T.skillTop : T.skillNext(next - total, T.skillLevels[LEVELS.indexOf(next)]);
+  const counts = document.createElement('p');
+  counts.className = 'small';
+  counts.textContent = T.skillCounts(s?.near ?? 0, s?.drift ?? 0, s?.bestChain ?? 0, s?.bestCombo ?? 0);
+  const how = document.createElement('p');
+  how.className = 'small';
+  how.textContent = T.skillHow;
+  box.append(head, meter, to, counts, how);
+}
+
+const TURN_VIEW = '3da-turnview';
+function turnView(): boolean {
+  try {
+    return localStorage.getItem(TURN_VIEW) === '1';
+  } catch {
+    return false;
+  }
+}
+/** The camera turns with the car, or keeps north up; remembered. */
+function setTurnView(on: boolean, say = false): void {
+  try {
+    localStorage.setItem(TURN_VIEW, on ? '1' : '0');
+  } catch {
+    /* for this visit */
+  }
+  if (game) game.turnView = on;
+  $('btn-camera').textContent = on ? T.cameraTurns : T.cameraNorth;
+  if (say) toast(on ? T.cameraTurnsToast : T.cameraNorthToast, 'info', 2400);
+}
+$('btn-camera').addEventListener('click', () => setTurnView(!turnView()));
+$('btn-camera').textContent = turnView() ? T.cameraTurns : T.cameraNorth;
 
 /**
  * The two touch buttons follow what you're doing: the brake pedal only in a car, and the other
@@ -1406,7 +1514,10 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
     $(`tab-${id}`).setAttribute('aria-selected', String(t === tab));
     $(`pane-${id}`).hidden = t !== tab;
   }
-  if (tab === 'trophies') drawTrophies($('trophies-list'), $('trophies-line'), trophies);
+  if (tab === 'trophies') {
+    drawSkill($('skill-card'));
+    drawTrophies($('trophies-list'), $('trophies-line'), trophies);
+  }
   if (tab === 'story') story?.draw($('pane-story'), playing);
   if (tab === 'estate') drawEstate();
   if (tab !== 'game') return;

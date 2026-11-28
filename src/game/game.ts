@@ -39,6 +39,7 @@ import type { Ears, Sfx } from '../sound';
 import { DROP, JOB_OF, RING, ringAlong, type JobKind } from './services';
 import { partyClock } from './party';
 import { money, T } from '../i18n';
+import { loadSkill, SkillTracker, slipOf, storeSkill, type SkillEvent } from './skill';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -59,6 +60,15 @@ const FOLLOW_COOL_S = 6;
 /** What a vehicle keeps to: its rails, or the streets. */
 const railsOf = (kind: CarKind): 'tram' | 'train' | null => (kind === 'tram' || kind === 'train' ? kind : null);
 const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+/** how many tyre marks lie on the road at once, and how long each stays (s) */
+const SKIDS = 160;
+const SKID_S = 7;
+/** on a touch screen, the brake held in a turn this sharp (radians off the nose) at this speed (m/s) is a slide */
+const TOUCH_SLIDE_ERR = 0.5;
+const TOUCH_SLIDE_SPEED = 9;
+/** the slow moment after a run's last delivery: how long (real seconds) and how slow */
+const SLOW_S = 0.9;
+const SLOW = 0.3;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const pickOne = <T>(list: T[]): T => list[Math.floor(Math.random() * list.length)];
 
@@ -167,6 +177,8 @@ export interface Hud {
    * `metres` to where the arrow points, null inside the circle.
    */
   find: { stage: 'search' | 'look' | 'seen' | 'back'; metres: number | null } | null;
+  /** driving skill: the total kept, and the chain open (moves in it, points it holds), and a slide under way */
+  skill: { total: number; combo: number; pending: number; drifting: boolean };
 }
 
 /** What happened in play, for whoever listens (the trophies). */
@@ -400,6 +412,31 @@ export class Game {
   onSpecialLost: (why: 'late' | 'caught' | 'offence' | 'dropped') => void = () => undefined;
   /** Something that makes a noise has happened; `strength` from 0 to 1 where it varies. */
   onSound: (what: Sfx, strength?: number) => void = () => undefined;
+  /** driving skill (`skill.ts`): fed each frame while you drive; what it says goes to `onSkill` */
+  readonly skill = new SkillTracker(loadSkill(), storeSkill);
+  /** a driving move, a chain banked or lost, a crash's cost; `at`: where the car is on the screen (-1 … 1) */
+  onSkill: (e: SkillEvent, at: [number, number] | null) => void = () => undefined;
+  /** a word to float up from a place in the picture (the pay at the ring); `at` on the screen (-1 … 1) */
+  onPop: (text: string, at: [number, number]) => void = () => undefined;
+  /**
+   * The camera turns with the car, so the car's nose points up the screen (the player's switch, off by
+   * default). Only for keys: with the touch stick you point where to go on the screen, so the view stays
+   * north up while the stick is used.
+   */
+  turnView = false;
+  /** which way is up the screen (radians, east 0, north π/2) */
+  private yaw = Math.PI / 2;
+  /** the stick was used in the last frame */
+  private stickNow = false;
+  /** real seconds left of the slow moment after a run's last delivery */
+  private slowT = 0;
+  /** the car you drive was wrecked or went into water: one crash for the skill, however long it lasts */
+  private skillDown = false;
+  /** marks of tyres sliding on the road, fading */
+  private readonly skids: Array<{ mesh: Mesh<PlaneGeometry, MeshBasicMaterial>; life: number }> = [];
+  private skidNext = 0;
+  /** where each rear wheel left its last mark, while sliding */
+  private skidFrom: Array<[number, number]> | null = null;
   /** The last delivery of a run is in: what it scored and how long it took (s). */
   onRunEnd: (score: number, seconds: number) => void = () => undefined;
   /** The party run being played, if any. */
@@ -537,11 +574,21 @@ export class Game {
     this.routeLine.visible = false;
     this.camera.up.set(0, 0, -1);
     const geo = new SphereGeometry(0.6, 8, 6);
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 48; i++) {
       const mesh = new Mesh(geo, new MeshBasicMaterial({ color: '#3a3a3a', transparent: true, opacity: 0, depthWrite: false }));
       mesh.visible = false;
       this.scene.add(mesh);
       this.smoke.push({ mesh, life: 0 });
+    }
+    const mark = new PlaneGeometry(1, 0.32);
+    for (let i = 0; i < SKIDS; i++) {
+      const mesh = new Mesh(mark, new MeshBasicMaterial({ color: '#1d1d1f', transparent: true, opacity: 0, depthWrite: false }));
+      mesh.rotation.order = 'YXZ';
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.renderOrder = 2;
+      mesh.visible = false;
+      this.scene.add(mesh);
+      this.skids.push({ mesh, life: 0 });
     }
     new ResizeObserver(() => this.resize()).observe(canvas.parentElement ?? canvas);
     this.resize();
@@ -641,6 +688,7 @@ export class Game {
     this.loadVersion++;
     this.loading = false;
     this.clear();
+    this.clearSkids();
     this.world = world;
     this.scene.add(world.model.group);
     const line = world.roads.lines[place.line];
@@ -702,6 +750,7 @@ export class Game {
   private swap(next: World): void {
     // a home that waits for a package stays within reach across the edge of its square
     this.keepDoor();
+    this.clearSkids();
     const old = this.world;
     const move = (o: { x: number; y: number }) => {
       const ll = old.proj.toLngLat(o.x, o.y);
@@ -1691,6 +1740,14 @@ export class Game {
       const err = wrap(Math.atan2(input.moveY, input.moveX) - c.th);
       const m = Math.hypot(input.moveX, input.moveY);
       const vf = c.forward;
+      // a touch screen has no handbrake: the brake held in a hard turn at speed throws the car into a
+      // slide instead of stopping it (the owner plays on an iPad, and drifts earn driving skill)
+      if (input.brake && vf > TOUCH_SLIDE_SPEED && Math.abs(err) > TOUCH_SLIDE_ERR) {
+        k.handbrake = true;
+        k.steer = clamp(err * 2.4, -1, 1);
+        k.throttle = m;
+        return;
+      }
       if (Math.abs(err) > 2.2 && vf < 4) {
         // pointing behind you: back up
         k.throttle = -m;
@@ -1937,6 +1994,7 @@ export class Game {
           this.onToast(`${T.deliveryOf(r.done, r.of)}  +${money(j.pay + bonus)}`, 'good');
         } else this.onToast(`${T.delivered}  +${money(j.pay + bonus)}`, 'good');
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
+        this.arrived(x, y, `+${money(j.pay + bonus)}`, !r.over && r.done >= r.of);
         this.endJob(true);
         if (j.special) this.onSpecialDone(dented);
         this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special, dented: harmed });
@@ -2692,8 +2750,13 @@ export class Game {
 
   // ------------------------------------------------------------------ the frame
 
-  update(dtRaw: number, input: Input): void {
-    const dt = Math.max(0, Math.min(dtRaw, 0.05));
+  update(dtRaw: number, input0: Input): void {
+    const real = Math.max(0, Math.min(dtRaw, 0.05));
+    // the moment after a run's last delivery goes by slowly
+    const dt = this.slowT > 0 ? real * SLOW : real;
+    this.slowT = Math.max(0, this.slowT - real);
+    this.stickNow = input0.stick;
+    const input = this.turned(input0);
     if (this.held) {
       if (this.render) this.renderer.render(this.scene, this.camera);
       return;
@@ -2807,6 +2870,9 @@ export class Game {
       this.onSound('crash', 1);
     }
 
+    if (live) this.drivingSkill(dt);
+    this.skidMarks(dt);
+
     this.spawnT -= dt;
     if (this.spawnT <= 0) {
       this.spawnT = 0.25;
@@ -2874,7 +2940,7 @@ export class Game {
       driving: !!c && c.hp > 0,
       speed: c ? Math.abs(c.forward) : 0,
       throttle: c ? Math.min(1, Math.abs(c.controls.throttle)) : 0,
-      skid: !!c && c.controls.handbrake && c.speed > 7,
+      skid: !!c && c.hp > 0 && ((c.controls.handbrake && c.speed > 7) || (c.speed > 6 && slipOf(c) > 0.3)),
       siren: Math.max(0, siren),
       train: Math.max(0, train),
     };
@@ -2932,6 +2998,10 @@ export class Game {
       this.ghost.position.set(px, w.groundY(px, py) + 0.3, -py);
       this.ghost.rotation.y = c ? c.th : this.me.th;
     }
+    // which way is up the screen: north, or the car's nose when the view turns with it (keys only)
+    const up = this.turnView && !this.stickNow && !this.rising ? (this.car ? this.car.th : this.yaw) : Math.PI / 2;
+    this.yaw = wrap(this.yaw + wrap(up - this.yaw) * (1 - Math.exp(-2.2 * dt)));
+    this.camera.up.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     const gy = w.groundY(this.cam.x, this.cam.y);
     this.camera.position.set(this.cam.x, gy + this.cam.h, -this.cam.y);
     this.camera.lookAt(this.cam.x, gy, -this.cam.y);
@@ -3084,6 +3154,94 @@ export class Game {
       }),
       run: this.run.over ? null : { n: this.run.done + 1, of: this.run.of, score: this.run.score },
       find: this.findHud(),
+      skill: { total: this.skill.save.total, combo: this.skill.combo, pending: this.skill.pending, drifting: this.skill.driftS > 0.3 },
     };
+  }
+
+  // ------------------------------------------------------------------ driving feel
+
+  /** A direction on the screen (keys on foot, the stick) as a direction on the map, the view being turned by `yaw`. */
+  private turned(input: Input): Input {
+    if (Math.abs(this.yaw - Math.PI / 2) < 1e-4) return input;
+    const c = Math.cos(this.yaw);
+    const s = Math.sin(this.yaw);
+    return { ...input, moveX: input.moveY * c + input.moveX * s, moveY: input.moveY * s - input.moveX * c };
+  }
+
+  /** Where a place on the map is on the screen (-1 … 1 each way). */
+  private onScreen(x: number, y: number, up = 0): [number, number] {
+    const v = new Vector3(x, this.world.groundY(clamp(x, -this.world.half, this.world.half), clamp(y, -this.world.half, this.world.half)) + up, -y).project(this.camera);
+    return [v.x, v.y];
+  }
+
+  /** Feeds the driving skill: the car you drive and the moving traffic around it. */
+  private drivingSkill(dt: number): void {
+    const c = this.car;
+    const down = !!c && (c.hp <= 0 || !!this.sinking);
+    const crash = down && !this.skillDown;
+    this.skillDown = down;
+    const me = c && !this.auto && (!down || crash) ? c : null;
+    const others: Array<[object, Car]> = [];
+    if (me) for (const o of this.cars) if (o !== me && !o.gone && o.hp > 0 && (o.driver === 'ai' || o.driver === 'cop') && o.speed > 1.5 && Math.abs(o.x - me.x) < 20 && Math.abs(o.y - me.y) < 20) others.push([o, o]);
+    this.skill.step(dt, me, others, (e) => this.onSkill(e, c ? this.onScreen(c.x, c.y, 2) : null), crash);
+  }
+
+  /** A delivery at the ring at (x, y): a burst of colour, the pay floating up, and after a run's last a slow moment. */
+  private arrived(x: number, y: number, pay: string, last: boolean): void {
+    const colours = ['#ffd400', '#fff3a6', '#5fd08a', '#ffffff'];
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const r = 2 + Math.random() * 3;
+      if (!this.cloud(x + Math.cos(a) * r, y + Math.sin(a) * r, 0.6 + Math.random() * 2.5, colours[i % colours.length])) break;
+    }
+    this.onPop(pay, this.onScreen(x, y, 3));
+    if (last) this.slowT = SLOW_S;
+  }
+
+  /** The tyre marks go: a new place, or the next square (whose metres are counted from elsewhere). */
+  private clearSkids(): void {
+    for (const s of this.skids) {
+      s.life = 0;
+      s.mesh.visible = false;
+    }
+    this.skidFrom = null;
+  }
+
+  /** Tyre marks where the car you drive slides, left on the road for a while: one strip from each rear wheel's last mark. */
+  private skidMarks(dt: number): void {
+    const c = this.car;
+    const sliding = !!c && c.hp > 0 && !this.sinking && c.speed > 6 && (slipOf(c) > 0.3 || (c.controls.handbrake && c.speed > 7));
+    if (!c || !sliding) this.skidFrom = null;
+    else {
+      const fx = Math.cos(c.th);
+      const fy = Math.sin(c.th);
+      const back = c.spec.len / 2 - 0.85;
+      const side = c.spec.wid / 2 - 0.15;
+      const now: Array<[number, number]> = [-1, 1].map((z) => [c.x - fx * back + fy * side * z, c.y - fy * back - fx * side * z]);
+      const from = this.skidFrom ?? now;
+      if (!this.skidFrom || Math.hypot(now[0][0] - from[0][0], now[0][1] - from[0][1]) > 0.5) {
+        for (let i = 0; i < 2; i++) {
+          const [x0, y0] = from[i];
+          const [x1, y1] = now[i];
+          const len = Math.min(4, Math.hypot(x1 - x0, y1 - y0));
+          const x = (x0 + x1) / 2;
+          const y = (y0 + y1) / 2;
+          const s = this.skids[this.skidNext];
+          this.skidNext = (this.skidNext + 1) % this.skids.length;
+          s.life = 1;
+          s.mesh.visible = true;
+          s.mesh.scale.set(Math.max(0.4, len + 0.15), 1, 1);
+          s.mesh.position.set(x, this.world.groundY(x, y) + 0.1, -y);
+          s.mesh.rotation.y = len > 0.05 ? Math.atan2(y1 - y0, x1 - x0) : c.th;
+        }
+        this.skidFrom = now;
+      }
+    }
+    for (const s of this.skids) {
+      if (s.life <= 0) continue;
+      s.life -= dt / SKID_S;
+      s.mesh.material.opacity = Math.max(0, s.life) * 0.45;
+      if (s.life <= 0) s.mesh.visible = false;
+    }
   }
 }

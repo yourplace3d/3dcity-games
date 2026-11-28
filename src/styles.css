@@ -552,3 +552,28 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #pane-story .inbox .msg.old { opacity: 0.55; }
 #pane-story .inbox .now-tag { justify-self: start; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #1c1c1c; background: var(--yellow); border-radius: 4px; padding: 1px 6px; }
 #pane-story .sofar { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 4px; color: var(--ink); }
+
+/* driving skill (skill.ts): the total under the cash, the combo open, words floating up from the car */
+#skill { color: #ffb347; font-weight: 700; font-size: 13px; margin-top: -4px; white-space: nowrap; }
+#skill[hidden] { display: none; }
+#skill::before { content: '◆ '; font-size: 11px; }
+#skill.bump { animation: skill-bump 0.6s; }
+@keyframes skill-bump { 30% { transform: scale(1.25); color: #fff3a6; } }
+.combo { bottom: calc(118px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); font-weight: 800; color: #ffb347; border-color: rgba(255, 179, 71, 0.6); white-space: nowrap; text-align: center; }
+.combo small { color: var(--ink); font-weight: 600; margin-left: 6px; }
+.combo.drifting { box-shadow: 0 0 14px rgba(255, 179, 71, 0.55); }
+#pops { position: absolute; inset: 0; overflow: hidden; }
+.pop { position: absolute; left: 0; top: 0; font-weight: 800; font-size: 17px; color: #ffb347; white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 2px #000; animation: pop 1.3s ease-out forwards; will-change: transform, opacity; }
+.pop.cash { color: var(--green); font-size: 22px; }
+.pop.bad { color: var(--red); }
+.pop.big { font-size: 21px; color: #fff3a6; }
+body.touch .pop { font-size: 20px; }
+body.touch .pop.cash { font-size: 26px; }
+@keyframes pop { 0% { opacity: 0; translate: -50% 0; scale: 0.7; } 12% { opacity: 1; scale: 1.1; } 25% { scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; translate: -50% -60px; } }
+#btn-camera { display: block; margin: 10px 0 2px; }
+body.touch #btn-camera { display: none; }
+.skill-card { border: 1px solid rgba(255, 179, 71, 0.45); border-radius: 12px; padding: 10px 12px; margin: 2px 0 12px; background: rgba(255, 179, 71, 0.07); }
+.skill-card b { color: #ffb347; }
+.skill-card .meter { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.14); overflow: hidden; margin: 7px 0 5px; }
+.skill-card .meter i { display: block; height: 100%; background: #ffb347; border-radius: 4px; }
+.skill-card p { margin: 4px 0 0; }

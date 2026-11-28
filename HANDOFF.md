@@ -6,6 +6,13 @@ lives.
 
 ## Right now (28 November 2026, morning)
 
+- **Driving skill, in a pull request, not live** (the owner: "Driving skills which in future will open up
+  different vehicles hidden gems"; skill only grows, unlocks at levels; "Crashes can cost you points maybe?"):
+  near misses and drifts earn skill, combos multiply, a crash loses the combo and 10 points but never a level.
+  Also tyre marks, a delivery burst, a slow moment after a run, and a camera that turns with the car (keys only,
+  off by default). README, "Driving skill". Every number is a guess to tune from play. Tried only on the stand-in
+  map (`tools/stand-in-map.mjs`), not on real tiles or an iPad.
+
 - **Going live on the owner's word** ("Put it live", 28 November): **German** (pull request #35): the whole
   game in English and German, an English/Deutsch switch under the start screen, German for German browsers.
   README, "Languages": every new text goes into both `src/lang/en.ts` and `src/lang/de.ts`. Story messages

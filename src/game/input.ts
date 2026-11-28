@@ -18,7 +18,7 @@ export interface Input {
 
 const KEYS: Record<string, string> = {
   ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-  Space: 'handbrake', KeyE: 'action', KeyF: 'action', Enter: 'action', KeyR: 'reset', KeyG: 'route', KeyM: 'map',
+  Space: 'handbrake', KeyE: 'action', KeyF: 'action', Enter: 'action', KeyR: 'reset', KeyG: 'route', KeyM: 'map', KeyC: 'camera',
 };
 
 export class Controls {
@@ -37,6 +37,7 @@ export class Controls {
   onReset: () => void = () => undefined;
   onRoute: () => void = () => undefined;
   onMap: () => void = () => undefined;
+  onCamera: () => void = () => undefined;
   private active = false;
 
   get enabled(): boolean { return this.active; }
@@ -64,6 +65,7 @@ export class Controls {
       else if (k === 'reset') this.onReset();
       else if (k === 'route') this.onRoute();
       else if (k === 'map') this.onMap();
+      else if (k === 'camera') this.onCamera();
       else this.down.add(k);
     });
     addEventListener('keyup', (e) => {

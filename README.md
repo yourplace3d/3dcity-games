@@ -224,6 +224,17 @@ the streets, buildings, water and hills come from the same map squares as
 - Where the map says so, traffic keeps left (Britain, Japan, Australia, India, parts of Africa: rough boxes).
 - **Thin places.** Where OpenStreetMap has few buildings or streets, the start screen says so, links to the
   place on OpenStreetMap and to how to add to it, and lets you play anyway.
+- **Driving skill** (since 28 November 2026, the owner: "our next collectible points", which will open up
+  vehicles and hidden gems): a near miss (passing moving traffic within about a metre at speed) and a drift
+  (sliding about 19° or more off the nose for half a second) each earn points, shown popping up beside the car.
+  Moves within 3 seconds build a combo that multiplies (up to ×5), banked when it goes quiet or you get out. A
+  crash loses the combo and takes 10 off the total, never below the start of the level reached. Skill is never
+  spent; seven levels (Rookie to Legend) are where later unlocks will hang. The total sits under the cash, the
+  level and counts of each move at the top of the Trophies tab. Kept as `3da-skill`, so saving online carries it.
+  On a touch screen, which has no handbrake, holding the brake in a hard turn at speed slides the car. Every
+  number is one line in `src/game/skill.ts`, to tune from play. Also new: tyre marks while sliding, a burst
+  and the pay floating up at each delivery, a slow moment after a run's last, and a camera that can turn with
+  the car (keys only, off by default: `C`, kept as `3da-turnview`).
 - The map loads one 1.5 km square at a time on a fixed grid, and the next square loads as you near the
   edge, so you can keep driving.
 
@@ -232,7 +243,8 @@ the streets, buildings, water and hills come from the same map squares as
 | Walk, drive | `W` `A` `S` `D` or arrows | drag on the left of the screen, towards where you want to go |
 | In and out of cars | `E` | **In / out** |
 | Brake, reverse | `S` | **Brake** |
-| Handbrake | `Space` | |
+| Handbrake, to drift | `Space` | hold **Brake** in a hard turn at speed |
+| Camera turns with the car, or north up | `C`, or the button in the menu | (north up always) |
 | Big map of the loaded streets | `M` | tap the little map |
 | Menu: pause, real estate, trophies | `P` or `Esc` | **☰** at the top; the house button opens real estate |
 | Route line on the road | `G` | the button on the big map |
@@ -312,6 +324,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/full.ts`: a tester's way to extras that are not public: a private key in the address (`?full=<key>`)
   asks a gate for an add-on. Without a key the game contacts no one. `?full=off` forgets the key.
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
+- `src/game/skill.ts`: driving skill (near misses, drifts, combos, levels), fed by `Game.drivingSkill`.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
   (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways, and which streets are one-way.
@@ -337,6 +350,10 @@ bridge pass the cars on it.
 - `tools/story-test.mjs`: the story played through in a browser on real map tiles: a first visit to the first flat,
   a chapter on each following day with the people's messages, a player who is further on, the story away from the
   home town, and a phone. `SHOTS=<folder>` keeps a screenshot of each step.
+- `tools/stand-in-map.mjs`: a stand-in map (flat ground, a grid of streets and blocks) answered to a
+  Playwright page in place of the map servers, for trying the game where those can't be reached (the cloud
+  sessions). `tools/skill-test.mjs` uses it to play a drift and a near miss and check what is kept; it runs
+  straight from the dev server (`node tools/skill-test.mjs`).
 - `tools/selfdrive-test.mjs`: the game drives itself for eight game-minutes per place and reports deliveries
   and mishaps. A quick check after changes to roads, traffic or collisions.
 - `tools/film.mjs`: films a scene frame by frame at 1080p for trailers.

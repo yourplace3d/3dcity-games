@@ -53,6 +53,7 @@ import {
   shown,
   STATION_JOBS,
   storeStory,
+  type Message,
   type Snapshot,
   type Story,
   type Who,
@@ -345,6 +346,37 @@ export class StoryUi {
   /** the car being looked for, in words ("a pink van"), in the case asked */
   private carWords(c: Case = 'nom'): string {
     return this.findCar ? T.car(this.findCar[0], this.findCar[1], c) : T.theCar(c);
+  }
+
+  /**
+   * The message that belongs to what is on now, of those shown (newest first): the pump's ask while her
+   * customer's car is looked for; the tenants' latest while their dispute is open. Null when none is.
+   */
+  private activeMessage(inbox: Message[], playing: boolean): Message | null {
+    if (this.host.game.find && playing) return inbox.find((m) => m.who === 'pump') ?? null;
+    if (this.host.homes()?.dispute()) return inbox.find((m) => m.who === 'tenants') ?? null;
+    return null;
+  }
+
+  /** The car looked for, in words, in the case asked: for the line over the game. */
+  soughtCar(c: Case): string {
+    return this.carWords(c);
+  }
+
+  /**
+   * The line over the game while the open chapter's way is shown (no job, no car to find): the chapter, and
+   * for the tenants the step they are at; `far`: how far the arrow's point is, as shown. Null otherwise.
+   */
+  taskLine(far: string, metres: number): string | null {
+    const { game } = this.host;
+    const n = this.story.open;
+    if (!game.guide || game.job || game.party || game.find || !this.story.opened || n < 1 || n > BUILT || !this.goalOf(n).way) return null;
+    const d = n === 8 ? this.host.homes()?.dispute() : null;
+    if (d?.stage === 'talk' && game.visit) {
+      const walk = !game.car || metres < 45;
+      return T.storyLine(CHAPTERS[n - 1], walk ? T.lineTenantsWalk : T.lineTenantsDrive, far);
+    }
+    return T.storyLine(CHAPTERS[n - 1], '', far);
   }
 
   /** Mira asks: a customer's car is gone. In the home town, when nothing else is on, once a day until played. */
@@ -828,7 +860,20 @@ export class StoryUi {
       box.append(h);
       const msgs = document.createElement('div');
       msgs.className = 'inbox';
-      for (const m of inbox) msgs.append(messageEl(m.who, m.from, m.text));
+      // the message that belongs to what is on now comes first, marked; the others are what was said, dimmed
+      // (the owner, 28 November 2026: which one counts was not to be seen)
+      const now = this.activeMessage(inbox, playing);
+      for (const m of now ? [now, ...inbox.filter((x) => x !== now)] : inbox) {
+        const el = messageEl(m.who, m.from, m.text);
+        el.classList.add(m === now ? 'now' : 'old');
+        if (m === now) {
+          const tag = document.createElement('small');
+          tag.className = 'now-tag';
+          tag.textContent = T.msgNow;
+          el.prepend(tag);
+        }
+        msgs.append(el);
+      }
       box.append(msgs);
     }
     const foot = document.createElement('p');

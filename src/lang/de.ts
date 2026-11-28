@@ -406,7 +406,7 @@ export const de: Texts = {
   seeHomes: (text, how) => `${text} ${how} um deine Immobilien zu sehen.`,
   soFar: (money) => ` (bisher ${money})`,
   needsRenovating: (so) => `Muss renoviert werden: Die Miete wartet bis dahin${so}. Ein Paket von irgendeiner Wache in diesem Teil der Stadt renoviert es`,
-  disputeNote: { talk: 'Halt daneben, um mit ihnen zu reden', insist: 'Sie warten auf das Ersatzteil: ein Eilauftrag von einer Feuerwache', accept: 'Sie warten auf das, was fehlt: eine Versorgungsfahrt von einer Tankstelle, ohne neue Delle', court: 'Der Gerichtsbeschluss: Fahr die Beamten von einer Polizeiwache hin, nach Vorschrift', replace: 'Der alte Boiler hat aufgegeben: Ein Paket von irgendeiner Wache bringt einen neuen', moving: 'Neue Mieter ziehen mit deiner nächsten Lieferung ein' },
+  disputeNote: { talk: 'Park in der Nähe, steig aus und geh zu ihrer Tür (dem kleinen grünen Ring), um mit ihnen zu reden', insist: 'Sie warten auf das Ersatzteil: ein Eilauftrag von einer Feuerwache', accept: 'Sie warten auf das, was fehlt: eine Versorgungsfahrt von einer Tankstelle, ohne neue Delle', court: 'Der Gerichtsbeschluss: Fahr die Beamten von einer Polizeiwache hin, nach Vorschrift', replace: 'Der alte Boiler hat aufgegeben: Ein Paket von irgendeiner Wache bringt einen neuen', moving: 'Neue Mieter ziehen mit deiner nächsten Lieferung ein' },
   tenantsNote: (moved, so, rest) => `${moved ? 'Die Mieter sind ausgezogen' : 'Die Mieter zahlen nicht mehr'}: Die Miete wartet, bis es geklärt ist${so}. ${rest}`,
   heldLine: (held, where, many, done) =>
     ` ${held} warten bei ${where}, bis ${many ? 'sie' : 'es'} ${done === 'renovate' ? 'renoviert' : 'geklärt'} ${many ? 'sind' : 'ist'}.`,
@@ -462,6 +462,7 @@ export const de: Texts = {
   panelPays: (rent) => `Bringt ${rent} Miete an jedem Tag, an dem du wiederkommst.`,
   panelNotePays: (note, rent) => `${note}. Danach bringt es ${rent} Miete an jedem Tag, an dem du wiederkommst.`,
   talkTenants: 'Mit den Mietern reden',
+  tenantsGetOut: 'Steig aus und geh zur Tür deiner Mieter: dem kleinen grünen Ring.',
   colourLater: 'Die gewählte Farbe kommt drauf, sobald es renoviert ist.',
   forSale: 'Zu verkaufen',
   forSaleWorn: 'Zu verkaufen, abgewohnt',
@@ -607,7 +608,7 @@ export const de: Texts = {
   yourHome: 'dein Zuhause',
   goal8: (stage, at, town, first) =>
     ({
-      talk: `Die Mieter in ${at('dat')} zahlen nicht mehr: Halt daneben und rede mit ihnen.`,
+      talk: `Die Mieter in ${at('dat')} zahlen nicht mehr: Park in der Nähe, steig aus und geh zu ihrer Tür, dem kleinen grünen Ring, um mit ihnen zu reden.`,
       insist: `Bring das Ersatzteil für ${at('acc')} rechtzeitig von einer Feuerwache.`,
       accept: `Bring von einer Tankstelle, was ${at('nom')} braucht, ohne neue Delle.`,
       court: `Fahr die Beamten von einer Polizeiwache zu ${at('dat')}, nach Vorschrift.`,
@@ -678,7 +679,18 @@ export const de: Texts = {
   wayFlatsNone: 'Hier in der Nähe gibt es keine abgewohnten Wohnungen: Fahr weiter, der Pfeil zeigt die nächsten.',
   wayElsewhere: (where) => `Das ist ${where}: Der Reiter Geschichte im Menü bringt dich hin.`,
   noHomeHere: 'Keine deiner Immobilien liegt in diesem Teil der Stadt.',
-  wayTenants: 'Der Pfeil zeigt den Weg zu deinen Mietern.',
+  wayTenants: 'Der Pfeil zeigt den Weg zur Tür deiner Mieter. Park in der Nähe, steig aus und geh in den kleinen grünen Ring.',
+  findLine: (stage, car, far) =>
+    ({
+      search: `Finde ${car('acc')} · <b class="find">oranger Kreis</b>${far}`,
+      look: `Such im Kreis nach ${car('dat')}`,
+      seen: `Gefunden: steig ein${far}`,
+      back: `Fahr damit zurück zur Tankstelle · <b>gelber Ring</b>${far}`,
+    })[stage],
+  storyLine: (chapter, step, far) => `${chapter}${step ? ` · ${step}` : ''}${far}`,
+  lineTenantsDrive: 'fahr zu ihrer Tür',
+  lineTenantsWalk: 'steig aus, geh in den <b class="home">grünen Ring</b>',
+  msgNow: 'Jetzt',
   wayHome: 'Der Pfeil zeigt den Weg zu deinem Zuhause.',
   wayStation: 'Der Pfeil zeigt die nächste Wache.',
   noStation: 'In diesem Teil der Stadt gibt es keine Wache: Fahr weiter, die nächste taucht auf.',
@@ -723,7 +735,7 @@ export const de: Texts = {
   twoOfficers: 'Zwei Beamte',
   noteTitle: 'Eine Nachricht von deinen Mietern',
   noteText: (words, names, what, home, rent) =>
-    `„${words}“ ${names}, ${what}, in ${home}. Bis es geklärt ist, wartet die Miete von ${rent} am Tag beim Gebäude: Sie geht nicht verloren. Halt daneben, um mit ihnen zu reden.`,
+    `„${words}“ ${names}, ${what}, in ${home}. Bis es geklärt ist, wartet die Miete von ${rent} am Tag beim Gebäude: Sie geht nicht verloren. Park in der Nähe, steig aus und geh zu ihrer Tür, dem kleinen grünen Ring, um mit ihnen zu reden.`,
   talkTitle: 'Deine Mieter wollen reden',
   insistAll: 'Auf allem bestehen',
   acceptPart: 'Einen Teil annehmen',

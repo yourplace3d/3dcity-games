@@ -499,3 +499,50 @@ export function homesIn<L extends { id: string; x: number; y: number }>(h: Homes
   }
   return found;
 }
+
+// ---------------------------------------------------------------- a home's door, on foot
+
+/** The nearest point of a building's outline to a point. */
+export function nearestOnRing(r: Pt[], x: number, y: number): Pt {
+  let best: Pt = r[0];
+  let bd = Infinity;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [ax, ay] = r[j];
+    const [bx, by] = r[i];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+    const px = ax + dx * t;
+    const py = ay + dy * t;
+    const d = Math.hypot(px - x, py - y);
+    if (d < bd) {
+      bd = d;
+      best = [px, py];
+    }
+  }
+  return best;
+}
+
+/** how far apart the steps are when walking from the street to a door (m) */
+const DOOR_STEP_M = 0.5;
+
+/**
+ * Where one walks in to a home (the owner, 28 November 2026: "for talking with the tenants you should get
+ * out of the car and enter the building"): from the street the way to it leads to, straight towards the
+ * nearest wall of the home, as far as one can walk. A home on the street: its own wall. A home in a
+ * courtyard behind the houses on the street (a Paris "house" is often one): the wall in front of it, where
+ * the way in through the house on the street is. `free`: whether someone on foot can stand there.
+ */
+export function doorPoint(outer: Pt[], street: Pt, free: (x: number, y: number) => boolean): Pt {
+  const [sx, sy] = street;
+  const [wx, wy] = nearestOnRing(outer, sx, sy);
+  const len = Math.hypot(wx - sx, wy - sy);
+  let door: Pt = [sx, sy];
+  for (let s = DOOR_STEP_M; s < len; s += DOOR_STEP_M) {
+    const x = sx + ((wx - sx) * s) / len;
+    const y = sy + ((wy - sy) * s) / len;
+    if (!free(x, y)) break;
+    door = [x, y];
+  }
+  return door;
+}

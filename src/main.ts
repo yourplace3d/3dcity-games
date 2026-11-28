@@ -1170,8 +1170,20 @@ function paint(h: Hud): void {
   if (h.carHp !== null) put('speed', `${Math.round(h.kmh)}<small>km/h</small>`);
   $('run').hidden = !h.run;
   if (h.run) put('run', `${T.hudRun(Math.min(h.run.n, h.run.of), h.run.of, fmtMoney(h.run.score))}${rival ? ` <small>${T.hudToBeat(fmtMoney(rival.score))}</small>` : ''}`);
-  $('job').hidden = !h.job;
-  if (h.job) {
+  // the task always in sight (the owner, 27 and 28 November 2026: "one must be able to read the task
+  // somewhere"): a job; else the car looked for, step by step; else the open chapter while its way is shown
+  const far = (m: number | null) => (m === null ? '' : ` · ${fmtM(m)}`);
+  const storyTask = !h.job && !h.find && h.target?.kind === 'guide' ? story?.taskLine(far(h.target.metres), h.target.metres) ?? null : null;
+  $('job').hidden = !h.job && !h.find && !storyTask;
+  if (!h.job && h.find) {
+    $('job').classList.remove('late');
+    $('job').dataset.kind = 'find';
+    put('job', T.findLine(h.find.stage, (c) => story?.soughtCar(c) ?? T.theCar(c), far(h.find.metres)));
+  } else if (!h.job && storyTask) {
+    $('job').classList.remove('late');
+    $('job').dataset.kind = 'story';
+    put('job', storyTask);
+  } else if (h.job) {
     $('job').classList.toggle('late', h.job.left < 10);
     $('job').dataset.kind = h.job.party ? 'party' : h.job.kind;
     if (h.job.party) put('job', `${party?.hudLabel() ?? T.party} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
@@ -1410,7 +1422,7 @@ function setPause(on: boolean, tab: MenuTab = 'game'): void {
     return;
   }
   if (game?.find) {
-    $('pause-line').textContent = T.pauseFind;
+    $('pause-line').textContent = `${T.pauseFind} ${T.findMenu(story?.soughtCar('acc') ?? T.theCar('acc'))}`;
     $('btn-switch').textContent = T.stopLooking;
     return;
   }

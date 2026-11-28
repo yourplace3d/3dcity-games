@@ -75,6 +75,7 @@ export const en = {
   tagline: 'Drive any city.',
   startIntro: 'The real streets and buildings of any place on Earth, seen from above. Walk up to a car and take it, run deliveries against the clock for cash (three make a run, for the scoreboard or to send to a friend to beat), and shake off the police when you\'ve been careless.',
   modesLabel: 'What to play',
+  modesMore: 'Other ways to play',
   modeRun: 'Compare with friends',
   modeRunText: 'A run of three deliveries against the clock. Send it to a friend to beat.',
   modeJobs: 'Do jobs',

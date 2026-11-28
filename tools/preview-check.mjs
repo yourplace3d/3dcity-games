@@ -53,3 +53,4 @@ await browser.close();
 await server.close();
 console.log(JSON.stringify(report, null, 1));
 process.exit(report.runs.every((r) => r.screen === 'play') ? 0 : 1);
+

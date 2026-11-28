@@ -10,7 +10,7 @@
 -- session that keeps the database); a click on the Discord invite, the chapter the card follows ('1' to '8')
 -- or 'menu', added on 27 November 2026 ("play_counts_discord", applied 21:29 UTC); the first-time tour, a
 -- step shown ('1' to '4', once a page for each) or the tour skipped ('skip'), written 28 November 2026
--- ("play_counts_tour", tried in a transaction; NOT YET APPLIED: it goes on before the game code that sends it).
+-- ("play_counts_tour", applied 14:31 UTC on the owner's yes, before the game code that sends it went live).
 --
 -- How far players get in the story:
 --   select day, detail, n from play_counts where kind = 'chapter' order by day desc, detail;

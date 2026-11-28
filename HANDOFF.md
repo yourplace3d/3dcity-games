@@ -7,16 +7,17 @@ lives.
 ## Right now (28 November 2026, afternoon)
 
 - **Built, not live: the first minute for new players** (branch `claude/modest-noether-w3tul1`, from `main` at
-  `38fd1df`; no pull request, nothing deployed, no migration applied). The owner's check of 28 November: about
+  `38fd1df`; no pull request, nothing deployed; its migration is on the server). The owner's check of 28 November: about
   4 in 10 timed visits end in under a minute (277 of 672, 22–27 Nov), and on 27 Nov 37 browsers finished
   chapter 1 (a first delivery) while 96 new ones arrived; nothing was counted between a city loaded and that
   delivery. One commit per part, so part 3 can be dropped:
   1. **The tour's steps counted:** `tour` with '1' to '4' (once a page load for each step shown: a city loaded,
      in a car, a package on board, the first delivery) or 'skip' ("Skip the tour" before the last step).
-     **Needs the migration `play_counts_tour` on the server before the game code goes live,** or the first
-     calls are dropped: in `docs/supabase/play_counts.sql`, tried on 28 Nov inside `begin; … rollback;` (calls
-     as `anon`: '1' and 'skip' counted, '5' and 'hello' dropped, `chapter` still counted; nothing kept).
-     **Waiting on the owner's yes to apply it.** Read it next to `new` with the queries in that file's header.
+     **The migration `play_counts_tour` is on the server** (the owner's "Yes", applied 28 Nov, 14:31 UTC,
+     version 20261128143107), so the game code can go live whenever: `docs/supabase/play_counts.sql`. Tried
+     first inside `begin; … rollback;`, and called once more after, the same way (as `anon`: steps and 'skip'
+     counted, anything else dropped, `chapter` still counted; nothing kept). No `tour` rows until the game code
+     is live. Read it next to `new` with the queries in that file's header.
   2. **The tour shorter**, English and German: step 2 no longer explains station rings (42 words and 212 px on
      a 390×844 phone, now 28 words and 153 px); step 4 keeps one line on the police and drops cooling off and
      the fine (README, "Heat", still has them). German wording for the owner to check. Offered, not built: a

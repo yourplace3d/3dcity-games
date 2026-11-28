@@ -5,9 +5,17 @@
  *
  * Their own look: a flat disc in the colour of their group with a plain sign on it, grey until earned.
  * Kept in the browser under `3da-trophies`, so saving online carries them along.
+ *
+ * 30 since 28 November 2026 (the owner, with all but one of the 18 earned: "We can now add some more of
+ * these maybe?"). A trophy is earned in one of two ways: by what the player has (`earnedBy`, looked at once
+ * a second, so a player who is further on earns what fits at once, in one line), or by something that
+ * happens in play (`earnedIn`, from the game's events). A new one needs its line in `GROUPS`, its id in
+ * `TrophyId`, and its rule in one of the two.
  */
 
 import { kmBetween } from './game/bank';
+import type { CarKind } from './game/cars';
+import type { GameEvent } from './game/game';
 
 const STORE = '3da-trophies';
 const DAY_MS = 86400000;
@@ -15,12 +23,16 @@ const DAY_MS = 86400000;
 const PLACE_KM = 15;
 /** the most places kept: enough for the last trophy of places */
 const PLACES_MAX = 40;
+/** "Far from home": this far from the home town (km), which is mostly another continent */
+export const FAR_KM = 5000;
+/** "At first sight": this many points in Where am I?, which is the right city within 50 seconds and no wrong pick */
+export const SIGHT_POINTS = 800;
 
 export type TrophyId =
   | 'car' | 'delivery' | 'run' | 'home' | 'bank'
-  | 'homes5' | 'building' | 'painted' | 'towns2' | 'rent1000'
-  | 'lost' | 'clean' | 'rush' | 'deliveries100'
-  | 'places5' | 'places20' | 'guessed' | 'story';
+  | 'homes5' | 'homes10' | 'building' | 'painted' | 'renovated' | 'towns2' | 'towns5' | 'rent1000' | 'party' | 'story'
+  | 'lost' | 'clean' | 'rush' | 'supply' | 'book' | 'found' | 'bus' | 'deliveries100' | 'deliveries500'
+  | 'places5' | 'places20' | 'far' | 'equator' | 'guessed' | 'sight';
 
 export interface Trophy {
   id: TrophyId;
@@ -57,10 +69,14 @@ export const GROUPS: Group[] = [
     colour: '#ffd400',
     trophies: [
       { id: 'homes5', name: 'Five homes', how: 'Own 5 homes', sign: word('5', 34) },
+      { id: 'homes10', name: 'Ten homes', how: 'Own 10 homes', sign: word('10', 30) },
       { id: 'building', name: 'A whole building', how: 'Own a whole building', sign: '<path d="M20 12h24v40H20z"/><path d="M25 18h5v5h-5zM34 18h5v5h-5zM25 27h5v5h-5zM34 27h5v5h-5zM25 36h5v5h-5zM34 36h5v5h-5zM29 45h6v7h-6z" fill="#ffd400"/>' },
       { id: 'painted', name: 'A fresh coat', how: 'Paint a house or building you own', sign: '<path d="M15 16h28v12H15z"/><path d="M43 21h5v13H31v6" fill="none" stroke="#16181c" stroke-width="4"/><path d="M28 40h6v12h-6z"/>' },
+      { id: 'renovated', name: 'Good as new', how: 'Renovate a home whose walls have worn down', sign: '<g transform="rotate(40 32 32)"><path d="M29 22h6v33h-6z"/><path d="M19 11h26v12H19z"/></g>' },
       { id: 'towns2', name: 'Two towns', how: 'Own homes in two towns', sign: `${house(21, 36, 0.8)}${house(43, 36, 0.8)}` },
+      { id: 'towns5', name: 'Five towns', how: 'Own homes in five towns', sign: `${house(32, 22, 0.58)}${house(21, 40, 0.58)}${house(43, 40, 0.58)}` },
       { id: 'rent1000', name: '$1,000 a day', how: 'Own homes that pay $1,000 rent a day', sign: word('$', 36) },
+      { id: 'party', name: 'Full house', how: 'Throw a party at a home of yours: bring the food to the door in time', sign: '<path d="M32 54L13 21c12-7 26-7 38 0z"/><path d="M18 27c9-5 19-5 28 0" fill="none" stroke="#ffd400" stroke-width="2.5"/><circle cx="27" cy="33" r="3.2" fill="#ffd400"/><circle cx="37" cy="34" r="3.2" fill="#ffd400"/><circle cx="32" cy="43" r="2.8" fill="#ffd400"/>' },
       { id: 'story', name: 'The whole story', how: 'Play the story to its last chapter: settle a dispute with your tenants', sign: '<path d="M10 18c8-3 15-2 21 3v30c-6-5-13-6-21-3z"/><path d="M54 18c-8-3-15-2-21 3v30c6-5 13-6 21-3z"/>' },
     ],
   },
@@ -71,7 +87,12 @@ export const GROUPS: Group[] = [
       { id: 'lost', name: 'Shaken off', how: 'Lose the police', sign: '<path d="M12 40c8-14 20-18 32-16v-7l10 11-10 11v-7c-10-1-20 2-28 12z"/>' },
       { id: 'clean', name: 'A clean run', how: 'Finish a run of three without being caught, wrecked or knocked out', sign: '<path d="M14 33l6-6 8 8 16-17 6 6-22 23z"/>' },
       { id: 'rush', name: 'Time to spare', how: 'Finish a rush job with 30 seconds left', sign: '<circle cx="32" cy="35" r="15" fill="none" stroke="#16181c" stroke-width="5"/><path d="M29 12h6v6h-6zM30 35V25h4v10z"/><path d="M32 33l7 5-2 3-7-5z"/>' },
+      { id: 'supply', name: 'Not a dent', how: 'Finish a supply run with no new dent on the car', sign: '<path d="M17 25h18l11 9v19H17z"/><path d="M21 14h13v11h-4v-7h-5v7h-4z"/><path d="M24 33l13 14M37 33L24 47" fill="none" stroke="#2bd4e0" stroke-width="3"/>' },
+      { id: 'book', name: 'By the book', how: 'Finish a police station’s job: no law broken on the way', sign: '<path d="M32 10l19 6v15c0 11-7 19-19 24-12-5-19-13-19-24V16z"/><path d="M22 32l7 7 13-14" fill="none" stroke="#2bd4e0" stroke-width="5"/>' },
+      { id: 'found', name: 'Found it', how: 'Find the car the pump asks you to look for, and drive it back', sign: '<circle cx="28" cy="28" r="12" fill="none" stroke="#16181c" stroke-width="6"/><path d="M36 38l4-4 12 12-4 4z"/>' },
+      { id: 'bus', name: 'By bus', how: 'Deliver a package in a bus', sign: '<path d="M9 44V24a5 5 0 0 1 5-5h36a5 5 0 0 1 5 5v20z"/><path d="M14 24h9v9h-9zM27 24h9v9h-9zM40 24h10v9H40z" fill="#2bd4e0"/><circle cx="20" cy="45" r="5.5"/><circle cx="44" cy="45" r="5.5"/>' },
       { id: 'deliveries100', name: '100 deliveries', how: 'Deliver 100 packages', sign: word('100', 22) },
+      { id: 'deliveries500', name: '500 deliveries', how: 'Deliver 500 packages', sign: word('500', 22) },
     ],
   },
   {
@@ -80,7 +101,10 @@ export const GROUPS: Group[] = [
     trophies: [
       { id: 'places5', name: 'Five places', how: 'Play in 5 places, each a town or more apart', sign: '<path d="M32 52C22 40 18 33 18 26a14 14 0 0 1 28 0c0 7-4 14-14 26z"/><circle cx="32" cy="26" r="5" fill="#f08a24"/>' },
       { id: 'places20', name: 'Twenty places', how: 'Play in 20 places, each a town or more apart', sign: word('20', 28) },
+      { id: 'far', name: 'Far from home', how: 'Play a place 5,000 km or more from your home town', sign: `${house(21, 41, 0.58)}<path d="M24 30c2-6 5-9 10-10" fill="none" stroke="#16181c" stroke-width="3" stroke-dasharray="3 3.5"/><path d="M44 39c-6-7-8-10-8-15a8 8 0 0 1 16 0c0 5-2 8-8 15z"/><circle cx="44" cy="24" r="3" fill="#f08a24"/>` },
+      { id: 'equator', name: 'Across the equator', how: 'Play a place north of the equator and one south of it', sign: '<circle cx="32" cy="32" r="17" fill="none" stroke="#16181c" stroke-width="4"/><ellipse cx="32" cy="32" rx="8" ry="17" fill="none" stroke="#16181c" stroke-width="2.5"/><path d="M13 29.5h38v5H13z"/>' },
       { id: 'guessed', name: 'City guessed', how: 'Guess a city right in Where am I?', sign: word('?', 38) },
+      { id: 'sight', name: 'At first sight', how: 'Make 800 points or more in Where am I?', sign: '<path d="M8 32c7-10 15-15 24-15s17 5 24 15c-7 10-15 15-24 15S15 42 8 32z"/><circle cx="32" cy="32" r="9" fill="#f08a24"/><circle cx="32" cy="32" r="4"/>' },
     ],
   },
 ];
@@ -99,6 +123,12 @@ export interface Snapshot {
   rentPerDay: number;
   /** the story's last chapter is done */
   story?: boolean;
+  /** a party has been thrown at a home of the player's */
+  partied?: boolean;
+  /** a home has been renovated after its walls wore down */
+  renovated?: boolean;
+  /** how far the furthest place played is from the home town (km); 0 with no home */
+  fromHome?: number;
 }
 
 export interface Kept {
@@ -123,22 +153,52 @@ export function readTrophies(raw: string | null): Kept {
   }
 }
 
-/** Which trophies a snapshot earns. */
-export function earnedBy(s: Snapshot, places: number): TrophyId[] {
+/**
+ * Which trophies a snapshot earns. `places`: how many places, a town apart, have been played; `across`:
+ * places north and south of the equator are among those played.
+ */
+export function earnedBy(s: Snapshot, places: number, across = false): TrophyId[] {
   const out: TrophyId[] = [];
   if (s.car) out.push('car');
   if (s.delivered >= 1) out.push('delivery');
   if (s.homes >= 1) out.push('home');
   if (s.saved > 0) out.push('bank');
   if (s.homes >= 5) out.push('homes5');
+  if (s.homes >= 10) out.push('homes10');
   if (s.building) out.push('building');
   if (s.painted) out.push('painted');
+  if (s.renovated) out.push('renovated');
   if (s.towns >= 2) out.push('towns2');
+  if (s.towns >= 5) out.push('towns5');
   if (s.rentPerDay >= 1000) out.push('rent1000');
+  if (s.partied) out.push('party');
   if (s.delivered >= 100) out.push('deliveries100');
+  if (s.delivered >= 500) out.push('deliveries500');
   if (places >= 5) out.push('places5');
   if (places >= 20) out.push('places20');
+  if ((s.fromHome ?? 0) >= FAR_KM) out.push('far');
+  if (across) out.push('equator');
   if (s.story) out.push('story');
+  return out;
+}
+
+/**
+ * Which trophies something that happened in play earns. `fullRun`: the run being scored is the game's own
+ * run of three, not one a friend sent with another number of deliveries; `car`: what the player sits in.
+ */
+export function earnedIn(e: GameEvent, fullRun: boolean, car: CarKind | null): TrophyId[] {
+  const out: TrophyId[] = [];
+  if (e.kind === 'lost') out.push('lost');
+  if (e.kind === 'run' && fullRun) out.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
+  if (e.kind === 'found') out.push('found');
+  if (e.kind === 'delivered') {
+    // each station's job done the way its card asks: time left on the fire station's, no new dent on the
+    // pump's (in a car: on foot there is none to dent), and the police's is gone at the first offence
+    if (e.job === 'rush' && e.left >= 30) out.push('rush');
+    if (e.job === 'supply' && car && !e.dented) out.push('supply');
+    if (e.job === 'clean') out.push('book');
+    if (car === 'bus') out.push('bus');
+  }
   return out;
 }
 
@@ -149,6 +209,8 @@ export function placeKey(lat: number, lon: number): string {
 
 export class Trophies {
   private kept: Kept;
+  /** the place being played: it counts for the furthest place though no more places are kept */
+  private here: [number, number] | null = null;
   /** said when trophies are earned: their names */
   onEarned: (names: string[]) => void = () => undefined;
   /** what is kept changed: for saving online */
@@ -189,7 +251,24 @@ export class Trophies {
   }
 
   check(s: Snapshot, now = Date.now()): TrophyId[] {
-    return this.give(earnedBy(s, this.kept.places.length), now);
+    return this.give(earnedBy(s, this.kept.places.length, this.across()), now);
+  }
+
+  /** The places played, as points: those kept (one that is no point is left out), and the one being played. */
+  private points(): Array<[number, number]> {
+    const kept = this.kept.places.map((k) => k.split(',').map(Number) as [number, number]).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+    return this.here ? [...kept, this.here] : kept;
+  }
+
+  /** How far the furthest place played is from a point (km): from the home town, for "Far from home". */
+  furthest(lat: number, lon: number): number {
+    return this.points().reduce((far, [a, b]) => Math.max(far, kmBetween(a, b, lat, lon)), 0);
+  }
+
+  /** Places north and south of the equator have been played. */
+  across(): boolean {
+    const lats = this.points().map(([a]) => a);
+    return lats.some((a) => a >= 0) && lats.some((a) => a < 0);
   }
 
   /** A place was played. */
@@ -198,6 +277,7 @@ export class Trophies {
       const [a, b] = k.split(',').map(Number);
       return kmBetween(a, b, lat, lon) < PLACE_KM;
     });
+    this.here = [lat, lon];
     if (near || this.kept.places.length >= PLACES_MAX) return;
     this.kept.places.push(placeKey(lat, lon));
     this.store();

@@ -19,7 +19,7 @@ import { arriveLine, PartyUi } from './partyUi';
 import { StoryUi } from './storyUi';
 import { menuLine as discordLine } from './discord';
 import { readParty, type SentParty } from './game/party';
-import { drawTrophies, Trophies, type TrophyId } from './trophies';
+import { drawTrophies, earnedIn, SIGHT_POINTS, Trophies } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
 import { wireRadio } from './radio';
@@ -432,11 +432,8 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       {
         const g = game;
         g.events.push((e) => {
-          const ids: TrophyId[] = [];
-          if (e.kind === 'lost') ids.push('lost');
           // a run a friend sent can have another number of deliveries
-          if (e.kind === 'run' && g.run.of === RUN_JOBS) ids.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
-          if (e.kind === 'delivered' && e.job === 'rush' && e.left >= 30) ids.push('rush');
+          const ids = earnedIn(e, g.run.of === RUN_JOBS, g.car?.kind ?? null);
           if (ids.length) trophies.give(ids);
         });
         let every = 0;
@@ -456,6 +453,10 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
             towns: towns.length,
             rentPerDay: towns.reduce((n, t) => n + t.rent, 0),
             story: !!story?.done(8),
+            partied: !!party?.thrown(),
+            renovated: homes.renovatedOnce(),
+            // from the home town: the first home's place
+            fromHome: mine.homes[0] ? trophies.furthest(mine.homes[0].lat, mine.homes[0].lon) : 0,
           });
         });
       }
@@ -793,7 +794,7 @@ function pick(name: string, b: HTMLButtonElement): void {
     }
   }
   const got = name === round.city ? points(lookedS, wrongPicks) : 0;
-  if (name === round.city) trophies.give(['guessed']);
+  if (name === round.city) trophies.give(got >= SIGHT_POINTS ? ['guessed', 'sight'] : ['guessed']);
   for (const o of buttons) {
     o.disabled = true;
     if (o.textContent === round.city) o.classList.add('right');

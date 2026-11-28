@@ -4,14 +4,26 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (27 November 2026, night)
+## Right now (28 November 2026, morning)
 
+- **Built, not live: twelve more trophies, 30 in all** (the owner, 28 November, with all but one of the 18
+  earned: "We can now add some more of these maybe?"). Branch `claude/more-trophies`, from `main` at
+  `8bc9651`; no pull request yet. **The choice of the twelve is this session's, for the owner to strike from
+  and add to;** it goes live only on the owner's word. Real estate: Ten homes, Five towns, Good as new (a
+  home renovated), Full house (a party thrown). Driving: Not a dent (a supply run), By the book (a police
+  station's job), Found it (the pump's car driven back), By bus (a package delivered in a bus), 500
+  deliveries. Places: Far from home (5,000 km from the home town), Across the equator, At first sight (800
+  points in Where am I?). A player who is further on earns what fits at once, in one line. Left out, each with
+  its reason: the subway (rides are off), anything for links (the owner's word of 23 November), days in a row.
+  All of it: `docs/plan-returning-players.md`, section 12. Code: `src/trophies.ts` (`earnedBy` for what a
+  player has, `earnedIn` for what happens in play), the game's new event `found`. Tests:
+  `tests/trophies.test.ts`, `node tools/trophies-test.mjs`.
 - **Live:** `main` at `8bc9651`, deploy run 79 (27 November, 23:30 UTC), on the owner's word ("Yes put it
   live"). In it: **the story debugged** (pull request #34 from `claude/find-the-car`; told in full just
   below). Checked on the live site: the page and its bundle are byte-identical to the ones built from the
   tested branch, and the page opens in a test browser with no errors. Its three open questions went live
-  answered by what is built; they stay open for the owner. This note is one commit ahead of `main` on
-  `claude/find-the-car`: `main`'s copy still says "going live".
+  answered by what is built; they stay open for the owner. `main`'s own copy of this note still says "going live": the
+  note that it is live is on `claude/find-the-car` and on `claude/more-trophies`.
 - **Live before it:** run 78 (22:36 UTC): **the Discord invite** (pull requests #31 and #32, another session;
   runs 77 and 78: a small card once after chapter 2, a line on the menu's first tab and one at the very
   bottom of the main menu, a click counted as `discord`; the entry "Discord: a small, feedback-first server"

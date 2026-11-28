@@ -93,7 +93,7 @@ the streets, buildings, water and hills come from the same map squares as
   the roof and on both maps. **Real estate**, a tab of the menu (☰, or the house button beside it, whose ring
   fills with home points), lists them by town with what each pays: *Go there* starts beside one, and in the
   town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
-  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 18 things to do.
+  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 30 things to do, from a first car to ten homes in five towns, each station's job done the way its card asks, a package brought in a bus, and a place played far from home.
   Now and then something happens at a home (it needs renovating, or, after the story's chapter 8, the
   tenants stop paying); its rent waits at the building until it is solved. A station's package for a home can
   be taken up to 2 km from it: the spot at its door is kept as a place on the earth, so the next part of town
@@ -325,6 +325,8 @@ bridge pass the cars on it.
 - `tools/story-test.mjs`: the story played through in a browser on real map tiles: a first visit to the first flat,
   a chapter on each following day with the people's messages, a player who is further on, the story away from the
   home town, and a phone. `SHOTS=<folder>` keeps a screenshot of each step.
+- `tools/trophies-test.mjs`: the trophies in a browser on real map tiles: a player who is further on earns what
+  fits at once, in one line; the tab lists all 30; the ones earned in play. `SHOTS=<folder>` keeps screenshots.
 - `tools/selfdrive-test.mjs`: the game drives itself for eight game-minutes per place and reports deliveries
   and mishaps. A quick check after changes to roads, traffic or collisions.
 - `tools/film.mjs`: films a scene frame by frame at 1080p for trailers.

@@ -145,6 +145,11 @@ export class PartyUi {
     return !!homes && homes.isHere(home) && !homes.wornDown(home) && !g.job && !g.party && !g.find && !this.playing;
   }
 
+  /** A party has been thrown at a home of the player's: one that paid its points, or left a best time (for the trophies). */
+  thrown(): boolean {
+    return !!this.store.paid || Object.keys(this.store.best).length > 0;
+  }
+
   /** The home points a party now would pay: the first of the day, as many of `PARTY_POINTS` as fit under `POINTS_MAX`. */
   private pays(): number {
     if (!pointsDue(this.store, this.today())) return 0;

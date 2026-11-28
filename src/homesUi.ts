@@ -218,6 +218,8 @@ export class HomesUi {
   private bankWay = false;
   /** things that happen at the homes (`game/events.ts`) */
   private events: Events = loadEvents(this.homes.homes.length > 0);
+  /** a home was renovated on this visit after its walls wore down (`renovatedOnce`) */
+  private renovatedNow = false;
   /** seconds of play when this last put a card up, so that two do not follow at once */
   private cardAtS = -60;
   /** the home whose event the package on board is for */
@@ -1126,6 +1128,7 @@ export class HomesUi {
     }
     this.host.save();
     this.setEvents({ ...this.events, open: this.events.open.filter((o) => o !== e), renovated: { ...this.events.renovated, [key]: dayNumber(Date.now()) } });
+    this.renovatedNow = true;
     const lot = this.lotOf(h);
     if (lot) this.world?.model.paintBuilding(lot.poly, h.colour ?? null);
     this.syncSpecial();
@@ -1166,6 +1169,16 @@ export class HomesUi {
   /** A home in this part of town that waits to be renovated: the story's dispute begins only once it is. */
   renovatingHere(): Home | null {
     return this.homes.homes.find((h) => this.lotOf(h) && this.renovating(h)) ?? null;
+  }
+
+  /**
+   * A home has been renovated after its walls wore down (for the trophies). The first building's day is
+   * also kept when its own repairs end, which is not that: for it, only one seen on this visit counts.
+   */
+  renovatedOnce(): boolean {
+    const first = this.homes.homes[0];
+    const own = first ? homeKey(first) : '';
+    return this.renovatedNow || Object.keys(this.events.renovated).some((k) => k !== own);
   }
 
   /** Disputes settled, in all: the story's chapter 8 is done with the first. */

@@ -139,6 +139,12 @@ try {
   assert.ok(s.said.includes('find-car'), 'played');
   assert.equal(s.sofar.at(-1).text, "Laura's customer got her car back.");
   assert.ok(await page.evaluate(() => !!game.car), 'still at the wheel of the customer’s car, for the day');
+  // the trophy "Found it": for the car driven back
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-trophies') ?? '{}').got?.found > 0);
+  await page.evaluate(() => {
+    window.foundAgain = 0;
+    game.events.push((e) => e.kind === 'found' && window.foundAgain++);
+  });
 
   console.log('Another search, the car lost in the water on the way back: over, not stuck');
   // a street to park it on is drawn by chance, and now and then none is found from where the player stands
@@ -191,6 +197,7 @@ try {
   });
   await page.waitForFunction(() => game.find === null);
   await line('Found, but wrecked');
+  assert.equal(await page.evaluate(() => window.foundAgain), 0, 'a car wrecked on the way is not one driven back');
   assert.equal(await page.evaluate(() => game.pickups.length >= 0 && !game.find), true);
 
   assert.deepEqual(errors, [], 'no errors on the page');

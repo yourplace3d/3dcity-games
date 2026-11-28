@@ -167,7 +167,9 @@ export type GameEvent =
   | { kind: 'delivered'; job: JobKind; left: number; special: boolean; /** the car the load came on board in took harm on the way */ dented?: boolean }
   | { kind: 'fined' }
   | { kind: 'lost' }
-  | { kind: 'run'; fined: boolean };
+  | { kind: 'run'; fined: boolean }
+  /** the car looked for is back at its ring (`find.ts`) */
+  | { kind: 'found' };
 
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
@@ -425,7 +427,7 @@ export class Game {
   private slowSaid = false;
   /** the player has got going since the start: no job's card at the very start, standing where the game put them */
   private moved = false;
-  /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished. */
+  /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished, a car found. */
   readonly events: Array<(e: GameEvent) => void> = [];
   private emit(e: GameEvent): void {
     for (const f of this.events) f(e);
@@ -2519,6 +2521,7 @@ export class Game {
     const metres = from ? Math.hypot(ex - from[0], ey - from[1]) * 1.3 : 0;
     this.stopFind();
     this.onFind(e, metres);
+    if (e === 'done') this.emit({ kind: 'found' });
     this.onSave();
   }
 

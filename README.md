@@ -282,6 +282,15 @@ back to the full one when there is room (`Game.tune`).
 when run by hand from the Actions tab, so that nothing goes live before it has been looked at. One-time setup: **Settings → Pages → Build
 and deployment → Source: GitHub Actions**.
 
+**Previews.** Each open pull request from a branch of this repository is built (`preview.yml`) and put up
+beside the live game at `…/3dcity-games/preview/pr-<n>/` (`publish-preview.yml`), with the link posted on the
+pull request; closing it takes the preview down. The published site lives on the `site` branch: the live game
+at the root (replaced only by `pages.yml`) and the previews in `preview/`. A preview build (`VITE_PREVIEW`)
+keeps its own store in the browser, starting from a copy of the live game's progress
+(`tools/preview-storage.js`), does not count plays, and never writes to the online save. Previews are not
+linked from anywhere, but anyone given the address can open one. Previews appear once `pages.yml` has run
+once with this setup.
+
 **Without outside requests.** `VITE_BAKED_AT="52.5170,13.3889" npx vite build` makes a build that plays in the
 nine squares around that point and reads its map from `./map/` beside the page instead of the tile servers:
 terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-{y}.txt`.

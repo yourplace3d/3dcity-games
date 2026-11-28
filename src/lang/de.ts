@@ -513,6 +513,7 @@ export const de: Texts = {
   laneCard: (walk, corner) =>
     corner ? ' Die Gassen zur Tür sind zu schmal für ein Auto, deshalb treffen dich die Freunde an der Ecke, wo noch ein Auto hinkommt.' : walk ? ` Die Gasse zur Tür ist zu schmal für ein Auto: Park, wo es eng wird, und geh die letzten ${walk} m zu Fuß. Die Uhr rechnet das mit ein.` : '',
   laneSay: (walk, corner) => (corner ? ': Die Freunde treffen dich an der Ecke, die Gassen sind zu schmal für ein Auto' : walk ? `. Geh die letzten ${walk} m zu Fuß: Die Gasse ist zu schmal für ein Auto` : ''),
+  throwParty: (n) => (n ? `Party feiern · ${n} ${n === 1 ? 'Wohnpunkt' : 'Wohnpunkte'}` : 'Party feiern'),
   partyHud: (shop) => (shop ? 'Getränke und Snacks' : 'Pizza'),
   partyPause: (shop, occ, host) => `Du holst ${shop ? 'die Getränke und Snacks' : 'die Pizza'} für ${de.partyOf(occ, host, 'acc')}.`,
   partyNoRoute: 'Von hier führt keine Straße zu einem Ort mit Essen: Versuch eine andere deiner Immobilien.',

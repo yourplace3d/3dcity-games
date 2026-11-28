@@ -163,8 +163,8 @@ Written by the session that built it, on the owner's "Handoff". **This note is o
   was, and that checkout lost its tools. Pull request #44 took the link out and made `.gitignore` cover a
   link of that name. **A checkout that took `main` between 09:46 and 14:07 UTC on 28 November needs
   `npm ci` once.** In a second checkout, never `git add -A` with a borrowed `node_modules` in it.
-- **Built, not live: the garage, first piece** (branch `claude/garage`, on top of `claude/more-trophies`; no
-  pull request). The owner, asked which cars can be kept: "Any car you can get hold of can be parked there.
+- **Built, not live: the garage, first piece** (branch `claude/garage`, on top of `claude/more-trophies`; in
+  pull request #48 since). The owner, asked which cars can be kept: "Any car you can get hold of can be parked there.
   And you can sell it if your spots is full". A fourth kind of place, from the map's car dealers and repair
   garages (made up where there is none): stop beside one, park the car you sit in, and it is kept; three
   spots for each city; take a kept car out at any garage of its city; never lost, wherever it is left; sell
@@ -236,7 +236,7 @@ Written by the session that built it, on the owner's "Handoff". **This note is o
 - **How the new trophies came about: twelve more at first, 30 in all** (the owner, 28 November, with all but
   one of the 18 earned: "We can now add some more of these maybe?"; the entry above says what changed
   since). Branch `claude/more-trophies`, from `main` at
-  `8bc9651`; no pull request yet. **The choice of the twelve is this session's, for the owner to strike from
+  `8bc9651`; inside pull request #48 since, with the garage. **The choice of the twelve is this session's, for the owner to strike from
   and add to;** it goes live only on the owner's word. Real estate: Ten homes, Five towns, Good as new (a
   home renovated), Full house (a party thrown). Driving: Not a dent (a supply run), By the book (a police
   station's job), Found it (the pump's car driven back), By bus (a package delivered in a bus), 500

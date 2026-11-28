@@ -198,7 +198,7 @@ body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
   #bigmap-buttons { grid-area: buttons; grid-template-columns: 1fr; }
 }
 /* touch: the left of the screen is the stick, so the map sits under the numbers */
-body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto; top: calc(150px + env(safe-area-inset-top)); width: 132px; height: 132px; }
+body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto; top: calc(178px + env(safe-area-inset-top)); width: 132px; height: 132px; }
 @media (max-width: 640px) {
   body.touch #minimap, #minimap { left: auto; right: calc(12px + env(safe-area-inset-right)); bottom: auto; top: calc(160px + env(safe-area-inset-top)); width: 104px; height: 104px; border-radius: 12px; }
   #toasts { top: calc(150px + env(safe-area-inset-top)); max-width: calc(100vw - 150px); left: calc(12px + env(safe-area-inset-left)); transform: none; justify-items: start; }
@@ -321,7 +321,7 @@ body.touch #btn-sound { font-size: 22px; padding: 12px 15px; right: calc(72px + 
    there: the cash panel (top left), the buttons and the speed (top right), the touch buttons (bottom right). */
 #minimap { touch-action: none; }
 #minimap.moving { opacity: 0.85; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
-html body #minimap[data-corner='tl'] { left: calc(12px + env(safe-area-inset-left)); right: auto; top: calc(150px + env(safe-area-inset-top)); bottom: auto; }
+html body #minimap[data-corner='tl'] { left: calc(12px + env(safe-area-inset-left)); right: auto; top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
 html body #minimap[data-corner='tr'] { left: auto; right: calc(12px + env(safe-area-inset-right)); top: calc(118px + env(safe-area-inset-top)); bottom: auto; }
 html body #minimap[data-corner='bl'] { left: calc(12px + env(safe-area-inset-left)); right: auto; top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }
 html body #minimap[data-corner='br'] { left: auto; right: calc(12px + env(safe-area-inset-right)); top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }
@@ -565,6 +565,13 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #pane-story .chapters li[data-state='open'] { color: var(--yellow); font-weight: 700; }
 #pane-story .chapters li[data-state='later'] { opacity: 0.6; }
 #pane-story .chapters small { font-size: 12px; }
+/* what is on now can be tapped: it does what the "now" button does */
+#pane-story .tap { cursor: pointer; }
+#pane-story .chapters li.tap { border-radius: 8px; background: rgba(255, 212, 0, 0.08); }
+#pane-story .chapters li.tap small::after { content: ' ›'; }
+#pane-story .inbox .msg.tap .now-tag::after { content: ' ›'; }
+@media (hover: hover) { #pane-story .tap:hover { filter: brightness(1.08); } }
+#pane-story .tap:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 #pane-story h3 { margin: 14px 0 8px; font-size: 15px; }
 #pane-story .inbox { display: grid; gap: 8px; justify-items: start; max-height: 260px; overflow-y: auto; padding: 2px 2px 6px; }
 #pane-story .inbox .msg { max-width: 100%; }
@@ -573,3 +580,40 @@ body.touch .toast.tap { pointer-events: none; text-decoration: none; }
 #pane-story .inbox .msg.old { opacity: 0.55; }
 #pane-story .inbox .now-tag { justify-self: start; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #1c1c1c; background: var(--yellow); border-radius: 4px; padding: 1px 6px; }
 #pane-story .sofar { margin: 0 0 6px; padding-left: 18px; display: grid; gap: 4px; color: var(--ink); }
+
+/* driving skill (skill.ts): the total under the cash, the combo open, words floating up from the car */
+#skill { display: grid; gap: 3px; margin-top: -2px; }
+#skill-lv { color: #ffb347; font-weight: 700; font-size: 12px; white-space: nowrap; }
+#skill-lv::before { content: '◆ '; font-size: 10px; }
+#skill .meter { position: relative; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); overflow: hidden; }
+#skill .meter i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; transition: width 0.3s; }
+#skill .fill { background: #ffb347; }
+#skill .pend { background: rgba(255, 179, 71, 0.4); }
+#skill.bump #skill-lv { animation: skill-bump 0.6s; }
+@keyframes skill-bump { 30% { color: #fff3a6; } }
+body.touch #skill-lv { font-size: 14px; }
+body.touch #skill .meter { height: 7px; }
+#levelup { position: fixed; left: 50%; top: 34%; z-index: 2; translate: -50% -50%; display: grid; justify-items: center; gap: 4px; padding: 16px 28px 14px; border-radius: 18px; background: rgba(20, 22, 27, 0.88); border: 2px solid #ffb347; box-shadow: 0 0 40px rgba(255, 179, 71, 0.45); text-align: center; pointer-events: none; animation: levelup 3.6s forwards; max-width: 86vw; }
+#levelup[hidden] { display: none; }
+#levelup small { color: #ffb347; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; font-size: 14px; }
+#levelup b { font-size: clamp(24px, 5vw, 38px); font-weight: 800; color: #fff3a6; }
+#levelup span { color: var(--dim); font-size: 13px; }
+@keyframes levelup { 0% { opacity: 0; scale: 0.6; } 10% { opacity: 1; scale: 1.08; } 16% { scale: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+.combo { bottom: calc(118px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); font-weight: 800; color: #ffb347; border-color: rgba(255, 179, 71, 0.6); white-space: nowrap; text-align: center; }
+.combo small { color: var(--ink); font-weight: 600; margin-left: 6px; }
+.combo.drifting { box-shadow: 0 0 14px rgba(255, 179, 71, 0.55); }
+#pops { position: absolute; inset: 0; overflow: hidden; }
+.pop { position: absolute; left: 0; top: 0; font-weight: 800; font-size: 17px; color: #ffb347; white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 2px #000; animation: pop 1.3s ease-out forwards; will-change: transform, opacity; }
+.pop.cash { color: var(--green); font-size: 22px; }
+.pop.bad { color: var(--red); }
+.pop.big { font-size: 21px; color: #fff3a6; }
+body.touch .pop { font-size: 20px; }
+body.touch .pop.cash { font-size: 26px; }
+@keyframes pop { 0% { opacity: 0; translate: -50% 0; scale: 0.7; } 12% { opacity: 1; scale: 1.1; } 25% { scale: 1; } 80% { opacity: 1; } 100% { opacity: 0; translate: -50% -60px; } }
+#btn-camera { display: block; margin: 10px 0 2px; }
+body.touch #btn-camera { display: none; }
+.skill-card { border: 1px solid rgba(255, 179, 71, 0.45); border-radius: 12px; padding: 10px 12px; margin: 2px 0 12px; background: rgba(255, 179, 71, 0.07); }
+.skill-card b { color: #ffb347; }
+.skill-card .meter { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.14); overflow: hidden; margin: 7px 0 5px; }
+.skill-card .meter i { display: block; height: 100%; background: #ffb347; border-radius: 4px; }
+.skill-card p { margin: 4px 0 0; }

@@ -38,22 +38,95 @@ lives.
      animation-frame callback asked for in a step. With one, `src/clearOf.ts` took the game's loop away and the
      game froze (a race with its one-second timer, so sometimes before `cruise` was printed, sometimes only
      while filming: 268 of 270 frames the same). `film.mjs cruise` now prints `cruise 10`, all 270 frames move.
+- **The Pages deploy waits for its artifact** (the owner: "Add the pause to the Pages workflow", 28 November):
+  the deploy step looked for the uploaded artifact in the same second and found none, twice on 28 November (runs
+  89 and 91; fresh runs 90 and 92 went through). `pages.yml` now waits until the artifact is listed, a minute at
+  most, before deploying. A failed deploy: start a fresh run, as a re-run finds two artifacts and fails again.
+  `publish-preview.yml` deploys the same way and has no wait yet.
 
 - **How a change goes live from now on** (the owner, 28 November, of another session's setup: "The preview
   is switched on and working. From now on each change is played in a browser on GitHub first, I read the
   screenshots, and you get a play link", and to this session: "Yes can you do it this way now?"). So: open a
   pull request; GitHub builds it as a preview and posts the play link on it; the preview check plays it and
-  keeps pictures on the `preview-shots` branch, which the session reads; the owner plays the link; only
-  then, on the owner's word, is it merged and deployed. A pull request shows what it changes with a file in
-  `tools/preview-scenes/` (README, "The preview check").
-- **In the preview, waiting for the owner: the garage, its job and the trophies** (`claude/garage`, as one
-  pull request). Its scenes: `tools/preview-scenes/garage.mjs`. Played here first: the panel fits a phone;
-  the job's line was shortened to "Car, no dent · 650 m · $215", as the longer one broke over two lines
-  there.
+  keeps pictures on the `preview-shots` branch (folder `pr-<number>/<first seven of the commit>/`, with
+  `report.json`), which the session reads; the owner plays the link; only then, on the owner's word, is it
+  merged and deployed. A pull request shows what it changes in one of two ways (README, "The preview
+  check"): steps in the city the check has already loaded, `tools/preview-steps.mjs`, one file that each
+  change replaces; or a scene with a stored player of its own, a file in `tools/preview-scenes/`.
+
+### Handed over on 28 November, evening: the garage, waiting for the owner in pull request #48
+
+Written by the session that built it, on the owner's "Handoff". **This note is on the branch
+`claude/garage` until that pull request is merged; `main`'s copy of this file does not have it.**
+
+- **What is in it:** the garage (park any car and keep it, three spots a city, sell), its own job (a car
+  to deliver without a dent, eight levels, three special cars to buy) and the trophies (30, with how far
+  along a counting one is). The entries under "Earlier the same day" say what each does and where its code
+  and tests are; the plan and the owner's words are in `docs/brainstorm-story.md`, sections 19 to 21.
+- **Where it stands:** pull request #48, branch `claude/garage`. Play link:
+  https://yourplace3d.github.io/3dcity-games/preview/pr-48/ (GitHub rebuilds it at each push and says
+  which commit in its comment on the pull request). Its own pictures in the preview check, from
+  `tools/preview-scenes/garage.mjs`, on a tablet and a phone: `-garage`, `-car-delivery`,
+  `-car-handed-over`, `-trophies`, `-trophies-driving`. `main` is merged in as of `9428b84`, which is what
+  is live (Pages run 96, 28 November, 15:37 UTC: driving skill and the Story tab's tappable chapter).
+- **What the owner has said, and what not yet:** "1 yes … 3 yes" to the cap going live on its own (done)
+  and to building the garage's job; then "can you do it this way now?", the preview. **The owner has not
+  yet said they played #48, and has not said to put it live. Nothing is merged or deployed before that.**
+- **When the owner wants something changed:** change it on `claude/garage`, push, wait for the preview
+  check, read its pictures, say what changed and give the play link again.
+- **On the owner's word to put it live:**
+  1. Merge the newest `main` into the branch. It moves several times a day, and the same five files meet
+     each time, both sides adding at the same place: `HANDOFF.md`, `README.md`, `src/lang/en.ts`,
+     `src/lang/de.ts`, `tools/preview-check.mjs`. Keep both sides.
+  2. `npx tsc --noEmit`, `npx vitest run`, `npm run build`.
+  3. The browser tests on real tiles, one at a time: `care`, `garage`, `trophies`, `pay`, `ui`, `story`,
+     `find` (`NODE_PATH=$(npm root -g) node tools/<name>-test.mjs`).
+  4. A code review by a reader who has not seen it: the pay cap had one before it went live, **the garage
+     and the car delivery have had none.**
+  5. Merge #48, run `pages.yml` by hand on `main` (a failed deploy: start a fresh run), then compare the
+     live script byte for byte with a build of `main` and open the live game in a test browser.
+  6. Write it here, and move the entries below from "built" to "live".
+- **Put to the owner, not answered:**
+  - A run's score: this session's advice was to leave it uncapped (only the cash stops at $300), and
+    perhaps to show it as points, not dollars. Known and left: a fine is a share of cash, so it now takes
+    a little less off a run's score than before the cap.
+  - The estimates: what a kept car sells for ($100 to $200, a painted bus $150), the special cars
+    ($2,000, $3,000, $4,000, sold again for two fifths), the delivery's pay ($200 to $300) and its ways,
+    the paint ($50), the open jobs' tops (`PAY_TOP`).
+- **Next from the plan, said yes to, not built** (`docs/brainstorm-story.md`, section 19): chapters 6 to 8
+  opening a day apart, not waiting for each other; after the story, the missions come round again (a
+  shuffled pack, one a day, others for the asking, each a level harder where that fits), with the written
+  scenes as the first ask. Thought of and left for later: a clock on the car delivery at its higher
+  levels, choosing a kept car at home, more than three spots, paint for other cars.
+- **Branches:** `claude/more-trophies` (the trophies alone) is inside #48 and can go;
+  `claude/job-pay-cap` and `claude/remove-stray-link` are merged.
+- **What cost time here, so it need not again:**
+  - Never edit `src/` while a browser test runs: the test's own dev server loads the page again in the
+    middle of it. One browser test at a time.
+  - The test browser runs the game slowly: the camera's way down takes about a minute (wait for
+    `game.descent <= 0 && !game.rising`), and a player on foot is pushed about by traffic while a picture
+    is taken (the tests stand them where they belong again before a press).
+  - A stand-in player needs a home and the tour done (`3da-homes`, `3da-coached`), or the first-home card
+    and the tour lie over the garage's panel. A first visit now starts on a run of three; a test that
+    wants open jobs calls `game.openPlay()` and stores `3da-mode` as `jobs` (`tools/story-test.mjs`).
+  - A garage's panel is the homes' panel (`#forsale`); the garage only clears it while its own title
+    (`b[data-garage]`) is in it, and its buttons are told from the homes' by `.care` and `b.part`.
+  - Every text for the player goes into both `src/lang/en.ts` and `src/lang/de.ts`; German needs each
+    car's forms (`CAR`, `SPECIAL` in `de.ts`). A text has to fit a 390 px phone on one line where the
+    screen gives it one: "Car, no dent · 650 m · $215" and "Convertible" were shortened for that.
+  - The link named `node_modules`: see below. `.gitignore` covers it now.
+
 ## Earlier the same day (28 November 2026, morning)
 
-- **Built, not live: the garage's own job, a car to deliver** (the owner's "yes", 28 November; branch
-  `claude/garage`, no pull request). "Deliver a car" in the garage's panel stands a special car by the
+- **Driving skill, in a pull request, not live** (the owner: "Driving skills which in future will open up
+  different vehicles hidden gems"; skill only grows, unlocks at levels; "Crashes can cost you points maybe?"):
+  near misses and drifts earn skill, combos multiply, a crash loses the combo and 10 points but never a level.
+  Also tyre marks, a delivery burst, a slow moment after a run, and a camera that turns with the car (keys only,
+  off by default). README, "Driving skill". Every number is a guess to tune from play. Tried only on the stand-in
+  map (`tools/stand-in-map.mjs`), not on real tiles or an iPad.
+
+- **Built, in pull request #48: the garage's own job, a car to deliver** (the owner's "yes", 28 November;
+  branch `claude/garage`). "Deliver a car" in the garage's panel stands a special car by the
   garage with the player in it; a new dent on the way and the job is gone; no clock; handed over stopped at
   the ring. Each one done well is a level up, to the eighth (a longer way, $200 to $300). Three special
   cars: an old convertible, a limousine, a coupé; one delivered without a dent is for sale at the garages

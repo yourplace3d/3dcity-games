@@ -254,6 +254,22 @@ the streets, buildings, water and hills come from the same map squares as
 - Where the map says so, traffic keeps left (Britain, Japan, Australia, India, parts of Africa: rough boxes).
 - **Thin places.** Where OpenStreetMap has few buildings or streets, the start screen says so, links to the
   place on OpenStreetMap and to how to add to it, and lets you play anyway.
+- **Driving skill** (since 28 November 2026, the owner: "our next collectible points", which will open up
+  vehicles and hidden gems): a near miss (passing moving traffic within about a metre at speed) and a drift
+  (sliding about 19° or more off the nose for half a second) each earn points, shown popping up beside the car.
+  Moves within 3 seconds build a combo that multiplies (up to ×5), banked when it goes quiet or you get out. A
+  crash loses the combo and takes 10 off the total, never below the start of the level reached. Skill is never
+  spent; 30 levels are where later unlocks will hang, each taking longer than the one before, "like Diablo"
+  (the owner): level n+1 takes 40 × n² more, so level 2 comes after a couple of good moves, 5 in about an
+  hour, 10 in an evening or two, 20 in weeks and 30 in months (at a guessed 1,000 to 2,000 points an hour).
+  Ranks name them in fives: Rookie, Regular, Skilled, Pro, Ace, Master, and Legend at 30. Driving has its own levels (the owner's choice: "its
+  own driving levels", not one player level): the level and a bar to the next sit under the cash, the open
+  combo shown paler on the bar, and reaching a level brings a "Level up!" banner with a fanfare. The counts of
+  each move are at the top of the Trophies tab. Kept as `3da-skill`, so saving online carries it.
+  On a touch screen, which has no handbrake, holding the brake in a hard turn at speed slides the car. Every
+  number is one line in `src/game/skill.ts`, to tune from play. Also new: tyre marks while sliding, a burst
+  and the pay floating up at each delivery, a slow moment after a run's last, and a camera that can turn with
+  the car (keys only, off by default: `C`, kept as `3da-turnview`).
 - The map loads one 1.5 km square at a time on a fixed grid, and the next square loads as you near the
   edge, so you can keep driving.
 
@@ -262,7 +278,8 @@ the streets, buildings, water and hills come from the same map squares as
 | Walk, drive | `W` `A` `S` `D` or arrows | drag on the left of the screen, towards where you want to go |
 | In and out of cars | `E` | **In / out** |
 | Brake, reverse | `S` | **Brake** |
-| Handbrake | `Space` | |
+| Handbrake, to drift | `Space` | hold **Brake** in a hard turn at speed |
+| Camera turns with the car, or north up | `C`, or the button in the menu | (north up always) |
 | Big map of the loaded streets | `M` | tap the little map |
 | Menu: pause, real estate, trophies | `P` or `Esc` | **☰** at the top; the house button opens real estate |
 | Route line on the road | `G` | the button on the big map |
@@ -324,10 +341,12 @@ once with this setup.
 **The preview check.** Each pull request's build is also played in a browser on GitHub
 (`preview-check.yml`, `tools/preview-check.mjs`): the start screen and a city on a tablet and on a phone,
 with the pictures and a report kept on the `preview-shots` branch under `pr-<n>/<commit>/`. A pull request
-adds pictures of what it changes with a file in `tools/preview-scenes/`: each file there is played after
-the common scenes, takes its pictures into the same folder, and what it returns goes into the report under
-its name. `garage.mjs` is one: the garage's panel, a car delivery from the offer to the hand-over, and the
-Trophies tab. A scene never fails the check. To play it all here: `VITE_PREVIEW=pr-test npm run build`,
+adds pictures of what it changes in one of two ways. Steps in the city the check has just loaded:
+`tools/preview-steps.mjs`, one file, which each change replaces with its own. Or a scene with a stored
+player of its own, a file in `tools/preview-scenes/`: each file there is played after the common scenes,
+takes its pictures into the same folder, and what it returns goes into the report under its name.
+`garage.mjs` is one: the garage's panel, a car delivery from the offer to the hand-over, and the
+Trophies tab. Neither fails the check. To play it all here: `VITE_PREVIEW=pr-test npm run build`,
 then `NODE_PATH=$(npm root -g) node tools/preview-check.mjs dist <folder>`.
 
 **Without outside requests.** `VITE_BAKED_AT="52.5170,13.3889" npx vite build` makes a build that plays in the
@@ -360,6 +379,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/full.ts`: a tester's way to extras that are not public: a private key in the address (`?full=<key>`)
   asks a gate for an add-on. Without a key the game contacts no one. `?full=off` forgets the key.
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
+- `src/game/skill.ts`: driving skill (near misses, drifts, combos, levels), fed by `Game.drivingSkill`.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
   (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways, and which streets are one-way.
@@ -394,6 +414,12 @@ bridge pass the cars on it.
 - `tools/care-test.mjs`: the garage's own job in a browser on real map tiles: taken, lost to a dent, taken
   again and handed over, paid, "Not a dent" earned, a level up, the car for sale, bought, kept and taken out.
   `SHOTS=<folder>` keeps screenshots.
+- `tools/preview-steps.mjs`: steps the preview check (`tools/preview-check.mjs`) runs once the city is up, to
+  play the change being looked at and take its own pictures; each change replaces them (now: driving skill).
+- `tools/stand-in-map.mjs`: a stand-in map (flat ground, a grid of streets and blocks) answered to a
+  Playwright page in place of the map servers, for trying the game where those can't be reached (the cloud
+  sessions). `tools/skill-test.mjs` uses it to play a drift and a near miss and check what is kept; it runs
+  straight from the dev server (`node tools/skill-test.mjs`).
 - `tools/pay-test.mjs`: what a job pays, in a browser on real map tiles: after 500 deliveries an open job of
   each kind pays $300 and no more, and a run of three counts what a delivery is worth while its cash stops
   at $300.

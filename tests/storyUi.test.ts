@@ -28,8 +28,18 @@ class El {
   replaceChildren(...c: El[]): void {
     this.children = c;
   }
-  addEventListener(_: string, f: () => void): void {
-    this.click = f;
+  classes = new Set<string>();
+  classList = { add: (c: string) => this.classes.add(c), remove: (c: string) => this.classes.delete(c) };
+  attrs: Record<string, string> = {};
+  tabIndex = -1;
+  setAttribute(k: string, v: string): void {
+    this.attrs[k] = v;
+  }
+  prepend(...c: El[]): void {
+    this.children.unshift(...c);
+  }
+  addEventListener(ev: string, f: () => void): void {
+    if (ev === 'click') this.click = f;
   }
   /** everything written in it */
   get text(): string {
@@ -111,11 +121,12 @@ function setup(story: Story, town: Partial<Town> = {}) {
   const ui: StoryUi = Object.assign(Object.create(StoryUi.prototype), { host, story, queue: story.pending.map((m) => ({ ...m })), shownAt: -Infinity, everyT: 0, playedS: 60, visitSaid: true, homesBefore: t.homes.length, guide: null, partied: t.partied, partiedAt: performance.now(), findCar: '' });
   const inner = ui as unknown as { story: Story; queue: Array<{ who: string; text: string; heading?: string }> } & Record<string, (...a: unknown[]) => unknown>;
   /** the Story tab, drawn: its words, and its button if it has one */
-  const tab = () => {
+  const tab = (playing = true) => {
     const box = new El('div');
-    ui.draw(box as unknown as HTMLElement, true);
+    ui.draw(box as unknown as HTMLElement, playing);
     const now = box.children[0];
-    return { text: now.all('p')[0].text, button: now.all('button')[0] as El | undefined };
+    const open = box.all('li').find((li) => li.dataset.state === 'open');
+    return { text: now.all('p')[0].text, button: now.all('button')[0] as El | undefined, open };
   };
   /** the lines shown over the game so far */
   const shown = () => host.show.mock.calls.map((c) => (c[0] as El).text);
@@ -148,6 +159,22 @@ describe('where a chapter waits', () => {
     expect(now.button?.textContent).toBe('Go to Nuremberg');
     now.button!.click();
     expect(host.goHome).toHaveBeenCalledWith(flat);
+  });
+
+  it('from the start screen too, the way to where a chapter waits; and the open chapter can be tapped for it', () => {
+    const { host, tab } = setup(at(8), { here: [], inTown: false });
+    const now = tab(false);
+    expect(now.button?.textContent).toBe('Go to Nuremberg');
+    expect(now.open?.classes.has('tap')).toBe(true);
+    now.open!.click();
+    expect(host.goHome).toHaveBeenCalledWith(flat);
+  });
+
+  it('on the start screen, a chapter that happens where one is has no way to show, and nothing to tap', () => {
+    const { tab } = setup(at(8), { here: [flat] });
+    const now = tab(false);
+    expect(now.button).toBeUndefined();
+    expect(now.open?.classes.has('tap')).toBe(false);
   });
 
   it('says where it waits at the start of a visit: the town from afar, the home within the town', () => {

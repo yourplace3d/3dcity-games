@@ -314,6 +314,7 @@ function setScreen(screen: 'start' | 'play'): void {
   if (!playing) showMap(false);
   $('btn-resume').hidden = !game?.world;
   homesButtons();
+  if (!playing) firstLook();
 }
 
 /** Load a place and start playing in it. `here`: the place is where the visitor is ("Where I am"), which is never counted. */
@@ -896,6 +897,22 @@ function coached(): boolean {
   }
 }
 
+/**
+ * The start screen on a first visit (the tour not finished): one yellow button, "Play in Berlin", and the
+ * ways to play folded away under "Other ways to play", a run of three until another is picked. Search, the
+ * other cities and "Where I am" stay. Once the tour is done the start screen is the full one again.
+ */
+function firstLook(): void {
+  const first = !BAKED && !coached();
+  const more = $('btn-modes');
+  more.hidden = !first;
+  $('modes').hidden = first && more.getAttribute('aria-expanded') !== 'true';
+  const city = $('places').querySelector<HTMLElement>('[data-first]');
+  if (!city) return;
+  city.classList.toggle('primary', first);
+  city.textContent = first ? T.playIn(city.dataset.first!) : city.dataset.first!;
+}
+
 /** The tour's steps: what to say (keys, touch) and what the player must have done to move on. */
 const TOUR: Array<{ keys: string; touch: string; done: (h: Hud) => boolean }> = [
   {
@@ -925,6 +942,8 @@ let step = -1;
 let lastFor = 0;
 /** seconds with no package anywhere to point at */
 let noTarget = 0;
+/** the tour's steps shown on this page, each counted once (it goes back from 3 to 2 when a package runs out) */
+const toured = new Set<number>();
 
 function endTour(): void {
   step = -1;
@@ -958,6 +977,10 @@ function tour(h: Hud, dt: number): void {
     if (lastFor > 14) return endTour();
   }
   $('coach').hidden = false;
+  if (!toured.has(step)) {
+    toured.add(step);
+    if (!BAKED) countPlay('tour', String(step + 1));
+  }
   put('coach-n', T.tourStep(step + 1, TOUR.length));
   const touch = document.body.classList.contains('touch');
   // out of the car in the middle of it all: the next thing is to get back into one
@@ -965,7 +988,11 @@ function tour(h: Hud, dt: number): void {
   put('coach-text', onFoot ? (touch ? T.tourOnFootTouch : T.tourOnFootKeys) : touch ? TOUR[step].touch : TOUR[step].keys);
   put('coach-skip', last ? T.gotIt : T.skipTour);
 }
-$('coach-skip').addEventListener('click', endTour);
+$('coach-skip').addEventListener('click', () => {
+  // the last step's button says "Got it": that is the end of the tour, not a skip
+  if (step >= 0 && step < TOUR.length - 1 && !BAKED) countPlay('tour', 'skip');
+  endTour();
+});
 
 /** "52.5, 13.4" typed straight in. */
 function parseLatLon(q: string): LngLat | null {
@@ -1357,6 +1384,8 @@ if (baked) {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = T.cityNames[name] ?? name;
+    // the first city is the one yellow button on a first visit (`firstLook`)
+    if (!places.childElementCount) b.dataset.first = T.cityNames[name] ?? name;
     b.addEventListener('click', () => void go({ lat, lon }, name));
     places.append(b);
   }
@@ -1495,7 +1524,14 @@ addEventListener('keydown', (e) => {
 });
 // the game does not run on while its tab is out of sight
 document.addEventListener('visibilitychange', () => document.hidden && !menuOpen && setPause(true));
-setMode(mode);
+// a first visit plays a run of three unless another way is picked under "Other ways to play"
+setMode(!BAKED && !coached() ? 'run' : mode);
+firstLook();
+$('btn-modes').addEventListener('click', () => {
+  const open = $('btn-modes').getAttribute('aria-expanded') !== 'true';
+  $('btn-modes').setAttribute('aria-expanded', String(open));
+  $('modes').hidden = !open;
+});
 $('mode-run').addEventListener('click', () => setMode('run'));
 $('mode-jobs').addEventListener('click', () => setMode('jobs'));
 $('mode-guess').addEventListener('click', () => setMode('guess'));

@@ -21,6 +21,7 @@
 
 import type { Pt, Polygon } from '../geo/polygon';
 import type { AreaFeature, LineFeature } from '../geo/osm';
+import { T } from '../i18n';
 
 /** what one flat of 70 m² costs where the spot is average */
 const FLAT_BASE = 900;
@@ -346,7 +347,7 @@ export function canBuy(h: Homes, what: Home['kind']): boolean {
 /** "after your 3rd home": what opens a kind of home */
 export function opensAfter(what: Home['kind']): string {
   const n: number = what === 'house' ? HOUSES_AFTER : BUILDINGS_AFTER;
-  return `after your ${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'} ${what === 'house' ? 'flat' : 'home'}`;
+  return T.opensAfter(n, what === 'house');
 }
 
 /** Colours a whole house or building can be painted. */

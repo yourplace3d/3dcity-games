@@ -3,7 +3,7 @@
  * Der Spieler wird geduzt; die Sprache bleibt so schlicht wie im Englischen.
  */
 
-import type { Texts } from './en';
+import type { Case, Kind, Texts } from './en';
 
 const COUNT = ['keine', 'eine', 'zwei', 'drei', 'vier', 'fünf'];
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
@@ -12,6 +12,27 @@ const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math
 const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'Lieferung' : 'Lieferungen'}`;
 /** "45 Sekunden", sonst "1:30" */
 const secs = (s: number) => (s < 60 ? `${Math.round(s)} Sekunden` : fmtTime(s));
+/** "deine Wohnung", "deinem Haus": the player's home in each case */
+const POSS: Record<Kind, Record<Case, string>> = {
+  flat: { nom: 'deine Wohnung', acc: 'deine Wohnung', dat: 'deiner Wohnung', gen: 'deiner Wohnung' },
+  house: { nom: 'dein Haus', acc: 'dein Haus', dat: 'deinem Haus', gen: 'deines Hauses' },
+  building: { nom: 'dein Gebäude', acc: 'dein Gebäude', dat: 'deinem Gebäude', gen: 'deines Gebäudes' },
+};
+/** was eine Party ist, nach ihrer Nummer im Link; `m`: männlich (der Spieleabend) */
+const OCC = [{ w: 'Party', m: false }, { w: 'Spieleabend', m: true }, { w: 'Filmabend', m: true }, { w: 'Geburtstagsparty', m: false }];
+/** "Lenas", "Jonas’" */
+const genitive = (name: string) => (/[sßxz]$/i.test(name) ? `${name}’` : `${name}s`);
+/** " in der Lindenstraße", " am Kaiserdamm", else the street's own name in brackets, which needs no article */
+const on = (street: string) =>
+  !street
+    ? ''
+    : /^(am|an|auf|im|in|unter|zum|zur|bei|hinter|vor|über|alt)[\s-]/i.test(street)
+      ? ` ${street}`
+      : /(straße|strasse|gasse|allee|chaussee|zeile)$/i.test(street)
+      ? ` in der ${street}`
+      : /(weg|damm|ring|platz|markt|steig|pfad|graben|kai|ufer|berg|wall)$/i.test(street)
+        ? ` am ${street}`
+        : ` (${street})`;
 
 export const de: Texts = {
   // ---------------------------------------------------------------- die Seite (index.html)
@@ -320,4 +341,254 @@ export const de: Texts = {
   extrasRefused: 'Extras: Der Schlüssel wurde nicht angenommen',
   extrasFailed: 'Extras konnten nicht geladen werden',
   extrasOn: (version) => (version ? `Extras an (Testversion ${version})` : 'Extras an'),
+  // ---------------------------------------------------------------- Immobilien, Banken, Miete (homesUi.ts, homesList.ts, homes.ts)
+  homeRef: (kind, street, c = 'nom') => `${POSS[kind][c]}${on(street)}`,
+  describeLot: (what, street, floors, inHouse, units) =>
+    what === 'house'
+      ? `ein Haus${on(street)}`
+      : what === 'building'
+        ? `das ganze ${inHouse ? 'Haus' : 'Gebäude'}${on(street)}, ${units} Wohnungen`
+        : `eine Wohnung in einem ${floors}-stöckigen ${inHouse ? 'Haus' : 'Gebäude'}${on(street)}`,
+  homeLine: (kind, street) => (kind === 'building' ? `Das ganze Gebäude${on(street)}` : kind === 'house' ? `Ein Haus${on(street)}` : `Eine Wohnung${on(street)}`),
+  moreDeliveries: (n) => `${n} ${n === 1 ? 'weiteren Lieferung' : 'weiteren Lieferungen'}`,
+  opensAfter: (n, house) => `nach deiner ${n}. ${house ? 'Wohnung' : 'Immobilie'}`,
+  paints: { white: 'weiß', cream: 'cremefarben', yellow: 'gelb', terracotta: 'terrakotta', red: 'rot', green: 'grün', blue: 'blau', grey: 'grau' },
+  toMenuTouch: 'Tipp oben auf den Haus-Knopf,',
+  toMenuClick: 'Klick hier,',
+  kickerKnow: 'Gut zu wissen',
+  fixersHere: (price) => `Hier: abgewohnte Wohnungen für ${price}. Halt neben einem Gebäude mit grünem $-Zeichen, um eine zu kaufen.`,
+  restAffordable: (price) => `Du hast genug für den Rest deines Gebäudes: ${price}. Folg dem Pfeil und halt daneben.`,
+  oneMoreForFlat: 'Noch eine Lieferung, und du kannst dir eine eigene Immobilie kaufen: deine erste Wohnung.',
+  enoughForFlat: 'Genug für eine erste Wohnung. Beende die Runde, dann wird dir gezeigt, wo.',
+  firstHomeMission: 'Privater Auftrag: dein erstes Zuhause',
+  firstHomeMissionText: (cash, price) =>
+    `Du hast ${cash}. Nicht weit von hier haben ein paar Gebäude Wohnungen mit abgewohnten Wänden, und die sind günstig: Eine gehört dir für ${price}. Fahr hin, halt neben einem Gebäude mit grünem $-Zeichen und kauf sie.`,
+  showPlace: 'Zeig mir den Ort',
+  repairMission: 'Auftrag: Renovier dein Gebäude',
+  repairMissionText: (flatWorn, others) =>
+    `Dieses Paket geht an dein Gebäude. ${flatWorn ? 'Die Wände deiner Wohnung sind abgewohnt, und bis zur Renovierung bringt sie keine Miete: Liefere das hier, dann ist sie fertig. ' : ''}Danach kannst du den Rest des Gebäudes kaufen: ${others === 1 ? 'eine weitere Wohnung' : `${others} weitere Wohnungen`}. Jedes Paket von einer Tankstelle, Feuerwache oder der Polizei renoviert eine Wohnung, und jede renovierte Wohnung bringt mehr Miete. Ist jede Wohnung fertig, bekommt die Fassade einen frischen Anstrich in der Farbe deiner Wahl. Dazwischen zahlt jeder andere Auftrag wie immer.`,
+  letsGo: 'Los geht’s',
+  flatRepairedRest: (n, price) => ` Als Nächstes der Rest des Gebäudes: ${n === 1 ? 'eine Wohnung' : `${n} Wohnungen`} für ${price}. Halt daneben, um zu kaufen.`,
+  flatRepaired: (rent, rest, party) => `Deine Wohnung ist renoviert: Ab morgen bringt sie ${rent} an jedem Tag, an dem du wiederkommst.${rest}${party ? ' Und sie ist bereit für eine Party: Halt daneben.' : ''}`,
+  allFlatsRepaired: 'Jede Wohnung ist renoviert. Noch ein Paket von einer Wache: Farbe für die Fassade.',
+  flatNRepaired: (n, of, rent) => `Wohnung ${n} von ${of} ist renoviert: Ab morgen bringt sie ${rent} mehr Miete. Die Ringe der Wachen blinken grün für die nächste.`,
+  buildingDone: 'Dein Gebäude ist fertig',
+  buildingDoneText: (units, rent) =>
+    `Alle ${units} Wohnungen sind renoviert, und das Gebäude bringt ${rent} an jedem Tag, an dem du wiederkommst. Die Farbe ist da: Folg dem Pfeil, halt neben deinem Gebäude und wähl seine Farbe.`,
+  moneySafe: 'Dein Geld ist sicher',
+  moneySafeText: (amount, saved) =>
+    `${amount} sind jetzt auf der Bank, insgesamt ${saved}. Strafen nehmen nur vom Bargeld, das du dabeihast. Hast du wieder viel davon bei dir, wirst du erinnert, und der Pfeil zeigt den Weg zur nächsten Bank.`,
+  paidIn: (amount, saved) => `${amount} eingezahlt. Du hast ${saved} auf der Bank, sicher vor Strafen.`,
+  noBankYet: 'Noch keine Bank: Mit deinem ersten Zuhause wird seine Stadt deine Heimatstadt, mit ihren Banken.',
+  banksHomeOnly: 'Banken gibt es nur in deiner Heimatstadt.',
+  noBankHere: 'In diesem Teil der Stadt ist keine Bank: Fahr weiter, die nächste taucht auf.',
+  banksIn: (place) => `Deine Banken sind in ${place}: Geld dort ist sicher vor Strafen.`,
+  atBank: 'Du bist an einer Bank: Halt daneben und zahl ein.',
+  bankWayOff: 'Der Weg zur Bank ist aus.',
+  bankAfterParty: 'Nach der Party zeigt der Pfeil die nächste Bank.',
+  bankAfterJob: 'Nach dieser Lieferung zeigt der Pfeil die nächste Bank.',
+  bankArrow: 'Der Pfeil zeigt die nächste Bank: Halt daneben und zahl ein.',
+  bankWhenFree: 'Halt neben einer Bank und zahl ein: Der Pfeil zeigt sie, sobald er frei ist.',
+  toBankArrow: 'Zur Bank: Der Pfeil zeigt die nächste. Halt daneben und zahl ein.',
+  toBank: 'Zur Bank: Halt neben einer und zahl ein.',
+  keepCashSafe: 'Bring dein Geld in Sicherheit',
+  keepCashSafeText: (cash, cost, place) =>
+    `Du hast ${cash} in bar dabei. Erwischt dich die Polizei, nimmt sie dir ${cost} davon ab, und ein Totalschaden kostet auch einen Teil. Geld auf der Bank ist sicher vor Strafen und bezahlt trotzdem Immobilien in ${place}. Der Pfeil zeigt die nächste Bank: Halt daneben und zahl ein.`,
+  showBank: 'Zeig mir die Bank',
+  cashReminder: (cash, cost, arrow) => `Du hast ${cash} dabei. Erwischt dich die Polizei, verlierst du ${cost}: ${arrow ? 'Der Pfeil zeigt die nächste Bank' : 'Auf einer Bank ist es sicher'}.`,
+  rentLine: (arriving, paying, got, waits) => {
+    const who = paying === 1 ? 'dein Zuhause' : `deine ${paying} Immobilien`;
+    const verb = paying === 1 ? 'hat' : 'haben';
+    if (!got) return arriving ? `Willkommen zurück. ${waits.trim()}` : `Ein neuer Tag: ${waits.trim()}`;
+    if (arriving) return `Willkommen zurück. Heute ${verb} dir ${who} ${got} Miete gezahlt.${waits}`;
+    return `Ein neuer Tag: ${cap(who)} ${verb} dir ${got} Miete gezahlt.${waits}`;
+  },
+  seeHomes: (text, how) => `${text} ${how} um deine Immobilien zu sehen.`,
+  soFar: (money) => ` (bisher ${money})`,
+  needsRenovating: (so) => `Muss renoviert werden: Die Miete wartet bis dahin${so}. Ein Paket von irgendeiner Wache in diesem Teil der Stadt renoviert es`,
+  disputeNote: { talk: 'Halt daneben, um mit ihnen zu reden', insist: 'Sie warten auf das Ersatzteil: ein Eilauftrag von einer Feuerwache', accept: 'Sie warten auf das, was fehlt: eine Versorgungsfahrt von einer Tankstelle, ohne neue Delle', court: 'Der Gerichtsbeschluss: Fahr die Beamten von einer Polizeiwache hin, nach Vorschrift', replace: 'Der alte Boiler hat aufgegeben: Ein Paket von irgendeiner Wache bringt einen neuen', moving: 'Neue Mieter ziehen mit deiner nächsten Lieferung ein' },
+  tenantsNote: (moved, so, rest) => `${moved ? 'Die Mieter sind ausgezogen' : 'Die Mieter zahlen nicht mehr'}: Die Miete wartet, bis es geklärt ist${so}. ${rest}`,
+  heldLine: (held, where, many, done) =>
+    ` ${held} warten bei ${where}, bis ${many ? 'sie' : 'es'} ${done === 'renovate' ? 'renoviert' : 'geklärt'} ${many ? 'sind' : 'ist'}.`,
+  nOfYourHomes: (n, c = 'nom') => `${n} ${c === 'dat' ? 'deiner' : c === 'gen' ? 'deiner' : 'deiner'} Immobilien`,
+  needsRenovatingTitle: (kind) => `${cap(POSS[kind].nom)} muss renoviert werden`,
+  needsRenovatingText: (home, rent, over) =>
+    `Die Wände ${home} sind abgewohnt. Bis zur Renovierung wartet die Miete von ${rent} am Tag beim Gebäude: Sie geht nicht verloren. Ein Paket von irgendeiner Tankstelle, Feuerwache oder der Polizei bringt, was fehlt${over ? ': Ihre Ringe blinken jetzt grün' : ': Sobald deine Runde vorbei ist, blinken ihre Ringe grün'}. Liefere es ans Gebäude, und die Miete, die gewartet hat, gehört dir.`,
+  repairLines: (stage, n, units) => {
+    if (stage === 'paint') {
+      const line = 'Farbe für die Fassade deines Gebäudes: Bring sie hin und wähl dann die Farbe';
+      return { plain: line, supply: `${line}. Schwere Ladung: Pass auf Dellen auf`, rush: `${line}. Schnell, bevor das Wetter umschlägt`, clean: `${line}. Fahr sauber, sonst ist der Auftrag weg` };
+    }
+    const which = stage === 'flat' ? 'deine Wohnung' : `Wohnung ${n} von ${units}`;
+    const whose = stage === 'flat' ? 'deiner Wohnung' : `von Wohnung ${n}`;
+    return {
+      plain: `Material zum Renovieren für ${which}: Bring es zu deinem Gebäude`,
+      supply: `Farbe und Putz für ${which}: schwere Ladung, bring sie zu deinem Gebäude`,
+      rush: `Ein Ersatzteil vom Klempner für die Rohre ${whose}: schnell, die Zeit ist knapp`,
+      clean: `Neue Schlösser und Fenster für ${which}: Fahr sauber, sonst ist der Auftrag weg`,
+    };
+  },
+  renovateLines: (home) => ({
+    plain: `Material für ${home}: Bring es zum Gebäude`,
+    supply: `Farbe und Putz für ${home}: schwere Ladung, bring sie zum Gebäude`,
+    rush: `Ein Ersatzteil vom Klempner für ${home}: schnell, die Zeit ist knapp`,
+    clean: `Neue Fenster für ${home}: Fahr sauber, sonst ist der Auftrag weg`,
+  }),
+  credited: (banked, lost) => (banked ? ` ${banked} davon gingen auf deine Bank: Du hast schon das meiste Bargeld, das geht.` : '') + (lost ? ` ${lost} passten nicht mehr: Bargeld und Bank sind voll.` : ''),
+  renovated: (home, waiting, tip, extra) =>
+    `${cap(home)} ist renoviert.${waiting ? ` Die ${waiting} Miete, die dort gewartet haben, gehören dir,` : ''} ${waiting ? 'und die' : 'Die'} Mieter bedanken sich mit ${tip}.${extra}`,
+  pointsNote: (flat, house, houses, how) =>
+    `Neu: Wohnpunkte. Jede Lieferung bringt einen; eine Wohnung kostet ${flat}, ein Haus ${house}. Nach deiner ersten Lieferung am Tag kannst du ${houses ? 'eine Wohnung oder ein Haus' : 'eine Wohnung'} ohne Makler kaufen. ${how} um deine zu sehen.`,
+  dailyReady: (houses) => `Heute kannst du ${houses ? 'eine Wohnung oder ein Haus' : 'eine Wohnung'} ohne Makler kaufen: keine Punkte nötig.`,
+  dailyLater: (houses) => `Nach deiner ersten Lieferung heute kannst du ${houses ? 'eine Wohnung oder ein Haus' : 'eine Wohnung'} ohne Makler kaufen: keine Punkte nötig.`,
+  dailyUsed: (houses) => `${houses ? 'Die Immobilie' : 'Die Wohnung'} ohne Makler für heute ist gekauft. Morgen gibt es wieder eine.`,
+  boughtBuilding: (saved, others) =>
+    `Das ganze Gebäude gehört dir.${saved ? ` ${saved} davon kamen von der Bank.` : ''} ${others === 1 ? 'Die andere Wohnung muss' : `Die anderen ${others} Wohnungen müssen`} renoviert werden: Die Ringe der Wachen blinken wieder grün, und jede renovierte Wohnung bringt mehr Miete.`,
+  bought: (what, saved, rent, party) =>
+    `Es gehört dir: ${what}.${saved ? ` ${saved} davon kamen von der Bank.` : ''} Es bringt ${rent} Miete an jedem Tag, an dem du wiederkommst.${party ? ' Feier dort eine Party: Halt daneben.' : ''}`,
+  bank: 'Bank',
+  bankPanel: (saved, place) => `Du hast hier ${saved}. Geld auf der Bank ist sicher vor Strafen und bezahlt Immobilien in ${place}.`,
+  payIn: (amount) => `${amount} einzahlen`,
+  btnOpens: (text, after) => `${text}: möglich ${after}`,
+  btnTooBig: (text) => `${text}: noch zu groß`,
+  btnAfter: (text, price, wait) => `${text}  ${price}: nach ${de.moreDeliveries(wait)}`,
+  btnPrice: (text, price, day, need) => `${text}  ${price}${day ? ' · ohne Makler' : need ? ` · ${need} Punkte` : ''}`,
+  yourKind: (kind) => cap(POSS[kind].nom),
+  panelWorn: 'Die Wände sind abgewohnt: Bis zur Renovierung bringt sie keine Miete. Hol ein Paket von einer Tankstelle, Feuerwache oder der Polizei: Ihre Ringe blinken grün.',
+  panelRepaired: (rent, others) => `Renoviert: bringt ${rent} Miete an jedem Tag, an dem du wiederkommst. ${others === 1 ? 'Die andere Wohnung ist' : `Die anderen ${others} Wohnungen sind`} zu verkaufen.`,
+  buyRest: 'Den Rest des Gebäudes kaufen',
+  panelRest: (n, of, rent) => `${n} von ${of} Wohnungen renoviert: bringt ${rent} Miete an jedem Tag, an dem du wiederkommst. Ein Paket von einer Wache mit grün blinkendem Ring renoviert die nächste.`,
+  panelAllRepaired: (rent) => `Jede Wohnung ist renoviert: bringt ${rent} Miete an jedem Tag, an dem du wiederkommst. Noch ein Paket von einer Wache bringt die Farbe für die Fassade.`,
+  panelPays: (rent) => `Bringt ${rent} Miete an jedem Tag, an dem du wiederkommst.`,
+  panelNotePays: (note, rent) => `${note}. Danach bringt es ${rent} Miete an jedem Tag, an dem du wiederkommst.`,
+  talkTenants: 'Mit den Mietern reden',
+  colourLater: 'Die gewählte Farbe kommt drauf, sobald es renoviert ist.',
+  forSale: 'Zu verkaufen',
+  forSaleWorn: 'Zu verkaufen, abgewohnt',
+  saleWorn: (floors, street, units, price, full) =>
+    `Eine Wohnung in einem ${floors}-stöckigen Gebäude${on(street)}, ${units} Wohnungen. Die Wände sind abgewohnt: Miete gibt es erst nach der Renovierung. ${price}${full ? ` statt ${full}` : ''}.`,
+  buyWorn: 'Die abgewohnte Wohnung kaufen',
+  cashShort: (cash) => `Du hast ${cash}: noch ein, zwei Lieferungen.`,
+  saleHouse: (street, rent) => `Ein Haus${on(street)}. Bringt ${rent} Miete an jedem Tag, an dem du wiederkommst.`,
+  buyHouse: 'Das Haus kaufen',
+  saleFlats: (floors, inHouse, street, rent) => `Wohnungen in einem ${floors}-stöckigen ${inHouse ? 'Haus' : 'Gebäude'}${on(street)}. Eine bringt ${rent} Miete an jedem Tag, an dem du wiederkommst.`,
+  buyFlat: 'Eine Wohnung kaufen',
+  buyAll: (n) => `Alle ${n} kaufen`,
+  youHave: (cash, saved) => `Du hast ${cash}${saved ? ` und ${saved} auf der Bank` : ''}.`,
+  pointsPanel: (n, flat, house, daily) => `Du hast ${n} ${n === 1 ? 'Punkt' : 'Punkte'}: einen für jede Lieferung. Eine Wohnung kostet ${flat}, ein Haus ${house}. ${daily}`,
+  paintIt: (name) => `${cap(name)} streichen`,
+  ownColour: 'wieder in der eigenen Farbe',
+  paintLabel: 'Streichen:',
+  offerRent: (owned, rent, today) => `${owned === 1 ? 'Dein Zuhause bringt' : `Deine ${owned} Immobilien bringen`} ${rent} Miete an jedem Tag, an dem du wiederkommst${today ? `. Heute gezahlt: ${today}` : ''}.`,
+  saleNear: (what) => `Zu verkaufen hier in der Nähe: ${what}`,
+  saleNearText: (price, cash, bank, rent) => `${price}. Du hast ${cash}${bank ? ', mit der Bank' : ''}. Es bringt ${rent} Miete an jedem Tag, an dem du wiederkommst.`,
+  buyFor: (price) => `Für ${price} kaufen`,
+  saleNearWait: (what, price, wait) => `Zu verkaufen hier in der Nähe: ${what}, ${price}. Deine nächste Immobilie kannst du nach ${de.moreDeliveries(wait)} kaufen.`,
+  cheapest: (what, price, missing, wait) => `Die günstigste Immobilie hier in der Nähe ist ${what}: ${price}. Noch ${missing}${wait ? ` und ${de.moreDeliveries(wait)}` : ''}, dann gehört sie dir.`,
+  alsoNear: (what, price) => `Auch in der Nähe: ${what}, ${price}.`,
+  stopBeside: 'Halt neben irgendeinem Gebäude, um seinen Preis zu sehen.',
+  townHomes: (n) => (n === 1 ? '1 Immobilie' : `${n} Immobilien`),
+  townSub: (count, rent, plate) => `${count} · ${rent ? `${rent} am Tag` : 'noch keine Miete'}${plate ? ' · deine Heimatstadt, wo die Banken dein Erspartes verwahren' : ''}`,
+  paysADay: (rent) => `Bringt ${rent} am Tag`,
+  noRentYet: 'Noch keine Miete',
+  onTheMap: 'Auf der Karte',
+  goThere: 'Hinfahren',
+  andMore: (n) => `und ${n} weitere`,
+  repairsWorn: 'Abgewohnt: keine Miete bis zur Renovierung',
+  repairsBuy: 'Renoviert. Der Rest des Gebäudes ist zu verkaufen',
+  repairsRest: (n, of) => `${n} von ${of} Wohnungen renoviert`,
+  repairsPaint: 'Jede Wohnung renoviert: Als Nächstes Farbe für die Fassade',
+
+  // ---------------------------------------------------------------- Partys (partyUi.ts, party.ts)
+  partyOf: (occ, host, c = 'nom') => {
+    const o = OCC[occ] ?? OCC[0];
+    const k = c === 'gen' ? 'dat' : c;
+    if (host === null) return `${o.m ? { nom: 'dein', acc: 'deinen', dat: 'deinem' }[k] : { nom: 'deine', acc: 'deine', dat: 'deiner' }[k]} ${o.w}`;
+    if (host) return `${genitive(host)} ${o.w}`;
+    return `${o.m ? { nom: 'der', acc: 'den', dat: 'dem' }[k] : { nom: 'die', acc: 'die', dat: 'der' }[k]} ${o.w} deiner Freunde`;
+  },
+  friendPlace: (host) => (host ? `${genitive(host)} Wohnung` : 'deinen Freunden'),
+  aFriend: 'ein Freund',
+  partyArrive: (back, clock, host, occ) => (back ? `${cap(back)}s Zeit zum Schlagen: ${clock}` : `${host ? `${genitive(host)} ${(OCC[occ] ?? OCC[0]).w}` : `${(OCC[occ] ?? OCC[0]).m ? 'Ein' : 'Eine'} ${(OCC[occ] ?? OCC[0]).w} bei Freunden`}: Du bist eingeladen`),
+  laneCard: (walk, corner) =>
+    corner ? ' Die Gassen zur Tür sind zu schmal für ein Auto, deshalb treffen dich die Freunde an der Ecke, wo noch ein Auto hinkommt.' : walk ? ` Die Gasse zur Tür ist zu schmal für ein Auto: Park, wo es eng wird, und geh die letzten ${walk} m zu Fuß. Die Uhr rechnet das mit ein.` : '',
+  laneSay: (walk, corner) => (corner ? ': Die Freunde treffen dich an der Ecke, die Gassen sind zu schmal für ein Auto' : walk ? `. Geh die letzten ${walk} m zu Fuß: Die Gasse ist zu schmal für ein Auto` : ''),
+  partyHud: (shop) => (shop ? 'Getränke und Snacks' : 'Pizza'),
+  partyPause: (shop, occ, host) => `Du holst ${shop ? 'die Getränke und Snacks' : 'die Pizza'} für ${de.partyOf(occ, host, 'acc')}.`,
+  partyNoRoute: 'Von hier führt keine Straße zu einem Ort mit Essen: Versuch eine andere deiner Immobilien.',
+  partyAtHome: (occ, kind) => `${(OCC[occ] ?? OCC[0]).w} in ${POSS[kind].dat}`,
+  partyOffer: (shop, invented, lane, pays, max, due, best, run) =>
+    `Heute Abend kommen Freunde, und keiner hat ans Essen gedacht. Hol ${shop ? 'die Getränke und Snacks' : 'die Pizza'} aus ${shop ? 'dem Supermarkt' : 'dem Restaurant'}${invented ? ' um die Ecke' : ''}: das pinke Schild, der Pfeil zeigt den Weg. Dann bring sie zu deiner Tür, bevor ${shop ? 'die Getränke warm werden' : 'sie kalt wird'}: Die Uhr läuft ab dem Abholen.${lane}` +
+    (pays === max ? ` Eine Party bringt ${max} Wohnpunkte, einmal am Tag.` : pays ? ` Heute bringt sie ${pays} ${pays === 1 ? 'Wohnpunkt' : 'Wohnpunkte'}: Deine Punkte sind fast voll.` : due ? ' Deine Wohnpunkte sind voll, diese hier ist also zum Spaß: Gib welche für eine Immobilie aus, dann bringt eine Party wieder Punkte.' : ` Die ${max} Partypunkte von heute hast du schon: Diese hier ist zum Spaß.`) +
+    (best ? ` Deine Bestzeit: ${best} vom Abholen bis zur Tür.` : '') +
+    (run ? ' Die Runde, die du gerade fährst, endet hier.' : ''),
+  partyFriendTitle: (occ, host) => cap(de.partyOf(occ, host)),
+  partySent: (shop, back, mine, host, by, occ, clock, lane) => {
+    const food = shop ? 'die Getränke und Snacks' : 'die Pizza';
+    const fetch = `hol sie aus ${shop ? 'dem Supermarkt' : 'dem Restaurant'} mit dem pinken Schild (der Pfeil zeigt den Weg) und bring sie ${mine ? 'zu deiner Tür' : 'hierher zurück'}, bevor ${shop ? 'die Getränke warm werden' : 'sie kalt wird'}. Die Uhr läuft ab dem Abholen.${lane}`;
+    return back
+      ? `${cap(back)} hat ${food} in ${clock} zu ${de.partyOf(occ, mine ? null : host, 'dat')} gebracht. Du bist dran: Nimm ein Auto, ${fetch}`
+      : mine
+        ? `Heute Abend kommen Freunde, und keiner hat ans Essen gedacht. Nimm ein Auto, ${fetch}${clock ? ` Die Zeit in diesem Link: ${clock}.` : ''}`
+        : `${host || 'Dein Freund'} hat heute Abend Gäste, und ${food} ${shop ? 'fehlen' : 'fehlt'} noch. Nimm ein Auto, ${fetch}${clock ? ` ${cap(by || host || 'dein Freund')} hat es in ${clock} geschafft.` : ''}`;
+  },
+  partyPaysToday: (n) => ` Eine Party bringt heute ${n} ${n === 1 ? 'Wohnpunkt' : 'Wohnpunkte'}.`,
+  partyCalledOff: 'Party abgesagt. Die offenen Aufträge sind zurück.',
+  partyOnBoard: (shop, where, lane) => `${shop ? 'Getränke und Snacks sind an Bord: Bring sie' : 'Die Pizza ist an Bord: Bring sie'} zu ${where}, bevor ${shop ? 'die Getränke warm werden' : 'sie kalt wird'}${lane}`,
+  partyWalk: (where) => `Lass das Auto hier stehen und geh das letzte Stück zu Fuß: Die Gasse zu ${where} ist zu schmal für ein Auto.`,
+  partyFailTitle: (lost, shop) => (lost ? `${shop ? 'Die Getränke und Snacks sind' : 'Die Pizza ist'} weg` : `${shop ? 'Die Getränke sind warm geworden' : 'Die Pizza ist kalt geworden'}`),
+  partyFailText: (lost, shop, where) =>
+    `${lost ? `${shop ? 'Die Getränke und Snacks haben' : 'Die Pizza hat'} das nicht überstanden` : `Die Zeit lief ab, bevor ${shop ? 'die Getränke und Snacks' : 'die Pizza'} bei ${where.replace(/^zu /, '')} ${shop ? 'ankamen' : 'ankam'}`}. Die Freunde warten noch: gleicher Ort, gleicher Weg.`,
+  tryAgain: 'Noch mal',
+  partyVersus: (d, them, gap) => (Math.abs(d) < 0.5 ? `, genauso schnell wie ${them}` : d < 0 ? `: ${gap} schneller als ${them}` : `. ${cap(them)} war ${gap} schneller`),
+  partyGuestDone: (shop, time, versus, own) =>
+    `${shop ? 'Die Getränke und Snacks waren' : 'Die Pizza war'} ${time} nach dem Abholen da${versus}.${own ? '' : ' Für eine eigene Party brauchst du ein eigenes Zuhause: Mach ein paar Lieferungen, dann wird dir eine günstige Wohnung gezeigt.'}`,
+  partyRecord: (gap) => ` Deine bisher beste Zeit, ${gap} schneller als zuvor.`,
+  partyPoints: (added, due, max) => (added ? ` +${added} ${added === 1 ? 'Wohnpunkt' : 'Wohnpunkte'}.` : due ? ' Deine Wohnpunkte sind voll: Gib welche für eine Immobilie aus.' : ` Die Partypunkte von heute hast du schon; die Party morgen bringt ${max} mehr.`),
+  partyHostDone: (shop, where, time, versus, rest) => `${shop ? 'Die Getränke und Snacks waren' : 'Die Pizza war'} ${time} nach dem Abholen bei ${where}, ${shop ? 'noch kalt' : 'noch warm'}${versus}.${rest}`,
+  partyGuestTitle: (shop, occ, host) => `Du hast ${shop ? 'die Getränke und Snacks' : 'die Pizza'} zu ${de.partyOf(occ, host, 'dat')} gebracht`,
+  partyCanStart: (occ) => `${(OCC[occ] ?? OCC[0]).m ? 'Der' : 'Die'} ${(OCC[occ] ?? OCC[0]).w} kann losgehen`,
+  partyAskGuest: (them) => `Sag ${them} Bescheid, dass du es geschafft hast?`,
+  partyAskHost: (occ) => `Fehlt noch jemand für ${(OCC[occ] ?? OCC[0]).m ? 'den' : 'die'} ${(OCC[occ] ?? OCC[0]).w} heute Abend?`,
+  partySendGuest: (them) => `${cap(them)} deine Zeit schicken`,
+  partySendHost: 'Ihnen einen Link schicken',
+  partyNoGuest: 'Nein, einfach weiterfahren',
+  partyNoHost: 'Nein, wir sind komplett',
+  partyNoteGuest: (_them, occ) => `Der Link lädt wieder zu ${(OCC[occ] ?? OCC[0]).m ? 'diesem' : 'dieser'} ${(OCC[occ] ?? OCC[0]).w} ein, mit deiner Zeit.`,
+  partyNoteHost: (kind, shop, clock, warn) =>
+    `Wer ihn öffnet, startet bei ${POSS[(kind || 'flat') as Kind].dat} und holt ${shop ? 'die Getränke und Snacks' : 'die Pizza'} vom selben Ort, gegen deine ${clock}.${warn ? ` Der Link zeigt im Spiel, wo ${POSS[(kind || 'flat') as Kind].nom} ist.` : ''}`,
+  partyShareHost: (occ, place, shop, clock) =>
+    `${(OCC[occ] ?? OCC[0]).w} heute Abend bei mir${place ? ` in ${place}` : ''}: Bringst du ${shop ? 'die Getränke und Snacks' : 'die Pizza'} mit? Ich hab sie in ${clock} hingebracht.`,
+  partyShareGuest: (occ, shop, clock) => `Ich hab ${shop ? 'die Getränke und Snacks' : 'die Pizza'} in ${clock} zu ${de.partyOf(occ, null, 'dat')} gebracht.`,
+  partyAfterHost: 'Wer ihn öffnet, kommt zu deiner Party.',
+  partyAfterGuest: 'Gesendet.',
+  partyAgainHost: 'An jemand anderen schicken',
+  partyAgainGuest: 'Noch mal schicken',
+  partyDoneHost: 'Das sind alle',
+  gapSeconds: (s) => `${Math.round(s)} s`,
+
+  // ---------------------------------------------------------------- Trophäen (trophies.ts)
+  trophiesLine: (n, of) => `${n} von ${of} verdient. Bezahlt wird dafür nichts: Sie sind für dich, und zum Zeigen.`,
+  trophiesEarnedOf: (n, of) => `${n} von ${of} verdient`,
+  trophyGroups: ['Erste Schritte', 'Immobilien', 'Fahren', 'Orte'],
+  trophyText: {
+    car: ['Erstes Auto', 'Nimm ein Auto'],
+    delivery: ['Erste Lieferung', 'Liefere ein Paket'],
+    run: ['Eine Dreierrunde', 'Schaff eine Runde aus drei Lieferungen'],
+    home: ['Erstes Zuhause', 'Kauf eine Immobilie'],
+    bank: ['Geld auf der Bank', 'Zahl Bargeld bei einer Bank ein'],
+    homes5: ['Fünf Immobilien', 'Besitze 5 Immobilien'],
+    building: ['Ein ganzes Gebäude', 'Besitze ein ganzes Gebäude'],
+    painted: ['Frisch gestrichen', 'Streich ein Haus oder Gebäude, das dir gehört'],
+    towns2: ['Zwei Städte', 'Besitze Immobilien in zwei Städten'],
+    rent1000: ['1.000 $ am Tag', 'Besitze Immobilien, die 1.000 $ Miete am Tag bringen'],
+    story: ['Die ganze Geschichte', 'Spiel die Geschichte bis zum letzten Kapitel: Kläre einen Streit mit deinen Mietern'],
+    lost: ['Abgehängt', 'Häng die Polizei ab'],
+    clean: ['Eine saubere Runde', 'Schaff eine Dreierrunde, ohne erwischt zu werden, Totalschaden oder K.o.'],
+    rush: ['Zeit übrig', 'Schaff einen Eilauftrag mit 30 Sekunden Rest'],
+    deliveries100: ['100 Lieferungen', 'Liefere 100 Pakete'],
+    places5: ['Fünf Orte', 'Spiel an 5 Orten, jeweils mindestens eine Stadt voneinander entfernt'],
+    places20: ['Zwanzig Orte', 'Spiel an 20 Orten, jeweils mindestens eine Stadt voneinander entfernt'],
+    guessed: ['Stadt erraten', 'Errate eine Stadt richtig bei Wo bin ich?'],
+  },
 };

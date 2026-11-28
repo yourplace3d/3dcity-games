@@ -16,6 +16,7 @@
  */
 
 import type { JobKind } from './services';
+import { T } from '../i18n';
 
 export type RenoStage = 'find' | 'flat' | 'buy' | 'rest' | 'paint' | 'done';
 
@@ -104,15 +105,5 @@ export function wantsJob(r: Reno | null): boolean {
 /** What a station's package is, for each kind of job: the line said as it is picked up. */
 export function jobLines(r: Reno): Record<JobKind, string> {
   const units = r.units ?? 1;
-  const which = r.stage === 'flat' ? 'your flat' : r.stage === 'rest' ? `flat ${2 + (r.fixed ?? 0)} of ${units}` : 'the outside of your building';
-  if (r.stage === 'paint') {
-    const line = 'Paint for the outside of your building: take it there, and then choose its colour';
-    return { plain: line, supply: `${line}. A heavy load: mind the dents`, rush: `${line}. Quick, before the weather turns`, clean: `${line}. Drive clean or the job is gone` };
-  }
-  return {
-    plain: `Things to repair ${which}: take them to your building`,
-    supply: `Paint and plaster for ${which}: a heavy load, take it to your building`,
-    rush: `A plumber's part for the pipes of ${which}: quick, the clock is short`,
-    clean: `New locks and windows for ${which}: drive clean or the job is gone`,
-  };
+  return T.repairLines(r.stage === 'paint' ? 'paint' : r.stage === 'rest' ? 'rest' : 'flat', 2 + (r.fixed ?? 0), units);
 }

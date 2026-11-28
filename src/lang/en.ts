@@ -4,6 +4,8 @@
  * shown as markup: keep the marks in a translation.
  */
 
+import type { TrophyId } from '../trophies';
+
 const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
@@ -11,6 +13,16 @@ const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math
 const deliveries = (n: number) => `${COUNT[n] ?? n} ${n === 1 ? 'delivery' : 'deliveries'}`;
 /** "45 seconds", else "1:30" */
 const secs = (s: number) => (s < 60 ? `${Math.round(s)} seconds` : fmtTime(s));
+/** "a 5-floor", "an 8-floor", "an 11-floor" */
+const floorsA = (n: number) => `${/^(8|11|18)$|^8\d$/.test(String(n)) ? 'an' : 'a'} ${n}-floor`;
+const on = (street: string) => (street ? ` on ${street}` : '');
+/** what a party is, by its number in the link */
+const OCC = ['party', 'games night', 'film night', 'birthday party'];
+
+/** the kinds of home */
+export type Kind = 'flat' | 'house' | 'building';
+/** the case a word stands in, for languages that change their words with it (German) */
+export type Case = 'nom' | 'acc' | 'dat' | 'gen';
 
 export const en = {
   // ---------------------------------------------------------------- the page (index.html)
@@ -322,6 +334,258 @@ export const en = {
   extrasRefused: 'Extras: the key was not accepted',
   extrasFailed: 'Extras could not be loaded',
   extrasOn: (version: string | null) => (version ? `Extras on (test version ${version})` : 'Extras on'),
+
+  // ---------------------------------------------------------------- homes, banks, rent (homesUi.ts, homesList.ts, homes.ts)
+  /** "your flat on Lindenstraße"; `c`: the case it stands in, for languages that change the words */
+  homeRef: (kind: Kind, street: string, _c: Case = 'nom') => `your ${kind}${on(street)}`,
+  /** "a flat in a 5-floor building on Lindenstraße", "a house on …", "the whole building on …, 6 flats" */
+  describeLot: (what: Kind, street: string, floors: number, inHouse: boolean, units: number) =>
+    what === 'house'
+      ? `a house${on(street)}`
+      : what === 'building'
+        ? `the whole ${inHouse ? 'house' : 'building'}${on(street)}, ${units} flats`
+        : `a flat in ${floorsA(floors)} ${inHouse ? 'house' : 'building'}${on(street)}`,
+  /** in the list of homes: "A flat on Lindenstraße" */
+  homeLine: (kind: Kind, street: string) => (kind === 'building' ? `The whole building${on(street)}` : kind === 'house' ? `A house${on(street)}` : `A flat${on(street)}`),
+  moreDeliveries: (n: number) => `${n} more ${n === 1 ? 'delivery' : 'deliveries'}`,
+  opensAfter: (n: number, house: boolean) => `after your ${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'} ${house ? 'flat' : 'home'}`,
+  paints: { white: 'white', cream: 'cream', yellow: 'yellow', terracotta: 'terracotta', red: 'red', green: 'green', blue: 'blue', grey: 'grey' } as Record<string, string>,
+  toMenuTouch: 'Tap the house button at the top',
+  toMenuClick: 'Click here',
+  kickerKnow: 'Good to know',
+  fixersHere: (price: string) => `Here: worn-down flats for ${price}. Stop beside a building with a green $ sign to buy one.`,
+  restAffordable: (price: string) => `You have enough for the rest of your building: ${price}. Follow the arrow and stop beside it.`,
+  oneMoreForFlat: 'One more delivery, and you can buy yourself some property: your first flat.',
+  enoughForFlat: 'Enough for a first flat. Finish the run, and you will be shown where.',
+  firstHomeMission: 'Private mission: your first home',
+  firstHomeMissionText: (cash: string, price: string) =>
+    `You have ${cash}. Not far from here, a few buildings have flats with worn-down walls, and they sell cheap: one is yours for ${price}. Drive there, stop beside a building with a green $ sign, and buy it.`,
+  showPlace: 'Show me the place',
+  repairMission: 'Mission: repair your building',
+  repairMissionText: (flatWorn: boolean, others: number) =>
+    `This package goes to your building. ${flatWorn ? 'Your flat’s walls are worn down, and it pays no rent until it is repaired: deliver this, and it is. ' : ''}Then the rest of the building is yours to buy: ${others} more ${others === 1 ? 'flat' : 'flats'}. Each package from a fuel, fire or police station repairs one flat, and each repaired flat adds rent. When every flat is done, the outside gets a fresh coat in the colour you choose. Between them, any other job pays as always.`,
+  letsGo: 'Let’s go',
+  flatRepairedRest: (n: number, price: string) => ` Next, the rest of the building: ${n} ${n === 1 ? 'flat' : 'flats'} for ${price}. Stop beside it to buy.`,
+  flatRepaired: (rent: string, rest: string, party: boolean) => `Your flat is repaired: from tomorrow it pays ${rent} each day you come back.${rest}${party ? ' And it is ready for a party: stop beside it.' : ''}`,
+  allFlatsRepaired: 'Every flat is repaired. One more package from a station: paint for the outside.',
+  flatNRepaired: (n: number, of: number, rent: string) => `Flat ${n} of ${of} is repaired: it adds ${rent} rent from tomorrow. The stations’ rings flash green for the next.`,
+  buildingDone: 'Your building is done',
+  buildingDoneText: (units: number, rent: string) =>
+    `All ${units} flats are repaired, and the building pays ${rent} each day you come back. The paint is there: follow the arrow, stop beside your building, and choose its colour.`,
+  moneySafe: 'Your money is safe',
+  moneySafeText: (amount: string, saved: string) =>
+    `${amount} is in the bank now, ${saved} in all. Fines only take from the cash you carry. Whenever you carry a lot of it again, you'll be reminded, and the arrow shows the way to the nearest bank.`,
+  paidIn: (amount: string, saved: string) => `${amount} paid in. You have ${saved} in the bank, safe from fines.`,
+  noBankYet: 'No bank yet: your first home makes its town your home town, with its banks.',
+  banksHomeOnly: 'Banks are only in your home town.',
+  noBankHere: 'No bank in this part of town: drive on, and the next one shows.',
+  banksIn: (place: string) => `Your banks are in ${place}: money there is safe from fines.`,
+  atBank: 'You are at a bank: stop beside it and pay in.',
+  bankWayOff: 'The way to the bank is off.',
+  bankAfterParty: 'After the party, the arrow shows the nearest bank.',
+  bankAfterJob: 'After this delivery, the arrow shows the nearest bank.',
+  bankArrow: 'The arrow shows the nearest bank: stop beside it and pay in.',
+  bankWhenFree: 'Stop beside a bank and pay in: the arrow shows it as soon as it is free.',
+  toBankArrow: 'To the bank: the arrow shows the nearest one. Stop beside it and pay in.',
+  toBank: 'To the bank: stop beside one and pay in.',
+  keepCashSafe: 'Keep your cash safe',
+  keepCashSafeText: (cash: string, cost: string, place: string) =>
+    `You carry ${cash} in cash. If the police catch you, they take ${cost} of it, and a wreck costs a share too. Money in the bank is safe from fines, and it still pays for homes in ${place}. The arrow shows the nearest bank: stop beside it and pay in.`,
+  showBank: 'Show me the bank',
+  cashReminder: (cash: string, cost: string, arrow: boolean) => `You carry ${cash}. Caught by the police, you'd lose ${cost}: ${arrow ? 'the arrow shows the nearest bank' : 'a bank keeps it safe'}.`,
+  rentLine: (arriving: boolean, paying: number, got: string | null, waits: string) => {
+    const paid = got ? `${paying === 1 ? 'your home' : `your ${paying} homes`} paid you ${got} rent.${waits}` : waits.trim();
+    return arriving ? `Welcome back. ${got ? 'Today ' : ''}${paid}` : `A new day: ${paid}`;
+  },
+  seeHomes: (text: string, how: string) => `${text} ${how} to see your homes.`,
+  soFar: (money: string) => ` (${money} so far)`,
+  needsRenovating: (so: string) => `Needs renovating: its rent waits until then${so}. A package from any station in its part of town renovates it`,
+  disputeNote: { talk: 'Stop beside it to talk to them', insist: 'They wait for the part: a rush job from a fire station', accept: 'They wait for what it needs: a supply run from a fuel station, with no new dent', court: 'The court’s order: drive the officers from a police station to it, by the book', replace: 'The old boiler gave up: a package from any station brings a new one', moving: 'New tenants move in with your next delivery' } as Record<string, string>,
+  tenantsNote: (moved: boolean, so: string, rest: string) => `${moved ? 'The tenants have moved out' : 'The tenants have stopped paying'}: its rent waits until it is settled${so}. ${rest}`,
+  heldLine: (held: string, where: string, many: boolean, done: 'renovate' | 'dispute' | 'mixed') =>
+    ` ${held} waits at ${where} until ${many ? 'they are' : 'it is'} ${done === 'renovate' ? 'renovated' : done === 'dispute' ? 'settled' : 'sorted out'}.`,
+  nOfYourHomes: (n: number, _c: Case = 'nom') => `${n} of your homes`,
+  needsRenovatingTitle: (kind: Kind) => `Your ${kind} needs renovating`,
+  needsRenovatingText: (home: string, rent: string, over: boolean) =>
+    `The walls of ${home} are worn down. Until it is renovated, its rent of ${rent} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${over ? ': their rings flash green now' : ': once your run is over, their rings flash green'}. Deliver it to the building, and the rent that waited is yours.`,
+  /** the lines as a package for the first-home mission is picked up: `n` the flat it repairs, of `units` */
+  repairLines: (stage: 'flat' | 'rest' | 'paint', n: number, units: number): Record<'plain' | 'supply' | 'rush' | 'clean', string> => {
+    if (stage === 'paint') {
+      const line = 'Paint for the outside of your building: take it there, and then choose its colour';
+      return { plain: line, supply: `${line}. A heavy load: mind the dents`, rush: `${line}. Quick, before the weather turns`, clean: `${line}. Drive clean or the job is gone` };
+    }
+    const which = stage === 'flat' ? 'your flat' : `flat ${n} of ${units}`;
+    return {
+      plain: `Things to repair ${which}: take them to your building`,
+      supply: `Paint and plaster for ${which}: a heavy load, take it to your building`,
+      rush: `A plumber's part for the pipes of ${which}: quick, the clock is short`,
+      clean: `New locks and windows for ${which}: drive clean or the job is gone`,
+    };
+  },
+  renovateLines: (home: string) => ({
+    plain: `Things to renovate ${home}: take them to the building`,
+    supply: `Paint and plaster for ${home}: a heavy load, take it to the building`,
+    rush: `A plumber's part for ${home}: quick, the clock is short`,
+    clean: `New windows for ${home}: drive clean or the job is gone`,
+  }),
+  credited: (banked: string | null, lost: string | null) => (banked ? ` ${banked} of it went to your bank: you hold the most cash there is.` : '') + (lost ? ` ${lost} did not fit: your cash and your bank are full.` : ''),
+  renovated: (home: string, waiting: string | null, tip: string, extra: string) =>
+    `${cap(home)} is renovated.${waiting ? ` The ${waiting} rent that waited there is yours,` : ''} ${waiting ? 'and the' : 'The'} tenants thank you with ${tip}.${extra}`,
+  pointsNote: (flat: number, house: number, houses: boolean, how: string) =>
+    `New: home points. Each delivery earns one; a flat takes ${flat}, a house ${house}. After your first delivery each day, one ${houses ? 'flat or house' : 'flat'} can be bought without a realtor. ${how} to see yours.`,
+  dailyReady: (houses: boolean) => `Today one ${houses ? 'flat or house' : 'flat'} can be bought without a realtor: no points needed.`,
+  dailyLater: (houses: boolean) => `After your first delivery today, one ${houses ? 'flat or house' : 'flat'} can be bought without a realtor: no points needed.`,
+  dailyUsed: (houses: boolean) => `Today’s ${houses ? 'flat or house' : 'flat'} without a realtor is bought. Tomorrow there is another.`,
+  boughtBuilding: (saved: string | null, others: number) =>
+    `The whole building is yours.${saved ? ` ${saved} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the stations’ rings flash green again, and each repaired flat adds rent.`,
+  bought: (what: string, saved: string | null, rent: string, party: boolean) =>
+    `It's yours: ${what}.${saved ? ` ${saved} of it came from the bank.` : ''} It pays ${rent} rent each day you come back.${party ? ' Throw a party there: stop beside it.' : ''}`,
+  bank: 'Bank',
+  bankPanel: (saved: string, place: string) => `You have ${saved} here. Money in the bank is safe from fines and pays for homes in ${place}.`,
+  payIn: (amount: string) => `Pay in ${amount}`,
+  btnOpens: (text: string, after: string) => `${text}: opens ${after}`,
+  btnTooBig: (text: string) => `${text}: too big for now`,
+  btnAfter: (text: string, price: string, wait: number) => `${text}  ${price}: after ${en.moreDeliveries(wait)}`,
+  btnPrice: (text: string, price: string, day: boolean, need: number) => `${text}  ${price}${day ? ' · no realtor needed' : need ? ` · ${need} points` : ''}`,
+  yourKind: (kind: Kind): string => (kind === 'building' ? 'Your building' : kind === 'house' ? 'Your house' : 'Your flat'),
+  panelWorn: 'The walls are worn down: it pays no rent until it is repaired. Take a package from a fuel, fire or police station: their rings flash green.',
+  panelRepaired: (rent: string, others: number) => `Repaired: pays ${rent} rent each day you come back. The other ${others === 1 ? 'flat is' : `${others} flats are`} for sale.`,
+  buyRest: 'Buy the rest of the building',
+  panelRest: (n: number, of: number, rent: string) => `${n} of ${of} flats repaired: pays ${rent} rent each day you come back. A package from a station whose ring flashes green repairs the next.`,
+  panelAllRepaired: (rent: string) => `Every flat is repaired: pays ${rent} rent each day you come back. One more package from a station brings the paint for the outside.`,
+  panelPays: (rent: string) => `Pays ${rent} rent each day you come back.`,
+  panelNotePays: (note: string, rent: string) => `${note}. Then it pays ${rent} rent each day you come back.`,
+  talkTenants: 'Talk to the tenants',
+  colourLater: 'The colour you choose goes on once it is renovated.',
+  forSale: 'For sale',
+  forSaleWorn: 'For sale, worn down',
+  saleWorn: (floors: number, street: string, units: number, price: string, full: string | null) =>
+    `A flat in ${floorsA(floors)} building${on(street)}, ${units} flats. The walls are worn down: it pays rent once it is repaired. ${price}${full ? `, not ${full}` : ''}.`,
+  buyWorn: 'Buy the worn-down flat',
+  cashShort: (cash: string) => `You have ${cash}: a delivery or two more.`,
+  saleHouse: (street: string, rent: string) => `A house${on(street)}. Pays ${rent} rent each day you come back.`,
+  buyHouse: 'Buy the house',
+  saleFlats: (floors: number, inHouse: boolean, street: string, rent: string) => `Flats in ${floorsA(floors)} ${inHouse ? 'house' : 'building'}${on(street)}. One pays ${rent} rent each day you come back.`,
+  buyFlat: 'Buy a flat',
+  buyAll: (n: number) => `Buy all ${n}`,
+  youHave: (cash: string, saved: string | null) => `You have ${cash}${saved ? ` and ${saved} in the bank` : ''}.`,
+  pointsPanel: (n: number, flat: number, house: number, daily: string) => `You have ${n} ${n === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${flat}, a house ${house}. ${daily}`,
+  paintIt: (name: string) => `Paint it ${name}`,
+  ownColour: 'its own colour again',
+  paintLabel: 'Paint it:',
+  offerRent: (owned: number, rent: string, today: string | null) => `Your ${owned === 1 ? 'home pays' : `${owned} homes pay`} ${rent} rent each day you come back${today ? `. Paid today: ${today}` : ''}.`,
+  saleNear: (what: string) => `For sale near here: ${what}`,
+  saleNearText: (price: string, cash: string, bank: boolean, rent: string) => `${price}. You have ${cash}${bank ? ', counting the bank' : ''}. It pays ${rent} rent each day you come back.`,
+  buyFor: (price: string) => `Buy it for ${price}`,
+  saleNearWait: (what: string, price: string, wait: number) => `For sale near here: ${what}, ${price}. You can buy your next home after ${en.moreDeliveries(wait)}.`,
+  cheapest: (what: string, price: string, missing: string, wait: number) => `The cheapest home near here is ${what}: ${price}. ${missing} more${wait ? ` and ${en.moreDeliveries(wait)}` : ''}, and it's yours.`,
+  alsoNear: (what: string, price: string) => `Also near: ${what}, ${price}.`,
+  stopBeside: 'Stop beside any building to see its price.',
+  townHomes: (n: number) => (n === 1 ? '1 home' : `${n} homes`),
+  townSub: (count: string, rent: string | null, plate: boolean) => `${count} · ${rent ? `${rent} a day` : 'no rent yet'}${plate ? ' · your home plate, where the banks keep your savings' : ''}`,
+  paysADay: (rent: string) => `Pays ${rent} a day`,
+  noRentYet: 'No rent yet',
+  onTheMap: 'On the map',
+  goThere: 'Go there',
+  andMore: (n: number) => `and ${n} more`,
+  repairsWorn: 'Worn down: no rent until it is repaired',
+  repairsBuy: 'Repaired. The rest of the building is for sale',
+  repairsRest: (n: number, of: number) => `${n} of ${of} flats repaired`,
+  repairsPaint: 'Every flat repaired: paint for the outside comes next',
+
+  // ---------------------------------------------------------------- parties (partyUi.ts, party.ts)
+  /** whose party: null the player's own, '' a friend who gave no name, else the friend's name */
+  partyOf: (occ: number, host: string | null, _c: Case = 'nom') => `${host === null ? 'your' : host ? `${host}’s` : 'your friend’s'} ${OCC[occ] ?? OCC[0]}`,
+  /** the friend's place, for a party at a friend's: "Lena’s place" */
+  friendPlace: (host: string) => `${host ? `${host}’s` : 'your friend’s'} place`,
+  aFriend: 'a friend',
+  partyArrive: (back: string, clock: string, host: string, occ: number) => (back ? `${cap(back)}’s time to beat: ${clock}` : `${host ? `${host}’s` : 'A friend’s'} ${OCC[occ] ?? OCC[0]}: you are invited`),
+  laneCard: (walk: number, corner: boolean, whose: string) =>
+    corner ? ` The lanes to ${whose} door are too narrow for a car, so the friends meet you at the corner where a car can go.` : walk ? ` The lane to ${whose} door is too narrow for a car: park where it gets narrow and walk the last ${walk} m. The clock allows for it.` : '',
+  laneSay: (walk: number, corner: boolean) => (corner ? ': the friends meet you at the corner, the lanes are too narrow for a car' : walk ? `. Walk the last ${walk} m: the lane is too narrow for a car` : ''),
+  partyHud: (shop: boolean) => (shop ? 'Drinks and snacks' : 'Pizza'),
+  partyPause: (shop: boolean, occ: number, host: string | null) => `You are fetching ${shop ? 'the drinks and snacks' : 'the pizza'} for ${en.partyOf(occ, host)}.`,
+  partyNoRoute: 'No way by road from here to a place for food: try another of your homes.',
+  partyAtHome: (occ: number, kind: Kind) => `${cap(OCC[occ] ?? OCC[0])} at your ${kind}`,
+  partyOffer: (shop: boolean, invented: boolean, lane: string, pays: number, max: number, due: boolean, best: string | null, run: boolean) =>
+    `Friends are coming over tonight, and nobody got the food. Fetch ${shop ? 'the drinks and snacks' : 'the pizza'} from ${shop ? 'the supermarket' : 'the restaurant'}${invented ? ' around the corner' : ''}: the pink sign, and the arrow shows the way. Then bring ${shop ? 'them' : 'it'} to your door before ${shop ? 'the drinks get warm' : 'it gets cold'}: the clock starts when you pick ${shop ? 'them' : 'it'} up.${lane}` +
+    (pays === max ? ` A party is worth ${max} home points, once a day.` : pays ? ` Today it is worth ${pays} home ${pays === 1 ? 'point' : 'points'}: your points are nearly full.` : due ? ' Your home points are full, so this one is for fun: spend some on a home, and a party pays again.' : ` Today’s ${max} party points are yours already: this one is for fun.`) +
+    (best ? ` Your best: ${best} from pickup to door.` : '') +
+    (run ? ' The run you are on stops here.' : ''),
+  partyFriendTitle: (occ: number, host: string) => cap(en.partyOf(occ, host)),
+  /** a friend's party from a link: `back` who sent their time back, `mine` the party is at the player's own home */
+  partySent: (shop: boolean, back: string, mine: boolean, host: string, by: string, occ: number, clock: string | null, lane: string) => {
+    const it = shop ? 'them' : 'it';
+    const food = shop ? 'the drinks and snacks' : 'the pizza';
+    const fetch = `fetch ${it} from ${shop ? 'the supermarket' : 'the restaurant'} with the pink sign (the arrow shows the way), and bring ${it} ${mine ? 'to your door' : 'back here'} before ${shop ? 'the drinks get warm' : 'it gets cold'}. The clock starts at the pickup.${lane}`;
+    return back
+      ? `${cap(back)} brought ${food} to ${en.partyOf(occ, mine ? null : host)} in ${clock}. Your turn: take a car, ${fetch}`
+      : mine
+        ? `Friends are coming over tonight, and nobody got the food. Take a car, ${fetch}${clock ? ` The time in this link: ${clock}.` : ''}`
+        : `${host || 'Your friend'} has friends over tonight, and ${food} ${shop ? 'are' : 'is'} still missing. Take a car, ${fetch}${clock ? ` ${cap(by || host || 'your friend')} did it in ${clock}.` : ''}`;
+  },
+  partyPaysToday: (n: number) => ` A party is worth ${n} home ${n === 1 ? 'point' : 'points'} today.`,
+  partyCalledOff: 'Party called off. The open jobs are back.',
+  partyOnBoard: (shop: boolean, where: string, lane: string) => `${shop ? 'Drinks and snacks are on board: get them' : 'The pizza is on board: get it'} to ${where} before ${shop ? 'the drinks get warm' : 'it gets cold'}${lane}`,
+  partyWalk: (where: string) => `Leave the car here and walk the last bit: the lane to ${where} is too narrow for a car.`,
+  partyFailTitle: (lost: boolean, shop: boolean) => (lost ? `${shop ? 'The drinks and snacks are' : 'The pizza is'} gone` : `${shop ? 'The drinks and snacks got warm' : 'The pizza got cold'}`),
+  partyFailText: (lost: boolean, shop: boolean, where: string) =>
+    `${lost ? `${shop ? 'The drinks and snacks' : 'The pizza'} didn’t make it through that` : `The clock ran out before ${shop ? 'the drinks and snacks' : 'the pizza'} got to ${where}`}. The friends are still waiting: the same place, the same way.`,
+  tryAgain: 'Try again',
+  partyVersus: (d: number, them: string, gap: string) => (Math.abs(d) < 0.5 ? `, just as fast as ${them}` : d < 0 ? `: ${gap} faster than ${them}` : `. ${cap(them)} was ${gap} faster`),
+  partyGuestDone: (shop: boolean, time: string, versus: string, own: boolean) =>
+    `${shop ? 'The drinks and snacks' : 'The pizza'} got there in ${time} from the pickup${versus}.${own ? '' : ' A party of your own needs a home of your own: do a couple of deliveries, and you’ll be shown a cheap flat.'}`,
+  partyRecord: (gap: string) => ` Your best yet, ${gap} faster than before.`,
+  partyPoints: (added: number, due: boolean, max: number) => (added ? ` +${added} home ${added === 1 ? 'point' : 'points'}.` : due ? ' Your home points are full: spend some on a home.' : ` Today’s party points are yours already; tomorrow’s party brings ${max} more.`),
+  partyHostDone: (shop: boolean, where: string, time: string, versus: string, rest: string) => `${shop ? 'The drinks and snacks' : 'The pizza'} got to ${where} in ${time} from the pickup, ${shop ? 'still cold' : 'still warm'}${versus}.${rest}`,
+  partyGuestTitle: (shop: boolean, occ: number, host: string | null) => `You brought ${shop ? 'the drinks and snacks' : 'the pizza'} to ${en.partyOf(occ, host)}`,
+  partyCanStart: (occ: number) => `${cap(OCC[occ] ?? OCC[0])} can start`,
+  partyAskGuest: (them: string) => `Let ${them} know you made it?`,
+  partyAskHost: (occ: number) => `Someone still missing for tonight’s ${OCC[occ] ?? OCC[0]}?`,
+  partySendGuest: (them: string) => `Send ${them} your time`,
+  partySendHost: 'Send them a link',
+  partyNoGuest: 'No, just keep driving',
+  partyNoHost: 'No, we’re a full house',
+  partyNoteGuest: (them: string, occ: number) => `The link is ${them}’s ${OCC[occ] ?? OCC[0]} again, with your time.`,
+  partyNoteHost: (kind: string, shop: boolean, clock: string, warn: boolean) =>
+    `Whoever opens it starts at your ${kind} and fetches ${shop ? 'the drinks and snacks' : 'the pizza'} from the same place, against your ${clock}.${warn ? ` The link shows where your ${kind} is in the game.` : ''}`,
+  partyShareHost: (occ: number, place: string, shop: boolean, clock: string) =>
+    `${cap(OCC[occ] ?? OCC[0])} at my place${place ? ` in ${place}` : ''} tonight: can you bring ${shop ? 'the drinks and snacks' : 'the pizza'}? I got ${shop ? 'them' : 'it'} there in ${clock}.`,
+  partyShareGuest: (occ: number, shop: boolean, clock: string) => `I brought ${shop ? 'the drinks and snacks' : 'the pizza'} to your ${OCC[occ] ?? OCC[0]} in ${clock}.`,
+  partyAfterHost: 'Whoever opens it comes to your party.',
+  partyAfterGuest: 'Sent.',
+  partyAgainHost: 'Send it to someone else',
+  partyAgainGuest: 'Send it again',
+  partyDoneHost: 'That’s everyone',
+  gapSeconds: (s: number) => `${Math.round(s)} s`,
+
+  // ---------------------------------------------------------------- trophies (trophies.ts)
+  trophiesLine: (n: number, of: number) => `${n} of ${of} earned. Nothing is paid for them: they are for you, and for showing friends.`,
+  trophiesEarnedOf: (n: number, of: number) => `${n} of ${of} earned`,
+  trophyGroups: ['Getting started', 'Real estate', 'Driving', 'Places'] as string[],
+  trophyText: {
+    car: ['First car', 'Take a car'],
+    delivery: ['First delivery', 'Deliver a package'],
+    run: ['A run of three', 'Finish a run of three deliveries'],
+    home: ['First home', 'Buy a home'],
+    bank: ['Money in the bank', 'Pay cash in at a bank'],
+    homes5: ['Five homes', 'Own 5 homes'],
+    building: ['A whole building', 'Own a whole building'],
+    painted: ['A fresh coat', 'Paint a house or building you own'],
+    towns2: ['Two towns', 'Own homes in two towns'],
+    rent1000: ['$1,000 a day', 'Own homes that pay $1,000 rent a day'],
+    story: ['The whole story', 'Play the story to its last chapter: settle a dispute with your tenants'],
+    lost: ['Shaken off', 'Lose the police'],
+    clean: ['A clean run', 'Finish a run of three without being caught, wrecked or knocked out'],
+    rush: ['Time to spare', 'Finish a rush job with 30 seconds left'],
+    deliveries100: ['100 deliveries', 'Deliver 100 packages'],
+    places5: ['Five places', 'Play in 5 places, each a town or more apart'],
+    places20: ['Twenty places', 'Play in 20 places, each a town or more apart'],
+    guessed: ['City guessed', 'Guess a city right in Where am I?'],
+  } as Record<TrophyId, [string, string]>,
 };
 
-export type Texts = typeof en;
+/** The shape every language's table has: the English one, with each text widened to any string. */
+export type Texts = {
+  [K in keyof typeof en]: (typeof en)[K] extends (...a: infer A) => string ? (...a: A) => string : (typeof en)[K] extends string ? string : (typeof en)[K];
+};

@@ -154,7 +154,7 @@ export class PartyUi {
   /** The button beside a home: with the points, while a party would still pay them. */
   label(_home: Home): string {
     const n = this.pays();
-    return n ? `Throw a party · ${n} home ${n === 1 ? 'point' : 'points'}` : 'Throw a party';
+    return T.throwParty(n);
   }
 
   /** What the button depends on, so the panel is drawn again when it changes. */

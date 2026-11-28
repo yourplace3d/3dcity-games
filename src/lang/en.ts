@@ -503,6 +503,7 @@ export const en = {
   laneCard: (walk: number, corner: boolean, whose: string) =>
     corner ? ` The lanes to ${whose} door are too narrow for a car, so the friends meet you at the corner where a car can go.` : walk ? ` The lane to ${whose} door is too narrow for a car: park where it gets narrow and walk the last ${walk} m. The clock allows for it.` : '',
   laneSay: (walk: number, corner: boolean) => (corner ? ': the friends meet you at the corner, the lanes are too narrow for a car' : walk ? `. Walk the last ${walk} m: the lane is too narrow for a car` : ''),
+  throwParty: (n: number) => (n ? `Throw a party · ${n} home ${n === 1 ? 'point' : 'points'}` : 'Throw a party'),
   partyHud: (shop: boolean) => (shop ? 'Drinks and snacks' : 'Pizza'),
   partyPause: (shop: boolean, occ: number, host: string | null) => `You are fetching ${shop ? 'the drinks and snacks' : 'the pizza'} for ${en.partyOf(occ, host)}.`,
   partyNoRoute: 'No way by road from here to a place for food: try another of your homes.',

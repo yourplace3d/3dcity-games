@@ -15,12 +15,13 @@ import { wireCloud } from './cloudUi';
 import { markPreview } from './preview';
 import { Sound } from './sound';
 import { addonHost } from './addon';
+import { GarageUi } from './garageUi';
 import { HomesUi } from './homesUi';
 import { arriveLine, PartyUi } from './partyUi';
 import { StoryUi } from './storyUi';
 import { menuLine as discordLine } from './discord';
 import { readParty, type SentParty } from './game/party';
-import { drawTrophies, Trophies, type TrophyId } from './trophies';
+import { drawTrophies, earnedIn, SIGHT_POINTS, Trophies } from './trophies';
 import { flatsFree, FLAT_POINTS, HOUSE_POINTS, loadPoints, POINTS_MAX } from './game/homePoints';
 import { fullNote } from './full';
 import { wireRadio } from './radio';
@@ -66,6 +67,7 @@ let game: Game | null = null;
 let homes: HomesUi | null = null;
 /** parties at the player's homes (`partyUi.ts`) */
 let party: PartyUi | null = null;
+let garage: GarageUi | null = null;
 /** the story (`storyUi.ts`): its chapters, the people's messages, the Story tab */
 let story: StoryUi | null = null;
 /** a friend's party from the link the page was opened with, until it starts */
@@ -402,6 +404,7 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         openHomes: () => setPause(true, 'estate'),
         quiet: () => !!secret,
         blocked: () => !playing || menuOpen || mapOpen || welcoming || guessing || !$('result').hidden || !$('thin').hidden,
+        garage: () => !!garage?.here(),
         party: { can: (h) => !secret && p.can(h), label: (h) => p.label(h), tag: () => p.tag(), offer: (h) => p.offer(h) },
         kicker: (what) => story?.kicker(what),
         people: {
@@ -412,6 +415,10 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
         },
       });
       (window as unknown as { homes: HomesUi }).homes = homes;
+      // garages: not while a city is being guessed (their symbols would be on the map all the same, as the
+      // stations' are), nor in the tour's first steps, where a panel would only be in the way
+      garage = new GarageUi({ game, toast, quiet: () => !!secret || step >= 0, stored: () => changed() });
+      (window as unknown as { garage: GarageUi }).garage = garage;
       story = new StoryUi({
         game,
         homes: () => homes,
@@ -438,11 +445,8 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
       {
         const g = game;
         g.events.push((e) => {
-          const ids: TrophyId[] = [];
-          if (e.kind === 'lost') ids.push('lost');
           // a run a friend sent can have another number of deliveries
-          if (e.kind === 'run' && g.run.of === RUN_JOBS) ids.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
-          if (e.kind === 'delivered' && e.job === 'rush' && e.left >= 30) ids.push('rush');
+          const ids = earnedIn(e, g.run.of === RUN_JOBS, g.car?.kind ?? null);
           if (ids.length) trophies.give(ids);
         });
         let every = 0;
@@ -462,6 +466,10 @@ async function go(at: LngLat, name?: string, sent: Challenge | null = null, here
             towns: towns.length,
             rentPerDay: towns.reduce((n, t) => n + t.rent, 0),
             story: !!story?.done(8),
+            partied: !!party?.thrown(),
+            renovated: homes.renovatedOnce(),
+            // from the home town: the first home's place
+            fromHome: mine.homes[0] ? trophies.furthest(mine.homes[0].lat, mine.homes[0].lon) : 0,
           });
         });
       }
@@ -798,7 +806,7 @@ function pick(name: string, b: HTMLButtonElement): void {
     }
   }
   const got = name === round.city ? points(lookedS, wrongPicks) : 0;
-  if (name === round.city) trophies.give(['guessed']);
+  if (name === round.city) trophies.give(got >= SIGHT_POINTS ? ['guessed', 'sight'] : ['guessed']);
   for (const o of buttons) {
     o.disabled = true;
     if (o.textContent === round.city) o.classList.add('right');
@@ -1239,9 +1247,10 @@ function paint(h: Hud): void {
     $('job').dataset.kind = 'story';
     put('job', storyTask);
   } else if (h.job) {
-    $('job').classList.toggle('late', h.job.left < 10);
+    $('job').classList.toggle('late', !h.job.care && h.job.left < 10);
     $('job').dataset.kind = h.job.party ? 'party' : h.job.kind;
-    if (h.job.party) put('job', `${party?.hudLabel() ?? T.party} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
+    if (h.job.care) put('job', `${T.careLine} · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
+    else if (h.job.party) put('job', `${party?.hudLabel() ?? T.party} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
     else {
       const what = { plain: T.jobPlain, supply: T.jobSupply, rush: T.jobRush, clean: T.jobClean }[h.job.kind];
       // the money on the line is the cash the job pays, which stops at a job's most: in a run a delivery

@@ -4,9 +4,15 @@
  * shown as markup: keep the marks in a translation.
  */
 
+import type { KeptKind } from '../game/garage';
+import type { SpecialId } from '../game/specials';
 import type { TrophyId } from '../trophies';
 
 const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
+/** a car a garage keeps, in words: a kind of car, or a special car (`game/specials.ts`) */
+const CAR: Record<KeptKind | SpecialId, string> = { sedan: 'car', sport: 'sports car', van: 'van', police: 'police car', bus: 'bus', convertible: 'convertible', limo: 'limousine', coupe: 'coupé' };
+/** a special car as it is first spoken of: plain words, no makes */
+const SPECIAL_A: Record<SpecialId, string> = { convertible: 'an old cream convertible', limo: 'a long black limousine', coupe: 'a dark-green coupé' };
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
 /** "three deliveries", for a run of that many */
@@ -45,6 +51,7 @@ export const en = {
   keyFire: 'fire station',
   keyPolice: 'police',
   keyBank: 'bank, in your home town',
+  keyGarage: 'garage',
   keyInvented: 'dashed ring: not on the map',
   lineOn: 'Line on the road: on',
   lineOff: 'Line on the road: off',
@@ -757,6 +764,47 @@ export const en = {
   newTenants: (home: string, names: string, what: string, waited: string | null, extra: string) => `New tenants in ${home}: ${names}, ${what}.${waited ? ` The ${waited} rent that waited there is yours.` : ''}${extra}`,
   guests: (names: string, two: boolean) => `${names}, your tenant${two ? 's' : ''}, came too, and brought dessert.`,
 
+  // ---------------------------------------------------------------- the garage (garageUi.ts)
+  garage: 'Garage',
+  garageCars: (n: number, spots: number) => `Your cars in this town: ${n} of ${spots} spots taken.`,
+  garageEmpty: (spots: number) => `Park a car here and it is yours: ${spots} spots in this town.`,
+  /** a kept car, as its line in the garage names it */
+  garageCar: (kind: KeptKind | SpecialId) => cap(CAR[kind]),
+  garageMine: (kind: KeptKind | SpecialId) => `This ${CAR[kind]} is kept here. Leave it anywhere: it comes back.`,
+  garageLeave: 'Leave it here',
+  garagePark: (kind: KeptKind | SpecialId) => `Park this ${CAR[kind]} here`,
+  garageFull: 'Full: sell a car to make room',
+  garageOnRails: (kind: 'tram' | 'train') => `A ${kind} cannot be parked here.`,
+  garageTake: 'Take it',
+  garageSell: (price: string) => `Sell ${price}`,
+  garageSellSure: (price: string) => `Really sell? ${price}`,
+  garageNeverLost: 'A kept car is never lost: left anywhere, or wrecked, it is here again.',
+  garageParked: (kind: KeptKind | SpecialId) => `Parked. This ${CAR[kind]} is yours now: take it out at a garage in this town whenever you like.`,
+  garageNoRoom: 'No room on the street here for it just now. Try a few metres on.',
+  garageSold: (price: string) => `Sold: ${price}. Its spot is free.`,
+  garagePoliceNote: 'A police car cannot be sold. Give it up to free its spot.',
+  garageGiveUp: 'Give it up',
+  garageGiveUpSure: 'Really give it up?',
+  garageGivenUp: 'Given up. Its spot is free.',
+  garageBusNote: 'A bus needs new paint before it can be sold.',
+  garagePaint: (price: string) => `New paint ${price}`,
+  garagePainted: 'New paint on the bus. It can be sold now.',
+  garageCustomers: 'This car is a customer’s: it cannot be kept.',
+  // the garage's own job: a car to deliver (`game/specials.ts`)
+  careJob: 'Car delivery',
+  /** the job's line on the screen while it is on: its name with its rule in it, short enough for a phone */
+  careLine: 'Car, no dent',
+  careText: 'A customer’s car goes to its owner. A new dent on the way, and the job is gone.',
+  careOffer: (pay: string) => `Deliver a car  ${pay}`,
+  careNone: 'No customer is waiting for a car just now. Try again in a moment.',
+  careStart: (id: SpecialId) => `${cap(SPECIAL_A[id])}, for a customer: take it to the yellow ring and stop there. A new dent, and the job is gone.`,
+  careDone: (cash: string, shown: SpecialId | null) => `Handed over without a dent: +${cash}.${shown ? ` The ${CAR[shown]} is for sale at the garages now.` : ''}`,
+  careDented: 'A dent. The job is gone: the garage sends for the car.',
+  careLost: 'The delivery is off.',
+  saleHead: 'For sale',
+  saleBuy: (price: string) => `Buy ${price}`,
+  saleBought: (id: SpecialId) => `Yours: ${SPECIAL_A[id]}. It is kept here.`,
+
   // ---------------------------------------------------------------- driving skill (skill.ts, main.ts)
   skillLabel: 'Driving skill',
   skillLevels: ['Rookie', 'Regular', 'Skilled', 'Pro', 'Ace', 'Master', 'Legend'] as string[],
@@ -784,6 +832,8 @@ export const en = {
   // ---------------------------------------------------------------- trophies (trophies.ts)
   trophiesLine: (n: number, of: number) => `${n} of ${of} earned. Nothing is paid for them: they are for you, and for showing friends.`,
   trophiesEarnedOf: (n: number, of: number) => `${n} of ${of} earned`,
+  /** how far along a trophy that counts something is: "312 of 500" */
+  sofarOf: (have: string, need: string) => `${have} of ${need}`,
   trophyGroups: ['Getting started', 'Real estate', 'Driving', 'Places'] as string[],
   trophyText: {
     car: ['First car', 'Take a car'],
@@ -792,18 +842,30 @@ export const en = {
     home: ['First home', 'Buy a home'],
     bank: ['Money in the bank', 'Pay cash in at a bank'],
     homes5: ['Five homes', 'Own 5 homes'],
+    homes10: ['Ten homes', 'Own 10 homes'],
     building: ['A whole building', 'Own a whole building'],
     painted: ['A fresh coat', 'Paint a house or building you own'],
+    renovated: ['Good as new', 'Renovate a home whose walls have worn down'],
     towns2: ['Two towns', 'Own homes in two towns'],
+    towns5: ['Five towns', 'Own homes in five towns'],
     rent1000: ['$1,000 a day', 'Own homes that pay $1,000 rent a day'],
+    party: ['Full house', 'Throw a party at a home of yours: bring the food to the door in time'],
     story: ['The whole story', 'Play the story to its last chapter: settle a dispute with your tenants'],
     lost: ['Shaken off', 'Lose the police'],
     clean: ['A clean run', 'Finish a run of three without being caught, wrecked or knocked out'],
     rush: ['Time to spare', 'Finish a rush job with 30 seconds left'],
+    care: ['Not a dent', 'Deliver a car for a garage: not a dent on the way'],
+    book: ['By the book', 'Finish a police station’s job: no law broken on the way'],
+    found: ['Found it', 'Find the car the pump asks you to look for, and drive it back'],
+    bus: ['By bus', 'Deliver a package in a bus'],
     deliveries100: ['100 deliveries', 'Deliver 100 packages'],
+    deliveries500: ['500 deliveries', 'Deliver 500 packages'],
     places5: ['Five places', 'Play in 5 places, each a town or more apart'],
     places20: ['Twenty places', 'Play in 20 places, each a town or more apart'],
+    far: ['Far from home', 'Play a place 5,000 km or more from your home town'],
+    equator: ['Across the equator', 'Play a place north of the equator and one south of it'],
     guessed: ['City guessed', 'Guess a city right in Where am I?'],
+    sight: ['At first sight', 'Make 800 points or more in Where am I?'],
   } as Record<TrophyId, [string, string]>,
 };
 

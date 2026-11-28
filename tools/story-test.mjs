@@ -55,6 +55,13 @@ try {
       const s = JSON.parse(localStorage.getItem('3da-story'));
       s.last = '2000-01-01';
       localStorage.setItem('3da-story', JSON.stringify(s));
+      // The page has the story in memory too and writes it whenever it moves on (a message shown, say). Such
+      // a write before the page is loaded again would put today's date back, and the next chapter would not
+      // open: so until then nothing more is written of the story.
+      const set = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) {
+        if (k !== '3da-story') set.call(this, k, v);
+      };
     });
   const reload = async (place = 'Nuremberg') => {
     await page.goto(`${base}?n=${Math.random()}#${place}`);
@@ -69,6 +76,13 @@ try {
   });
   await reload();
   await page.locator('#coach-skip').click();
+  // a first visit plays a run of three, whatever way to play was kept (the first minute for new players, 28
+  // November), and the first flat is offered once the run is over: here the open jobs follow at once, and
+  // "Do jobs" is the way to play kept for the days after, as picking it under "Other ways to play" keeps it
+  await page.evaluate(() => {
+    game.openPlay();
+    localStorage.setItem('3da-mode', 'jobs');
+  });
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-story') ?? '{}').open === 1);
   await page.evaluate(() => (game.delivered = 1));
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-story')).open === 2);

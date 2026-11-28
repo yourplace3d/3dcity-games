@@ -29,7 +29,7 @@ import {
 } from 'three';
 import type { Pt } from '../geo/polygon';
 import type { LngLat } from '../geo/projection';
-import { Car, collideCars, type CarKind } from './cars';
+import { Car, collideCars, type CarKind, type CarLook } from './cars';
 import { closeIn, FIND_FAR, FIND_NEAR, CLOSE_IN_S, HAND_M, HAND_SPEED, seen, zoneAround, ZONE_MIN } from './find';
 import type { Input } from './input';
 import { Strip, drawnOverGround } from './roadMesh';
@@ -123,6 +123,11 @@ export interface Job {
   party?: boolean;
   /** the clock it started with (s) */
   clock0?: number;
+  /**
+   * a car delivery from a garage (`specials.ts`): the load is this car itself. It is handed over stopped at
+   * the ring, sitting in it; a new dent on it and the job is gone. No clock runs.
+   */
+  care?: Car;
 }
 
 /**
@@ -164,7 +169,7 @@ export interface Hud {
   health: number;
   carHp: number | null;
   kmh: number;
-  job: { left: number; metres: number; pay: number; kind: JobKind; party: boolean } | null;
+  job: { left: number; metres: number; pay: number; kind: JobKind; party: boolean; /** a car delivery: no clock, and the way is the car's */ care: boolean } | null;
   hint: string;
   /** where the arrow points: the drop-off, or the nearest job; `colour` is the colour of the ring it points to */
   target: { ndcX: number; ndcY: number; metres: number; kind: 'drop' | 'job' | 'guide'; colour: string } | null;
@@ -188,7 +193,11 @@ export type GameEvent =
   | { kind: 'delivered'; job: JobKind; left: number; special: boolean; /** the car the load came on board in took harm on the way */ dented?: boolean }
   | { kind: 'fined' }
   | { kind: 'lost' }
-  | { kind: 'run'; fined: boolean };
+  | { kind: 'run'; fined: boolean }
+  /** the car looked for is back at its ring (`find.ts`) */
+  | { kind: 'found' }
+  /** a car delivered for a garage, without a dent (`specials.ts`) */
+  | { kind: 'carDelivered' };
 
 /** A run is this many deliveries; each asks a little more than the one before. A run someone sent keeps its own number. */
 export const RUN_JOBS = 3;
@@ -447,6 +456,12 @@ export class Game {
   find: FindRun | null = null;
   /** What happened with the car looked for; `metres`: for 'done', how far it was driven back. */
   onFind: (e: FindEvent, metres: number) => void = () => undefined;
+  /**
+   * A car delivery is over: `done`, handed over without a dent, with the cash it paid; `dented`; or `lost`
+   * (wrecked, sunk, or put off by whatever else began). `car`: the car it was, which stays in the world
+   * unless it was handed over.
+   */
+  onCare: (e: 'done' | 'dented' | 'lost', car: Car, cash: number) => void = () => undefined;
   private findStage: 'search' | 'seen' | 'back' = 'search';
   private findCar: Car | null = null;
   /** seconds of searching since the circle last closed in */
@@ -478,7 +493,7 @@ export class Game {
   private slowSaid = false;
   /** the player has got going since the start: no job's card at the very start, standing where the game put them */
   private moved = false;
-  /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished. */
+  /** Listeners to what happens in play: deliveries, fines, the police shaken off, runs finished, a car found. */
   readonly events: Array<(e: GameEvent) => void> = [];
   private emit(e: GameEvent): void {
     for (const f of this.events) f(e);
@@ -841,8 +856,9 @@ export class Game {
    * For add-ons: stand a car in the world, with nobody in it. `make` gives it a colour, a top
    * speed (m/s), a pull (m/s²) and how much of a knock becomes damage.
    */
-  place(kind: 'sedan' | 'sport' | 'van', x: number, y: number, th: number, make: { colour?: string; top?: number; acc?: number; dent?: number } = {}): Car {
-    const c = new Car(kind, make.colour, make.top || make.acc ? { ...(make.top ? { top: make.top } : {}), ...(make.acc ? { acc: make.acc } : {}) } : undefined);
+  place(kind: 'sedan' | 'sport' | 'van' | 'police' | 'bus', x: number, y: number, th: number, make: { colour?: string; top?: number; acc?: number; dent?: number; len?: number; look?: CarLook } = {}): Car {
+    const tune = { ...(make.top ? { top: make.top } : {}), ...(make.acc ? { acc: make.acc } : {}), ...(make.len ? { len: make.len } : {}) };
+    const c = new Car(kind, make.colour, make.top || make.acc || make.len ? tune : undefined, make.look ?? '');
     if (make.dent) c.dent = make.dent;
     c.x = x;
     c.y = y;
@@ -865,9 +881,14 @@ export class Game {
     this.dropCar(c);
   }
 
-  /** For add-ons: sit in a car that stands in the world. */
+  /** For add-ons: sit in a car that stands in the world. A car you sat in stays where it is, let go of. */
   seat(c: Car): void {
-    if (this.car && this.car !== c) this.car.driver = 'none';
+    if (this.car && this.car !== c) {
+      this.car.driver = 'none';
+      this.car.controls.throttle = 0;
+      this.car.controls.steer = 0;
+      this.car.controls.handbrake = false;
+    }
     c.driver = 'player';
     this.car = c;
   }
@@ -1965,6 +1986,10 @@ export class Game {
     if (this.job) {
       const j = this.job;
       const [x, y] = this.local(j.to);
+      if (j.care) {
+        this.careTick(j, x, y);
+        return;
+      }
       j.metres = Math.hypot(x - px, y - py);
       j.left -= dt;
 
@@ -2633,19 +2658,113 @@ export class Game {
     const metres = from ? Math.hypot(ex - from[0], ey - from[1]) * 1.3 : 0;
     this.stopFind();
     this.onFind(e, metres);
+    if (e === 'done') this.emit({ kind: 'found' });
     this.onSave();
   }
 
-  private endJob(done: boolean, why?: 'late' | 'caught' | 'offence' | 'dropped'): void {
+  private endJob(done: boolean, why?: 'late' | 'caught' | 'offence' | 'dropped' | 'dented' | 'wrecked'): void {
     this.routeLine.visible = false;
     // the way to the drop-off goes with it; the next is worked out at once
     this.routePts = null;
     this.routeT = 0;
     if (!this.job) return;
     const special = !!this.job.special;
+    const care = this.job.care;
+    const pay = this.job.pay;
     this.scene.remove(this.job.to.mesh);
     this.job = null;
-    if (special && !done) this.onSpecialLost(why ?? 'dropped');
+    if (special && !done) this.onSpecialLost(why === 'late' || why === 'caught' || why === 'offence' ? why : 'dropped');
+    // a car delivery: whoever handed it out hears how it went
+    if (care) this.onCare(done ? 'done' : why === 'dented' ? 'dented' : 'lost', care, done ? jobCash(pay) : 0);
+  }
+
+  // ------------------------------------------------------------------ a car to deliver (`specials.ts`)
+
+  /**
+   * A car delivery from a garage: the car stands at `stand` and you sit in it; its owner waits `near` to
+   * `far` metres away, where a way leads there. Null where something else is on, or no such place is found.
+   */
+  startCare(
+    make: { kind: 'sedan' | 'sport'; colour: string; top: number; acc: number; dent: number; len?: number; look: CarLook },
+    stand: { x: number; y: number; th: number },
+    near: number,
+    far: number,
+    pay: number,
+  ): Car | null {
+    if (this.job || this.party || this.find || !this.run.over) return null;
+    const w = this.world;
+    let marker: Marker | null = null;
+    let metres = 0;
+    for (let k = 0; k < 12 && !marker; k++) {
+      // the last tries look nearer and further, where the town has little at the distance asked for
+      const place = w.roads.randomPlace('traffic', stand.x, stand.y, k < 8 ? near : near * 0.6, k < 8 ? far : far * 1.5);
+      const to = place && this.standOn(place);
+      if (!to) continue;
+      const cand = this.newMarker(DROP, to);
+      const f = this.fieldOf(cand);
+      const r = f && w.roads.route(f, stand.x, stand.y);
+      if (r && r.metres < 2400) {
+        marker = cand;
+        metres = r.metres;
+      } else this.scene.remove(cand.mesh);
+    }
+    if (!marker) return null;
+    const c = this.place(make.kind, stand.x, stand.y, stand.th, make);
+    this.seat(c);
+    this.mine = c;
+    this.job = { to: marker, metres, left: 0, pay, kind: 'plain', hp0: c.hp, car0: c, care: c };
+    this.careSlow = false;
+    this.routeT = 0;
+    this.routePts = null;
+    for (const o of this.pickups.splice(0)) this.scene.remove(o.mesh);
+    this.onSound('pickup');
+    return c;
+  }
+
+  /** "Stop at the ring" has been said for this delivery */
+  private careSlow = false;
+
+  /** A car delivery, step by step: lost with the car, gone at a new dent, handed over stopped at the ring. */
+  private careTick(j: Job, x: number, y: number): void {
+    const c = j.care!;
+    // how far the car still has to go, wherever you are
+    j.metres = Math.hypot(x - c.x, y - c.y);
+    if (c.gone || c.hp <= 0) {
+      this.endJob(false, 'wrecked');
+      return;
+    }
+    if (c.hp < j.hp0 - 1) {
+      this.onSound('late');
+      this.endJob(false, 'dented');
+      return;
+    }
+    if (this.car !== c || j.metres >= HAND_M) return;
+    if (c.speed >= HAND_SPEED) {
+      if (!this.careSlow) {
+        this.careSlow = true;
+        this.onToast(T.stopToHand, 'info');
+      }
+      return;
+    }
+    this.cash += jobCash(j.pay);
+    this.delivered++;
+    this.onSound('deliver');
+    this.arrived(x, y, `+${money(jobCash(j.pay))}`, false);
+    // handed over: the car is its owner's now, and you stand where it stood
+    const [hx, hy] = [Math.cos(c.th), Math.sin(c.th)];
+    this.remove(c);
+    this.endJob(true);
+    // an ordinary car at the kerb to go on with, where there is room for one
+    const w = this.world;
+    const n = w.roads.nearest(x, y, 30, 'drive');
+    if (n) {
+      const p: PathState = { line: n.line, s: n.s, dir: 1 };
+      const [kx, ky] = w.roads.lanePoint(p, w.roads.lines[n.line].w / 2 + 1);
+      if (w.free(kx, ky, 1.3) && !this.carNear(kx, ky, 5)) this.addCar('sedan', kx, ky, Math.atan2(hy, hx)).driver = 'none';
+    }
+    this.emit({ kind: 'delivered', job: 'plain', left: 0, special: false, dented: false });
+    this.emit({ kind: 'carDelivered' });
+    this.onSave();
   }
 
   /** Whether a station's package is one the mission's drop-off waits for: its ring flashes green. */
@@ -3144,7 +3263,7 @@ export class Game {
       health: Math.max(0, this.me.hp),
       carHp: this.car ? this.car.hp : null,
       kmh: this.speed() * 3.6,
-      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind, party: !!this.job.party } : null,
+      job: this.job ? { left: this.job.left, metres: this.job.metres, pay: this.job.pay, kind: this.job.kind, party: !!this.job.party, care: !!this.job.care } : null,
       hint,
       target,
       delivered: this.delivered,

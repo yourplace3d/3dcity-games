@@ -80,6 +80,30 @@ the streets, buildings, water and hills come from the same map squares as
   The drop-off is a sight or public place where one lies at a fitting distance, otherwise a street.
 - **Where a part of town has no such station on the map, one is made up**, at a spot worked out from its
   position on the earth: the same on every visit and for every player. Its symbol has a dashed ring.
+- **Garages keep your cars.** A garage has a car under a roof on its sign, on its roof and on both maps. It
+  comes from the map's car dealers and repair garages and carries no name; where a part of town has none, one
+  is made up, with a dashed ring. Stop beside one in any car you got hold of and park it: it is yours from
+  then on. A city's garages have three spots between them, the same three at whichever of them you drive to.
+  A kept car can be taken out at any garage of its city: it stands on the street there and you sit in it.
+  Nothing has to be parked back: left anywhere, or wrecked, it is at the garage again. A kept car can be
+  sold, at the second press, which frees its spot; it pays little ($100 to $200), so that taking cars to
+  sell them never pays as well as a job. A police car is not sold: it can only be given up, for nothing. A
+  bus is sold once it has new paint, which the garage gives it for $50; it then shows that paint on the
+  street, and sells for $150. Trams and trains stay on their rails and cannot be parked.
+  Not while a package is on board, a run of three is on, or a city is being guessed. Kept as `3da-garage`
+  (`src/game/garage.ts` for the rules, `src/garageUi.ts` for the panel).
+- **A garage has its own job: a car to deliver.** "Deliver a car" in the garage's panel stands a car that
+  looks like no other by the garage, with you in it, and a yellow ring at its owner's across town. **A new
+  dent on the way and the job is gone**, as an offence ends a clean run; nothing is paid, nothing is lost,
+  and it can be taken again at once. No clock runs. It is handed over by stopping at the ring in it; you
+  then stand there, with an ordinary car at the kerb to go on with. Each delivery done well is one level up,
+  to the eighth: the way is a little longer and the pay a little better ($200 to $300, never more than a
+  job pays). There are three special cars, in plain words and with no makes: an old cream convertible (slow,
+  and it dents most easily), a long black limousine (from the second level) and a dark-green coupé (from
+  the fourth, the fastest car in the game). **A car delivered without a dent is for sale at the garages
+  from then on** ($2,000, $3,000, $4,000) and, bought, is kept like any car and sells again for two
+  fifths. A customer's car that was not handed over stays on the street and cannot be kept. The rules:
+  `src/game/specials.ts`; the job itself: `Game.startCare` in `src/game/game.ts`.
 - **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than
   the one before. What the three earn, less any fines, is the score; it goes on a scoreboard, with your
   name if you care to write one. The board is kept in the browser, so it is the board of one device.
@@ -96,7 +120,7 @@ the streets, buildings, water and hills come from the same map squares as
   the roof and on both maps. **Real estate**, a tab of the menu (☰, or the house button beside it, whose ring
   fills with home points), lists them by town with what each pays: *Go there* starts beside one, and in the
   town you are in, *On the map* shows it blinking on the big map and then points the arrow at it. Each
-  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 18 things to do.
+  delivery earns a home point; a flat takes 2, a house 10. The menu's **Trophies** tab lists 30 things to do, from a first car to ten homes in five towns, a police station's job, a car delivered for a garage without a dent, a package brought in a bus, and a place played far from home; one that counts something says how far along it is ("312 of 500").
   Now and then something happens at a home (it needs renovating, or, after the story's chapter 8, the
   tenants stop paying); its rent waits at the building until it is solved. A station's package for a home can
   be taken up to 2 km from it: the spot at its door is kept as a place on the earth, so the next part of town
@@ -314,6 +338,17 @@ keeps its own store in the browser, starting from a copy of the live game's prog
 linked from anywhere, but anyone given the address can open one. Previews appear once `pages.yml` has run
 once with this setup.
 
+**The preview check.** Each pull request's build is also played in a browser on GitHub
+(`preview-check.yml`, `tools/preview-check.mjs`): the start screen and a city on a tablet and on a phone,
+with the pictures and a report kept on the `preview-shots` branch under `pr-<n>/<commit>/`. A pull request
+adds pictures of what it changes in one of two ways. Steps in the city the check has just loaded:
+`tools/preview-steps.mjs`, one file, which each change replaces with its own. Or a scene with a stored
+player of its own, a file in `tools/preview-scenes/`: each file there is played after the common scenes,
+takes its pictures into the same folder, and what it returns goes into the report under its name.
+`garage.mjs` is one: the garage's panel, a car delivery from the offer to the hand-over, and the
+Trophies tab. Neither fails the check. To play it all here: `VITE_PREVIEW=pr-test npm run build`,
+then `NODE_PATH=$(npm root -g) node tools/preview-check.mjs dist <folder>`.
+
 **Without outside requests.** `VITE_BAKED_AT="52.5170,13.3889" npx vite build` makes a build that plays in the
 nine squares around that point and reads its map from `./map/` beside the page instead of the tile servers:
 terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-{y}.txt`.
@@ -370,6 +405,15 @@ bridge pass the cars on it.
 - `tools/story-test.mjs`: the story played through in a browser on real map tiles: a first visit to the first flat,
   a chapter on each following day with the people's messages, a player who is further on, the story away from the
   home town, and a phone. `SHOTS=<folder>` keeps a screenshot of each step.
+- `tools/trophies-test.mjs`: the trophies in a browser on real map tiles: a player who is further on earns what
+  fits at once, in one line; the tab lists all 30, and says how far along a counting one is; the ones earned
+  in play. `SHOTS=<folder>` keeps screenshots.
+- `tools/garage-test.mjs`: the garage in a browser on real map tiles (Nuremberg, then Munich): its symbol on
+  the maps, a car parked and kept, three spots, a kept car taken out, left somewhere and taken out again, one
+  sold, the page loaded again, and another city with spots of its own. `SHOTS=<folder>` keeps screenshots.
+- `tools/care-test.mjs`: the garage's own job in a browser on real map tiles: taken, lost to a dent, taken
+  again and handed over, paid, "Not a dent" earned, a level up, the car for sale, bought, kept and taken out.
+  `SHOTS=<folder>` keeps screenshots.
 - `tools/preview-steps.mjs`: steps the preview check (`tools/preview-check.mjs`) runs once the city is up, to
   play the change being looked at and take its own pictures; each change replaces them (now: driving skill).
 - `tools/stand-in-map.mjs`: a stand-in map (flat ground, a grid of streets and blocks) answered to a

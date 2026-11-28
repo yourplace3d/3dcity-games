@@ -146,6 +146,8 @@ export interface HomesHost {
   quiet?: () => boolean;
   /** something lies over the game (the menu, the big map, a card): keys do nothing to the panel under it */
   blocked?: () => boolean;
+  /** the player has stopped beside a garage (`garageUi.ts`): the panel is the garage's meanwhile */
+  garage?: () => boolean;
   /** parties at the homes (`partyUi.ts`): whether one can be thrown at a home now, its button, and the card that starts it */
   party?: { can: (home: Home) => boolean; label: (home: Home) => string; tag: () => string; offer: (home: Home) => void };
   /** the story's name for a card, when it is the open chapter's own (`storyUi.ts`): the first home's, the bank's, the tenants' dispute's */
@@ -219,6 +221,8 @@ export class HomesUi {
   private bankWay = false;
   /** things that happen at the homes (`game/events.ts`) */
   private events: Events = loadEvents(this.homes.homes.length > 0);
+  /** a home was renovated on this visit after its walls wore down (`renovatedOnce`) */
+  private renovatedNow = false;
   /** seconds of play when this last put a card up, so that two do not follow at once */
   private cardAtS = -60;
   /** the home whose event the package on board is for */
@@ -251,7 +255,7 @@ export class HomesUi {
     addEventListener('keydown', (e) => {
       if (e.key.toLowerCase() !== 'b' || e.repeat || this.panel.hidden || this.host.blocked?.()) return;
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea')) return;
-      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch):not(.party):not(.talk)')?.click();
+      this.panel.querySelector<HTMLButtonElement>('button:not(.swatch):not(.party):not(.talk):not(.sell)')?.click();
     });
   }
 
@@ -1131,6 +1135,7 @@ export class HomesUi {
     }
     this.host.save();
     this.setEvents({ ...this.events, open: this.events.open.filter((o) => o !== e), renovated: { ...this.events.renovated, [key]: dayNumber(Date.now()) } });
+    this.renovatedNow = true;
     const lot = this.lotOf(h);
     if (lot) this.world?.model.paintBuilding(lot.poly, h.colour ?? null);
     this.syncSpecial();
@@ -1245,6 +1250,16 @@ export class HomesUi {
   /** A home in this part of town that waits to be renovated: the story's dispute begins only once it is. */
   renovatingHere(): Home | null {
     return this.homes.homes.find((h) => this.lotOf(h) && this.renovating(h)) ?? null;
+  }
+
+  /**
+   * A home has been renovated after its walls wore down (for the trophies). The first building's day is
+   * also kept when its own repairs end, which is not that: for it, only one seen on this visit counts.
+   */
+  renovatedOnce(): boolean {
+    const first = this.homes.homes[0];
+    const own = first ? homeKey(first) : '';
+    return this.renovatedNow || Object.keys(this.events.renovated).some((k) => k !== own);
   }
 
   /** Disputes settled, in all: the story's chapter 8 is done with the first. */
@@ -1670,11 +1685,14 @@ export class HomesUi {
         }
       }
     }
-    if (bank) found = null;
+    // beside a garage the panel is the garage's (`garageUi.ts`): nothing of a building, and it is left alone
+    const garage = !bank && !!this.host.garage?.();
+    if (bank || garage) found = null;
     this.doorTick();
-    const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()} ${this.host.party?.tag() ?? ''}` : '';
+    const shown = garage ? 'garage' : bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()} ${this.host.party?.tag() ?? ''}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
+    if (garage) return;
     this.panel.hidden = !shown;
     if (!shown) return;
     this.panel.replaceChildren();

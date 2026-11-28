@@ -799,7 +799,7 @@ the scene in `src/storyUi.ts`, the circle in `src/game/minimap.ts`.
   wild one (the car flees; stay close until it gives up; lost when it gets away, reaches the edge of the loaded
   map or for any other natural end; a dead end can end it in your favour).
 
-## 18. The whole story reviewed and debugged (27 November; branch `claude/find-the-car`; put live on the owner's word, "Yes put it live", 27 November)
+## 18. The whole story reviewed and debugged (27 November; live since 23:30 UTC that day, pull request #34, deploy run 79, on the owner's word: "Yes put it live")
 
 The owner asked for a code review of the whole story mode ("Does it make sense?"), then "Start debugging".
 The review found twelve places where the story broke as a player meets it. Each was first reproduced as a
@@ -891,3 +891,379 @@ failing test, then fixed. One fix changes a rule of section 4, so it is first he
   review's cases on Nuremberg's tiles: a job of each kind on day 1 and chapter 5 on its day all the same;
   chapter 6 opened 3 km from the flat, with the way back to it; and in chapter 8 a walk into the next part of
   town, after which the part still goes to the building.
+
+## 19. After the story: missions that come round again, a nice car, a garage (28 November; a plan, nothing built)
+
+The owner, 28 November: "Is it imminently important to do the stories in an order? Because now it's maybe time
+to introduce a cycle and this would be good if it would be sort of random. So maybe not with all of the
+stories but with some it's pretty easy to make them infinite. Maybe always a little more difficult (but
+actually not with all of them necessarily possible) so if the consequence is important for the first time
+after that they should be available on how the player wants to solve them. BTW add one more mission where the
+clean run is not a clean one by the police but a nice car which is not allowed to have a dent during the
+mission. Maybe that's how we could also introduce some special cars which makes it then interesting to buy a
+garage so one can save that car. Let's plan this together first. then look for the trophies again. Shouldn't
+be too overwhelming as well".
+
+Read here as (**to confirm**): the first time, a mission is played where the story puts it; after that it
+comes round again, in an order that is partly chance, a little harder each time where that can be done, and
+the player may also pick which one to do. One new mission: a nice car to deliver without a dent. Special cars
+come with it, and a garage to keep one. Then the trophies again, and neither they nor the cycle may be too
+much at once.
+
+### Does the order matter?
+
+| Chapters | What they need | Does the order matter? |
+|---|---|---|
+| 1 Arrival, 2 Making rent, 3 A roof over your head | each needs the one before: a car, a package, the money, the flat | yes |
+| 5 The regulars | nothing; it is where the three at the stations are met | it has to come before anything they ask |
+| 4 Safe money, 6 Housewarming, 7 The whole building, 8 Landlord | the first flat, and nothing of each other | no: it is only the order of the telling |
+
+- **What the strict order costs today:** the story opens the lowest chapter not done, and nothing after it
+  (`nextOf` in `src/game/story.ts`). Chapter 7 is the one that takes money and several visits: the rest of the
+  first building, a package for each of its 3 to 5 flats, then the paint. Until it is done, chapter 8 cannot
+  open, so the tenants' dispute, the one chapter with a choice in it, waits behind the saving up.
+- **Proposed:** chapters 1 to 5 stay in order, one a day from chapter 4, as now. From chapter 6 on, a new
+  chapter opens on each new day played whether or not the one before is finished. Two or three may then be
+  open; the Story tab lists them and the player picks. "The whole story" is still all eight.
+
+### The cycle: missions that come round again
+
+- **From when:** a mission joins the cycle once it has been played the first time in the story. So the cycle
+  begins the day after chapter 5, with what Mira's car search is today, and grows as chapters are done.
+- **What comes round,** by who asks:
+
+| Who | The mission | Built? | Harder each time? |
+|---|---|---|---|
+| The pump | find the car and drive it back | yes, played once today | yes: parked further off, a wider circle that closes in later |
+| The pump | the nice car (below) | new | yes: a longer way, later a clock, a car that dents more easily |
+| The fire station | "beat my time": a rush job against the time they drove | the job, yes; the words, new | yes: the clock a little shorter |
+| The police | a lost thing back to its owner: a clean run | the job, yes; the words, new | a little: a longer way |
+| Your friends | "party at yours tonight?" | yes; today only the player starts one | no: a party has its own best time to beat |
+| Your tenants | a dispute; a renovation | yes, and they come round already (section 16; the plan for returning players, section 4) | no |
+| Later | the tail and the wild chase (section 17); help at a station in another town (section 14) | no | to be seen |
+
+- **Sort of random:** like a shuffled pack of cards. Every mission in the cycle comes up once, in an order
+  left to chance, before any comes a second time; then the pack is shuffled again. It feels random, the same
+  one never comes twice in a row, and none is left out for weeks.
+- **How many:** one a day comes by itself, as a message from its person, with "Not now" (it goes back in the
+  pack). The day's chapter still comes first, and nothing new begins while something is on (the rules of
+  sections 13 and 16).
+- **As the player wants:** the Story tab lists the people met and what each has ("Mira · Find the car ·
+  level 3"), each with a button to ask for it now, once a day each. So a player who only likes the car search
+  can do it every day, and one who never asks still gets one a day.
+- **A little harder each time:** each mission keeps a level of its own, one step up each time it is done
+  well, shown plainly. One number changes per step (how far, how long on the clock), and the pay grows with
+  it. It stops at a level that is still fair (estimate: 8 to 10 steps) and stays there; from then on only
+  the car, the place and the way change. Failing loses nothing and the level stays. The owner on chases, 27
+  November: it mustn't get too difficult.
+- **Not everything has levels:** disputes, renovations and parties stay as they are.
+- **To watch:** more pay from the cycle means homes come faster. The numbers are to be tuned from play, as
+  the others are.
+
+### The new mission: a nice car, and not a dent
+
+- **Who asks:** the pump (recommended): a customer's car is found there already, and a place for cars fits.
+  The other way is a fourth kind of place on the map, a car dealer, made up where a town has none; that is
+  more to build and one more symbol on the map.
+- **How it plays:** a car stands at the pump that looks like no other in the game. Get in; a yellow ring
+  lies at its owner's address, 600 to 1,500 m away (estimate). Arrive with no new dent: paid like a clean
+  run. **A new dent on the way, and the job is gone**, as an offence ends a clean run; no fine, and it can be
+  asked for again the next day.
+- **What a dent is:** what the game counts already: a knock harder than a hard bump (over 8 m/s, about
+  29 km/h). Touching a kerb or a wall slowly is none. A knock from another car counts, whoever caused it.
+- **No clock at first:** the care is the test, and the car is quick enough to tempt. A clock joins at a
+  later level. Offences don't end it; a police car that rams you does, through the dent.
+- **Working name:** "Car delivery". A better one is welcome.
+
+### Special cars
+
+- **A handful to start** (estimate: five), each with a look of its own, built from boxes like every car, in
+  colours no car in traffic has, each with its own numbers (top speed, pull, how easily it dents; `Game.place`
+  takes these already). First ideas, in plain words, no makes and no names of real cars: an old cream
+  convertible (slow, dents easily), a dark-green sports coupé (fast), a long black limousine, a small
+  two-tone city car (short, turns on the spot), a silver racing car (the fastest, the most delicate).
+- **Seen only in the car delivery at first.** They are not parked in the streets to be taken.
+- **How one becomes yours:** deliver the same kind three times without a dent and its owner offers it for
+  sale. Saying yes needs a garage.
+
+### The garage
+
+- **What it does:** a car of your own waits there at the start of every visit, yours to take with no
+  offence, repaired each new day. One bay at first.
+- **Where: two ways.**
+  1. *At one of your homes* (recommended): "Add a garage" on the home's panel. The car stands at the door
+     where the visit starts, a garage is something a home can have in every town, and it is one more thing
+     to own in the game's own line, real estate.
+  2. *A bay at a fuel station:* the missions plan of 14 November (step 3) and Mira's choice (sections 13
+     and 14, point 10; the owner's "Yes"). It ties the garage to her story, but only in the home town, and the car
+     is a drive away at the start of a visit.
+- **A car wrecked** comes back the next day for a repair bill. A car of your own is never lost (section 4,
+  rule 7).
+- **Elsewhere:** in a town without a garage of yours, cars are taken as now.
+- **This is the first car of one's own.** The owner, 16 November: "houses before cars… cars belong to
+  individuals, later". The houses are there now.
+
+### What this does to the plan so far
+
+- **Step D, a written short story each day** (section 10; the owner's "6 yes"), is replaced by the cycle:
+  the day's mission fills the gaps instead. No list of 14 episodes to write, and it never runs out.
+- **Step C, five written jobs for each of the three** (section 7), becomes their missions in the cycle. What
+  was decided for it stays and joins as it is built: the pump's choice (lend or buy in, section 14), the
+  chases (section 17), the trips to other towns (section 14).
+
+### Trophies
+
+Thirty flat on one list is a lot (section 12 of the plan for returning players; built, not live). Proposed,
+for after this plan is settled:
+
+- **Steps on one disc** where trophies are the same thing at higher numbers: homes 5 and 10, towns 2 and 5,
+  deliveries 100 and 500, places 5 and 20. A mission of the cycle gets one disc that fills with its levels.
+- **Show what is next:** the tab shows what is earned and, for each group, the next one or two to earn; the
+  rest opens with "Show all".
+- **"Not a dent"** moves from the supply run to the car delivery, where it is the whole point.
+
+### Build order (proposed)
+
+1. The trophies, reshaped (they are built and waiting).
+2. The car delivery, with two or three special cars: the smallest piece.
+3. Chapters 6 to 8 opening a day apart, and the cycle with its levels: the middle piece.
+4. The garage and a car of one's own: the biggest piece.
+
+Each shown to the owner before it goes live.
+
+### Questions for the owner
+
+1. **The reading above:** first time in the story's order, then round again as chance and the player pick?
+2. **Chapters 6 to 8** open a day apart whether or not the last is finished? *Recommended: yes.*
+3. **The cycle:** one a day by itself, any other by asking, harder up to a limit? *Recommended: yes.*
+4. **The cycle replaces** the written daily story and the five written jobs per person? *Recommended: yes.*
+5. **The car delivery** from the pump; a new dent ends it; no clock at first. And its name?
+6. **The garage** at a home, or a bay at a fuel station? *Recommended: at a home.*
+7. **A car becomes yours** after three deliveries without a dent, for a price, with a garage; never lost?
+8. **The trophies:** steps on one disc, and only what is next shown?
+
+### Round 2: the owner's answers (28 November), and the plan joined up
+
+| # | The owner's answer | Where it stands |
+|---|---|---|
+| 1 | "Yes" | **Decided:** the first time in the story's order, then round again as chance and the player pick. |
+| 2 | "Yes" | **Decided:** chapters 6 to 8 open a day apart without waiting for each other. |
+| 3 | "Can't they coexist? Maybe they do not need to be solved each day but they are there." | Yes, they can: below. |
+| 4 | "It should maybe be the first garage. Anyway the question is how to get garages and flats / houses together. Maybe it's better to use the car dealer part and skip the whole garage thing with houses flats and saving places starting missions it might get too confusing. Or give me a good plan how we can join it. It also could be helpful to enrich the game with another mission gameplay" | A plan that joins them: below. |
+| 5 | "That's the gameplay mission question in the end. Will it be too confusing? bay at fuel station or car dealer some place you [designate]?" | The same plan answers it. |
+| 6 | "We should not need to reinvent it too much. There's lots of solutions already existent in games" | The usual list, as built: below. |
+
+#### The written stories and the cycle, side by side (answer 3)
+
+- **One list, nothing runs out of time.** Whatever a person has for the player stays in the Story tab until
+  it is played: no day's deadline, no count of days in a row, nothing lost for a day or a week away. One
+  still comes by itself each day, as a message; the others are there to be asked for.
+- **The written scenes are the first times a person asks.** The pump's story (section 7: five scenes, her
+  choice at the end) is what she asks the first five times; after it, she keeps asking, with levels. The
+  car search played today is her first scene. So there are not two systems, only missions with words the
+  first times and without after.
+- **The written episodes of the daily story** (section 10: the violin, the wedding cake) become cards in the
+  same pack, each played once, written as time allows. They are no longer tied to the date, so "the same
+  for everyone that day" is given up.
+
+#### One place for cars: the garage (answers 4 and 5)
+
+The owner's worry is right: a garage at a home would give homes a fourth job (rent, parties, tenants, and
+now cars), flats would need a place for a car, and a car would have to be parked somewhere to be kept. Games
+that have both homes and cars have mostly ended up the other way: the cars are a list, and the car in use is
+simply brought to the player. That is proposed here.
+
+- **A fourth kind of place on the map: the garage,** with a car on its sign. From the map's car dealers and
+  repair garages, made up with a dashed ring where a part of town has none, as the stations are. Counted in
+  the 25 map tiles around eight city centres (Nuremberg, Munich, Berlin, New York, Rio, Tokyo, Kiel,
+  Edinburgh), each place once: a dealer or a repair garage in 148 of 200 tiles, a fuel station in 126.
+- **It hands out its own kind of job,** as each station does: pump, a heavy load; fire station, a short
+  clock; police, no offence; **garage, the car itself, and not a dent** (the car delivery above). This is
+  the new mission gameplay: the player leaves their own car and drives someone else's.
+- **It is where cars are bought.** A special car delivered once without a dent is for sale there from then
+  on. Each level of the garage's job brings the next car, so the job is the showroom: drive it first, buy it
+  after. (Once, not three times: with five cars and five-minute visits, three each would take weeks.)
+- **It keeps the player's cars:** the "first garage" of the owner's answer. There is nothing to park and no
+  place to save. A car bought is the player's for good.
+- **How homes and cars meet, in one rule:** in the home town, the player's car stands beside them when a
+  visit starts, where a parked car stands today. (Later, perhaps: in every town with a home of theirs.)
+  Homes themselves get nothing new.
+- **Several cars:** the one last chosen comes; another is chosen at the garage.
+- **Wrecked:** ready again at the next visit day, for a repair bill (estimate: a tenth of its price). Left
+  somewhere: it is beside the player again next time.
+- **Not built, on purpose:** a garage at a home, a bay at a fuel station, a place the player picks. Each is
+  one more thing to learn, and none gives the player more than the rule above.
+- **What it changes in what was decided:** the pump's choice (section 14, point 10) keeps "lend: free repair
+  at her pump" and "buy in: a share like rent"; the garage bay that was to follow the buy-in is dropped.
+
+What each place is for, afterwards:
+
+| Place | What the player does there |
+|---|---|
+| A home (green) | rent, parties, tenants: as now |
+| Pump, fire station, police | their jobs: as now |
+| The bank | savings: as now |
+| **The garage (new)** | car deliveries; buy a car; choose which car comes |
+
+#### Trophies: the usual list (answer 6)
+
+- What is built is already the shape consoles and phones use: one list, a badge grey until earned, a count
+  at the top. It stays; no steps on a disc, no folding.
+- One usual thing is added: how far along a counting one is ("312 of 500").
+- "Not a dent" waits for the car delivery, so a trophy never changes its meaning after players have earned
+  it: 29 now, 30 with the garage.
+
+#### Build order, as it now stands
+
+1. The trophies: the progress numbers, "Not a dent" taken out for now.
+2. The garage: the place, its job, two or three special cars.
+3. Buying a car, and the car at the start of a visit.
+4. Chapters 6 to 8 a day apart; the cycle with its levels.
+5. The written scenes of the people, one at a time, into the same list.
+
+### Round 3: how cars are kept (the owner, 28 November)
+
+The owner: "Ah yes and the saving of cars I would do only in the garage but instead of it being gone if it's
+not being parked there after a run. You can just add them. Maybe at some point you will be able to choose
+from them beginning at your home, the car's being delivered or whatever. And a garage will have probably a
+max capacity per city which later can be enlarged ... let's go with three cars per garage first."
+
+Read as, and said back to the owner:
+
+- **A car is saved only at the garage:** the player drives it there and adds it.
+- **Added is kept.** It need not be parked back there after a run, and it is never gone: left anywhere, or
+  wrecked, it is at the garage again.
+- **Taking one out is at the garage,** for now. Choosing one when a visit starts at home, with the car
+  brought there, is for later ("maybe at some point"). So the rule of round 2, the player's car beside them
+  at the start of a visit, waits.
+- **Three cars for each city** at first, the same three at whichever garage of that city the player drives
+  to; more room later. A full garage asks which car to let go.
+
+**Open, asked of the owner: which cars can be added.**
+1. *Any car the player arrives in,* free, unless it was taken from its driver (which also leaves out police
+   cars and buses, as none of those is ever parked). A special car is still bought at the garage once it has
+   been delivered without a dent, and buying it takes one of the three places. *Recommended:* the garage has a
+   use on the first day, before any special car, and three places then mean choosing.
+2. *Only special cars.* Simpler to say, but the garage keeps nothing until the first special car is bought.
+
+### Round 4: any car, and selling (the owner, 28 November)
+
+Asked which cars can be added, the owner: "Any car you can get hold of can be parked there. And you can sell
+it if your spots is full".
+
+- **Any car:** a car, a sports car, a van, a police car, a bus, however it was come by. Only what runs on
+  rails is left out, as a tram or a train never gets to a garage.
+- **Selling** frees a spot. It can be done at any time, not only when the three are taken: the same button,
+  and one rule less.
+- **Two things set here, said to the owner, to be changed if wanted:**
+  - *A kept car sells for little* (a car $150, a van $180, a sports car $300; estimates). A delivery pays a
+    player with a few behind them $300 and more, so taking cars to sell them is never the better job.
+  - *A police car or a bus sells for what an ordinary car does* ($150). The owner's word is that any car can
+    be parked, and so it can; but the story's own rule is that no crime is rewarded (section 9, principle
+    7), and a price on a police car would be exactly that.
+
+## 20. The garage, first piece: keeping cars (built 28 November; branch `claude/garage`, not live)
+
+The owner's last three answers were all on how cars are kept, so that piece was built first: the place, and
+keeping, taking out and selling. The car delivery and the special cars come next and stand on it. Code:
+`src/game/garage.ts` (the rules, no screen), `src/garageUi.ts` (the symbols and the panel), the place in
+`src/game/services.ts` and `src/game/world.ts`.
+
+- **The place:** `World.garages`, from the map's points of interest of the kinds `car` (a dealer) and
+  `car_repair`, and made up where a part of town has neither (`inventServices`, with `garage` added at the
+  end of its list, so no made-up station or bank moves). One within 400 m, as dealers stand in rows in
+  places, and none within 70 m of a station's or a bank's symbol. Its sign: a car under a roof on steel
+  grey, a colour no other sign has; a dashed ring where it is made up. On the roof, the little map and the
+  big map, and in the big map's key.
+- **Stopping beside one** (within 9 m of its spot on the road or 14 m of its symbol, as at a bank) puts up
+  the panel of a building for sale, which the homes leave alone meanwhile (`HomesHost.garage`). Not with a
+  package on board, during a party's run, a search for a car or a run of three, nor while a city is being
+  guessed or the tour is on.
+- **Park this car here:** the car the player sits in is kept (its kind, its paint, and a top speed, pull
+  and toughness of its own where it has them, so the special cars to come are kept as they are), it leaves
+  the street, and the player stands where it stood.
+- **Three spots for each city** (`SPOTS`), a city being what lies within 25 km of the garage where its
+  first car was parked (`CITY_KM`, as wide as a home town). That place is kept with each of the city's cars.
+- **Take it:** the car stands at the kerb or in the lane by the garage, at its spot or up to 48 m along,
+  clear of walls, water and other cars, and the player sits in it at once. Whatever they came in stays
+  where it stands; a kept car they came in goes back in.
+- **Never lost:** a kept car taken out is not watched. Taking it out again, at any garage of its city, takes
+  away the one that was left about and stands a new one there, whole. The panel says so: "A kept car is
+  never lost: left anywhere, or wrecked, it is here again."
+- **Leave it here** puts a kept car back by hand, for a player who would rather walk on.
+- **Sell,** at the second press ("Really sell? $300"), so a car is not sold by a slip of the finger.
+- **For later, as the owner said:** choosing a car when a visit starts at home and having it brought; more
+  than three spots.
+- **Tested:** `tests/garage.test.ts` (the rules: which cars, three spots, a city's garages sharing them,
+  another city's own, selling, numbers never given twice, what is read back); `node tools/garage-test.mjs`
+  plays it on Nuremberg's and Munich's tiles, the player moved by hand.
+- **Open, for the owner:** the prices; whether a police car and a bus should sell at all; and whether a
+  repair bill for a wrecked car is wanted (now there is none: the garage hands it back whole).
+
+### After the owner's word on pay (28 November): cars sell for less, and the garage speaks German
+
+- **The owner, told that a delivery paid $300 and more:** "Jobs should not pay more than 300 ever... with
+  rents there's already too much money involved". No job pays more than $300 now (`JOB_MAX`; branch
+  `claude/job-pay-cap`, merged into this one). So a kept car sells for less than was first set: a car $100,
+  a van $120, a sports car $200, a police car or a bus $100. The rule stays: selling a car one took must
+  never be the better job.
+- **German:** the live game gained a second language on 28 November, with every text in a table for each
+  language. The garage's words are in both (`src/lang/en.ts`, `src/lang/de.ts`, the block "the garage").
+  German needs its own sentence for each kind of car (der Sportwagen, das Auto), so those texts take the
+  kind, not a word. In German the place is "Garage", which is where a car is kept.
+
+### Police cars and buses (the owner, 28 November)
+
+Asked whether a police car or a bus should sell at all, the owner: "Police cars don't sell, buses can but
+need new paint".
+
+- **A police car** is kept, taken out and driven like any other, and never sold. As a car that cannot be
+  sold would hold its spot for good, its button is "Give it up": the spot is free, and nothing is paid. At
+  the second press, like a sale.
+- **A bus** shows "New paint $50" where another car shows "Sell" (`PAINT_COST`, an estimate; off while the
+  player carries less). The garage paints it in one of seven colours, none of them the yellow of the town's
+  buses, and from then on it is that colour on the street too and sells for $150. After its paint that
+  leaves $100, what an ordinary car brings.
+- **Not built:** paint for other cars, and choosing the colour. Both would fit here later.
+- **Tested:** `tests/garage.test.ts` (a police car is not sold and can be given up; a bus is sold only once
+  painted, and is kept and shown painted); `node tools/garage-test.mjs` ends with a police car and a bus at
+  the garage in Nuremberg.
+
+## 21. The garage's own job: a car to deliver (built 28 November; branch `claude/garage`, not live)
+
+The owner's "yes" to building it next (28 November). As planned in section 19 and its rounds; what was
+decided while building, each with its reason:
+
+- **It is a job, not a mode of its own.** The game's jobs already carry the arrow, the way on the road, the
+  line on the screen, and every "is something on?" the homes, the story and the parties ask. So the car
+  delivery is a job whose load is the car itself (`Job.care`), as a party's food is a job without pay.
+  `Game.startCare` begins it; `careTick` plays it; `Game.onCare` tells the garage how it went.
+- **Begun in the garage's panel** ("Deliver a car  $200"), on foot or in any car. The special car stands at
+  the kerb or in the lane by the garage and the player sits in it at once; what they came in stays where it
+  stands. Its owner's ring is 450 to 800 m off at first, as the crow flies, where a way by road leads.
+- **A new dent ends it:** a knock that takes more than a point off the car, which is what the game counts as
+  a dent (over about 29 km/h; the convertible dents at less, being more delicate). Wrecked, sunk or left
+  behind by the town, it is lost the same way. Nothing is paid and nothing is taken.
+- **No clock** (the owner's plan: "no clock at first"). The line reads "Car, no dent · 420 m · $200": short,
+  as a longer one broke over two lines on a phone. It counts as a delivery, so it brings a home point and counts for the story like one.
+- **Handed over stopped at the ring, sitting in it** (within 7.5 m, slower than 2.5 m/s, as the car found
+  for the pump is). The car is its owner's then and leaves the game; an ordinary car is stood at the kerb
+  where there is room, so the player is not left on foot across town.
+- **A customer's car is not for keeping.** One that was not handed over stays on the street until the town
+  lets go of it, and the garage will not take it: "any car you can get hold of" would otherwise make every
+  special car free.
+- **Levels:** one up for each delivery done well, to the eighth (`CARE_TOP`). The way grows by 80 to 100 m
+  a level, the pay by $15 from $200, to $300 and no further. Failing changes nothing.
+- **Three special cars** (`SPECIALS`), each a look built from boxes: an old cream convertible, open, with
+  two seats and chrome at both ends (slow, dents at 1.6 times an ordinary car's rate); a long black
+  limousine, 6.2 m, from the second level; a dark-green coupé with a pale roof and two stripes, from the
+  fourth, faster than a police car.
+- **For sale once delivered** ("For sale" in the panel): $2,000, $3,000 and $4,000, estimates. Bought, a car
+  takes one of the city's three spots and is the car it is when taken out. It sells again for two fifths.
+- **"Not a dent"** is the 30th trophy: a car handed over is one without a dent.
+- **Both languages.** German needs a word for each car with its gender (das Cabrio, die Limousine, das
+  Coupé), so the texts take the car, not a word.
+- **Not built, for later:** a clock at the higher levels; the trade-in driven back; the garage's person
+  writing as the people of the stations do; the job as a card of the cycle.
+- **Tested:** `tests/specials.test.ts` (levels, way, pay, the cars, buying and keeping one, both languages),
+  the trophy in `tests/trophies.test.ts`; `node tools/care-test.mjs` plays it on Nuremberg's tiles.

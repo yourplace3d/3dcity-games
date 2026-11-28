@@ -127,6 +127,33 @@ describe('rent and renovation', () => {
     expect(toast.mock.calls.at(-1)![0]).toContain('went to your bank');
   });
 
+  it('a home renovated after its walls wore down counts for the trophies; the first building\'s own repairs do not', () => {
+    const { u } = ui();
+    const inner = u as unknown as { events: Events; eventDone: (k: string) => void };
+    expect(u.renovatedOnce()).toBe(false);
+    // the first building's day is kept when its own repairs end: that is no renovation
+    inner.events = { ...inner.events, renovated: { [homeKey(flat)]: 20000 } };
+    expect(u.renovatedOnce()).toBe(false);
+    inner.eventDone(homeKey(house));
+    expect(u.renovatedOnce()).toBe(true);
+    // and it is kept: on a later visit the house's day says so
+    const later: HomesUi = Object.assign(Object.create(HomesUi.prototype), { homes: { v: 1, homes: [flat, house], paidDay: '' }, events: inner.events });
+    expect(later.renovatedOnce()).toBe(true);
+    vi.runAllTimers();
+    vi.useRealTimers();
+  });
+
+  it('the first home counts too, once its walls have worn down and it is renovated', () => {
+    const { u } = ui();
+    const inner = u as unknown as { events: Events; eventDone: (k: string) => void };
+    inner.events = { ...inner.events, open: [{ home: homeKey(flat), kind: 'renovate', began: '2026-11-23', waiting: 0 }], renovated: { [homeKey(flat)]: 20000 } };
+    expect(u.renovatedOnce()).toBe(false);
+    inner.eventDone(homeKey(flat));
+    expect(u.renovatedOnce()).toBe(true);
+    vi.runAllTimers();
+    vi.useRealTimers();
+  });
+
   it('a package for a home being renovated brings no card of the first-home mission', () => {
     const { u, game } = ui();
     const card = vi.fn();

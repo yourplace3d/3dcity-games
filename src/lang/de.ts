@@ -3,9 +3,28 @@
  * Der Spieler wird geduzt; die Sprache bleibt so schlicht wie im Englischen.
  */
 
+import type { KeptKind } from '../game/garage';
+import type { SpecialId } from '../game/specials';
 import type { Case, Kind, Texts } from './en';
 
 const COUNT = ['keine', 'eine', 'zwei', 'drei', 'vier', 'fünf'];
+/** die Arten von Auto, die eine Garage aufnimmt: ihr Name, und „dieses …“ im Nominativ und im Akkusativ */
+const CAR: Record<KeptKind | SpecialId, { name: string; this: string; thisAcc: string }> = {
+  sedan: { name: 'Auto', this: 'Dieses Auto', thisAcc: 'Dieses Auto' },
+  sport: { name: 'Sportwagen', this: 'Dieser Sportwagen', thisAcc: 'Diesen Sportwagen' },
+  van: { name: 'Transporter', this: 'Dieser Transporter', thisAcc: 'Diesen Transporter' },
+  police: { name: 'Polizeiauto', this: 'Dieses Polizeiauto', thisAcc: 'Dieses Polizeiauto' },
+  bus: { name: 'Bus', this: 'Dieser Bus', thisAcc: 'Diesen Bus' },
+  convertible: { name: 'Cabrio', this: 'Dieses Cabrio', thisAcc: 'Dieses Cabrio' },
+  limo: { name: 'Limousine', this: 'Diese Limousine', thisAcc: 'Diese Limousine' },
+  coupe: { name: 'Coupé', this: 'Dieses Coupé', thisAcc: 'Dieses Coupé' },
+};
+/** ein besonderes Auto, wie zuerst von ihm die Rede ist, und mit „das“ oder „die“: schlichte Worte, keine Marken */
+const SPECIAL: Record<SpecialId, { a: string; the: string }> = {
+  convertible: { a: 'ein altes cremefarbenes Cabrio', the: 'Das Cabrio' },
+  limo: { a: 'eine lange schwarze Limousine', the: 'Die Limousine' },
+  coupe: { a: 'ein dunkelgrünes Coupé', the: 'Das Coupé' },
+};
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
 /** "drei Lieferungen" */
@@ -55,6 +74,7 @@ export const de: Texts = {
   keyFire: 'Feuerwache',
   keyPolice: 'Polizei',
   keyBank: 'Bank, in deiner Heimatstadt',
+  keyGarage: 'Garage',
   keyInvented: 'gestrichelt: nicht auf der Karte',
   lineOn: 'Linie auf der Straße: an',
   lineOff: 'Linie auf der Straße: aus',
@@ -762,6 +782,44 @@ export const de: Texts = {
   newTenants: (home, names, what, waited, extra) => `Neue Mieter in ${home}: ${names}, ${what}.${waited ? ` Die ${waited} Miete, die dort gewartet hat, gehört dir.` : ''}${extra}`,
   guests: (names, two) => `${names}, ${two ? 'die bei dir zur Miete wohnen, sind' : 'die bei dir zur Miete wohnt, ist'} auch gekommen und ${two ? 'haben' : 'hat'} Nachtisch mitgebracht.`,
 
+  // ---------------------------------------------------------------- die Garage (garageUi.ts)
+  garage: 'Garage',
+  garageCars: (n, spots) => `Deine Autos in dieser Stadt: ${n} von ${spots} Plätzen belegt.`,
+  garageEmpty: (spots) => `Stell hier ein Auto ab, und es gehört dir: ${spots} Plätze in dieser Stadt.`,
+  garageCar: (kind) => CAR[kind].name,
+  garageMine: (kind) => `${CAR[kind].this} steht in dieser Garage. Lass das Fahrzeug irgendwo stehen: Es kommt zurück.`,
+  garageLeave: 'Hier lassen',
+  garagePark: (kind) => `${CAR[kind].thisAcc} hier abstellen`,
+  garageFull: 'Voll: Verkauf ein Auto, um Platz zu machen',
+  garageOnRails: (kind) => `${kind === 'tram' ? 'Eine Straßenbahn' : 'Ein Zug'} kann hier nicht abgestellt werden.`,
+  garageTake: 'Nehmen',
+  garageSell: (price) => `Verkaufen ${price}`,
+  garageSellSure: (price) => `Wirklich verkaufen? ${price}`,
+  garageNeverLost: 'Ein Auto aus der Garage geht nie verloren: irgendwo abgestellt oder mit Totalschaden, es steht wieder hier.',
+  garageParked: (kind) => `Abgestellt. ${CAR[kind].this} gehört jetzt dir: Hol das Fahrzeug jederzeit an einer Garage dieser Stadt wieder ab.`,
+  garageNoRoom: 'Auf der Straße ist hier gerade kein Platz dafür. Versuch es ein paar Meter weiter.',
+  garageSold: (price) => `Verkauft: ${price}. Der Platz ist frei.`,
+  garagePoliceNote: 'Ein Polizeiauto lässt sich nicht verkaufen. Gib es ab, um den Platz freizumachen.',
+  garageGiveUp: 'Abgeben',
+  garageGiveUpSure: 'Wirklich abgeben?',
+  garageGivenUp: 'Abgegeben. Der Platz ist frei.',
+  garageBusNote: 'Ein Bus braucht neuen Lack, bevor er sich verkaufen lässt.',
+  garagePaint: (price) => `Neuer Lack ${price}`,
+  garagePainted: 'Der Bus hat neuen Lack. Jetzt lässt er sich verkaufen.',
+  garageCustomers: 'Dieser Wagen gehört einem Kunden: Er lässt sich nicht behalten.',
+  careJob: 'Autolieferung',
+  careLine: 'Auto ohne Delle',
+  careText: 'Der Wagen eines Kunden geht zu seinem Besitzer. Eine neue Delle unterwegs, und der Auftrag ist weg.',
+  careOffer: (pay) => `Ein Auto liefern  ${pay}`,
+  careNone: 'Gerade wartet kein Kunde auf ein Auto. Versuch es gleich noch einmal.',
+  careStart: (id) => `${cap(SPECIAL[id].a)}, für einen Kunden: Bring den Wagen zum gelben Ring und halt dort an. Eine neue Delle, und der Auftrag ist weg.`,
+  careDone: (cash, shown) => `Ohne Delle übergeben: +${cash}.${shown ? ` ${SPECIAL[shown].the} steht jetzt bei den Garagen zum Verkauf.` : ''}`,
+  careDented: 'Eine Delle. Der Auftrag ist weg: Die Garage lässt den Wagen abholen.',
+  careLost: 'Die Lieferung ist geplatzt.',
+  saleHead: 'Zu verkaufen',
+  saleBuy: (price) => `Kaufen ${price}`,
+  saleBought: (id) => `Deins: ${SPECIAL[id].a}. Der Wagen steht hier in der Garage.`,
+
   // ---------------------------------------------------------------- Fahrkönnen (skill.ts, main.ts)
   skillLabel: 'Fahrkönnen',
   skillLevels: ['Neuling', 'Routine', 'Geübt', 'Profi', 'Ass', 'Meisterklasse', 'Legende'],
@@ -788,6 +846,7 @@ export const de: Texts = {
   // ---------------------------------------------------------------- Trophäen (trophies.ts)
   trophiesLine: (n, of) => `${n} von ${of} verdient. Bezahlt wird dafür nichts: Sie sind für dich, und zum Zeigen.`,
   trophiesEarnedOf: (n, of) => `${n} von ${of} verdient`,
+  sofarOf: (have, need) => `${have} von ${need}`,
   trophyGroups: ['Erste Schritte', 'Immobilien', 'Fahren', 'Orte'],
   trophyText: {
     car: ['Erstes Auto', 'Nimm ein Auto'],
@@ -796,17 +855,29 @@ export const de: Texts = {
     home: ['Erstes Zuhause', 'Kauf eine Immobilie'],
     bank: ['Geld auf der Bank', 'Zahl Bargeld bei einer Bank ein'],
     homes5: ['Fünf Immobilien', 'Besitze 5 Immobilien'],
+    homes10: ['Zehn Immobilien', 'Besitze 10 Immobilien'],
     building: ['Ein ganzes Gebäude', 'Besitze ein ganzes Gebäude'],
     painted: ['Frisch gestrichen', 'Streich ein Haus oder Gebäude, das dir gehört'],
+    renovated: ['Wie neu', 'Renoviere eine Immobilie, deren Wände abgewohnt sind'],
     towns2: ['Zwei Städte', 'Besitze Immobilien in zwei Städten'],
+    towns5: ['Fünf Städte', 'Besitze Immobilien in fünf Städten'],
     rent1000: ['1.000 $ am Tag', 'Besitze Immobilien, die 1.000 $ Miete am Tag bringen'],
+    party: ['Volles Haus', 'Gib eine Party in einer deiner Immobilien: Bring das Essen rechtzeitig an die Tür'],
     story: ['Die ganze Geschichte', 'Spiel die Geschichte bis zum letzten Kapitel: Kläre einen Streit mit deinen Mietern'],
     lost: ['Abgehängt', 'Häng die Polizei ab'],
     clean: ['Eine saubere Runde', 'Schaff eine Dreierrunde, ohne erwischt zu werden, Totalschaden oder K.o.'],
     rush: ['Zeit übrig', 'Schaff einen Eilauftrag mit 30 Sekunden Rest'],
+    care: ['Keine Delle', 'Liefere ein Auto für eine Garage: unterwegs keine Delle'],
+    book: ['Nach Vorschrift', 'Schaff einen Auftrag der Polizei: unterwegs kein Gesetz gebrochen'],
+    found: ['Gefunden', 'Finde das Auto, das die Tankstelle sucht, und fahr es zurück'],
+    bus: ['Mit dem Bus', 'Liefere ein Paket in einem Bus'],
     deliveries100: ['100 Lieferungen', 'Liefere 100 Pakete'],
+    deliveries500: ['500 Lieferungen', 'Liefere 500 Pakete'],
     places5: ['Fünf Orte', 'Spiel an 5 Orten, jeweils mindestens eine Stadt voneinander entfernt'],
     places20: ['Zwanzig Orte', 'Spiel an 20 Orten, jeweils mindestens eine Stadt voneinander entfernt'],
+    far: ['Fern der Heimat', 'Spiel an einem Ort, der 5.000 km oder mehr von deiner Heimatstadt entfernt ist'],
+    equator: ['Über den Äquator', 'Spiel an einem Ort nördlich des Äquators und an einem südlich davon'],
     guessed: ['Stadt erraten', 'Errate eine Stadt richtig bei Wo bin ich?'],
+    sight: ['Auf den ersten Blick', 'Hol 800 Punkte oder mehr bei Wo bin ich?'],
   },
 };

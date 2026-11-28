@@ -66,8 +66,11 @@ try {
   await shot('02-circle');
   assert.equal(await page.evaluate(() => game.pickups.length), 0, 'no other jobs meanwhile');
   await page.waitForTimeout(4500);
+  // the panel looks around every quarter second of game time, and a frame counts for a twentieth of a second
+  // at most: in a slow test browser that is several real seconds, so it is waited for
+  await page.waitForFunction(() => document.querySelector('#forsale').hidden, null, { timeout: 60000 }).catch(() => undefined);
   assert.equal(await page.locator('#openjobs').isHidden(), true, 'no note on the open jobs meanwhile');
-  assert.equal(await page.locator('#forsale').isHidden(), true, 'nothing to buy meanwhile');
+  assert.equal(await page.locator('#forsale').isHidden(), true, `nothing to buy meanwhile, but: ${await page.locator('#forsale').textContent()}`);
   await page.keyboard.press('KeyM');
   await page.waitForTimeout(1500);
   await shot('02b-bigmap');
@@ -139,6 +142,12 @@ try {
   assert.ok(s.said.includes('find-car'), 'played');
   assert.equal(s.sofar.at(-1).text, "Laura's customer got her car back.");
   assert.ok(await page.evaluate(() => !!game.car), 'still at the wheel of the customer’s car, for the day');
+  // the trophy "Found it": for the car driven back
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-trophies') ?? '{}').got?.found > 0);
+  await page.evaluate(() => {
+    window.foundAgain = 0;
+    game.events.push((e) => e.kind === 'found' && window.foundAgain++);
+  });
 
   console.log('Another search, the car lost in the water on the way back: over, not stuck');
   // a street to park it on is drawn by chance, and now and then none is found from where the player stands
@@ -183,6 +192,11 @@ try {
   });
   await page.waitForFunction(() => game.car === game.findCar && game.findStage === 'back');
   await page.evaluate(() => {
+    // every line said from here on is kept: one shown and gone between two looks of a slow browser would be missed
+    window.said = [];
+    new MutationObserver((ms) => {
+      for (const m of ms) for (const n of m.addedNodes) window.said.push(n.textContent);
+    }).observe(document.querySelector('#toasts'), { childList: true });
     // as sinking does: out of it, and the car gone
     const c = game.car;
     game.car = null;
@@ -190,7 +204,13 @@ try {
     game.dropCar(c);
   });
   await page.waitForFunction(() => game.find === null);
-  await line('Found, but wrecked');
+  try {
+    await page.waitForFunction(() => window.said.some((t) => t.includes('Found, but wrecked')), null, { timeout: 60000 });
+  } catch (err) {
+    console.log('  not said. Said since the car was lost:', JSON.stringify(await page.evaluate(() => window.said)), 'errors:', JSON.stringify(errors));
+    throw err;
+  }
+  assert.equal(await page.evaluate(() => window.foundAgain), 0, 'a car wrecked on the way is not one driven back');
   assert.equal(await page.evaluate(() => game.pickups.length >= 0 && !game.find), true);
 
   assert.deepEqual(errors, [], 'no errors on the page');

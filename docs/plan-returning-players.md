@@ -120,6 +120,8 @@ badge" is already the police station's symbol. Our own flat discs, grey until ea
 A new trophy brings a line ("Trophy: First car"); tapping it opens the trophies. A player who already has
 homes earns the ones that fit at once, in one line.
 
+Since 28 November there are 30: section 12.
+
 ### The mission to the bank
 
 - **When:** on a visit after rent has come in on a return (so never on the day of the first home), in the
@@ -701,3 +703,88 @@ four times a second; beside the little map it stayed put on a narrow screen (cen
 shows; FM over the cash on a 360 px phone; placed again on coming back from a menu: all fixed.
 
 **Going live:** the layout fixes, on the owner's word (26 November), by pull request #21; the radio stays a trial.
+
+## 12. Twelve more trophies (the owner, 28 November)
+
+The owner, with a picture of the Trophies tab and all but one of the 18 earned in five days: "We can now add
+some more of these maybe?" Twelve more, 30 in all, on branch `claude/more-trophies`. **Not live: for the
+owner to look at, strike from and add to.** The choice is mine, to be confirmed; each is one line to take out
+or change in `src/trophies.ts`.
+
+What they are for: the 18 were earned in the first days, and since they were made the game has gained
+parties, renovations, the stations' three kinds of job, the search for a car and the story. So the new ones
+are either further goals for a player who comes back (ten homes, five towns, 500 deliveries) or mark what
+has come since.
+
+| Group | New | Earned by |
+|---|---|---|
+| Real estate | Ten homes | owning 10 homes |
+| | Five towns | owning homes in five towns |
+| | Good as new | renovating a home whose walls have worn down (an event at a home, section 4; the first building's own repairs are not that) |
+| | Full house | throwing a party at a home of yours: the food at the door in time |
+| Driving | Not a dent | a supply run finished with no new dent on the car (what its card pays more for) |
+| | By the book | a police station's job finished: it is gone at the first offence, so finishing it is the proof |
+| | Found it | the car the pump asks about, found and driven back to her ring (a wreck towed back is not that) |
+| | By bus | a package delivered while sitting in a bus |
+| | 500 deliveries | 500 packages delivered |
+| Places | Far from home | a place played 5,000 km or more from the home town (the first home's place): mostly another continent (`FAR_KM`) |
+| | Across the equator | a place played north of the equator and one south of it |
+| | At first sight | 800 points or more in Where am I?: the right city within 50 seconds, no wrong pick (`SIGHT_POINTS`) |
+
+With "Time to spare" (the fire station's rush job) each station's job now has a trophy for doing it the way
+its card asks. The order within a group is by subject (Five homes, Ten homes), so two of the old ones moved
+a place; "The whole story" stays the last of Real estate.
+
+**How they are earned.** As before, in two ways: by what the player has, looked at once a second (so a
+player who is further on earns what fits at once, in one line: "7 trophies: Ten homes, …"), or by something
+that happens in play. The second kind is now one function (`earnedIn`), fed by the game's events; the game
+says one more thing, a car found and driven back (`Game.events`, `found`).
+
+**Decided on the way, each with its reason:**
+- *No trophy for taking the subway:* the rides are switched off (`SUBWAY_RIDES`).
+- *No trophy for beating a run or a party a friend sent,* and none for sending one: the owner's word of 23
+  November is that links are neither rewarded nor counted, and a trophy would be a reward.
+- *No trophy for days played in a row:* a streak punishes a day missed. "Played on 7 days", with no row, would
+  be the gentle form; not built, as the days played are not kept anywhere yet. For the owner to say.
+- *"By the book" beside "A clean run":* the police station's card calls its job a "Clean run", and the older
+  trophy "A clean run" is for a run of three without a fine. The new one's line says "a police station's job"
+  to keep them apart.
+- *"Good as new" for a player from before:* the day a home was renovated has been kept since 23 November, so
+  one renovated before today counts at once. Only the first building is uncertain: its day is also kept when
+  its own repairs end, so for it only a renovation seen on the visit counts.
+- *"Far from home" and "Across the equator"* go by the places played (the 40 kept, each a town apart, and the
+  one being played, so they still count once 40 are kept). A city of a Where am I? round is no place played,
+  as before.
+
+**Left as it is, a limit:** a page of the game from before a trophy existed does not know it, and drops it
+from what it keeps (as for "The whole story" on 27 November). So a tab left open from before the update, on
+a browser that then fetches a save made after it, can lose a new trophy earned in play; what a player has is
+earned again at once. It was built this way on purpose ("read what is kept, and nothing odd").
+
+**Tested:** `tests/trophies.test.ts` (new: every trophy once, grey until earned, each rule at its edge, the
+places beyond the 40 kept, a damaged place), and in `tests/events.test.ts` and `tests/party.test.ts` the
+renovation and the party as the trophies ask for them; 372 unit tests pass. In a browser on Nuremberg's
+tiles: `node tools/trophies-test.mjs` (a player like the owner comes back and earns seven at once in one
+line; the tab says "23 of 30 earned" with every new one in its group; a supply run, a police job and a bus;
+Where am I?), and `node tools/find-test.mjs` now ends with "Found it".
+
+### After the owner's look (28 November): 29 for now, and how far along
+
+The owner on the list of 30: "Shouldn't be too overwhelming", and then, asked whether to fold the list or
+put steps on a disc: "We should not need to reinvent it too much. There's lots of solutions already existent
+in games". So nothing of the kind was invented:
+
+- **The list stays as it is,** the usual one of consoles and phones: a badge grey until earned, a count at the
+  top, group by group.
+- **A trophy that counts something says how far along it is,** as such lists do: a thin bar in its group's
+  colour and the number under it ("312 of 500", "$840 of $1,000"). Nine count something: homes 5 and 10, towns
+  2 and 5, $1,000 a day, deliveries 100 and 500, places 5 and 20. Not shown at nothing, so a new player's
+  list is not full of empty bars, nor on a trophy earned. The number each asks is in one place
+  (`counted` in `src/trophies.ts`); `earnedBy` reads it there.
+- **"Not a dent" is held back: 29 for now.** The car delivery planned for the garage (the story's
+  brainstorm, section 19) is the mission where a dent ends the job, and the trophy belongs there. Given now
+  for a supply run, it would have to change its meaning after players had earned it. It comes back with that
+  mission, as the 30th. A supply run still pays more without a new dent.
+- **Tested:** `tests/trophies.test.ts` (each counting trophy earned exactly when its count is full; said for
+  one on its way and not for one earned, not begun or that counts nothing); `node tools/trophies-test.mjs`
+  now also plays a player on the way (6 homes in 3 towns, 312 deliveries) and reads the six bars.

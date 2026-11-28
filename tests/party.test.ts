@@ -168,6 +168,15 @@ describe('points from parties', () => {
     expect(readParties('{"paid":"yesterday"}').paid).toBe('');
     expect(readParties('not json')).toEqual({ paid: '', places: {}, best: {}, warned: false });
   });
+
+  it('says whether a party has been thrown at a home: one that paid its points, or left a best time (for the trophies)', () => {
+    const having = (store: object) => (Object.assign(Object.create(PartyUi.prototype), { store: { paid: '', places: {}, best: {}, warned: false, ...store } }) as PartyUi).thrown();
+    expect(having({})).toBe(false);
+    // a food place picked for a home, the party not yet played: not thrown
+    expect(having({ places: { a: {} } })).toBe(false);
+    expect(having({ paid: '2026-11-24' })).toBe(true);
+    expect(having({ best: { a: 61 } })).toBe(true);
+  });
 });
 
 describe('a party in a link', () => {

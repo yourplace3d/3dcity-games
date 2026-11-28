@@ -39,10 +39,14 @@ jobs:
           VITE_PREVIEW: pr-${{ github.event.pull_request.number }}
         run: npm run build
 
+      # in a folder of its own: npm install --no-save inside the project fails on this lockfile
       - name: Install a browser
         run: |
-          npm install --no-save --package-lock=false playwright
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.56.1
           npx playwright install --with-deps chromium
+          echo "NODE_PATH=$RUNNER_TEMP/pw/node_modules" >> "$GITHUB_ENV"
 
       - name: Play it
         id: play

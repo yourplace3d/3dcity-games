@@ -1,4 +1,6 @@
-node_modules/
+# no trailing slash: a link of this name is to be ignored as well as the folder (one was committed by
+# mistake on 28 November 2026, from a second checkout that borrowed the first one's)
+node_modules
 dist/
 .DS_Store
 dist-baked/

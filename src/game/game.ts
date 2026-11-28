@@ -2749,6 +2749,7 @@ export class Game {
     this.cash += jobCash(j.pay);
     this.delivered++;
     this.onSound('deliver');
+    this.arrived(x, y, `+${money(jobCash(j.pay))}`, false);
     // handed over: the car is its owner's now, and you stand where it stood
     const [hx, hy] = [Math.cos(c.th), Math.sin(c.th)];
     this.remove(c);

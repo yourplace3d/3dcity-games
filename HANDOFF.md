@@ -69,6 +69,8 @@ Written by the session that built it, on the owner's "Handoff". **This note is o
   `tools/preview-scenes/garage.mjs`, on a tablet and a phone: `-garage`, `-car-delivery`,
   `-car-handed-over`, `-trophies`, `-trophies-driving`. `main` is merged in as of `9428b84`, which is what
   is live (Pages run 96, 28 November, 15:37 UTC: driving skill and the Story tab's tappable chapter).
+  With that merge a car's hand-over got what every delivery has since driving skill, the burst of colour
+  and the pay floating up (`Game.arrived`, called from `careTick`); nothing else of the garage changed.
 - **What the owner has said, and what not yet:** "1 yes … 3 yes" to the cap going live on its own (done)
   and to building the garage's job; then "can you do it this way now?", the preview. **The owner has not
   yet said they played #48, and has not said to put it live. Nothing is merged or deployed before that.**

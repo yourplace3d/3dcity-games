@@ -1041,3 +1041,82 @@ Each shown to the owner before it goes live.
 6. **The garage** at a home, or a bay at a fuel station? *Recommended: at a home.*
 7. **A car becomes yours** after three deliveries without a dent, for a price, with a garage; never lost?
 8. **The trophies:** steps on one disc, and only what is next shown?
+
+### Round 2: the owner's answers (28 November), and the plan joined up
+
+| # | The owner's answer | Where it stands |
+|---|---|---|
+| 1 | "Yes" | **Decided:** the first time in the story's order, then round again as chance and the player pick. |
+| 2 | "Yes" | **Decided:** chapters 6 to 8 open a day apart without waiting for each other. |
+| 3 | "Can't they coexist? Maybe they do not need to be solved each day but they are there." | Yes, they can: below. |
+| 4 | "It should maybe be the first garage. Anyway the question is how to get garages and flats / houses together. Maybe it's better to use the car dealer part and skip the whole garage thing with houses flats and saving places starting missions it might get too confusing. Or give me a good plan how we can join it. It also could be helpful to enrich the game with another mission gameplay" | A plan that joins them: below. |
+| 5 | "That's the gameplay mission question in the end. Will it be too confusing? bay at fuel station or car dealer some place you [designate]?" | The same plan answers it. |
+| 6 | "We should not need to reinvent it too much. There's lots of solutions already existent in games" | The usual list, as built: below. |
+
+#### The written stories and the cycle, side by side (answer 3)
+
+- **One list, nothing runs out of time.** Whatever a person has for the player stays in the Story tab until
+  it is played: no day's deadline, no count of days in a row, nothing lost for a day or a week away. One
+  still comes by itself each day, as a message; the others are there to be asked for.
+- **The written scenes are the first times a person asks.** The pump's story (section 7: five scenes, her
+  choice at the end) is what she asks the first five times; after it, she keeps asking, with levels. The
+  car search played today is her first scene. So there are not two systems, only missions with words the
+  first times and without after.
+- **The written episodes of the daily story** (section 10: the violin, the wedding cake) become cards in the
+  same pack, each played once, written as time allows. They are no longer tied to the date, so "the same
+  for everyone that day" is given up.
+
+#### One place for cars: the garage (answers 4 and 5)
+
+The owner's worry is right: a garage at a home would give homes a fourth job (rent, parties, tenants, and
+now cars), flats would need a place for a car, and a car would have to be parked somewhere to be kept. Games
+that have both homes and cars have mostly ended up the other way: the cars are a list, and the car in use is
+simply brought to the player. That is proposed here.
+
+- **A fourth kind of place on the map: the garage,** with a car on its sign. From the map's car dealers and
+  repair garages, made up with a dashed ring where a part of town has none, as the stations are. Counted in
+  the 25 map tiles around eight city centres (Nuremberg, Munich, Berlin, New York, Rio, Tokyo, Kiel,
+  Edinburgh), each place once: a dealer or a repair garage in 148 of 200 tiles, a fuel station in 126.
+- **It hands out its own kind of job,** as each station does: pump, a heavy load; fire station, a short
+  clock; police, no offence; **garage, the car itself, and not a dent** (the car delivery above). This is
+  the new mission gameplay: the player leaves their own car and drives someone else's.
+- **It is where cars are bought.** A special car delivered once without a dent is for sale there from then
+  on. Each level of the garage's job brings the next car, so the job is the showroom: drive it first, buy it
+  after. (Once, not three times: with five cars and five-minute visits, three each would take weeks.)
+- **It keeps the player's cars:** the "first garage" of the owner's answer. There is nothing to park and no
+  place to save. A car bought is the player's for good.
+- **How homes and cars meet, in one rule:** in the home town, the player's car stands beside them when a
+  visit starts, where a parked car stands today. (Later, perhaps: in every town with a home of theirs.)
+  Homes themselves get nothing new.
+- **Several cars:** the one last chosen comes; another is chosen at the garage.
+- **Wrecked:** ready again at the next visit day, for a repair bill (estimate: a tenth of its price). Left
+  somewhere: it is beside the player again next time.
+- **Not built, on purpose:** a garage at a home, a bay at a fuel station, a place the player picks. Each is
+  one more thing to learn, and none gives the player more than the rule above.
+- **What it changes in what was decided:** the pump's choice (section 14, point 10) keeps "lend: free repair
+  at her pump" and "buy in: a share like rent"; the garage bay that was to follow the buy-in is dropped.
+
+What each place is for, afterwards:
+
+| Place | What the player does there |
+|---|---|
+| A home (green) | rent, parties, tenants: as now |
+| Pump, fire station, police | their jobs: as now |
+| The bank | savings: as now |
+| **The garage (new)** | car deliveries; buy a car; choose which car comes |
+
+#### Trophies: the usual list (answer 6)
+
+- What is built is already the shape consoles and phones use: one list, a badge grey until earned, a count
+  at the top. It stays; no steps on a disc, no folding.
+- One usual thing is added: how far along a counting one is ("312 of 500").
+- "Not a dent" waits for the car delivery, so a trophy never changes its meaning after players have earned
+  it: 29 now, 30 with the garage.
+
+#### Build order, as it now stands
+
+1. The trophies: the progress numbers, "Not a dent" taken out for now.
+2. The garage: the place, its job, two or three special cars.
+3. Buying a car, and the car at the start of a visit.
+4. Chapters 6 to 8 a day apart; the cycle with its levels.
+5. The written scenes of the people, one at a time, into the same list.

@@ -9,6 +9,11 @@ import type { World } from './world';
 
 export type CarKind = 'sedan' | 'sport' | 'van' | 'police' | 'bus' | 'tram' | 'train';
 export type Driver = 'none' | 'ai' | 'cop' | 'player';
+/**
+ * A look of its own: `painted`, a bus in its own paint, not the yellow of the town's buses (`game/garage.ts`);
+ * the others are the special cars a garage has delivered (`game/specials.ts`), which no car in traffic looks like.
+ */
+export type CarLook = '' | 'painted' | 'convertible' | 'coupe' | 'limo';
 
 interface Spec {
   len: number;
@@ -49,14 +54,13 @@ function part(colour: string, sx: number, sy: number, sz: number, x: number, y: 
   return m;
 }
 
-/** A car's mesh, nose along +x. `painted`: a bus in `colour`, not in the yellow of the town's buses. */
-function buildMesh(kind: CarKind, colour: string, painted = false): { group: Group; lights: Mesh[] } {
-  const s = SPECS[kind];
+/** A car's mesh, nose along +x, to the measures of `s`. */
+function buildMesh(kind: CarKind, colour: string, look: CarLook, s: Spec): { group: Group; lights: Mesh[] } {
   const g = new Group();
   const lights: Mesh[] = [];
   if (kind === 'bus' || kind === 'tram' || kind === 'train') {
     // a long box with a band of windows and a pale roof; the tram has a joint in the middle
-    const paint = kind === 'bus' ? (painted ? colour : '#e8b923') : kind === 'train' ? '#2f5d8a' : '#e9e6df';
+    const paint = kind === 'bus' ? (look === 'painted' ? colour : '#e8b923') : kind === 'train' ? '#2f5d8a' : '#e9e6df';
     const stripe = kind === 'bus' ? '#20242b' : kind === 'train' ? '#e9e6df' : '#c8362e';
     g.add(part(paint, s.len, s.body, s.wid, 0, 0.35 + s.body / 2, 0));
     g.add(part('#20242b', s.len - 0.6, 0.7, s.wid + 0.04, 0, 0.35 + s.body * 0.68, 0));
@@ -71,12 +75,19 @@ function buildMesh(kind: CarKind, colour: string, painted = false): { group: Gro
   }
   const paint = kind === 'police' ? '#f2f2ee' : colour;
   g.add(part(paint, s.len, s.body, s.wid, 0, 0.35 + s.body / 2, 0));
-  if (kind === 'van') {
+  if (look === 'convertible') {
+    // open to the sky: a windscreen, two seats, the folded top behind them, and chrome at both ends
+    g.add(part('#20242b', 0.12, 0.42, s.wid * 0.86, 0.55, 0.35 + s.body + 0.21, 0));
+    for (const z of [-1, 1]) g.add(part('#7a2f24', 0.7, 0.3, 0.6, -0.35, 0.35 + s.body + 0.1, z * 0.42));
+    g.add(part('#3a2a22', 0.5, 0.16, s.wid * 0.84, -1.15, 0.35 + s.body + 0.08, 0));
+    for (const x of [-1, 1]) g.add(part('#d9dde2', 0.1, 0.14, s.wid + 0.06, x * (s.len / 2 + 0.02), 0.35 + s.body * 0.3, 0));
+  } else if (kind === 'van') {
     g.add(part('#20242b', 0.9, 0.5, s.wid * 0.92, s.len / 2 - 0.9, 0.35 + s.body + 0.02, 0));
   } else {
-    const cab = kind === 'sport' ? 1.7 : 2.1;
+    // a limousine's cab runs most of its length; a coupé has a pale roof
+    const cab = look === 'limo' ? s.len - 2.6 : kind === 'sport' ? 1.7 : 2.1;
     g.add(part('#20242b', cab, 0.55, s.wid * 0.86, -0.25, 0.35 + s.body + 0.27, 0));
-    g.add(part(paint, cab - 0.7, 0.06, s.wid * 0.8, -0.25, 0.35 + s.body + 0.57, 0));
+    g.add(part(look === 'coupe' ? '#efe6c8' : paint, cab - 0.7, 0.06, s.wid * 0.8, -0.25, 0.35 + s.body + 0.57, 0));
   }
   if (kind === 'police') {
     g.add(part('#1d3f8f', 1.5, s.body + 0.02, s.wid + 0.02, 0.1, 0.35 + s.body / 2, 0));
@@ -87,7 +98,10 @@ function buildMesh(kind: CarKind, colour: string, painted = false): { group: Gro
     lights.push(red, blue);
     g.add(red, blue);
   }
-  if (kind === 'sport') g.add(part('#f5f5f0', s.len * 0.9, 0.02, 0.32, 0, 0.35 + s.body + 0.01, 0));
+  if (look === 'coupe') for (const z of [-0.28, 0.28]) g.add(part('#efe6c8', s.len * 0.92, 0.02, 0.16, 0, 0.35 + s.body + 0.01, z));
+  else if (kind === 'sport') g.add(part('#f5f5f0', s.len * 0.9, 0.02, 0.32, 0, 0.35 + s.body + 0.01, 0));
+  // a silver line along a limousine's sides
+  if (look === 'limo') for (const z of [-1, 1]) g.add(part('#c9ced6', s.len - 0.5, 0.05, 0.03, 0, 0.35 + s.body * 0.78, z * (s.wid / 2 + 0.01)));
   for (const z of [-1, 1]) {
     g.add(part('#fff6c8', 0.08, 0.18, 0.4, s.len / 2, 0.35 + s.body * 0.6, z * (s.wid / 2 - 0.3), true));
     g.add(part('#c01818', 0.08, 0.18, 0.4, -s.len / 2, 0.35 + s.body * 0.6, z * (s.wid / 2 - 0.3), true));
@@ -166,17 +180,21 @@ export class Car {
   /** how far the car has gone down into water (m) */
   sink = 0;
 
-  /** `painted`: a bus given new paint at a garage (`game/garage.ts`): it shows `colour`, where a bus otherwise shows the town's yellow */
-  constructor(readonly kind: CarKind, readonly colour = PAINT[Math.floor(Math.random() * PAINT.length)], tune?: { top?: number; acc?: number }, readonly painted = false) {
-    // a car of its own make: the looks of its kind, with its own top speed and pull
+  constructor(readonly kind: CarKind, readonly colour = PAINT[Math.floor(Math.random() * PAINT.length)], tune?: { top?: number; acc?: number; len?: number }, readonly look: CarLook = '') {
+    // a car of its own make: the looks of its kind, with its own top speed, pull and length
     this.spec = tune ? { ...SPECS[kind], ...tune } : SPECS[kind];
-    const m = buildMesh(kind, colour, painted);
+    const m = buildMesh(kind, colour, look, this.spec);
     this.mesh = m.group;
     this.lights = m.lights;
     this.r = this.spec.wid / 2 + 0.05;
     this.a = this.spec.len / 2 - this.r;
     this.mass = this.spec.len * this.spec.wid * (kind === 'train' ? 12 : this.spec.len > 7 ? 2 : 1);
     this.offs = this.spec.len > 7 ? [1, 0.5, 0, -0.5, -1] : [1, -1];
+  }
+
+  /** A bus given new paint at a garage: it shows `colour`, where a bus otherwise shows the town's yellow. */
+  get painted(): boolean {
+    return this.look === 'painted';
   }
 
   get speed(): number {

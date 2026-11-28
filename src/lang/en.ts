@@ -5,11 +5,14 @@
  */
 
 import type { KeptKind } from '../game/garage';
+import type { SpecialId } from '../game/specials';
 import type { TrophyId } from '../trophies';
 
 const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
-/** a kind of car a garage keeps, in words */
-const CAR: Record<KeptKind, string> = { sedan: 'car', sport: 'sports car', van: 'van', police: 'police car', bus: 'bus' };
+/** a car a garage keeps, in words: a kind of car, or a special car (`game/specials.ts`) */
+const CAR: Record<KeptKind | SpecialId, string> = { sedan: 'car', sport: 'sports car', van: 'van', police: 'police car', bus: 'bus', convertible: 'old convertible', limo: 'limousine', coupe: 'coupé' };
+/** a special car as it is first spoken of: plain words, no makes */
+const SPECIAL_A: Record<SpecialId, string> = { convertible: 'an old cream convertible', limo: 'a long black limousine', coupe: 'a dark-green coupé' };
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
 /** "three deliveries", for a run of that many */
@@ -764,17 +767,17 @@ export const en = {
   garageCars: (n: number, spots: number) => `Your cars in this town: ${n} of ${spots} spots taken.`,
   garageEmpty: (spots: number) => `Park a car here and it is yours: ${spots} spots in this town.`,
   /** a kept car, as its line in the garage names it */
-  garageCar: (kind: KeptKind) => cap(CAR[kind]),
-  garageMine: (kind: KeptKind) => `This ${CAR[kind]} is kept here. Leave it anywhere: it comes back.`,
+  garageCar: (kind: KeptKind | SpecialId) => cap(CAR[kind]),
+  garageMine: (kind: KeptKind | SpecialId) => `This ${CAR[kind]} is kept here. Leave it anywhere: it comes back.`,
   garageLeave: 'Leave it here',
-  garagePark: (kind: KeptKind) => `Park this ${CAR[kind]} here`,
+  garagePark: (kind: KeptKind | SpecialId) => `Park this ${CAR[kind]} here`,
   garageFull: 'Full: sell a car to make room',
   garageOnRails: (kind: 'tram' | 'train') => `A ${kind} cannot be parked here.`,
   garageTake: 'Take it',
   garageSell: (price: string) => `Sell ${price}`,
   garageSellSure: (price: string) => `Really sell? ${price}`,
   garageNeverLost: 'A kept car is never lost: left anywhere, or wrecked, it is here again.',
-  garageParked: (kind: KeptKind) => `Parked. This ${CAR[kind]} is yours now: take it out at a garage in this town whenever you like.`,
+  garageParked: (kind: KeptKind | SpecialId) => `Parked. This ${CAR[kind]} is yours now: take it out at a garage in this town whenever you like.`,
   garageNoRoom: 'No room on the street here for it just now. Try a few metres on.',
   garageSold: (price: string) => `Sold: ${price}. Its spot is free.`,
   garagePoliceNote: 'A police car cannot be sold. Give it up to free its spot.',
@@ -784,6 +787,20 @@ export const en = {
   garageBusNote: 'A bus needs new paint before it can be sold.',
   garagePaint: (price: string) => `New paint ${price}`,
   garagePainted: 'New paint on the bus. It can be sold now.',
+  garageCustomers: 'This car is a customer’s: it cannot be kept.',
+  // the garage's own job: a car to deliver (`game/specials.ts`)
+  careJob: 'Car delivery',
+  careRule: 'not a dent',
+  careText: 'A customer’s car goes to its owner. A new dent on the way, and the job is gone.',
+  careOffer: (pay: string) => `Deliver a car  ${pay}`,
+  careNone: 'No customer is waiting for a car just now. Try again in a moment.',
+  careStart: (id: SpecialId) => `${cap(SPECIAL_A[id])}, for a customer: take it to the yellow ring and stop there. A new dent, and the job is gone.`,
+  careDone: (cash: string, shown: SpecialId | null) => `Handed over without a dent: +${cash}.${shown ? ` The ${CAR[shown]} is for sale at the garages now.` : ''}`,
+  careDented: 'A dent. The job is gone: the garage sends for the car.',
+  careLost: 'The delivery is off.',
+  saleHead: 'For sale',
+  saleBuy: (price: string) => `Buy ${price}`,
+  saleBought: (id: SpecialId) => `Yours: ${SPECIAL_A[id]}. It is kept here.`,
 
   // ---------------------------------------------------------------- trophies (trophies.ts)
   trophiesLine: (n: number, of: number) => `${n} of ${of} earned. Nothing is paid for them: they are for you, and for showing friends.`,
@@ -810,6 +827,7 @@ export const en = {
     lost: ['Shaken off', 'Lose the police'],
     clean: ['A clean run', 'Finish a run of three without being caught, wrecked or knocked out'],
     rush: ['Time to spare', 'Finish a rush job with 30 seconds left'],
+    care: ['Not a dent', 'Deliver a car for a garage: not a dent on the way'],
     book: ['By the book', 'Finish a police station’s job: no law broken on the way'],
     found: ['Found it', 'Find the car the pump asks you to look for, and drive it back'],
     bus: ['By bus', 'Deliver a package in a bus'],

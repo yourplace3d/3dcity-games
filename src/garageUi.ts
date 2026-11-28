@@ -9,12 +9,17 @@
  *
  * The panel is the one of a building for sale (`#forsale`), which the homes otherwise draw: beside a garage
  * they leave it alone (`HomesHost.garage`).
+ *
+ * The garage also hands out its own job, the car delivery (`game/specials.ts`): a special car stands by the
+ * garage with the player in it, and goes to its owner without a new dent. A car so delivered is for sale in
+ * the panel from then on. A customer's car that was not handed over stays on the street, and cannot be kept.
  */
 
 import { SPECS, type Car } from './game/cars';
 import type { Game } from './game/game';
-import { canKeep, carsAt, giveUp, loadGarage, PAINT_COST, park, priceOf, repaint, sell, sellable, SPOTS, storeGarage, type Garage, type KeptCar, type KeptKind, type Make } from './game/garage';
+import { buy, canKeep, carsAt, delivered, giveUp, loadGarage, PAINT_COST, park, priceOf, repaint, sell, sellable, SPOTS, storeGarage, type Garage, type KeptCar, type Make } from './game/garage';
 import { serviceIcon } from './game/services';
+import { careCar, careLevel, carePay, careWay, isSpecial, special, type SpecialId } from './game/specials';
 import type { World } from './game/world';
 import { money, T } from './i18n';
 
@@ -57,9 +62,14 @@ export class GarageUi {
   private shown = '';
   /** the car whose "Sell" has been pressed once: the second press sells */
   private sure = 0;
+  /** the special car of the delivery that is on */
+  private caring: SpecialId | null = null;
+  /** customers' cars that were not handed over: they stay on the street, and are not for keeping */
+  private readonly customers = new WeakSet<Car>();
 
   constructor(private readonly host: GarageHost) {
     host.game.ticks.push(() => this.tick());
+    host.game.onCare = (e, car, cash) => this.careOver(e, car, cash);
   }
 
   /** Whether the player has stopped beside a garage, with the game free for it: its panel is up. */
@@ -125,7 +135,7 @@ export class GarageUi {
     const cars = carsAt(this.garage, spot.lat, spot.lon);
     const car = game.car;
     // what the panel says depends on: the car driven up, the cars kept, a press on "Sell", and whether a bus's paint can be paid
-    const shown = `garage ${this.spots.indexOf(spot)} ${car ? `${car.kind}${car.colour}` : 'foot'} ${this.mine()} ${cars.map((c) => `${c.id}${c.painted ? 'p' : ''}`).join(',')} ${this.sure} ${game.cash >= PAINT_COST}`;
+    const shown = `garage ${this.spots.indexOf(spot)} ${car ? `${car.kind}${car.colour}${car.look}` : 'foot'} ${this.mine()} ${cars.map((c) => `${c.id}${c.painted ? 'p' : ''}`).join(',')} ${this.sure} ${game.cash >= PAINT_COST} ${this.garage.done} ${this.garage.shown.map((id) => `${id}${game.cash >= special(id).price}`).join(',')}`;
     if (shown === this.shown) return;
     this.shown = shown;
     this.draw(spot, cars);
@@ -154,11 +164,13 @@ export class GarageUi {
     const car = game.car;
     const mine = this.mine();
     if (car && mine) {
-      line(T.garageMine(car.kind as KeptKind), true);
+      line(T.garageMine(this.nameOf(this.garage.cars.find((c) => c.id === mine)!)), true);
       const b = document.createElement('button');
       b.textContent = T.garageLeave;
       b.addEventListener('click', () => this.putBack(mine));
       panel.append(b);
+    } else if (car && this.customers.has(car)) {
+      line(T.garageCustomers, true);
     } else if (car && canKeep(car.kind)) {
       const b = document.createElement('button');
       const full = cars.length >= SPOTS;
@@ -177,7 +189,7 @@ export class GarageUi {
       const dot = document.createElement('i');
       dot.style.background = c.kind === 'police' ? '#f2f2ee' : c.kind === 'bus' && !c.painted ? '#e8b923' : c.colour;
       const name = document.createElement('span');
-      name.textContent = T.garageCar(c.kind);
+      name.textContent = T.garageCar(this.nameOf(c));
       const take = document.createElement('button');
       take.textContent = T.garageTake;
       take.addEventListener('click', () => this.take(spot, c.id));
@@ -200,6 +212,40 @@ export class GarageUi {
     if (others.some((c) => sellable(c) === 'no')) line(T.garagePoliceNote, true);
     if (others.some((c) => sellable(c) === 'paint')) line(T.garageBusNote, true);
     if (cars.length) line(T.garageNeverLost, true);
+
+    // the garage's own job: a customer's car to its owner
+    const head = (text: string) => {
+      const b = document.createElement('b');
+      b.className = 'part';
+      b.textContent = text;
+      panel.append(b);
+    };
+    head(T.careJob);
+    line(T.careText, true);
+    const job = document.createElement('button');
+    job.className = 'care';
+    job.textContent = T.careOffer(money(carePay(careLevel(this.garage.done))));
+    job.addEventListener('click', () => this.deliver(spot));
+    panel.append(job);
+
+    // special cars delivered without a dent: for sale from then on
+    if (this.garage.shown.length) head(T.saleHead);
+    for (const id of this.garage.shown) {
+      const s = special(id);
+      const row = document.createElement('div');
+      row.className = 'kept sale';
+      const dot = document.createElement('i');
+      dot.style.background = s.colour;
+      const name = document.createElement('span');
+      name.textContent = T.garageCar(id);
+      const b = document.createElement('button');
+      b.className = 'sell';
+      b.textContent = T.saleBuy(money(s.price));
+      b.disabled = game.cash < s.price || cars.length >= SPOTS;
+      b.addEventListener('click', () => this.buyCar(spot, id));
+      row.append(dot, name, b);
+      panel.append(row);
+    }
   }
 
   private keep(g: Garage): void {
@@ -210,9 +256,67 @@ export class GarageUi {
     this.sure = 0;
   }
 
+  /** How a kept car is named: by its kind, or as the special car it is. */
+  private nameOf(c: Make): KeptCar['kind'] | SpecialId {
+    return c.special ?? c.kind;
+  }
+
+  /** The garage's job: a special car stands by the garage with the player in it, and its owner waits across town. */
+  private deliver(spot: Spot): void {
+    const { game } = this.host;
+    if (this.spotHere() !== spot) return;
+    const level = careLevel(this.garage.done);
+    const s = careCar(level);
+    const stand = this.standFor(spot, s.len ?? SPECS[s.kind].len);
+    if (!stand) {
+      this.host.toast(T.garageNoRoom, 'info', 5000);
+      return;
+    }
+    const [near, far] = careWay(level);
+    const was = this.mine();
+    const c = game.startCare({ kind: s.kind, colour: s.colour, top: s.top, acc: s.acc, dent: s.dent, len: s.len, look: s.look }, stand, near, far, carePay(level));
+    if (!c) {
+      this.host.toast(T.careNone, 'info', 5000);
+      return;
+    }
+    // a kept car the player came in goes back in, as when another is taken out
+    if (was) this.fetch(was);
+    this.caring = s.id;
+    this.customers.add(c);
+    this.shown = '';
+    this.sure = 0;
+    this.host.toast(T.careStart(s.id), 'info', 9000);
+  }
+
+  /** A car delivery is over: done well, it is one level up and that car is for sale; else nothing is lost. */
+  private careOver(e: 'done' | 'dented' | 'lost', car: Car, cash: number): void {
+    const id = this.caring;
+    this.caring = null;
+    if (e === 'done' && id) {
+      const first = !this.garage.shown.includes(id);
+      this.customers.delete(car);
+      this.keep(delivered(this.garage, id));
+      this.host.toast(T.careDone(money(cash), first ? id : null), 'good', 8000);
+    } else this.host.toast(e === 'dented' ? T.careDented : T.careLost, 'bad', 6000);
+  }
+
+  /** Buy a special car that has been delivered: it is kept here from now on. */
+  private buyCar(spot: Spot, id: SpecialId): void {
+    const { game } = this.host;
+    const price = special(id).price;
+    if (this.spotHere() !== spot || game.cash < price) return;
+    const r = buy(this.garage, id, spot.lat, spot.lon, Date.now());
+    if (!r) return;
+    game.cash -= price;
+    this.keep(r.garage);
+    this.host.toast(T.saleBought(id), 'good', 7000);
+  }
+
   /** What makes a car in the world the car it is, as the garage keeps it. */
   private makeOf(car: Car): Make | null {
-    if (!canKeep(car.kind)) return null;
+    if (!canKeep(car.kind) || this.customers.has(car)) return null;
+    // a special car is kept as the car it is: its looks and numbers are that car's
+    if (isSpecial(car.look)) return { kind: special(car.look).kind, colour: car.colour, special: car.look };
     const usual = SPECS[car.kind];
     return {
       kind: car.kind,
@@ -234,7 +338,7 @@ export class GarageUi {
     if (!r) return;
     game.remove(car);
     this.keep(r.garage);
-    this.host.toast(T.garageParked(make.kind), 'good', 6000);
+    this.host.toast(T.garageParked(this.nameOf(make)), 'good', 6000);
   }
 
   /** A kept car taken out is left at the garage: it goes back in, and the player stands where it stood. */
@@ -264,12 +368,15 @@ export class GarageUi {
     // wherever it was left, it is here again
     const was = this.mine();
     if (id !== was) this.fetch(id);
-    const stand = this.standFor(spot, SPECS[kept.kind].len);
+    const sp = kept.special ? special(kept.special) : null;
+    const stand = this.standFor(spot, sp?.len ?? SPECS[kept.kind].len);
     if (!stand) {
       this.host.toast(T.garageNoRoom, 'info', 5000);
       return;
     }
-    const c = game.place(kept.kind, stand.x, stand.y, stand.th, { colour: kept.colour, top: kept.top, acc: kept.acc, dent: kept.dent, painted: kept.painted });
+    const c = sp
+      ? game.place(sp.kind, stand.x, stand.y, stand.th, { colour: sp.colour, top: sp.top, acc: sp.acc, dent: sp.dent, len: sp.len, look: sp.look })
+      : game.place(kept.kind, stand.x, stand.y, stand.th, { colour: kept.colour, top: kept.top, acc: kept.acc, dent: kept.dent, look: kept.painted ? 'painted' : '' });
     game.seat(c);
     if (was) this.fetch(was);
     this.out.set(id, c);

@@ -6,12 +6,12 @@
  * Their own look: a flat disc in the colour of their group with a plain sign on it, grey until earned.
  * Kept in the browser under `3da-trophies`, so saving online carries them along.
  *
- * 29 since 28 November 2026 (the owner, with all but one of the 18 earned: "We can now add some more of
+ * 30 since 28 November 2026 (the owner, with all but one of the 18 earned: "We can now add some more of
  * these maybe?"). The list is the usual one of consoles and phones, on purpose (the owner: "We should not
  * need to reinvent it too much"): a badge grey until earned, a count at the top, and for a trophy that
- * counts something how far along it is. "Not a dent" is held back for the garage's car delivery, where it
- * is the whole point (`docs/brainstorm-story.md`, section 19): a trophy must not change its meaning once
- * players have earned it. A trophy is earned in one of two ways: by what the player has (`earnedBy`, looked at once
+ * counts something how far along it is. "Not a dent" is for the garage's car delivery, where it is the
+ * whole point (`game/specials.ts`), not for a supply run as first built: a trophy must not change its
+ * meaning once players have earned it. A trophy is earned in one of two ways: by what the player has (`earnedBy`, looked at once
  * a second, so a player who is further on earns what fits at once, in one line), or by something that
  * happens in play (`earnedIn`, from the game's events). A new one needs its line in `GROUPS`, its id in
  * `TrophyId`, and its rule in one of the two.
@@ -36,7 +36,7 @@ export const SIGHT_POINTS = 800;
 export type TrophyId =
   | 'car' | 'delivery' | 'run' | 'home' | 'bank'
   | 'homes5' | 'homes10' | 'building' | 'painted' | 'renovated' | 'towns2' | 'towns5' | 'rent1000' | 'party' | 'story'
-  | 'lost' | 'clean' | 'rush' | 'book' | 'found' | 'bus' | 'deliveries100' | 'deliveries500'
+  | 'lost' | 'clean' | 'rush' | 'care' | 'book' | 'found' | 'bus' | 'deliveries100' | 'deliveries500'
   | 'places5' | 'places20' | 'far' | 'equator' | 'guessed' | 'sight';
 
 export interface Trophy {
@@ -92,6 +92,7 @@ export const GROUPS: Group[] = [
       { id: 'lost', name: T.trophyText.lost[0], how: T.trophyText.lost[1], sign: '<path d="M12 40c8-14 20-18 32-16v-7l10 11-10 11v-7c-10-1-20 2-28 12z"/>' },
       { id: 'clean', name: T.trophyText.clean[0], how: T.trophyText.clean[1], sign: '<path d="M14 33l6-6 8 8 16-17 6 6-22 23z"/>' },
       { id: 'rush', name: T.trophyText.rush[0], how: T.trophyText.rush[1], sign: '<circle cx="32" cy="35" r="15" fill="none" stroke="#16181c" stroke-width="5"/><path d="M29 12h6v6h-6zM30 35V25h4v10z"/><path d="M32 33l7 5-2 3-7-5z"/>' },
+      { id: 'care', name: T.trophyText.care[0], how: T.trophyText.care[1], sign: '<path d="M11 40l5-11h25l7 11v8H11z"/><circle cx="20" cy="49" r="5"/><circle cx="40" cy="49" r="5"/><path d="M36 17l6 6 11-12" fill="none" stroke="#16181c" stroke-width="4.5"/>' },
       { id: 'book', name: T.trophyText.book[0], how: T.trophyText.book[1], sign: '<path d="M32 10l19 6v15c0 11-7 19-19 24-12-5-19-13-19-24V16z"/><path d="M22 32l7 7 13-14" fill="none" stroke="#2bd4e0" stroke-width="5"/>' },
       { id: 'found', name: T.trophyText.found[0], how: T.trophyText.found[1], sign: '<circle cx="28" cy="28" r="12" fill="none" stroke="#16181c" stroke-width="6"/><path d="M36 38l4-4 12 12-4 4z"/>' },
       { id: 'bus', name: T.trophyText.bus[0], how: T.trophyText.bus[1], sign: '<path d="M9 44V24a5 5 0 0 1 5-5h36a5 5 0 0 1 5 5v20z"/><path d="M14 24h9v9h-9zM27 24h9v9h-9zM40 24h10v9H40z" fill="#2bd4e0"/><circle cx="20" cy="45" r="5.5"/><circle cx="44" cy="45" r="5.5"/>' },
@@ -235,6 +236,8 @@ export function earnedIn(e: GameEvent, fullRun: boolean, car: CarKind | null): T
   if (e.kind === 'lost') out.push('lost');
   if (e.kind === 'run' && fullRun) out.push(...(e.fined ? (['run'] as const) : (['run', 'clean'] as const)));
   if (e.kind === 'found') out.push('found');
+  // the garage's job is gone at a new dent, so a car handed over is one without
+  if (e.kind === 'carDelivered') out.push('care');
   if (e.kind === 'delivered') {
     // a station's job done the way its card asks: time left on the fire station's; the police's is gone
     // at the first offence, so delivered means clean

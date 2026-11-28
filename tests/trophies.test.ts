@@ -11,12 +11,12 @@ const fresh = (): Trophies => {
 };
 
 describe('the trophies there are', () => {
-  it('twenty-nine, each once, each with a name, a way to earn it and a sign', () => {
-    expect(ALL).toHaveLength(29);
-    expect(new Set(ALL.map((t) => t.id)).size).toBe(29);
-    expect(new Set(ALL.map((t) => t.name)).size).toBe(29);
-    // "Not a dent" waits for the garage's car delivery: a trophy never changes its meaning once earned
-    expect(ALL.map((t) => t.name)).not.toContain('Not a dent');
+  it('thirty, each once, each with a name, a way to earn it and a sign', () => {
+    expect(ALL).toHaveLength(30);
+    expect(new Set(ALL.map((t) => t.id)).size).toBe(30);
+    expect(new Set(ALL.map((t) => t.name)).size).toBe(30);
+    // "Not a dent" is the garage's car delivery, not a supply run
+    expect(ALL.find((t) => t.name === 'Not a dent')?.how).toBe('Deliver a car for a garage: not a dent on the way');
     for (const t of ALL) {
       expect(t.name.length).toBeGreaterThan(2);
       expect(t.how.length).toBeGreaterThan(5);
@@ -73,9 +73,13 @@ describe('what happens in play', () => {
     expect(earnedIn(delivered('plain'), true, 'sedan')).toEqual([]);
   });
 
-  it('a supply run earns nothing of its own, dented or not: "Not a dent" waits for the car delivery', () => {
+  it('a supply run earns nothing of its own, dented or not: "Not a dent" is the car delivery’s', () => {
     expect(earnedIn(delivered('supply'), true, 'van')).toEqual([]);
     expect(earnedIn(delivered('supply', { dented: true }), true, 'van')).toEqual([]);
+  });
+
+  it('a car delivered for a garage: handed over means not a dent', () => {
+    expect(earnedIn({ kind: 'carDelivered' }, true, null)).toEqual(['care']);
   });
 
   it('a police station’s job: delivered means no law was broken', () => {

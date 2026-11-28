@@ -362,6 +362,12 @@ html body.touch.radio-on #minimap[data-corner='tr'] { top: calc(184px + env(safe
 #forsale .kept { display: grid; grid-template-columns: 14px 1fr auto auto; align-items: center; gap: 6px; }
 #forsale .kept i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.35); }
 #forsale .kept button { padding: 6px 10px; }
+/* a car for sale has one button, not two */
+#forsale .kept.sale { grid-template-columns: 14px 1fr auto; }
+#forsale .kept.sale button { background: #30353e; color: var(--ink); border-color: var(--line); }
+/* a part of the garage's panel: its own job, what is for sale */
+#forsale b.part { margin-top: 6px; }
+#forsale button.care { background: var(--green); color: #1c1f24; border-color: transparent; }
 #forsale .paints { display: flex; flex-wrap: wrap; gap: 6px; }
 #forsale .paints button.swatch { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); background: #30353e; color: var(--ink); text-align: center; font-weight: 700; }
 #forsale .paints button.swatch.on { border-color: var(--yellow); box-shadow: 0 0 0 2px #16181c inset; }

@@ -24,6 +24,7 @@
 
 import { kmBetween } from './bank';
 import type { CarKind } from './cars';
+import { isSpecial, resale, special, type SpecialId } from './specials';
 
 const STORE = '3da-garage';
 /** cars a city's garages keep, for now */
@@ -50,6 +51,8 @@ export interface Make {
   dent?: number;
   /** a bus given new paint at a garage: it shows `colour`, and can be sold */
   painted?: boolean;
+  /** a special car (`specials.ts`): its looks and its numbers are that car's, whatever else is kept here */
+  special?: SpecialId;
 }
 
 export interface KeptCar extends Make {
@@ -66,9 +69,13 @@ export interface Garage {
   cars: KeptCar[];
   /** the next car's number */
   next: number;
+  /** car deliveries done well, in all: the level of the garage's job goes by it (`specials.ts`) */
+  done: number;
+  /** the special cars delivered without a dent: for sale at the garages from then on */
+  shown: SpecialId[];
 }
 
-export const none = (): Garage => ({ cars: [], next: 1 });
+export const none = (): Garage => ({ cars: [], next: 1, done: 0, shown: [] });
 
 const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
@@ -88,6 +95,7 @@ export function readGarage(raw: string | null): Garage {
         ...(num(c.acc) && c.acc > 0 && c.acc < 50 ? { acc: c.acc } : {}),
         ...(num(c.dent) && c.dent > 0 && c.dent < 10 ? { dent: c.dent } : {}),
         ...(c.painted === true && c.kind === 'bus' ? { painted: true } : {}),
+        ...(isSpecial(c.special) && special(c.special).kind === c.kind ? { special: c.special } : {}),
         lat: c.lat,
         lon: c.lon,
         at: num(c.at) ? c.at : 0,
@@ -95,7 +103,9 @@ export function readGarage(raw: string | null): Garage {
     }
     const kept = cars.slice(-CARS_MAX);
     const next = Math.max(num(k.next) ? Math.floor(k.next) : 1, ...kept.map((c) => c.id + 1), 1);
-    return { cars: kept, next };
+    const done = num(k.done) && k.done > 0 ? Math.min(100000, Math.floor(k.done)) : 0;
+    const shown = Array.isArray(k.shown) ? [...new Set(k.shown.filter(isSpecial))] : [];
+    return { cars: kept, next, done, shown };
   } catch {
     return none();
   }
@@ -147,11 +157,12 @@ export function park(g: Garage, make: Make, lat: number, lon: number, now: numbe
     ...(make.acc ? { acc: make.acc } : {}),
     ...(make.dent && make.dent !== 1 ? { dent: make.dent } : {}),
     ...(make.painted && make.kind === 'bus' ? { painted: true } : {}),
+    ...(make.special ? { special: make.special } : {}),
     lat: a,
     lon: b,
     at: now,
   };
-  return { garage: { cars: [...g.cars, car], next: g.next + 1 }, car };
+  return { garage: { ...g, cars: [...g.cars, car], next: g.next + 1 }, car };
 }
 
 /**
@@ -161,7 +172,26 @@ export function park(g: Garage, make: Make, lat: number, lon: number, now: numbe
  * paint leaves what an ordinary car brings, so that taking one from its driver earns nothing extra.
  */
 const PRICE: Record<KeptKind, number> = { sedan: 100, van: 120, sport: 200, police: 0, bus: 150 };
-export const priceOf = (c: Make): number => PRICE[c.kind];
+export const priceOf = (c: Make): number => (c.special ? resale(c.special) : PRICE[c.kind]);
+
+/** A special car as the garage keeps it. */
+export function makeOf(id: SpecialId): Make {
+  const s = special(id);
+  return { kind: s.kind, colour: s.colour, special: id };
+}
+
+/** A car delivery was done well: one more for the job's level, and that car is for sale from now on. */
+export function delivered(g: Garage, id: SpecialId): Garage {
+  return { ...g, done: g.done + 1, shown: g.shown.includes(id) ? g.shown : [...g.shown, id] };
+}
+
+/**
+ * Buy a special car that has been delivered: kept at a garage at this place, like a car parked there. Null
+ * where it is not for sale yet, or the city's spots are full. What it costs is `special(id).price`.
+ */
+export function buy(g: Garage, id: SpecialId, lat: number, lon: number, now: number): { garage: Garage; car: KeptCar } | null {
+  return g.shown.includes(id) ? park(g, makeOf(id), lat, lon, now) : null;
+}
 /** what new paint for a bus costs (an estimate) */
 export const PAINT_COST = 50;
 /** The paints a bus can get: none of them the yellow of the town's buses. */

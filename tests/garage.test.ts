@@ -157,7 +157,7 @@ describe('selling', () => {
     // paint is a bus's alone: a car kept as painted is read as the car it is
     expect(readGarage(JSON.stringify({ v: 1, next: 2, cars: [{ id: 1, kind: 'sedan', colour: '#c8362e', lat: 1, lon: 1, at: 1, painted: true }] })).cars[0].painted).toBeUndefined();
     const body = (c: Car) => (c.mesh.children[0] as unknown as { material: { color: { getHexString: () => string } } }).material.color.getHexString();
-    expect(body(new Car('bus', BUS_PAINTS[0], undefined, true))).toBe(BUS_PAINTS[0].slice(1));
+    expect(body(new Car('bus', BUS_PAINTS[0], undefined, 'painted'))).toBe(BUS_PAINTS[0].slice(1));
     // a bus of the town is yellow, whatever colour it was given
     expect(body(new Car('bus', BUS_PAINTS[0]))).toBe('e8b923');
   });

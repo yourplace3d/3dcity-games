@@ -4,16 +4,26 @@
  */
 
 import type { KeptKind } from '../game/garage';
+import type { SpecialId } from '../game/specials';
 import type { Case, Kind, Texts } from './en';
 
 const COUNT = ['keine', 'eine', 'zwei', 'drei', 'vier', 'fünf'];
 /** die Arten von Auto, die eine Garage aufnimmt: ihr Name, und „dieses …“ im Nominativ und im Akkusativ */
-const CAR: Record<KeptKind, { name: string; this: string; thisAcc: string }> = {
+const CAR: Record<KeptKind | SpecialId, { name: string; this: string; thisAcc: string }> = {
   sedan: { name: 'Auto', this: 'Dieses Auto', thisAcc: 'Dieses Auto' },
   sport: { name: 'Sportwagen', this: 'Dieser Sportwagen', thisAcc: 'Diesen Sportwagen' },
   van: { name: 'Transporter', this: 'Dieser Transporter', thisAcc: 'Diesen Transporter' },
   police: { name: 'Polizeiauto', this: 'Dieses Polizeiauto', thisAcc: 'Dieses Polizeiauto' },
   bus: { name: 'Bus', this: 'Dieser Bus', thisAcc: 'Diesen Bus' },
+  convertible: { name: 'Altes Cabrio', this: 'Dieses Cabrio', thisAcc: 'Dieses Cabrio' },
+  limo: { name: 'Limousine', this: 'Diese Limousine', thisAcc: 'Diese Limousine' },
+  coupe: { name: 'Coupé', this: 'Dieses Coupé', thisAcc: 'Dieses Coupé' },
+};
+/** ein besonderes Auto, wie zuerst von ihm die Rede ist, und mit „das“ oder „die“: schlichte Worte, keine Marken */
+const SPECIAL: Record<SpecialId, { a: string; the: string }> = {
+  convertible: { a: 'ein altes cremefarbenes Cabrio', the: 'Das Cabrio' },
+  limo: { a: 'eine lange schwarze Limousine', the: 'Die Limousine' },
+  coupe: { a: 'ein dunkelgrünes Coupé', the: 'Das Coupé' },
 };
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const fmtTime = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
@@ -794,6 +804,19 @@ export const de: Texts = {
   garageBusNote: 'Ein Bus braucht neuen Lack, bevor er sich verkaufen lässt.',
   garagePaint: (price) => `Neuer Lack ${price}`,
   garagePainted: 'Der Bus hat neuen Lack. Jetzt lässt er sich verkaufen.',
+  garageCustomers: 'Dieser Wagen gehört einem Kunden: Er lässt sich nicht behalten.',
+  careJob: 'Autolieferung',
+  careRule: 'keine Delle',
+  careText: 'Der Wagen eines Kunden geht zu seinem Besitzer. Eine neue Delle unterwegs, und der Auftrag ist weg.',
+  careOffer: (pay) => `Ein Auto liefern  ${pay}`,
+  careNone: 'Gerade wartet kein Kunde auf ein Auto. Versuch es gleich noch einmal.',
+  careStart: (id) => `${cap(SPECIAL[id].a)}, für einen Kunden: Bring den Wagen zum gelben Ring und halt dort an. Eine neue Delle, und der Auftrag ist weg.`,
+  careDone: (cash, shown) => `Ohne Delle übergeben: +${cash}.${shown ? ` ${SPECIAL[shown].the} steht jetzt bei den Garagen zum Verkauf.` : ''}`,
+  careDented: 'Eine Delle. Der Auftrag ist weg: Die Garage lässt den Wagen abholen.',
+  careLost: 'Die Lieferung ist geplatzt.',
+  saleHead: 'Zu verkaufen',
+  saleBuy: (price) => `Kaufen ${price}`,
+  saleBought: (id) => `Deins: ${SPECIAL[id].a}. Der Wagen steht hier in der Garage.`,
 
   // ---------------------------------------------------------------- Trophäen (trophies.ts)
   trophiesLine: (n, of) => `${n} von ${of} verdient. Bezahlt wird dafür nichts: Sie sind für dich, und zum Zeigen.`,
@@ -819,6 +842,7 @@ export const de: Texts = {
     lost: ['Abgehängt', 'Häng die Polizei ab'],
     clean: ['Eine saubere Runde', 'Schaff eine Dreierrunde, ohne erwischt zu werden, Totalschaden oder K.o.'],
     rush: ['Zeit übrig', 'Schaff einen Eilauftrag mit 30 Sekunden Rest'],
+    care: ['Keine Delle', 'Liefere ein Auto für eine Garage: unterwegs keine Delle'],
     book: ['Nach Vorschrift', 'Schaff einen Auftrag der Polizei: unterwegs kein Gesetz gebrochen'],
     found: ['Gefunden', 'Finde das Auto, das die Tankstelle sucht, und fahr es zurück'],
     bus: ['Mit dem Bus', 'Liefere ein Paket in einem Bus'],

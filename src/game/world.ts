@@ -576,8 +576,9 @@ export class World {
    * it is an empty place to play in.
    */
   get thin(): boolean {
-    // streets with hardly a building along them are a place that is only half on the map
-    return this.buildingCount < 150 || this.roads.streetKm < 8 || this.buildingCount / this.roads.streetKm < 4;
+    // streets with hardly a building along them are a place that is only half on the map. Both are
+    // counted in the square itself: a city centre has some 30 to 65 km of streets in it, a village 5 or more
+    return this.buildingCount < 150 || this.roads.streetKm < 5 || this.buildingCount / this.roads.streetKm < 4;
   }
 
   /** Scene height of the ground at a point. */

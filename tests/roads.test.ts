@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LineFeature } from '../src/geo/osm';
-import { RoadNet } from '../src/game/roads';
+import { RoadNet, insideLength } from '../src/game/roads';
 
 const road = (pts: LineFeature['pts'], bridge = false): LineFeature => ({ kind: 'minor', pts, widthM: 6, bridge });
 const length = (pts: LineFeature['pts']): number => pts.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
@@ -129,5 +129,17 @@ describe('tracks and streets at different heights', () => {
     // 9 m from the street's middle: past its lanes, on the pavement
     expect(net.crossesApart(9, 1)).toBe(false);
     expect(net.crossesApart(9, 1, 'walk')).toBe(true);
+  });
+});
+
+describe('streets counted for how well a place is mapped', () => {
+  it('counts only the length inside the square, as the buildings are', () => {
+    expect(insideLength([0, 0], [100, 0], 750)).toBeCloseTo(100);
+    expect(insideLength([700, 0], [900, 0], 750)).toBeCloseTo(50);
+    expect(insideLength([-900, 800], [900, 800], 750)).toBe(0);
+    expect(insideLength([-1000, -1000], [1000, 1000], 750)).toBeCloseTo(1500 * Math.SQRT2);
+    // a long street through the square and far beyond it: 1.5 km, not 4 km
+    const net = new RoadNet([road([[-2000, 0], [2000, 0]]), road([[3000, 3000], [5000, 3000]])], 750);
+    expect(net.streetKm).toBeCloseTo(1.5);
   });
 });

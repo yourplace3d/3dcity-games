@@ -12,7 +12,7 @@ const CITIES: Array<[number, number, ...string[]]> = [
   [50.1109, 8.6821, 'Frankfurt', 'Frankfurt am Main'], [48.7758, 9.1829, 'Stuttgart'], [49.4521, 11.0767, 'Nuremberg', 'Nürnberg', 'Nuernberg'], [47.999, 7.8421, 'Freiburg', 'Freiburg im Breisgau'],
   [48.2082, 16.3738, 'Vienna', 'Wien'], [47.3769, 8.5417, 'Zurich', 'Zürich'], [48.8566, 2.3522, 'Paris'], [51.5074, -0.1278, 'London'], [52.3676, 4.9041, 'Amsterdam'],
   [50.8503, 4.3517, 'Brussels', 'Bruxelles', 'Brussel'], [40.4168, -3.7038, 'Madrid'], [41.3874, 2.1686, 'Barcelona'], [38.7223, -9.1393, 'Lisbon', 'Lisboa'], [41.9028, 12.4964, 'Rome', 'Roma'],
-  [45.4642, 9.19, 'Milan', 'Milano'], [50.0755, 14.4378, 'Prague', 'Praha', 'Prag'], [52.2297, 21.0122, 'Warsaw', 'Warszawa', 'Warschau'], [55.6761, 12.5683, 'Copenhagen', 'København', 'Kopenhagen'],
+  [45.4642, 9.19, 'Milan', 'Milano', 'Mailand'], [50.0755, 14.4378, 'Prague', 'Praha', 'Prag'], [52.2297, 21.0122, 'Warsaw', 'Warszawa', 'Warschau'], [55.6761, 12.5683, 'Copenhagen', 'København', 'Kopenhagen'],
   [59.3293, 18.0686, 'Stockholm'], [59.9139, 10.7522, 'Oslo'], [60.1699, 24.9384, 'Helsinki'], [53.3498, -6.2603, 'Dublin'], [41.0082, 28.9784, 'Istanbul'], [37.9838, 23.7275, 'Athens', 'Athen'],
   [40.758, -73.9855, 'New York', 'New York City', 'NYC', 'Manhattan'], [34.0522, -118.2437, 'Los Angeles', 'LA'], [41.8781, -87.6298, 'Chicago'], [37.7749, -122.4194, 'San Francisco', 'SF'],
   [47.6062, -122.3321, 'Seattle'], [42.3601, -71.0589, 'Boston'], [38.9072, -77.0369, 'Washington', 'Washington DC'], [25.7617, -80.1918, 'Miami'],
@@ -79,6 +79,42 @@ export async function placeAt(at: LngLat): Promise<string | null> {
   }
 }
 
+export interface PhotonFeature {
+  geometry: { coordinates: [number, number] };
+  properties: { name?: string; osm_key?: string; osm_value?: string };
+}
+
+const TOWNS = ['city', 'town', 'village'];
+/** what a search for a town's name may answer first that is not where the town is drawn */
+const AREAS = new Set(['state', 'province', 'region', 'county', 'district', 'municipality', 'city_block', 'village', 'hamlet', 'isolated_dwelling', 'locality']);
+
+const kmApart = (a: PhotonFeature, b: PhotonFeature): number => {
+  const [lon1, lat1] = a.geometry.coordinates;
+  const [lon2, lat2] = b.geometry.coordinates;
+  return Math.hypot((lat1 - lat2) * 111, (lon1 - lon2) * 111 * Math.cos((lat1 * Math.PI) / 180));
+};
+
+/**
+ * The answer to play at, from the search's answers best first. A city or town that comes first is it.
+ * A town's boundary or district that comes first is drawn round the town, and its middle can be on a
+ * lake or in the fields (Hallstatt, Rothenburg): the town itself near it is taken. And a village or a
+ * block of the same name before a city ("Mailand", "Neapel") gives way to the city.
+ */
+export function pickPlace(features: PhotonFeature[]): PhotonFeature | null {
+  const first = features[0];
+  if (!first) return null;
+  const { osm_key: key, osm_value: value = '' } = first.properties;
+  if (key === 'place' && (value === 'city' || value === 'town')) return first;
+  const area = key === 'boundary' || (key === 'place' && AREAS.has(value));
+  if (!area) return first;
+  const towns = (f: PhotonFeature) => f !== first && f.properties.osm_key === 'place' && TOWNS.includes(f.properties.osm_value ?? '');
+  for (const kind of TOWNS) {
+    const near = features.find((f) => towns(f) && f.properties.osm_value === kind && kmApart(f, first) < 40);
+    if (near) return near;
+  }
+  return features.find((f) => towns(f) && f.properties.osm_value === 'city') ?? first;
+}
+
 /**
  * A place by name: 'none' when the search servers answered and know no such place, 'silent' when
  * none of them answered at all.
@@ -88,9 +124,11 @@ export async function findPlace(q: string): Promise<Found | 'none' | 'silent'> {
   if (known) return known;
   let answered = false;
   try {
-    const json = await ask<{ features?: Array<{ geometry: { coordinates: [number, number] }; properties: { name?: string } }> }>(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(q)}`, 6000);
+    // in English: Photon matches the names in the language asked for and the place's own, so without
+    // it "Doha", "Bruges" or "Cologne" were a village in India, France or Italy. German names are matched too
+    const json = await ask<{ features?: PhotonFeature[] }>(`https://photon.komoot.io/api/?limit=8&lang=en&q=${encodeURIComponent(q)}`, 6000);
     answered = true;
-    const f = json.features?.[0];
+    const f = pickPlace(json.features ?? []);
     if (f) return { at: { lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }, name: f.properties.name };
   } catch {
     /* slow, busy or down: ask the other one */

@@ -104,6 +104,10 @@ try {
     await page.waitForFunction(() => game.pickups.length > 0 && !game.job, null, { timeout: 120000 });
     const job = await take('plain');
     assert.ok(job, `package ${n}`);
+    // the line on the screen names the cash the job pays, not what it is worth to the run
+    await page.waitForFunction(() => !document.querySelector('#job').hidden && /\$\d/.test(document.querySelector('#job').textContent), null, { timeout: 60000 });
+    const shown = Number((await page.locator('#job b:last-of-type').textContent()).replace(/\D/g, ''));
+    assert.equal(shown, Math.min(JOB_MAX, job.pay), `the job's line says $${shown} for a pay of $${job.pay}`);
     const got = await deliver();
     console.log(`  delivery ${n}: ${Math.round(job.metres)} m, pay $${job.pay}: +$${got.score} for the run, +$${got.cash} cash`);
     assert.ok(got.score >= job.pay, 'the score counts the pay and what comes on top');

@@ -20,6 +20,8 @@ async function one(spec) {
         status: s, hash: location.hash, thin: !document.getElementById('thin').hidden,
         buildings: w?.buildingCount, streetKm: w ? +w.roads.streetKm.toFixed(1) : null,
         perKm: w ? +(w.buildingCount / w.roads.streetKm).toFixed(1) : null,
+        kmByKind: w ? w.roads.lines.filter((l) => l.traffic).reduce((a, l) => { a[l.kind] = +((a[l.kind] ?? 0) + l.len / 1000).toFixed(1); return a; }, {}) : null,
+        wet: w ? (() => { let n = 0, t = 0; for (let x = -720; x <= 720; x += 40) for (let y = -720; y <= 720; y += 40) { t++; if (w.water.at(x, y)) n++; } return +(n / t).toFixed(2); })() : null,
       };
     }));
   } catch (e) { res.error = String(e).slice(0, 160); }

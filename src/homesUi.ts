@@ -12,18 +12,19 @@ import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from '
 import { caughtCost, lessonDue, loadLesson, nearestBank, remindAt, remindDue, REMIND_ARROW_S, REMIND_GAP_S, storeLesson, type Lesson, type LessonNow } from './game/bankMission';
 import { dayNumber, eventDue, homeKey, loadEvents, renovateLines, renovationCandidates, storeEvents, thanks, type EventNow, type Events, type HomeEvent, type Stage } from './game/events';
 import { after, answer, choiceText, CLOCK_FITS, courtBill, disputeCandidates, fits, kindsFor, LIGHT_LOAD, LOWER_DAYS, lowered, note, officerDone, officerOrder, pickMood, pickupLines, replaceCost, storyLine, tenantsOf, welcome, type Tenants } from './game/dispute';
-import { dailyReady, deliveries, deliveriesFor, earn, pointsFor, POINTS_MAX, loadDaily, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS, type Daily } from './game/homePoints';
+import { dailyReady, deliveriesFor, earn, pointsFor, POINTS_MAX, loadDaily, loadPoints, storePoints, FLAT_POINTS, HOUSE_POINTS, type Daily } from './game/homePoints';
 import { MAX_CASH } from './game/game';
 import { serviceIcon } from './game/services';
 import { pointInRing } from './geo/polygon';
 import { countPlay } from './linkCount';
+import { money, T } from './i18n';
+import type { Case } from './lang/en';
 
-const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 /**
  * How to get to the menu from a line over the game: with a mouse, the line itself is clicked; on a touch
  * screen the lines take no taps, as the steering pad lies under them, so it is the house button.
  */
-const toMenu = () => (document.body.classList.contains('touch') ? 'Tap the house button at the top' : 'Click here');
+const toMenu = () => (document.body.classList.contains('touch') ? T.toMenuTouch : T.toMenuClick);
 /** how near a building one has to stop for its panel (m) */
 const BESIDE_M = 7;
 /** how near a bank one has to stop: its spot on the road, or the bank itself on foot (m) */
@@ -112,19 +113,13 @@ function distanceTo(lot: Lot, x: number, y: number): number {
   return best;
 }
 
-/** "a 5-floor", "an 8-floor", "an 11-floor" */
-const floorsA = (n: number) => `${/^(8|11|18)$|^8\d$/.test(String(n)) ? 'an' : 'a'} ${n}-floor`;
-const on = (street: string) => (street ? ` on ${street}` : '');
-
-/** "your flat on Lindenstraße", "your house", for the lines about one of the player's homes */
-export const homeName = (h: Home) => `your ${h.kind}${h.street ? ` on ${h.street}` : ''}`;
+/** "your flat on Lindenstraße", "your house", for the lines about one of the player's homes; `c`: its case in the sentence */
+export const homeName = (h: Home, c: Case = 'nom') => T.homeRef(h.kind, h.street, c);
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 /** "a flat in a 5-floor building on Lindenstraße" */
 function describe(lot: Lot, what: 'flat' | 'house' | 'building'): string {
-  if (what === 'house') return `a house${on(lot.street)}`;
-  if (what === 'building') return `the whole ${lot.inHouse ? 'house' : 'building'}${on(lot.street)}, ${lot.units} flats`;
-  return `a flat in ${floorsA(lot.floors)} ${lot.inHouse ? 'house' : 'building'}${on(lot.street)}`;
+  return T.describeLot(what, lot.street, lot.floors, !!lot.inHouse, lot.units);
 }
 
 export interface HomesHost {
@@ -345,7 +340,7 @@ export class HomesUi {
     const { e, h } = o;
     const at = { lat: h.lat, lon: h.lon };
     if (e.kind === 'renovate') {
-      this.host.game.special = { at, say: renovateLines(this.nameOf(h)) };
+      this.host.game.special = { at, say: renovateLines(this.nameOf(h, 'acc')) };
       return;
     }
     // a dispute: only the stations its stage takes, and an easier job for the choice that fits
@@ -353,7 +348,7 @@ export class HomesUi {
     const fit = fits(e.mood ?? 'broken', stage);
     this.host.game.special = {
       at,
-      say: pickupLines(stage, e.mood ?? 'broken', this.nameOf(h), this.host.people?.officer() || 'Two officers'),
+      say: pickupLines(stage, e.mood ?? 'broken', (c) => this.nameOf(h, c), this.host.people?.officer() || T.twoOfficers),
       kinds: kindsFor(stage) ?? undefined,
       ...(fit && stage === 'insist' ? { clock: CLOCK_FITS } : {}),
       ...(fit && stage === 'accept' ? { light: LIGHT_LOAD } : {}),
@@ -482,7 +477,7 @@ export class HomesUi {
       if (!a.here && Math.hypot(a.x - px, a.y - py) < 110) {
         a.here = true;
         game.guide = null;
-        this.host.toast(`Here: worn-down flats for ${money(this.fixerPrice(a.lots[0]))}. Stop beside a building with a green $ sign to buy one.`, 'info', 9000);
+        this.host.toast(T.fixersHere(money(this.fixerPrice(a.lots[0]))), 'info', 9000);
       }
       return;
     }
@@ -492,7 +487,7 @@ export class HomesUi {
       if (lot && !this.noted.has('rest') && this.budget() >= Math.max(0, lot.whole - first.paid)) {
         this.noted.add('rest');
         this.wayTo = first;
-        this.host.toast(`You have enough for the rest of your building: ${money(Math.max(0, lot.whole - first.paid))}. Follow the arrow and stop beside it.`, 'good', 9000);
+        this.host.toast(T.restAffordable(money(Math.max(0, lot.whole - first.paid))), 'good', 9000);
       }
     }
     if (this.wayTo) {
@@ -518,13 +513,13 @@ export class HomesUi {
     const d = game.delivered;
     if (d === 1 && !this.noted.has('one')) {
       this.noted.add('one');
-      this.say('One more delivery, and you can buy yourself some property: your first flat.');
+      this.say(T.oneMoreForFlat);
     }
     if (d < FIXER_AFTER || game.cash < FIXER_MIN || this.offeredAt === d || !this.host.card) return;
     if (!game.run.over) {
       if (!this.noted.has('run')) {
         this.noted.add('run');
-        this.say('Enough for a first flat. Finish the run, and you will be shown where.');
+        this.say(T.enoughForFlat);
       }
       return;
     }
@@ -532,10 +527,10 @@ export class HomesUi {
     this.offeredAt = d;
     const price = Math.floor(game.cash / 10) * 10;
     this.card(
-      'Private mission: your first home',
-      `You have ${money(game.cash)}. Not far from here, a few buildings have flats with worn-down walls, and they sell cheap: one is yours for ${money(price)}. Drive there, stop beside a building with a green $ sign, and buy it.`,
-      'Show me the place',
-      'Later',
+      T.firstHomeMission,
+      T.firstHomeMissionText(money(game.cash), money(price)),
+      T.showPlace,
+      T.later,
       (yes) => {
         if (!yes) return;
         this.setReno({ stage: 'find', price });
@@ -595,9 +590,9 @@ export class HomesUi {
     this.setReno({ ...r, told: true });
     const others = Math.max(1, (r.units ?? 2) - 1);
     this.card(
-      'Mission: repair your building',
-      `This package goes to your building. ${r.stage === 'flat' ? 'Your flat’s walls are worn down, and it pays no rent until it is repaired: deliver this, and it is. ' : ''}Then the rest of the building is yours to buy: ${others} more ${others === 1 ? 'flat' : 'flats'}. Each package from a fuel, fire or police station repairs one flat, and each repaired flat adds rent. When every flat is done, the outside gets a fresh coat in the colour you choose. Between them, any other job pays as always.`,
-      'Let’s go',
+      T.repairMission,
+      T.repairMissionText(r.stage === 'flat', others),
+      T.letsGo,
       '',
       () => undefined,
     );
@@ -618,16 +613,16 @@ export class HomesUi {
     if (r.stage === 'flat') {
       this.setReno({ ...r, stage: 'buy' });
       const lot = this.renoLot();
-      const rest = lot ? ` Next, the rest of the building: ${units - 1} ${units - 1 === 1 ? 'flat' : 'flats'} for ${money(Math.max(0, lot.whole - first.paid))}. Stop beside it to buy.` : '';
-      this.say(`Your flat is repaired: from tomorrow it pays ${money(first.rent)} each day you come back.${rest}${this.host.party ? ' And it is ready for a party: stop beside it.' : ''}`, 'good', 10000);
+      const rest = lot ? T.flatRepairedRest(units - 1, money(Math.max(0, lot.whole - first.paid))) : '';
+      this.say(T.flatRepaired(money(first.rent), rest, !!this.host.party), 'good', 10000);
     } else if (r.stage === 'rest') {
       const fixed = (r.fixed ?? 0) + 1;
       if (fixed >= units - 1) {
         this.setReno({ ...r, stage: 'paint', fixed });
-        this.say('Every flat is repaired. One more package from a station: paint for the outside.', 'good', 10000);
+        this.say(T.allFlatsRepaired, 'good', 10000);
       } else {
         this.setReno({ ...r, fixed });
-        this.say(`Flat ${fixed + 1} of ${units} is repaired: it adds ${money(first.rent / units)} rent from tomorrow. The stations’ rings flash green for the next.`, 'good', 9000);
+        this.say(T.flatNRepaired(fixed + 1, units, money(first.rent / units)), 'good', 9000);
       }
     } else if (r.stage === 'paint') {
       this.setReno({ stage: 'done' });
@@ -636,9 +631,9 @@ export class HomesUi {
       if (lot) this.world?.model.paintBuilding(lot.poly, first.colour ?? null);
       this.wayTo = first;
       this.card(
-        'Your building is done',
-        `All ${units} flats are repaired, and the building pays ${money(first.rent)} each day you come back. The paint is there: follow the arrow, stop beside your building, and choose its colour.`,
-        'Go on',
+        T.buildingDone,
+        T.buildingDoneText(units, money(first.rent)),
+        T.goOn,
         '',
         () => undefined,
       );
@@ -716,17 +711,17 @@ export class HomesUi {
         this.shown = '';
         this.look();
         this.card(
-          'Your money is safe',
-          `${money(amount)} is in the bank now, ${money(this.saved)} in all. Fines only take from the cash you carry. Whenever you carry a lot of it again, you'll be reminded, and the arrow shows the way to the nearest bank.`,
-          'Keep driving',
+          T.moneySafe,
+          T.moneySafeText(money(amount), money(this.saved)),
+          T.keepDriving,
           '',
           () => undefined,
-          'Good to know',
+          T.kickerKnow,
         );
         return amount;
       }
     }
-    this.host.toast(`${money(amount)} paid in. You have ${money(this.saved)} in the bank, safe from fines.`, 'good', 5000);
+    this.host.toast(T.paidIn(money(amount), money(this.saved)), 'good', 5000);
     this.shown = '';
     this.look();
     return amount;
@@ -772,16 +767,16 @@ export class HomesUi {
   wayToBank(toggle = true): void {
     const { toast } = this.host;
     if (!this.plate) {
-      toast('No bank yet: your first home makes its town your home town, with its banks.', 'info', 6000);
+      toast(T.noBankYet, 'info', 6000);
       return;
     }
     if (this.host.quiet?.() || !this.bankHere()) {
       toast(
         this.host.quiet?.()
-          ? 'Banks are only in your home town.'
+          ? T.banksHomeOnly
           : this.atPlate
-            ? 'No bank in this part of town: drive on, and the next one shows.'
-            : `Your banks are in ${this.plate.place || 'your home town'}: money there is safe from fines.`,
+            ? T.noBankHere
+            : T.banksIn(this.plate.place || T.yourHomeTown),
         'info',
         6000,
       );
@@ -792,7 +787,7 @@ export class HomesUi {
       const [px, py] = this.host.game.pos();
       const at = nearestBank(this.banks, px, py);
       if (at && Math.hypot(at.rx - px, at.ry - py) < BANK_ROAD_M * 2) {
-        toast('You are at a bank: stop beside it and pay in.', 'info', 4000);
+        toast(T.atBank, 'info', 4000);
         return;
       }
     }
@@ -801,7 +796,7 @@ export class HomesUi {
       this.bankWay = false;
       this.remindArrow = 0;
       this.guideBank(false);
-      toast('The way to the bank is off.', 'info', 3000);
+      toast(T.bankWayOff, 'info', 3000);
       return;
     }
     // asked for: it goes before the way to a home, whose arrow goes too
@@ -811,7 +806,7 @@ export class HomesUi {
     this.bankTarget = null;
     this.guideBank(true);
     const { game } = this.host;
-    toast(game.party ? 'After the party, the arrow shows the nearest bank.' : game.job ? 'After this delivery, the arrow shows the nearest bank.' : this.bankArrow() ? 'The arrow shows the nearest bank: stop beside it and pay in.' : 'Stop beside a bank and pay in: the arrow shows it as soon as it is free.', 'info', 5000);
+    toast(game.party ? T.bankAfterParty : game.job ? T.bankAfterJob : this.bankArrow() ? T.bankArrow : T.bankWhenFree, 'info', 5000);
   }
 
   /** Whether the player has banks: a home, and so a home town. */
@@ -858,19 +853,19 @@ export class HomesUi {
       this.guideBank(true);
       if (!this.lessonSaid) {
         this.lessonSaid = true;
-        this.host.toast(this.bankArrow() ? 'To the bank: the arrow shows the nearest one. Stop beside it and pay in.' : 'To the bank: stop beside one and pay in.', 'info', 7000);
+        this.host.toast(this.bankArrow() ? T.toBankArrow : T.toBank, 'info', 7000);
       }
       return;
     }
     if (this.host.card && lessonDue(l, n)) {
       this.lessonSaid = true;
       this.cardAtS = this.playedS;
-      const place = this.plate?.place || 'your home town';
+      const place = this.plate?.place || T.yourHomeTown;
       this.card(
-        'Keep your cash safe',
-        `You carry ${money(game.cash)} in cash. If the police catch you, they take ${money(caughtCost(game.cash))} of it, and a wreck costs a share too. Money in the bank is safe from fines, and it still pays for homes in ${place}. The arrow shows the nearest bank: stop beside it and pay in.`,
-        'Show me the bank',
-        'Later',
+        T.keepCashSafe,
+        T.keepCashSafeText(money(game.cash), money(caughtCost(game.cash)), place),
+        T.showBank,
+        T.later,
         (yes) => {
           if (!yes) {
             this.setLesson({ stage: 'offer', later: n.today, rent: true });
@@ -879,7 +874,7 @@ export class HomesUi {
           this.setLesson({ stage: 'go', rent: true });
           this.guideBank(true);
         },
-        this.host.kicker?.('bank') ?? 'Good to know',
+        this.host.kicker?.('bank') ?? T.kickerKnow,
       );
       return;
     }
@@ -887,7 +882,7 @@ export class HomesUi {
       this.sinceRemind = 0;
       this.remindArrow = REMIND_ARROW_S;
       this.guideBank(true);
-      this.host.toast(`You carry ${money(game.cash)}. Caught by the police, you'd lose ${money(caughtCost(game.cash))}: ${this.bankArrow() ? 'the arrow shows the nearest bank' : 'a bank keeps it safe'}.`, 'info', 9000);
+      this.host.toast(T.cashReminder(money(game.cash), money(caughtCost(game.cash)), this.bankArrow()), 'info', 9000);
     }
     // the reminder's arrow, for a while; a package on board has its own
     this.guideBank(this.bankWay || (this.remindArrow > 0 && n.bankHere && game.cash >= remindAt(this.rentPerVisit()) / 2));
@@ -915,13 +910,8 @@ export class HomesUi {
     if (arriving && got >= 1 && !this.lesson.rent) this.setLesson({ ...this.lesson, rent: true });
     // the homes that paid: those with nothing open
     const paying = this.homes.homes.length - this.events.open.filter((e) => this.homeOfEvent(e)).length;
-    const homes = paying === 1 ? 'your home' : `your ${paying} homes`;
     // worded when it is said: a city being guessed by then hides the street of a home
-    const text = () => {
-      const waits = held ? this.heldLine(held) : '';
-      const paid = got >= 1 ? `${homes} paid you ${money(got)} rent.${waits}` : waits.trim();
-      return arriving ? `Welcome back. ${got >= 1 ? 'Today ' : ''}${paid}` : `A new day: ${paid}`;
-    };
+    const text = () => T.rentLine(arriving, paying, got >= 1 ? money(got) : null, held ? this.heldLine(held) : '');
     if (arriving) {
       // once the place's name has been read
       this.rentLine = text;
@@ -949,7 +939,7 @@ export class HomesUi {
     } catch {
       /* as above */
     }
-    this.host.toast(`${text} ${toMenu()} to see your homes.`, 'good', 12000, open);
+    this.host.toast(T.seeHomes(text, toMenu()), 'good', 12000, open);
   }
 
   // ------------------------------------------------------------ things that happen at the homes
@@ -962,8 +952,8 @@ export class HomesUi {
   }
 
   /** "your flat on Königstraße"; while a city is guessed, "your flat", as the street would give it away. */
-  private nameOf(h: Home): string {
-    return this.host.quiet?.() ? `your ${h.kind}` : homeName(h);
+  private nameOf(h: Home, c: Case = 'nom'): string {
+    return this.host.quiet?.() ? T.homeRef(h.kind, '', c) : homeName(h, c);
   }
 
   /** The event open at a home, if any. */
@@ -985,17 +975,9 @@ export class HomesUi {
   eventNote(home: Home): string {
     const e = this.eventOf(home);
     if (!e) return '';
-    const so = e.waiting ? ` (${money(e.waiting)} so far)` : '';
-    if (e.kind === 'renovate') return `Needs renovating: its rent waits until then${so}. A package from any station in its part of town renovates it`;
-    const rest = {
-      talk: 'Stop beside it to talk to them',
-      insist: 'They wait for the part: a rush job from a fire station',
-      accept: 'They wait for what it needs: a supply run from a fuel station, with no new dent',
-      court: 'The court’s order: drive the officers from a police station to it, by the book',
-      replace: 'The old boiler gave up: a package from any station brings a new one',
-      moving: 'New tenants move in with your next delivery',
-    }[e.stage ?? 'talk'];
-    return `${e.stage === 'moving' ? 'The tenants have moved out' : 'The tenants have stopped paying'}: its rent waits until it is settled${so}. ${rest}`;
+    const so = e.waiting ? T.soFar(money(e.waiting)) : '';
+    if (e.kind === 'renovate') return T.needsRenovating(so);
+    return T.tenantsNote(e.stage === 'moving', so, T.disputeNote[e.stage ?? 'talk']);
   }
 
   /** A day's rent of the homes with nothing open: what comes in as cash each day now. */
@@ -1021,9 +1003,9 @@ export class HomesUi {
   private heldLine(held: number): string {
     const open = this.events.open.filter((e) => this.homeOfEvent(e));
     const homes = open.map((e) => this.homeOfEvent(e)!);
-    const where = homes.length === 1 ? this.nameOf(homes[0]) : `${homes.length} of your homes`;
-    const done = open.every((e) => e.kind === 'renovate') ? 'renovated' : open.every((e) => e.kind === 'dispute') ? 'settled' : 'sorted out';
-    return ` ${money(held)} waits at ${where} until ${homes.length === 1 ? 'it is' : 'they are'} ${done}.`;
+    const where = homes.length === 1 ? this.nameOf(homes[0], 'dat') : T.nOfYourHomes(homes.length, 'dat');
+    const done = open.every((e) => e.kind === 'renovate') ? 'renovate' : open.every((e) => e.kind === 'dispute') ? 'dispute' : 'mixed';
+    return T.heldLine(money(held), where, homes.length !== 1, done);
   }
 
   /** Whether something may happen at a home now, and if so, it does: for now, a home needs renovating. */
@@ -1058,9 +1040,9 @@ export class HomesUi {
     this.syncSpecial();
     this.cardAtS = this.playedS;
     this.card(
-      `Your ${h.kind} needs renovating`,
-      `The walls of ${homeName(h)} are worn down. Until it is renovated, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. A package from any fuel, fire or police station brings what it needs${game.run.over ? ': their rings flash green now' : ': once your run is over, their rings flash green'}. Deliver it to the building, and the rent that waited is yours.`,
-      'Got it',
+      T.needsRenovatingTitle(h.kind),
+      T.needsRenovatingText(homeName(h, 'gen'), money(this.rentOf(h)), game.run.over),
+      T.gotIt,
       '',
       () => undefined,
     );
@@ -1081,7 +1063,7 @@ export class HomesUi {
     }
     this.host.save();
     const lost = Math.max(0, amount - got - Math.max(0, banked));
-    return (banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '') + (lost > 0 ? ` ${money(lost)} did not fit: your cash and your bank are full.` : '');
+    return T.credited(banked > 0 ? money(banked) : null, lost > 0 ? money(lost) : null);
   }
 
   /** Money paid to the player by a scene of the story: as cash, the rest to the bank at the most cash one can hold. */
@@ -1130,8 +1112,8 @@ export class HomesUi {
     if (lot) this.world?.model.paintBuilding(lot.poly, h.colour ?? null);
     this.syncSpecial();
     const lost = Math.max(0, e.waiting + tip - got - Math.max(0, banked));
-    const extra = (banked > 0 ? ` ${money(banked)} of it went to your bank: you hold the most cash there is.` : '') + (lost > 0 ? ` ${money(lost)} did not fit: your cash and your bank are full.` : '');
-    this.say(`${cap(this.nameOf(h))} is renovated.${e.waiting ? ` The ${money(e.waiting)} rent that waited there is yours,` : ''} ${e.waiting ? 'and the' : 'The'} tenants thank you with ${money(tip)}.${extra}`, 'good', 10000);
+    const extra = T.credited(banked > 0 ? money(banked) : null, lost > 0 ? money(lost) : null);
+    this.say(T.renovated(this.nameOf(h), e.waiting ? money(e.waiting) : null, money(tip), extra), 'good', 10000);
   }
 
   // ------------------------------------------------------------ the tenants' dispute (`game/dispute.ts`)
@@ -1213,14 +1195,14 @@ export class HomesUi {
     // the card says it: the note is kept with the messages
     this.host.people?.note('tenants', this.tenantsFrom(h, t), words, false);
     this.card(
-      'A note from your tenants',
-      `“${words}” ${t.names}, ${t.what}, in ${this.nameOf(h)}. Until it is settled, its rent of ${money(this.rentOf(h))} a day waits at the building: it is not lost. Stop beside it to talk to them.`,
-      'Show the way',
-      'Later',
+      T.noteTitle,
+      T.noteText(words, t.names, t.what, this.nameOf(h, 'dat'), money(this.rentOf(h))),
+      T.showWay,
+      T.later,
       (yes) => {
         if (yes) this.showWay(h);
       },
-      this.host.kicker?.('dispute') ?? 'Your tenants',
+      this.host.kicker?.('dispute') ?? T.yourTenants,
     );
   }
 
@@ -1231,13 +1213,13 @@ export class HomesUi {
     const t = this.tenantsAt(h);
     const mood = e.mood ?? 'broken';
     this.card(
-      'Your tenants want to talk',
+      T.talkTitle,
       choiceText(mood, t, h.kind),
-      'Insist on all of it',
-      'Accept part of it',
+      T.insistAll,
+      T.acceptPart,
       (insist) => this.choose(h, insist ? 'insist' : 'accept'),
-      this.host.kicker?.('dispute') ?? 'Your tenants',
-      'Not now',
+      this.host.kicker?.('dispute') ?? T.yourTenants,
+      T.notNow,
     );
   }
 
@@ -1248,11 +1230,9 @@ export class HomesUi {
     this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage } : o)) });
     this.syncSpecial();
     const fit = fits(e.mood ?? 'broken', stage);
-    const when = this.host.game.run.over ? 'their rings flash green' : 'once your run is over, their rings flash green';
+    const when = T.ringsGreen(this.host.game.run.over);
     this.say(
-      stage === 'insist'
-        ? `You insist on all of it. The part comes from a fire station, on a rush job: ${when}.${fit ? ' It’s what they need most: a little more time on the clock.' : ''}`
-        : `You accept part of it. What the ${h.kind === 'house' ? 'house' : 'flat'} needs comes from a fuel station, on a supply run: ${when}.${fit ? ' It’s what they need most: a lighter load.' : ''}`,
+      stage === 'insist' ? T.choseInsist(when, fit) : T.choseAccept(h.kind !== 'house', when, fit),
       'info',
       9000,
     );
@@ -1267,7 +1247,7 @@ export class HomesUi {
     const next = after(stage, ok);
     const t = this.tenantsAt(h);
     const from = this.tenantsFrom(h, t);
-    const kicker = this.host.kicker?.('dispute') ?? 'Your tenants';
+    const kicker = this.host.kicker?.('dispute') ?? T.yourTenants;
     const said = answer(stage, ok, e.mood ?? 'broken', h.kind);
     if (said) this.host.people?.note('tenants', from, said, true);
     const line = storyLine(stage, ok, h.street, late);
@@ -1286,19 +1266,19 @@ export class HomesUi {
       this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage: next, waiting: o.waiting - fromRent } : o)) });
       this.syncSpecial();
       this.host.people?.note('shield', '', officerDone(), true);
-      const how = fromRent >= bill ? ', paid from the rent that waited' : fromRent > 0 ? ', paid from the rent that waited and your money' : '';
-      this.say(`The court’s order is carried out: ${t.names} have moved out of ${this.nameOf(h)}. The bill of the court and the officers: ${money(bill)}${how}${paid < bill ? `; ${money(bill - paid)} of it you couldn’t pay` : ''}. New tenants move in with your next delivery.`, 'info', 11000);
+      const how = fromRent >= bill ? 'rent' : fromRent > 0 ? 'both' : 'money';
+      this.say(T.courtDone(t.names, this.nameOf(h, 'dat'), money(bill), how, paid < bill ? money(bill - paid) : null), 'info', 11000);
       return;
     }
     this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage: next } : o)) });
     this.syncSpecial();
     if (next === 'court' && stage === 'insist') {
-      const officer = this.host.people?.officer() || 'Two officers';
+      const officer = this.host.people?.officer() || null;
       this.host.people?.note('shield', '', officerOrder(h.kind), true);
       this.card(
-        'The court’s order',
-        `${t.names} still won’t pay, and the court has ordered them to move out of ${this.nameOf(h)}. ${officer === 'Two officers' ? 'Two officers carry' : `${officer} and a colleague carry`} out the order: pick them up at a police station and drive them there without breaking the law. Nobody is arrested: the tenants move out, and new ones move in. The bill of the court and the officers is high: ${money(courtBill(rent))}, five days of its rent.`,
-        'Got it',
+        T.courtTitle,
+        T.courtText(t.names, this.nameOf(h, 'dat'), officer, money(courtBill(rent))),
+        T.gotIt,
         '',
         () => undefined,
         kicker,
@@ -1307,9 +1287,9 @@ export class HomesUi {
     }
     if (next === 'replace' && stage === 'accept') {
       this.card(
-        'The old boiler gave up',
-        `In ${this.nameOf(h)} the old boiler has broken for good, and a new one costs ${money(replaceCost(rent))}, three days of its rent. One more package from any fuel, fire or police station brings it: ${this.host.game.run.over ? 'their rings flash green' : 'once your run is over, their rings flash green'}. Then it is settled, at the rent you agreed.`,
-        'Got it',
+        T.boilerTitle,
+        T.boilerText(this.nameOf(h, 'dat'), money(replaceCost(rent)), T.ringsGreen(this.host.game.run.over)),
+        T.gotIt,
         '',
         () => undefined,
         kicker,
@@ -1317,8 +1297,8 @@ export class HomesUi {
       return;
     }
     // the court's order or the new boiler, not there: they wait
-    if (stage === 'court') this.say('The officers wait at the police station: pick them up again, and drive by the book.', 'info', 7000);
-    else if (stage === 'replace') this.say(`The new boiler for ${this.nameOf(h)} waits: a package from any station brings it.`, 'info', 7000);
+    if (stage === 'court') this.say(T.officersWait, 'info', 7000);
+    else if (stage === 'replace') this.say(T.boilerWaits(this.nameOf(h, 'acc')), 'info', 7000);
   }
 
   /** A package for a home with something to solve did not get there. A dispute's choice turns on it; anything else waits. */
@@ -1356,12 +1336,12 @@ export class HomesUi {
     const net = e.waiting + tip - cost;
     const extra = net > 0 ? this.credit(net) : '';
     const paid = net < 0 ? this.charge(-net) : 0;
-    const waited = e.waiting ? `the ${money(e.waiting)} rent that waited is yours` : '';
+    const waited = e.waiting ? money(e.waiting) : null;
     const where = cap(this.nameOf(h));
     let text: string;
-    if (stage === 'insist') text = `${where}: settled. ${waited ? `${cap(waited)}, and the` : 'The'} tenants add ${money(tip)}.`;
-    else if (stage === 'accept') text = `${where}: settled.${waited ? ` ${cap(waited)}.` : ''} For a week their rent is a fifth lower: ${money(this.rentOf(h))} a day.`;
-    else text = `${where}: a new boiler, and it is settled. It cost ${money(cost)}${e.waiting ? `, paid from the ${money(e.waiting)} rent that waited` : ''}${paid ? `; ${money(paid)} came from your money` : ''}. For a week the rent is a fifth lower, as agreed.`;
+    if (stage === 'insist') text = T.settledInsist(where, waited, money(tip));
+    else if (stage === 'accept') text = T.settledAccept(where, waited, money(this.rentOf(h)));
+    else text = T.settledReplace(where, money(cost), waited, paid ? money(paid) : null);
     this.say(text + extra, 'good', 11000);
   }
 
@@ -1384,7 +1364,7 @@ export class HomesUi {
     const t = this.tenantsAt(h);
     this.host.people?.note('tenants', this.tenantsFrom(h, t), welcome(), true);
     const extra = e.waiting ? this.credit(e.waiting) : '';
-    this.say(`New tenants in ${this.nameOf(h)}: ${t.names}, ${t.what}.${e.waiting ? ` The ${money(e.waiting)} rent that waited there is yours.` : ''}${extra}`, 'good', 10000);
+    this.say(T.newTenants(this.nameOf(h, 'dat'), t.names, t.what, e.waiting ? money(e.waiting) : null, extra), 'good', 10000);
   }
 
   /** The tenants it went well with at a home come to the party there, once: the line that says so, or ''. */
@@ -1394,7 +1374,7 @@ export class HomesUi {
     this.setEvents({ ...this.events, glad: this.events.glad.filter((g) => g !== key) });
     if (!h) return '';
     const t = this.tenantsAt(h);
-    return `${t.names}, your tenant${t.two ? 's' : ''}, came too, and brought dessert.`;
+    return T.guests(t.names, t.two);
   }
 
   // ------------------------------------------------------------ home points
@@ -1407,7 +1387,7 @@ export class HomesUi {
       /* as above */
     }
     this.host.toast(
-      `New: home points. Each delivery earns one; a flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. After your first delivery each day, one ${this.housesOpen() ? 'flat or house' : 'flat'} can be bought without a realtor. ${toMenu()} to see yours.`,
+      T.pointsNote(FLAT_POINTS, HOUSE_POINTS, this.housesOpen(), toMenu()),
       'info',
       14000,
       this.host.openHomes,
@@ -1455,10 +1435,10 @@ export class HomesUi {
   /** The line on the day's home without a realtor: there, after the first delivery, or bought. */
   dailyLine(): string {
     const d = this.dailyNow();
-    const what = this.housesOpen() ? 'flat or house' : 'flat';
-    if (d === 'ready') return `Today one ${what} can be bought without a realtor: no points needed.`;
-    if (d === 'later') return `After your first delivery today, one ${what} can be bought without a realtor: no points needed.`;
-    return `Today’s ${what} without a realtor is bought. Tomorrow there is another.`;
+    const houses = this.housesOpen();
+    if (d === 'ready') return T.dailyReady(houses);
+    if (d === 'later') return T.dailyLater(houses);
+    return T.dailyUsed(houses);
   }
 
   /** Points, and the day's free home, kept; `changed`: the day's free home changed even if the points did not. */
@@ -1560,12 +1540,12 @@ export class HomesUi {
       this.setReno({ ...this.reno!, stage: 'rest', fixed: 0 });
       this.wayTo = null;
       const others = lot.units - 1;
-      this.host.toast(`The whole building is yours.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} The other ${others} ${others === 1 ? 'flat needs' : 'flats need'} repairing: the stations’ rings flash green again, and each repaired flat adds rent.`, 'good', 10000);
+      this.host.toast(T.boughtBuilding(pay.saved ? money(pay.saved) : null, others), 'good', 10000);
     } else if (first && this.host.firstHome) {
       this.cardAtS = this.playedS;
       this.host.firstHome(describe(lot, what), money(mine.rent), worn);
     }
-    else this.host.toast(`It's yours: ${describe(lot, what)}.${pay.saved ? ` ${money(pay.saved)} of it came from the bank.` : ''} It pays ${money(mine.rent)} rent each day you come back.${this.host.party ? ' Throw a party there: stop beside it.' : ''}`, 'good', 8000);
+    else this.host.toast(T.bought(describe(lot, what), pay.saved ? money(pay.saved) : null, money(mine.rent), !!this.host.party), 'good', 8000);
     this.shown = '';
     this.look();
     return true;
@@ -1608,12 +1588,12 @@ export class HomesUi {
     this.panel.replaceChildren();
     if (bank) {
       const title = document.createElement('b');
-      title.textContent = 'Bank';
+      title.textContent = T.bank;
       const p = document.createElement('p');
-      p.textContent = `You have ${money(this.saved)} here. Money in the bank is safe from fines and pays for homes in ${(!this.host.quiet?.() && this.plate?.place) || 'your home town'}.`;
+      p.textContent = T.bankPanel(money(this.saved), (!this.host.quiet?.() && this.plate?.place) || T.yourHomeTown);
       const b = document.createElement('button');
       const amount = Math.min(Math.floor(game.cash), MAX_CASH - this.saved);
-      b.textContent = `Pay in ${money(Math.max(0, amount))}`;
+      b.textContent = T.payIn(money(Math.max(0, amount)));
       b.disabled = amount < 1;
       b.addEventListener('click', () => this.payIn());
       this.panel.append(title, p, b);
@@ -1633,12 +1613,12 @@ export class HomesUi {
       const wait = this.waitFor(found!, what);
       const day = this.daySpends(found!, what);
       b.textContent = !open
-        ? `${text}: opens ${opensAfter(what)}`
+        ? T.btnOpens(text, opensAfter(what))
         : need > POINTS_MAX && what === 'building'
-          ? `${text}: too big for now`
+          ? T.btnTooBig(text)
           : wait
-            ? `${text}  ${money(price)}: after ${deliveries(wait)}`
-            : `${text}  ${money(price)}${day ? ' · no realtor needed' : need ? ` · ${need} points` : ''}`;
+            ? T.btnAfter(text, money(price), wait)
+            : T.btnPrice(text, money(price), day, need);
       b.disabled = !open || wait > 0 || this.budget() < price;
       b.addEventListener('click', () => this.buy(found!, what));
       this.panel.append(b);
@@ -1655,62 +1635,62 @@ export class HomesUi {
     };
     const title = document.createElement('b');
     if (had) {
-      title.textContent = had.kind === 'building' ? 'Your building' : had.kind === 'house' ? 'Your house' : 'Your flat';
+      title.textContent = T.yourKind(had.kind);
       this.panel.append(title);
       const r = this.reno;
       if (had === this.homes.homes[0] && r && r.stage !== 'done' && r.stage !== 'find') {
         const units = r.units ?? found.units;
-        if (r.stage === 'flat') line('The walls are worn down: it pays no rent until it is repaired. Take a package from a fuel, fire or police station: their rings flash green.');
+        if (r.stage === 'flat') line(T.panelWorn);
         else if (r.stage === 'buy') {
-          line(`Repaired: pays ${money(had.rent)} rent each day you come back. The other ${units - 1 === 1 ? 'flat is' : `${units - 1} flats are`} for sale.`);
-          button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
-        } else if (r.stage === 'rest') line(`${1 + (r.fixed ?? 0)} of ${units} flats repaired: pays ${money(this.rentOf(had))} rent each day you come back. A package from a station whose ring flashes green repairs the next.`);
-        else line(`Every flat is repaired: pays ${money(had.rent)} rent each day you come back. One more package from a station brings the paint for the outside.`);
+          line(T.panelRepaired(money(had.rent), units - 1));
+          button(T.buyRest, Math.max(0, found.whole - had.paid), 'building');
+        } else if (r.stage === 'rest') line(T.panelRest(1 + (r.fixed ?? 0), units, money(this.rentOf(had))));
+        else line(T.panelAllRepaired(money(had.rent)));
         partyButton(had);
         return;
       }
       const note = this.eventNote(had);
-      line(note ? `${note}. Then it pays ${money(had.rent)} rent each day you come back.` : `Pays ${money(had.rent)} rent each day you come back.`);
+      line(note ? T.panelNotePays(note, money(had.rent)) : T.panelPays(money(had.rent)));
       const open = this.eventOf(had);
       if (open?.kind === 'dispute' && (open.stage ?? 'talk') === 'talk') {
         const b = document.createElement('button');
         b.className = 'talk';
-        b.textContent = 'Talk to the tenants';
+        b.textContent = T.talkTenants;
         b.addEventListener('click', () => this.talk(had));
         this.panel.append(b);
       }
-      if (had.kind === 'flat') button('Buy the rest of the building', Math.max(0, found.whole - had.paid), 'building');
+      if (had.kind === 'flat') button(T.buyRest, Math.max(0, found.whole - had.paid), 'building');
       else {
         this.paints(found, had);
-        if (this.renovating(had)) line('The colour you choose goes on once it is renovated.');
+        if (this.renovating(had)) line(T.colourLater);
       }
       // after the buying and the paint, so those keep their look
       partyButton(had);
       return;
     }
-    title.textContent = 'For sale';
+    title.textContent = T.forSale;
     this.panel.append(title);
     if (this.worn(found)) {
       const price = this.fixerPrice(found);
-      title.textContent = 'For sale, worn down';
-      line(`A flat in ${floorsA(found.floors)} building${on(found.street)}, ${found.units} flats. The walls are worn down: it pays rent once it is repaired. ${money(price)}${price < found.price ? `, not ${money(found.price)}` : ''}.`);
-      button('Buy the worn-down flat', price, 'flat');
-      if (this.budget() < price) line(`You have ${money(game.cash)}: a delivery or two more.`);
+      title.textContent = T.forSaleWorn;
+      line(T.saleWorn(found.floors, found.street, found.units, money(price), price < found.price ? money(found.price) : null));
+      button(T.buyWorn, price, 'flat');
+      if (this.budget() < price) line(T.cashShort(money(game.cash)));
       return;
     }
     if (found.kind === 'house') {
-      line(`A house${on(found.street)}. Pays ${money(rentFor(found.price))} rent each day you come back.`);
-      button('Buy the house', found.price, 'house');
+      line(T.saleHouse(found.street, money(rentFor(found.price))));
+      button(T.buyHouse, found.price, 'house');
     } else {
-      line(`Flats in ${floorsA(found.floors)} ${found.inHouse ? 'house' : 'building'}${on(found.street)}. One pays ${money(rentFor(found.price))} rent each day you come back.`);
-      button('Buy a flat', found.price, 'flat');
-      button(`Buy all ${found.units}`, found.whole, 'building');
+      line(T.saleFlats(found.floors, !!found.inHouse, found.street, money(rentFor(found.price))));
+      button(T.buyFlat, found.price, 'flat');
+      button(T.buyAll(found.units), found.whole, 'building');
     }
-    if (this.budget() < found.price) line(`You have ${money(game.cash)}${this.atPlate && this.saved ? ` and ${money(this.saved)} in the bank` : ''}.`);
+    if (this.budget() < found.price) line(T.youHave(money(game.cash), this.atPlate && this.saved ? money(this.saved) : null));
     if (this.homes.homes.length) {
       const p = document.createElement('p');
       p.className = 'small';
-      p.textContent = `You have ${this.points} ${this.points === 1 ? 'point' : 'points'}: one for each delivery. A flat takes ${FLAT_POINTS}, a house ${HOUSE_POINTS}. ${this.dailyLine()}`;
+      p.textContent = T.pointsPanel(this.points, FLAT_POINTS, HOUSE_POINTS, this.dailyLine());
       this.panel.append(p);
     }
   }
@@ -1723,7 +1703,7 @@ export class HomesUi {
       const b = document.createElement('button');
       b.className = 'swatch';
       b.title = name;
-      b.setAttribute('aria-label', `Paint it ${name}`);
+      b.setAttribute('aria-label', T.paintIt(name));
       if (hex) b.style.background = hex;
       else b.textContent = '×';
       if ((home.colour ?? null) === hex) b.classList.add('on');
@@ -1739,11 +1719,11 @@ export class HomesUi {
       });
       row.append(b);
     };
-    for (const p of PAINTS) swatch(p.hex, p.name);
-    swatch(null, 'its own colour again');
+    for (const p of PAINTS) swatch(p.hex, T.paints[p.name] ?? p.name);
+    swatch(null, T.ownColour);
     const p = document.createElement('p');
     p.className = 'small';
-    p.textContent = 'Paint it:';
+    p.textContent = T.paintLabel;
     this.panel.append(p, row);
   }
 
@@ -1772,7 +1752,7 @@ export class HomesUi {
       return el;
     };
     const owned = this.homes.homes.length;
-    if (owned) p(`Your ${owned === 1 ? 'home pays' : `${owned} homes pay`} ${money(this.rentPaying())} rent each day you come back${rent ? `. Paid today: ${money(rent)}` : ''}.`, 'small');
+    if (owned) p(T.offerRent(owned, money(this.rentPaying()), rent ? money(rent) : null), 'small');
     if (!free.length) {
       box.hidden = !owned;
       return;
@@ -1784,12 +1764,12 @@ export class HomesUi {
     const pick = affordable[0];
     if (pick) {
       const head = document.createElement('b');
-      head.textContent = `For sale near here: ${describe(pick, what(pick))}`;
+      head.textContent = T.saleNear(describe(pick, what(pick)));
       box.append(head);
-      p(`${money(pick.price)}. You have ${money(cash)}${this.atPlate && this.saved ? ', counting the bank' : ''}. It pays ${money(rentFor(pick.price))} rent each day you come back.`);
+      p(T.saleNearText(money(pick.price), money(cash), !!(this.atPlate && this.saved), money(rentFor(pick.price))));
       const b = document.createElement('button');
       b.className = 'buy';
-      b.textContent = `Buy it for ${money(pick.price)}`;
+      b.textContent = T.buyFor(money(pick.price));
       b.addEventListener('click', () => {
         if (this.buy(pick, what(pick))) this.offer(box);
       });
@@ -1799,14 +1779,14 @@ export class HomesUi {
       const cheap = paid ?? [...free].filter(open).sort((a, b) => a.price - b.price)[0];
       if (!cheap) return;
       const wait = this.waitFor(cheap, what(cheap));
-      if (cheap.price <= cash && wait) p(`For sale near here: ${describe(cheap, what(cheap))}, ${money(cheap.price)}. You can buy your next home after ${deliveries(wait)}.`);
-      else p(`The cheapest home near here is ${describe(cheap, what(cheap))}: ${money(cheap.price)}. ${money(cheap.price - cash)} more${wait ? ` and ${deliveries(wait)}` : ''}, and it's yours.`);
+      if (cheap.price <= cash && wait) p(T.saleNearWait(describe(cheap, what(cheap)), money(cheap.price), wait));
+      else p(T.cheapest(describe(cheap, what(cheap)), money(cheap.price), money(cheap.price - cash), wait));
     }
     // something bigger, to aim for: the nearest house or whole building that costs more
     const goal = free
       .filter((l) => canBuy(this.homes, l.kind === 'house' ? 'house' : 'building') && (l.kind === 'house' ? l.price : l.whole) > Math.max(cash, pick?.price ?? 0) * 1.5)
       .sort((a, b) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py))[0];
-    if (goal) p(`Also near: ${describe(goal, goal.kind === 'house' ? 'house' : 'building')}, ${money(goal.kind === 'house' ? goal.price : goal.whole)}.`, 'small');
-    p('Stop beside any building to see its price.', 'small');
+    if (goal) p(T.alsoNear(describe(goal, goal.kind === 'house' ? 'house' : 'building'), money(goal.kind === 'house' ? goal.price : goal.whole)), 'small');
+    p(T.stopBeside, 'small');
   }
 }

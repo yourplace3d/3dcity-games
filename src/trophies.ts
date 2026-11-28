@@ -8,6 +8,7 @@
  */
 
 import { kmBetween } from './game/bank';
+import { T } from './i18n';
 
 const STORE = '3da-trophies';
 const DAY_MS = 86400000;
@@ -42,45 +43,45 @@ const word = (t: string, size: number) => `<text x="32" y="33" text-anchor="midd
 
 export const GROUPS: Group[] = [
   {
-    name: 'Getting started',
+    name: T.trophyGroups[0],
     colour: '#5fd08a',
     trophies: [
-      { id: 'car', name: 'First car', how: 'Take a car', sign: '<path d="M14 36l5-11h26l5 11v8H14z"/><circle cx="22" cy="45" r="5"/><circle cx="42" cy="45" r="5"/>' },
-      { id: 'delivery', name: 'First delivery', how: 'Deliver a package', sign: '<path d="M16 24l16-7 16 7v18l-16 7-16-7z"/><path d="M32 31v18M16 24l16 7 16-7" fill="none" stroke="#5fd08a" stroke-width="2.5"/>' },
-      { id: 'run', name: 'A run of three', how: 'Finish a run of three deliveries', sign: '<path d="M21 14h4v38h-4z"/><path d="M25 15h20l-5 8 5 8H25z"/>' },
-      { id: 'home', name: 'First home', how: 'Buy a home', sign: house(32, 34, 1.2) },
-      { id: 'bank', name: 'Money in the bank', how: 'Pay cash in at a bank', sign: '<path d="M14 26l18-10 18 10z"/><path d="M18 28h5v14h-5zM29.5 28h5v14h-5zM41 28h5v14h-5zM14 44h36v5H14z"/>' },
+      { id: 'car', name: T.trophyText.car[0], how: T.trophyText.car[1], sign: '<path d="M14 36l5-11h26l5 11v8H14z"/><circle cx="22" cy="45" r="5"/><circle cx="42" cy="45" r="5"/>' },
+      { id: 'delivery', name: T.trophyText.delivery[0], how: T.trophyText.delivery[1], sign: '<path d="M16 24l16-7 16 7v18l-16 7-16-7z"/><path d="M32 31v18M16 24l16 7 16-7" fill="none" stroke="#5fd08a" stroke-width="2.5"/>' },
+      { id: 'run', name: T.trophyText.run[0], how: T.trophyText.run[1], sign: '<path d="M21 14h4v38h-4z"/><path d="M25 15h20l-5 8 5 8H25z"/>' },
+      { id: 'home', name: T.trophyText.home[0], how: T.trophyText.home[1], sign: house(32, 34, 1.2) },
+      { id: 'bank', name: T.trophyText.bank[0], how: T.trophyText.bank[1], sign: '<path d="M14 26l18-10 18 10z"/><path d="M18 28h5v14h-5zM29.5 28h5v14h-5zM41 28h5v14h-5zM14 44h36v5H14z"/>' },
     ],
   },
   {
-    name: 'Real estate',
+    name: T.trophyGroups[1],
     colour: '#ffd400',
     trophies: [
-      { id: 'homes5', name: 'Five homes', how: 'Own 5 homes', sign: word('5', 34) },
-      { id: 'building', name: 'A whole building', how: 'Own a whole building', sign: '<path d="M20 12h24v40H20z"/><path d="M25 18h5v5h-5zM34 18h5v5h-5zM25 27h5v5h-5zM34 27h5v5h-5zM25 36h5v5h-5zM34 36h5v5h-5zM29 45h6v7h-6z" fill="#ffd400"/>' },
-      { id: 'painted', name: 'A fresh coat', how: 'Paint a house or building you own', sign: '<path d="M15 16h28v12H15z"/><path d="M43 21h5v13H31v6" fill="none" stroke="#16181c" stroke-width="4"/><path d="M28 40h6v12h-6z"/>' },
-      { id: 'towns2', name: 'Two towns', how: 'Own homes in two towns', sign: `${house(21, 36, 0.8)}${house(43, 36, 0.8)}` },
-      { id: 'rent1000', name: '$1,000 a day', how: 'Own homes that pay $1,000 rent a day', sign: word('$', 36) },
-      { id: 'story', name: 'The whole story', how: 'Play the story to its last chapter: settle a dispute with your tenants', sign: '<path d="M10 18c8-3 15-2 21 3v30c-6-5-13-6-21-3z"/><path d="M54 18c-8-3-15-2-21 3v30c6-5 13-6 21-3z"/>' },
+      { id: 'homes5', name: T.trophyText.homes5[0], how: T.trophyText.homes5[1], sign: word('5', 34) },
+      { id: 'building', name: T.trophyText.building[0], how: T.trophyText.building[1], sign: '<path d="M20 12h24v40H20z"/><path d="M25 18h5v5h-5zM34 18h5v5h-5zM25 27h5v5h-5zM34 27h5v5h-5zM25 36h5v5h-5zM34 36h5v5h-5zM29 45h6v7h-6z" fill="#ffd400"/>' },
+      { id: 'painted', name: T.trophyText.painted[0], how: T.trophyText.painted[1], sign: '<path d="M15 16h28v12H15z"/><path d="M43 21h5v13H31v6" fill="none" stroke="#16181c" stroke-width="4"/><path d="M28 40h6v12h-6z"/>' },
+      { id: 'towns2', name: T.trophyText.towns2[0], how: T.trophyText.towns2[1], sign: `${house(21, 36, 0.8)}${house(43, 36, 0.8)}` },
+      { id: 'rent1000', name: T.trophyText.rent1000[0], how: T.trophyText.rent1000[1], sign: word('$', 36) },
+      { id: 'story', name: T.trophyText.story[0], how: T.trophyText.story[1], sign: '<path d="M10 18c8-3 15-2 21 3v30c-6-5-13-6-21-3z"/><path d="M54 18c-8-3-15-2-21 3v30c6-5 13-6 21-3z"/>' },
     ],
   },
   {
-    name: 'Driving',
+    name: T.trophyGroups[2],
     colour: '#2bd4e0',
     trophies: [
-      { id: 'lost', name: 'Shaken off', how: 'Lose the police', sign: '<path d="M12 40c8-14 20-18 32-16v-7l10 11-10 11v-7c-10-1-20 2-28 12z"/>' },
-      { id: 'clean', name: 'A clean run', how: 'Finish a run of three without being caught, wrecked or knocked out', sign: '<path d="M14 33l6-6 8 8 16-17 6 6-22 23z"/>' },
-      { id: 'rush', name: 'Time to spare', how: 'Finish a rush job with 30 seconds left', sign: '<circle cx="32" cy="35" r="15" fill="none" stroke="#16181c" stroke-width="5"/><path d="M29 12h6v6h-6zM30 35V25h4v10z"/><path d="M32 33l7 5-2 3-7-5z"/>' },
-      { id: 'deliveries100', name: '100 deliveries', how: 'Deliver 100 packages', sign: word('100', 22) },
+      { id: 'lost', name: T.trophyText.lost[0], how: T.trophyText.lost[1], sign: '<path d="M12 40c8-14 20-18 32-16v-7l10 11-10 11v-7c-10-1-20 2-28 12z"/>' },
+      { id: 'clean', name: T.trophyText.clean[0], how: T.trophyText.clean[1], sign: '<path d="M14 33l6-6 8 8 16-17 6 6-22 23z"/>' },
+      { id: 'rush', name: T.trophyText.rush[0], how: T.trophyText.rush[1], sign: '<circle cx="32" cy="35" r="15" fill="none" stroke="#16181c" stroke-width="5"/><path d="M29 12h6v6h-6zM30 35V25h4v10z"/><path d="M32 33l7 5-2 3-7-5z"/>' },
+      { id: 'deliveries100', name: T.trophyText.deliveries100[0], how: T.trophyText.deliveries100[1], sign: word('100', 22) },
     ],
   },
   {
-    name: 'Places',
+    name: T.trophyGroups[3],
     colour: '#f08a24',
     trophies: [
-      { id: 'places5', name: 'Five places', how: 'Play in 5 places, each a town or more apart', sign: '<path d="M32 52C22 40 18 33 18 26a14 14 0 0 1 28 0c0 7-4 14-14 26z"/><circle cx="32" cy="26" r="5" fill="#f08a24"/>' },
-      { id: 'places20', name: 'Twenty places', how: 'Play in 20 places, each a town or more apart', sign: word('20', 28) },
-      { id: 'guessed', name: 'City guessed', how: 'Guess a city right in Where am I?', sign: word('?', 38) },
+      { id: 'places5', name: T.trophyText.places5[0], how: T.trophyText.places5[1], sign: '<path d="M32 52C22 40 18 33 18 26a14 14 0 0 1 28 0c0 7-4 14-14 26z"/><circle cx="32" cy="26" r="5" fill="#f08a24"/>' },
+      { id: 'places20', name: T.trophyText.places20[0], how: T.trophyText.places20[1], sign: word('20', 28) },
+      { id: 'guessed', name: T.trophyText.guessed[0], how: T.trophyText.guessed[1], sign: word('?', 38) },
     ],
   },
 ];
@@ -237,7 +238,7 @@ export function dateOf(day: number): string {
 /** The trophies, group by group, into the side menu. */
 export function drawTrophies(list: HTMLElement, line: HTMLElement, t: Trophies): void {
   list.replaceChildren();
-  line.textContent = `${t.count()} of ${ALL.length} earned. Nothing is paid for them: they are for you, and for showing friends.`;
+  line.textContent = T.trophiesLine(t.count(), ALL.length);
   for (const g of GROUPS) {
     const box = document.createElement('section');
     box.className = 'trophy-group';
@@ -246,7 +247,7 @@ export function drawTrophies(list: HTMLElement, line: HTMLElement, t: Trophies):
     const name = document.createElement('b');
     name.textContent = g.name;
     const sub = document.createElement('small');
-    sub.textContent = `${g.trophies.filter((x) => t.day(x.id) !== null).length} of ${g.trophies.length} earned`;
+    sub.textContent = T.trophiesEarnedOf(g.trophies.filter((x) => t.day(x.id) !== null).length, g.trophies.length);
     head.append(name, sub);
     const grid = document.createElement('ul');
     grid.className = 'trophies';

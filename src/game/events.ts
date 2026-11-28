@@ -14,6 +14,7 @@
  */
 
 import type { JobKind } from './services';
+import { T } from '../i18n';
 
 const STORE = '3da-events';
 const DAY_MS = 86400000;
@@ -175,12 +176,7 @@ export function renovationCandidates<H extends { id: string; lat: number; lon: n
 
 /** What a station's package is, for a home being renovated: the line said as it is picked up. */
 export function renovateLines(what: string): Record<JobKind, string> {
-  return {
-    plain: `Things to renovate ${what}: take them to the building`,
-    supply: `Paint and plaster for ${what}: a heavy load, take it to the building`,
-    rush: `A plumber's part for ${what}: quick, the clock is short`,
-    clean: `New windows for ${what}: drive clean or the job is gone`,
-  };
+  return T.renovateLines(what);
 }
 
 /** The tenants' thanks when their home is renovated: a quarter of a day's rent, in tens. */

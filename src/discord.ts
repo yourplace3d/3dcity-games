@@ -16,6 +16,7 @@
 
 import { countDiscord } from './linkCount';
 import { BAKED } from './geo/mapCache';
+import { T } from './i18n';
 
 /** The game's invite link, from the owner (27 November 2026). Empty: no card and no menu link. */
 export const INVITE = 'https://discord.gg/7d5KXx856v';
@@ -96,17 +97,17 @@ export function inviteCard(close: () => void): HTMLElement {
   el.setAttribute('aria-label', 'Discord');
   const from = document.createElement('small');
   from.className = 'from';
-  from.textContent = '3DA on Discord';
+  from.textContent = T.discordName;
   const text = document.createElement('span');
   text.className = 'text';
-  text.textContent = 'Stuck on a chapter, or found a bug? A small Discord for story help and what you would change.';
+  text.textContent = T.discordCard;
   const row = document.createElement('span');
   row.className = 'row';
-  const a = inviteLink(String(CARD_AFTER), 'Join the Discord');
+  const a = inviteLink(String(CARD_AFTER), T.discordJoin);
   a.addEventListener('click', close);
   const no = document.createElement('button');
   no.type = 'button';
-  no.textContent = 'Not now';
+  no.textContent = T.notNow;
   no.addEventListener('click', close);
   row.append(a, no);
   el.append(from, text, row);
@@ -116,6 +117,6 @@ export function inviteCard(close: () => void): HTMLElement {
 /** The line on the menu's first tab ("menu") or the main menu ("start"): shown only when the game invites. */
 export function menuLine(box: HTMLElement, where: 'menu' | 'start' = 'menu'): void {
   if (!inviting()) return;
-  box.replaceChildren('Story help, bugs, ideas: ', inviteLink(where, '3DA on Discord'), ' (opens in a new tab).');
+  box.replaceChildren(T.discordLineBefore, inviteLink(where, T.discordName), T.discordLineAfter);
   box.hidden = false;
 }

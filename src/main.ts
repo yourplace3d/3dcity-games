@@ -12,6 +12,7 @@ import { loadReno, type Reno } from './game/renovation';
 import { loadSaved } from './game/bank';
 import { drawHomes, homeTowns, isCoords } from './homesList';
 import { wireCloud } from './cloudUi';
+import { markPreview } from './preview';
 import { Sound } from './sound';
 import { addonHost } from './addon';
 import { HomesUi } from './homesUi';
@@ -1762,6 +1763,7 @@ if (!BAKED && savingTrial) {
   if ((await cloudArrive((name) => confirm(T.replaceGame(name)))) === 'reload') location.reload();
   if (savingOn() || loadHomes().homes.length) openSaving();
 }
+markPreview();
 // a player who owns homes sees so on the start screen
 homesButtons();
 

@@ -66,6 +66,8 @@ const SKID_S = 7;
 /** on a touch screen, the brake held in a turn this sharp (radians off the nose) at this speed (m/s) is a slide */
 const TOUCH_SLIDE_ERR = 0.5;
 const TOUCH_SLIDE_SPEED = 9;
+/** a touch slide under way holds down to this speed (m/s), however the car is turned */
+const TOUCH_SLIDE_HOLD = 3;
 /** the slow moment after a run's last delivery: how long (real seconds) and how slow */
 const SLOW_S = 0.9;
 const SLOW = 0.3;
@@ -436,6 +438,8 @@ export class Game {
   private slowT = 0;
   /** the car you drive was wrecked or went into water: one crash for the skill, however long it lasts */
   private skillDown = false;
+  /** a slide on a touch screen is under way (`steerMine`) */
+  private touchSlide = false;
   /** marks of tyres sliding on the road, fading */
   private readonly skids: Array<{ mesh: Mesh<PlaneGeometry, MeshBasicMaterial>; life: number }> = [];
   private skidNext = 0;
@@ -1746,12 +1750,17 @@ export class Game {
       const vf = c.forward;
       // a touch screen has no handbrake: the brake held in a hard turn at speed throws the car into a
       // slide instead of stopping it (the owner plays on an iPad, and drifts earn driving skill)
-      if (input.brake && vf > TOUCH_SLIDE_SPEED && Math.abs(err) > TOUCH_SLIDE_ERR) {
+      // once sliding it holds while the brake does, as the car swings round and its speed along it runs out,
+      // nearly until it points where the stick does: so a 180 can be done with the stick pointed back
+      const held = this.touchSlide && c.speed > TOUCH_SLIDE_HOLD && Math.abs(err) > TOUCH_SLIDE_ERR / 5;
+      if (input.brake && ((vf > TOUCH_SLIDE_SPEED && Math.abs(err) > TOUCH_SLIDE_ERR) || held)) {
+        this.touchSlide = true;
         k.handbrake = true;
         k.steer = clamp(err * 2.4, -1, 1);
         k.throttle = m;
         return;
       }
+      this.touchSlide = false;
       if (Math.abs(err) > 2.2 && vf < 4) {
         // pointing behind you: back up
         k.throttle = -m;

@@ -91,10 +91,10 @@ const DRIFT_GAP_S = 0.25;
 /** the most a single drift is worth before the chain */
 const DRIFT_MAX = 60;
 /**
- * A 180: the car turning this far round (radians, 150°) in one slide that began as a drift at `DRIFT_SPEED`
+ * A 180: the car turning this far round (radians, 140°: the first few degrees come before the slide does) in one slide that began as a drift at `DRIFT_SPEED`
  * or more; the slide may end going backwards. Backing and turning alone never starts one.
  */
-export const SPIN_RAD = (150 * Math.PI) / 180;
+export const SPIN_RAD = (140 * Math.PI) / 180;
 /** the slow end of a spin (m/s): below this it is over */
 const SPIN_SLOW = 2;
 /** a spin's worth, before the chain */

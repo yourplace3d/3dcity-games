@@ -244,7 +244,8 @@ the streets, buildings, water and hills come from the same map squares as
   each move are at the top of the Trophies tab. Kept as `3da-skill`, so saving online carries it.
   More since (the owner, 28 November: "We need to get more additional points, successfully escaped the police.
   180? Certain missions with a perfect time… beating the friend's challenge"): a **180** (the handbrake held at
-  full lock until the car has turned 150° in one slide; the handbrake now swings the car you drive round at up to
+  full lock until the car has turned 140° in one slide (on a touch screen: the brake held at speed with the
+  stick pointed back, and the slide holds as the car swings round); the handbrake now swings the car you drive round at up to
   3 rad/s, `HANDBRAKE_YAW` in `cars.ts`, where before a slide stopped at about 110°) is a move worth 40 in the
   combo. Three **bonuses** go straight to the total, outside any combo: shaking off a chase (30 a star, so up to
   120; the police letting the wrong way go pays nothing), a perfect delivery (40% of its clock left, in the car it

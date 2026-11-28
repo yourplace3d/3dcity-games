@@ -778,7 +778,7 @@ export const en = {
   skillMore: (spin: number, escape: number, perfect: number, rival: number) =>
     `${spin} × 180 · ${escape} police escaped · ${perfect} perfect ${perfect === 1 ? 'delivery' : 'deliveries'} · ${rival} ${rival === 1 ? 'challenge' : 'challenges'} beaten`,
   skillBonusHow:
-    'More comes on top: a 180 spin (hold the handbrake at full lock), shaking off the police (more the more stars they had), a perfect delivery (with plenty of time left and no dent), and beating a friend\'s challenge.',
+    'More comes on top: a 180 spin (hold the handbrake at full lock, or on a touch screen hold the brake at speed with the stick pointed back the way you came), shaking off the police (more the more stars they had), a perfect delivery (with plenty of time left and no dent), and beating a friend\'s challenge.',
   skillHow: 'Earn it by driving: scrape past moving traffic at speed, or drift through a bend (Space, or hold the brake in a hard turn on a touch screen). Moves in quick succession build a combo that multiplies. A crash loses the combo and costs a few points, but never a level. There are 30 levels, each taking longer than the one before, and levels will open up new vehicles and hidden places.',
   cameraNorth: 'Camera: north up',
   cameraTurns: 'Camera: turns with the car',

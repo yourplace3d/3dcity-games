@@ -4,6 +4,7 @@ import { Game } from '../src/game/game';
 import type { Car } from '../src/game/cars';
 import { RoadNet } from '../src/game/roads';
 import { World } from '../src/game/world';
+import { readSkill, SkillTracker } from '../src/game/skill';
 
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>();
@@ -296,6 +297,28 @@ describe('a slide on a touch screen', () => {
     // the stick points north, the car goes east: a hard left
     (g as unknown as Steer).steerMine(car, stick(0, 1, true), 0.02);
     expect(car.controls).toMatchObject({ handbrake: true, steer: 1, throttle: 1 });
+  });
+
+  it('holding on, with the stick pointed back the way you came, swings the car round: a 180', async () => {
+    vi.spyOn(World, 'load').mockResolvedValue(world());
+    const g = game();
+    await g.start({ lon: 0, lat: 0 });
+    const car = g.cars[0];
+    g.seat(car);
+    Object.assign(car, { th: 0, vx: 18, vy: 0 });
+    const flat = { half: 5000, groundY: () => 0, inWater: () => false, solids: { push: () => null } } as unknown as World;
+    const moves: string[] = [];
+    const skill = new SkillTracker(readSkill(null));
+    let most = 0;
+    for (let i = 0; i < 100; i++) {
+      // the stick back west, a touch to the south
+      (g as unknown as Steer).steerMine(car, stick(-1, -0.1, true), 0.02);
+      car.step(0.02, flat);
+      skill.step(0.02, car, [], (e) => e.kind === 'move' && moves.push(e.move));
+      most = Math.max(most, Math.abs(Math.atan2(Math.sin(car.th), Math.cos(car.th))));
+    }
+    expect(most).toBeGreaterThan((150 * Math.PI) / 180);
+    expect(moves).toContain('spin');
   });
 
   it('brakes as before going straight, or slowly', async () => {

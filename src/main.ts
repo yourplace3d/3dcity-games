@@ -1354,7 +1354,8 @@ function skillSaid(e: SkillEvent, at: [number, number] | null): void {
     if (e.levelUp !== null) levelUp(e.levelUp);
     changed();
   } else if (e.kind === 'bonus') {
-    pop(`+${e.points} ${T.skillBonus[e.what]}`, [near[0], near[1] + 0.12], 'big');
+    // below the car when a level comes with it, clear of the banner across the middle
+    pop(`+${e.points} ${T.skillBonus[e.what]}`, [near[0], near[1] + (e.levelUp !== null ? -0.22 : 0.12)], 'big');
     sound.play(e.levelUp !== null ? 'level' : 'bank');
     const s = $('skill');
     s.classList.remove('bump');

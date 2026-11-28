@@ -12,6 +12,9 @@
  * - "A max capacity per city which later can be enlarged... three cars per garage first": three spots
  *   for each city, the same three at whichever garage of that city the player drives to.
  * - "And you can sell it if your spots is full": a kept car can be sold, which frees its spot.
+ * - "Police cars don't sell, buses can but need new paint": a police car is kept and driven like any other,
+ *   and can only be given up, for nothing; a bus is sold once it has been painted at the garage, which
+ *   costs `PAINT_COST`.
  *
  * A city is what lies within `CITY_KM` of the garage where the first car there was parked: that place is
  * kept with each car of the city, so a city never splits or grows as cars come and go.
@@ -45,6 +48,8 @@ export interface Make {
   acc?: number;
   /** how much of a knock becomes damage, where it is not 1 */
   dent?: number;
+  /** a bus given new paint at a garage: it shows `colour`, and can be sold */
+  painted?: boolean;
 }
 
 export interface KeptCar extends Make {
@@ -82,6 +87,7 @@ export function readGarage(raw: string | null): Garage {
         ...(num(c.top) && c.top > 0 && c.top < 100 ? { top: c.top } : {}),
         ...(num(c.acc) && c.acc > 0 && c.acc < 50 ? { acc: c.acc } : {}),
         ...(num(c.dent) && c.dent > 0 && c.dent < 10 ? { dent: c.dent } : {}),
+        ...(c.painted === true && c.kind === 'bus' ? { painted: true } : {}),
         lat: c.lat,
         lon: c.lon,
         at: num(c.at) ? c.at : 0,
@@ -140,6 +146,7 @@ export function park(g: Garage, make: Make, lat: number, lon: number, now: numbe
     ...(make.top ? { top: make.top } : {}),
     ...(make.acc ? { acc: make.acc } : {}),
     ...(make.dent && make.dent !== 1 ? { dent: make.dent } : {}),
+    ...(make.painted && make.kind === 'bus' ? { painted: true } : {}),
     lat: a,
     lon: b,
     at: now,
@@ -150,15 +157,42 @@ export function park(g: Garage, make: Make, lat: number, lon: number, now: numbe
 /**
  * What a kept car sells for (estimates, to tune from play). Little on purpose: no job pays more than $300
  * (`JOB_MAX`; the owner: "with rents there's already too much money involved"), and taking a car to sell
- * it must never be the better job. A police car or a bus sells for no more than an ordinary car, so that
- * taking one from its driver earns nothing extra.
+ * it must never be the better job. A police car is not sold at all. A bus sells for $150, which after its
+ * paint leaves what an ordinary car brings, so that taking one from its driver earns nothing extra.
  */
-const PRICE: Record<KeptKind, number> = { sedan: 100, van: 120, sport: 200, police: 100, bus: 100 };
+const PRICE: Record<KeptKind, number> = { sedan: 100, van: 120, sport: 200, police: 0, bus: 150 };
 export const priceOf = (c: Make): number => PRICE[c.kind];
+/** what new paint for a bus costs (an estimate) */
+export const PAINT_COST = 50;
+/** The paints a bus can get: none of them the yellow of the town's buses. */
+export const BUS_PAINTS = ['#c8362e', '#2f6fb5', '#3f8f5a', '#7a3f8f', '#d9703a', '#5fa8b8', '#e8e6df'];
 
-/** Sell a kept car: its spot is free again. Null where there is no such car. */
+/**
+ * Whether a kept car can be sold: `yes`; `paint`, a bus that needs new paint first; `no`, a police car,
+ * which can only be given up.
+ */
+export function sellable(c: Make): 'yes' | 'paint' | 'no' {
+  if (c.kind === 'police') return 'no';
+  return c.kind === 'bus' && !c.painted ? 'paint' : 'yes';
+}
+
+/** New paint for a kept bus: one of the bus paints, never the one it has. Null where it is no bus of the garage's. */
+export function repaint(g: Garage, id: number, rand = Math.random): { garage: Garage; car: KeptCar } | null {
+  const car = g.cars.find((c) => c.id === id);
+  if (!car || car.kind !== 'bus') return null;
+  const others = BUS_PAINTS.filter((p) => !car.painted || p !== car.colour);
+  const next: KeptCar = { ...car, colour: others[Math.min(others.length - 1, Math.floor(rand() * others.length))], painted: true };
+  return { garage: { ...g, cars: g.cars.map((c) => (c === car ? next : c)) }, car: next };
+}
+
+/** Give a kept car up, for nothing: its spot is free again. Null where there is no such car. */
+export function giveUp(g: Garage, id: number): Garage | null {
+  return g.cars.some((c) => c.id === id) ? { ...g, cars: g.cars.filter((c) => c.id !== id) } : null;
+}
+
+/** Sell a kept car: its spot is free again. Null where there is no such car, or it cannot be sold as it is. */
 export function sell(g: Garage, id: number): { garage: Garage; price: number } | null {
   const car = g.cars.find((c) => c.id === id);
-  if (!car) return null;
+  if (!car || sellable(car) !== 'yes') return null;
   return { garage: { ...g, cars: g.cars.filter((c) => c !== car) }, price: priceOf(car) };
 }

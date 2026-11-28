@@ -14,8 +14,9 @@ lives.
   one at the second press. All of it: `docs/brainstorm-story.md`, section 20, and the README ("Garages keep
   your cars"). Code: `src/game/garage.ts`, `src/garageUi.ts`. Tests: `tests/garage.test.ts`,
   `node tools/garage-test.mjs`. **Set by this session and said to the owner, to be changed if wanted:** a
-  kept car sells for $100 to $200, less than a job pays now that none pays more than $300; a police car or
-  a bus sells for no more than an ordinary car, as the story's rule is that no crime is rewarded. **This
+  kept car sells for $100 to $200, less than a job pays now that none pays more than $300; **the owner's word since:** "Police
+  cars don't sell, buses can but need new paint", so a police car can only be given up, for nothing, and a
+  bus sells for $150 once the garage has painted it for $50. **This
   branch holds everything:** the newer `main` (German, the tenants' door), the pay cap and the trophies are
   merged into it, and the garage's words are in both language tables. **Next on this branch, once the owner has
   seen this:** the garage's own job, the car delivery (a new dent ends it), with two or three special cars,

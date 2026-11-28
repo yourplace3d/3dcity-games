@@ -49,14 +49,14 @@ function part(colour: string, sx: number, sy: number, sz: number, x: number, y: 
   return m;
 }
 
-/** A car's mesh, nose along +x. */
-function buildMesh(kind: CarKind, colour: string): { group: Group; lights: Mesh[] } {
+/** A car's mesh, nose along +x. `painted`: a bus in `colour`, not in the yellow of the town's buses. */
+function buildMesh(kind: CarKind, colour: string, painted = false): { group: Group; lights: Mesh[] } {
   const s = SPECS[kind];
   const g = new Group();
   const lights: Mesh[] = [];
   if (kind === 'bus' || kind === 'tram' || kind === 'train') {
     // a long box with a band of windows and a pale roof; the tram has a joint in the middle
-    const paint = kind === 'bus' ? '#e8b923' : kind === 'train' ? '#2f5d8a' : '#e9e6df';
+    const paint = kind === 'bus' ? (painted ? colour : '#e8b923') : kind === 'train' ? '#2f5d8a' : '#e9e6df';
     const stripe = kind === 'bus' ? '#20242b' : kind === 'train' ? '#e9e6df' : '#c8362e';
     g.add(part(paint, s.len, s.body, s.wid, 0, 0.35 + s.body / 2, 0));
     g.add(part('#20242b', s.len - 0.6, 0.7, s.wid + 0.04, 0, 0.35 + s.body * 0.68, 0));
@@ -166,10 +166,11 @@ export class Car {
   /** how far the car has gone down into water (m) */
   sink = 0;
 
-  constructor(readonly kind: CarKind, readonly colour = PAINT[Math.floor(Math.random() * PAINT.length)], tune?: { top?: number; acc?: number }) {
+  /** `painted`: a bus given new paint at a garage (`game/garage.ts`): it shows `colour`, where a bus otherwise shows the town's yellow */
+  constructor(readonly kind: CarKind, readonly colour = PAINT[Math.floor(Math.random() * PAINT.length)], tune?: { top?: number; acc?: number }, readonly painted = false) {
     // a car of its own make: the looks of its kind, with its own top speed and pull
     this.spec = tune ? { ...SPECS[kind], ...tune } : SPECS[kind];
-    const m = buildMesh(kind, colour);
+    const m = buildMesh(kind, colour, painted);
     this.mesh = m.group;
     this.lights = m.lights;
     this.r = this.spec.wid / 2 + 0.05;

@@ -787,6 +787,13 @@ export const de: Texts = {
   garageParked: (kind) => `Abgestellt. ${CAR[kind].this} gehört jetzt dir: Hol das Fahrzeug jederzeit an einer Garage dieser Stadt wieder ab.`,
   garageNoRoom: 'Auf der Straße ist hier gerade kein Platz dafür. Versuch es ein paar Meter weiter.',
   garageSold: (price) => `Verkauft: ${price}. Der Platz ist frei.`,
+  garagePoliceNote: 'Ein Polizeiauto lässt sich nicht verkaufen. Gib es ab, um den Platz freizumachen.',
+  garageGiveUp: 'Abgeben',
+  garageGiveUpSure: 'Wirklich abgeben?',
+  garageGivenUp: 'Abgegeben. Der Platz ist frei.',
+  garageBusNote: 'Ein Bus braucht neuen Lack, bevor er sich verkaufen lässt.',
+  garagePaint: (price) => `Neuer Lack ${price}`,
+  garagePainted: 'Der Bus hat neuen Lack. Jetzt lässt er sich verkaufen.',
 
   // ---------------------------------------------------------------- Trophäen (trophies.ts)
   trophiesLine: (n, of) => `${n} von ${of} verdient. Bezahlt wird dafür nichts: Sie sind für dich, und zum Zeigen.`,

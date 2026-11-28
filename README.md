@@ -87,7 +87,9 @@ the streets, buildings, water and hills come from the same map squares as
   A kept car can be taken out at any garage of its city: it stands on the street there and you sit in it.
   Nothing has to be parked back: left anywhere, or wrecked, it is at the garage again. A kept car can be
   sold, at the second press, which frees its spot; it pays little ($100 to $200), so that taking cars to
-  sell them never pays as well as a job. Trams and trains stay on their rails and cannot be parked.
+  sell them never pays as well as a job. A police car is not sold: it can only be given up, for nothing. A
+  bus is sold once it has new paint, which the garage gives it for $50; it then shows that paint on the
+  street, and sells for $150. Trams and trains stay on their rails and cannot be parked.
   Not while a package is on board, a run of three is on, or a city is being guessed. Kept as `3da-garage`
   (`src/game/garage.ts` for the rules, `src/garageUi.ts` for the panel).
 - **Three deliveries make a run.** Each drop-off is a little farther and the clock a little tighter than

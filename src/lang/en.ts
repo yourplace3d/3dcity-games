@@ -777,6 +777,13 @@ export const en = {
   garageParked: (kind: KeptKind) => `Parked. This ${CAR[kind]} is yours now: take it out at a garage in this town whenever you like.`,
   garageNoRoom: 'No room on the street here for it just now. Try a few metres on.',
   garageSold: (price: string) => `Sold: ${price}. Its spot is free.`,
+  garagePoliceNote: 'A police car cannot be sold. Give it up to free its spot.',
+  garageGiveUp: 'Give it up',
+  garageGiveUpSure: 'Really give it up?',
+  garageGivenUp: 'Given up. Its spot is free.',
+  garageBusNote: 'A bus needs new paint before it can be sold.',
+  garagePaint: (price: string) => `New paint ${price}`,
+  garagePainted: 'New paint on the bus. It can be sold now.',
 
   // ---------------------------------------------------------------- trophies (trophies.ts)
   trophiesLine: (n: number, of: number) => `${n} of ${of} earned. Nothing is paid for them: they are for you, and for showing friends.`,

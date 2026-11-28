@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { canKeep, carsAt, cityOf, CITY_KM, freeSpots, none, park, priceOf, readGarage, sell, SPOTS, type Garage, type Make } from '../src/game/garage';
+import { BUS_PAINTS, canKeep, carsAt, cityOf, CITY_KM, freeSpots, giveUp, none, PAINT_COST, park, priceOf, readGarage, repaint, sell, sellable, SPOTS, type Garage, type Make } from '../src/game/garage';
+import { Car } from '../src/game/cars';
 import { JOB_MAX } from '../src/game/services';
 import { en } from '../src/lang/en';
 import { de } from '../src/lang/de';
@@ -109,14 +110,56 @@ describe('selling', () => {
     expect(sell(g, 99)).toBeNull();
   });
 
-  it('pays no more for a police car or a bus than for an ordinary car: taking one from its driver earns nothing extra', () => {
-    expect(priceOf({ kind: 'police', colour: '#ffffff' })).toBeLessThanOrEqual(priceOf(red));
-    expect(priceOf({ kind: 'bus', colour: '#ffffff' })).toBeLessThanOrEqual(priceOf(red));
-    for (const kind of ['sedan', 'sport', 'van', 'police', 'bus'] as const) {
+  it('pays less than a job done well, whatever the car: taking cars to sell them is not the better job', () => {
+    for (const kind of ['sedan', 'sport', 'van', 'bus'] as const) {
       expect(priceOf({ kind, colour: '#000000' })).toBeGreaterThan(0);
-      // and never as much as a job done well: taking cars to sell them is not the better job
       expect(priceOf({ kind, colour: '#000000' })).toBeLessThan(JOB_MAX);
     }
+  });
+
+  it('a police car is not sold (the owner: "Police cars don’t sell"): it can only be given up, for nothing', () => {
+    const cop: Make = { kind: 'police', colour: '#c8362e' };
+    expect(sellable(cop)).toBe('no');
+    const g = parked(none(), [red, cop, van], NUE);
+    expect(sell(g, 2)).toBeNull();
+    expect(freeSpots(g, NUE[0], NUE[1])).toBe(0);
+    const after = giveUp(g, 2)!;
+    expect(after.cars.map((c) => c.id)).toEqual([1, 3]);
+    expect(freeSpots(after, NUE[0], NUE[1])).toBe(1);
+    expect(giveUp(g, 99)).toBeNull();
+  });
+
+  it('a bus is sold once it has new paint (the owner: "buses can but need new paint")', () => {
+    const bus: Make = { kind: 'bus', colour: '#8a8f96' };
+    expect(sellable(bus)).toBe('paint');
+    expect(sellable(red)).toBe('yes');
+    let g = parked(none(), [red, bus], NUE);
+    expect(sell(g, 2)).toBeNull();
+    const r = repaint(g, 2, () => 0)!;
+    g = r.garage;
+    expect(r.car).toMatchObject({ id: 2, kind: 'bus', painted: true, colour: BUS_PAINTS[0] });
+    expect(sellable(r.car)).toBe('yes');
+    // painted again: another paint than the one it has
+    expect(repaint(g, 2, () => 0)!.car.colour).toBe(BUS_PAINTS[1]);
+    for (const p of BUS_PAINTS) expect(p).not.toBe('#e8b923');
+    const sold = sell(g, 2)!;
+    expect(sold.price).toBe(priceOf(bus));
+    // after its paint, a bus brings no more than an ordinary car: taking one from its driver earns nothing extra
+    expect(sold.price - PAINT_COST).toBeLessThanOrEqual(priceOf(red));
+    // only a bus is painted
+    expect(repaint(g, 1)).toBeNull();
+    expect(repaint(g, 99)).toBeNull();
+  });
+
+  it('a painted bus is kept painted, and shows its paint on the street', () => {
+    const g = repaint(parked(none(), [{ kind: 'bus', colour: '#8a8f96' }], NUE), 1, () => 0)!.garage;
+    expect(readGarage(JSON.stringify({ v: 1, ...g })).cars[0]).toMatchObject({ painted: true, colour: BUS_PAINTS[0] });
+    // paint is a bus's alone: a car kept as painted is read as the car it is
+    expect(readGarage(JSON.stringify({ v: 1, next: 2, cars: [{ id: 1, kind: 'sedan', colour: '#c8362e', lat: 1, lon: 1, at: 1, painted: true }] })).cars[0].painted).toBeUndefined();
+    const body = (c: Car) => (c.mesh.children[0] as unknown as { material: { color: { getHexString: () => string } } }).material.color.getHexString();
+    expect(body(new Car('bus', BUS_PAINTS[0], undefined, true))).toBe(BUS_PAINTS[0].slice(1));
+    // a bus of the town is yellow, whatever colour it was given
+    expect(body(new Car('bus', BUS_PAINTS[0]))).toBe('e8b923');
   });
 });
 

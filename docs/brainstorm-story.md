@@ -1211,3 +1211,20 @@ keeping, taking out and selling. The car delivery and the special cars come next
   language. The garage's words are in both (`src/lang/en.ts`, `src/lang/de.ts`, the block "the garage").
   German needs its own sentence for each kind of car (der Sportwagen, das Auto), so those texts take the
   kind, not a word. In German the place is "Garage", which is where a car is kept.
+
+### Police cars and buses (the owner, 28 November)
+
+Asked whether a police car or a bus should sell at all, the owner: "Police cars don't sell, buses can but
+need new paint".
+
+- **A police car** is kept, taken out and driven like any other, and never sold. As a car that cannot be
+  sold would hold its spot for good, its button is "Give it up": the spot is free, and nothing is paid. At
+  the second press, like a sale.
+- **A bus** shows "New paint $50" where another car shows "Sell" (`PAINT_COST`, an estimate; off while the
+  player carries less). The garage paints it in one of seven colours, none of them the yellow of the town's
+  buses, and from then on it is that colour on the street too and sells for $150. After its paint that
+  leaves $100, what an ordinary car brings.
+- **Not built:** paint for other cars, and choosing the colour. Both would fit here later.
+- **Tested:** `tests/garage.test.ts` (a police car is not sold and can be given up; a bus is sold only once
+  painted, and is kept and shown painted); `node tools/garage-test.mjs` ends with a police car and a bus at
+  the garage in Nuremberg.

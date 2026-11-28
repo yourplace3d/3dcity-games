@@ -265,6 +265,56 @@ try {
   p = await panel(1);
   assert.equal(p.lines[0], 'Your cars in this town: 1 of 3 spots taken.');
 
+  console.log('A police car is not sold, only given up; a bus is sold once it has new paint');
+  await page.goto(base);
+  await page.evaluate(() =>
+    localStorage.setItem(
+      '3da-garage',
+      JSON.stringify({ v: 1, next: 3, cars: [{ id: 1, kind: 'police', colour: '#c8362e', lat: 49.4521, lon: 11.0767, at: 1 }, { id: 2, kind: 'bus', colour: '#8a8f96', lat: 49.4521, lon: 11.0767, at: 2 }] }),
+    ),
+  );
+  await page.goto(`${base}?n=${Math.random()}#Nuremberg`);
+  await playing();
+  await page.evaluate(() => {
+    const [px, py] = game.pos();
+    window.at = garage.spots.map((s, i) => [i, s.line < 0 ? Infinity : Math.hypot(s.rx - px, s.ry - py)]).sort((a, b) => a[1] - b[1])[0][0];
+    Object.assign(game.me, { x: garage.spots[window.at].rx, y: garage.spots[window.at].ry, vx: 0, vy: 0 });
+    game.cash = 500;
+  });
+  p = await panel(2);
+  assert.deepEqual(p.rows, ['Police car: Take it | Give it up', 'Bus: Take it | New paint $50']);
+  assert.deepEqual(p.lines.slice(1), ['A police car cannot be sold. Give it up to free its spot.', 'A bus needs new paint before it can be sold.', 'A kept car is never lost: left anywhere, or wrecked, it is here again.']);
+  if (SHOTS) await shot('06-police-and-bus', page.locator('#forsale'));
+  // the bus: painted for $50, then for sale
+  await page.locator('#forsale .kept').nth(1).locator('button.sell').click();
+  await page.waitForFunction(() => document.querySelectorAll('#forsale .kept')[1]?.querySelector('button.sell').textContent === 'Sell $150');
+  assert.equal(await page.evaluate(() => game.cash), 450);
+  cars = await kept();
+  assert.equal(cars[1].painted, true);
+  assert.notEqual(cars[1].colour, '#8a8f96');
+  p = await panel(2);
+  assert.deepEqual(p.lines.slice(1), ['A police car cannot be sold. Give it up to free its spot.', 'A kept car is never lost: left anywhere, or wrecked, it is here again.']);
+  await page.locator('#forsale .kept').nth(1).locator('button.sell').click();
+  await page.waitForFunction(() => document.querySelectorAll('#forsale .kept')[1]?.querySelector('button.sell').textContent === 'Really sell? $150');
+  await page.locator('#forsale .kept').nth(1).locator('button.sell').click();
+  p = await panel(1);
+  assert.equal(await page.evaluate(() => game.cash), 600);
+  // the police car: taken out and driven like any other, and given up for nothing, at the second press
+  await page.locator('#forsale .kept').nth(0).getByText('Take it').click();
+  assert.equal(await page.evaluate(() => game.car?.kind), 'police');
+  await page.evaluate(() => Object.assign(game.car, { x: garage.spots[window.at].rx, y: garage.spots[window.at].ry, vx: 0, vy: 0 }));
+  await page.waitForFunction(() => document.querySelector('#forsale > button')?.textContent === 'Leave it here');
+  await page.locator('#forsale > button').click();
+  p = await panel(1);
+  assert.deepEqual(p.rows, ['Police car: Take it | Give it up']);
+  await page.locator('#forsale .kept button.sell').click();
+  await page.waitForFunction(() => document.querySelector('#forsale .kept button.sell')?.textContent === 'Really give it up?');
+  assert.equal((await kept()).length, 1, 'nothing given up at the first press');
+  await page.locator('#forsale .kept button.sell').click();
+  p = await panel(0);
+  assert.deepEqual(await kept(), []);
+  assert.equal(await page.evaluate(() => game.cash), 600, 'nothing paid for a police car');
+
   assert.deepEqual(errors, [], 'no errors on the page');
   console.log('Garage checks passed');
 } finally {

@@ -792,8 +792,8 @@ export class Game {
    * For add-ons: stand a car in the world, with nobody in it. `make` gives it a colour, a top
    * speed (m/s), a pull (m/s²) and how much of a knock becomes damage.
    */
-  place(kind: 'sedan' | 'sport' | 'van' | 'police' | 'bus', x: number, y: number, th: number, make: { colour?: string; top?: number; acc?: number; dent?: number } = {}): Car {
-    const c = new Car(kind, make.colour, make.top || make.acc ? { ...(make.top ? { top: make.top } : {}), ...(make.acc ? { acc: make.acc } : {}) } : undefined);
+  place(kind: 'sedan' | 'sport' | 'van' | 'police' | 'bus', x: number, y: number, th: number, make: { colour?: string; top?: number; acc?: number; dent?: number; painted?: boolean } = {}): Car {
+    const c = new Car(kind, make.colour, make.top || make.acc ? { ...(make.top ? { top: make.top } : {}), ...(make.acc ? { acc: make.acc } : {}) } : undefined, !!make.painted);
     if (make.dent) c.dent = make.dent;
     c.x = x;
     c.y = y;

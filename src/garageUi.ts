@@ -13,7 +13,7 @@
 
 import { SPECS, type Car } from './game/cars';
 import type { Game } from './game/game';
-import { canKeep, carsAt, loadGarage, park, priceOf, sell, SPOTS, storeGarage, type Garage, type KeptCar, type KeptKind, type Make } from './game/garage';
+import { canKeep, carsAt, giveUp, loadGarage, PAINT_COST, park, priceOf, repaint, sell, sellable, SPOTS, storeGarage, type Garage, type KeptCar, type KeptKind, type Make } from './game/garage';
 import { serviceIcon } from './game/services';
 import type { World } from './game/world';
 import { money, T } from './i18n';
@@ -124,7 +124,8 @@ export class GarageUi {
     }
     const cars = carsAt(this.garage, spot.lat, spot.lon);
     const car = game.car;
-    const shown = `garage ${this.spots.indexOf(spot)} ${car ? `${car.kind}${car.colour}` : 'foot'} ${this.mine()} ${cars.map((c) => c.id).join(',')} ${this.sure}`;
+    // what the panel says depends on: the car driven up, the cars kept, a press on "Sell", and whether a bus's paint can be paid
+    const shown = `garage ${this.spots.indexOf(spot)} ${car ? `${car.kind}${car.colour}` : 'foot'} ${this.mine()} ${cars.map((c) => `${c.id}${c.painted ? 'p' : ''}`).join(',')} ${this.sure} ${game.cash >= PAINT_COST}`;
     if (shown === this.shown) return;
     this.shown = shown;
     this.draw(spot, cars);
@@ -174,19 +175,30 @@ export class GarageUi {
       const row = document.createElement('div');
       row.className = 'kept';
       const dot = document.createElement('i');
-      dot.style.background = c.kind === 'police' ? '#f2f2ee' : c.kind === 'bus' ? '#e8b923' : c.colour;
+      dot.style.background = c.kind === 'police' ? '#f2f2ee' : c.kind === 'bus' && !c.painted ? '#e8b923' : c.colour;
       const name = document.createElement('span');
       name.textContent = T.garageCar(c.kind);
       const take = document.createElement('button');
       take.textContent = T.garageTake;
       take.addEventListener('click', () => this.take(spot, c.id));
+      // what else can be done with it: sold; a bus painted first; a police car only given up
+      const can = sellable(c);
       const sellB = document.createElement('button');
       sellB.className = 'sell';
-      sellB.textContent = this.sure === c.id ? T.garageSellSure(money(priceOf(c))) : T.garageSell(money(priceOf(c)));
-      sellB.addEventListener('click', () => this.sellCar(c.id));
+      if (can === 'paint') {
+        sellB.textContent = T.garagePaint(money(PAINT_COST));
+        sellB.disabled = game.cash < PAINT_COST;
+        sellB.addEventListener('click', () => this.paint(c.id));
+      } else {
+        sellB.textContent = can === 'no' ? (this.sure === c.id ? T.garageGiveUpSure : T.garageGiveUp) : this.sure === c.id ? T.garageSellSure(money(priceOf(c))) : T.garageSell(money(priceOf(c)));
+        sellB.addEventListener('click', () => this.sellCar(c.id));
+      }
       row.append(dot, name, take, sellB);
       panel.append(row);
     }
+    const others = cars.filter((c) => c.id !== mine);
+    if (others.some((c) => sellable(c) === 'no')) line(T.garagePoliceNote, true);
+    if (others.some((c) => sellable(c) === 'paint')) line(T.garageBusNote, true);
     if (cars.length) line(T.garageNeverLost, true);
   }
 
@@ -208,6 +220,7 @@ export class GarageUi {
       ...(car.spec.top !== usual.top ? { top: car.spec.top } : {}),
       ...(car.spec.acc !== usual.acc ? { acc: car.spec.acc } : {}),
       ...(car.dent !== 1 ? { dent: car.dent } : {}),
+      ...(car.kind === 'bus' && car.painted ? { painted: true } : {}),
     };
   }
 
@@ -256,7 +269,7 @@ export class GarageUi {
       this.host.toast(T.garageNoRoom, 'info', 5000);
       return;
     }
-    const c = game.place(kept.kind, stand.x, stand.y, stand.th, { colour: kept.colour, top: kept.top, acc: kept.acc, dent: kept.dent });
+    const c = game.place(kept.kind, stand.x, stand.y, stand.th, { colour: kept.colour, top: kept.top, acc: kept.acc, dent: kept.dent, painted: kept.painted });
     game.seat(c);
     if (was) this.fetch(was);
     this.out.set(id, c);
@@ -264,10 +277,23 @@ export class GarageUi {
     this.sure = 0;
   }
 
-  /** Sell a kept car, at the second press: its spot is free, and the car that stood for it is gone. */
+  /**
+   * Sell a kept car, at the second press: its spot is free, and the car that stood for it is gone. A police
+   * car is not sold: it is given up the same way, for nothing.
+   */
   private sellCar(id: number): void {
     if (this.sure !== id) {
       this.sure = id;
+      return;
+    }
+    const car = this.garage.cars.find((c) => c.id === id);
+    if (!car) return;
+    if (sellable(car) === 'no') {
+      const g = giveUp(this.garage, id);
+      if (!g) return;
+      this.fetch(id);
+      this.keep(g);
+      this.host.toast(T.garageGivenUp, 'info', 5000);
       return;
     }
     const r = sell(this.garage, id);
@@ -276,6 +302,18 @@ export class GarageUi {
     this.host.game.cash += r.price;
     this.keep(r.garage);
     this.host.toast(T.garageSold(money(r.price)), 'good', 5000);
+  }
+
+  /** New paint for a kept bus, paid in cash: from then on it can be sold. One left about is fetched, to be painted. */
+  private paint(id: number): void {
+    const { game } = this.host;
+    if (game.cash < PAINT_COST) return;
+    const r = repaint(this.garage, id);
+    if (!r) return;
+    this.fetch(id);
+    game.cash -= PAINT_COST;
+    this.keep(r.garage);
+    this.host.toast(T.garagePainted, 'good', 5000);
   }
 
   /**

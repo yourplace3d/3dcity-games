@@ -1,0 +1,34 @@
+{
+ "base": "http://127.0.0.1:4173/",
+ "runs": [
+  {
+   "size": "ipad",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 15,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "failed: page.screenshot: Timeout 30000ms exceeded.\nCall log:\n  - taking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n"
+   ]
+  },
+  {
+   "size": "phone",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 13,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "after the drift: move:near:17, move:drift:30, lost::47, crash::10",
+    "after the pause: move:near:17, move:drift:30, lost::47, crash::10",
+    "level shown: Lv 1 · Rookie",
+    "failed: page.screenshot: Timeout 30000ms exceeded.\nCall log:\n  - taking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n"
+   ]
+  }
+ ]
+}

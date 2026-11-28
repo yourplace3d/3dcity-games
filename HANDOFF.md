@@ -38,6 +38,11 @@ lives.
      animation-frame callback asked for in a step. With one, `src/clearOf.ts` took the game's loop away and the
      game froze (a race with its one-second timer, so sometimes before `cruise` was printed, sometimes only
      while filming: 268 of 270 frames the same). `film.mjs cruise` now prints `cruise 10`, all 270 frames move.
+- **The Pages deploy waits for its artifact** (the owner: "Add the pause to the Pages workflow", 28 November):
+  the deploy step looked for the uploaded artifact in the same second and found none, twice on 28 November (runs
+  89 and 91; fresh runs 90 and 92 went through). `pages.yml` now waits until the artifact is listed, a minute at
+  most, before deploying. A failed deploy: start a fresh run, as a re-run finds two artifacts and fails again.
+  `publish-preview.yml` deploys the same way and has no wait yet.
 
 ## Earlier the same day (28 November 2026, morning)
 

@@ -1,0 +1,23 @@
+{
+ "base": "http://127.0.0.1:4173/",
+ "runs": [
+  {
+   "size": "ipad",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 14
+  },
+  {
+   "size": "phone",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 12
+  }
+ ]
+}

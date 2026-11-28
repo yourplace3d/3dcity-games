@@ -4,7 +4,15 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (27 November 2026, night)
+## Right now (28 November 2026, morning)
+
+- **Going live on the owner's word** ("Put it live", 28 November): **German** (pull request #35): the whole
+  game in English and German, an English/Deutsch switch under the start screen, German for German browsers.
+  README, "Languages": every new text goes into both `src/lang/en.ts` and `src/lang/de.ts`. Story messages
+  already received stay in the language they came in. Still English: the add-on in 3da-full. The in-game
+  screens in German were not seen in a browser before going live (map tiles blocked in the cloud).
+
+## Before that (27 November 2026, night)
 
 - **Going live on the owner's word** ("Yes put it live", 27 November, night): **the story debugged** (branch
   `claude/find-the-car`, by pull request into `main`, then the Pages workflow on `main`). It goes live with

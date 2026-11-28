@@ -55,6 +55,13 @@ try {
       const s = JSON.parse(localStorage.getItem('3da-story'));
       s.last = '2000-01-01';
       localStorage.setItem('3da-story', JSON.stringify(s));
+      // The page has the story in memory too and writes it whenever it moves on (a message shown, say). Such
+      // a write before the page is loaded again would put today's date back, and the next chapter would not
+      // open: so until then nothing more is written of the story.
+      const set = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) {
+        if (k !== '3da-story') set.call(this, k, v);
+      };
     });
   const reload = async (place = 'Nuremberg') => {
     await page.goto(`${base}?n=${Math.random()}#${place}`);

@@ -11,6 +11,8 @@
  * settings, and what add-ons keep.
  */
 
+import { isPreview } from './preview';
+
 const API = 'https://lecaoamodyjubwuvhpcq.supabase.co/rest/v1/rpc/';
 // the store's publishable key: meant to be public; what it allows is only the functions called here
 const KEY = 'sb_publishable__R5VVIzkFXK-ozBm18IYjg_UTw7guWe';
@@ -41,7 +43,11 @@ const set = (k: string, v: string | null): void => {
   }
 };
 
+/** What a preview may not do: change a saved game on the server. */
+const WRITES = new Set(['save_put', 'save_delete']);
+
 async function call<T>(fn: string, args: Record<string, unknown>, leaving = false, wait = 12000): Promise<T> {
+  if (WRITES.has(fn) && isPreview()) throw new Error('A preview does not save online');
   const res = await fetch(API + fn, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', apikey: KEY, Authorization: `Bearer ${KEY}` },

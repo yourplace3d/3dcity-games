@@ -6,11 +6,12 @@ lives.
 
 ## Right now (28 November 2026, afternoon)
 
-- **Built, not live: the first minute for new players** (branch `claude/modest-noether-w3tul1`, from `main` at
-  `38fd1df`; no pull request, nothing deployed; its migration is on the server). The owner's check of 28 November: about
+- **Going live on the owner's word: the first minute for new players** ("Keep part 3 and put it live", 28
+  November; branch `claude/modest-noether-w3tul1`, from `main` at `38fd1df` with `main` merged in at `955f64e`,
+  by pull request into `main`, then the Pages workflow on `main`; its migration was on the server first). The owner's check of 28 November: about
   4 in 10 timed visits end in under a minute (277 of 672, 22–27 Nov), and on 27 Nov 37 browsers finished
   chapter 1 (a first delivery) while 96 new ones arrived; nothing was counted between a city loaded and that
-  delivery. One commit per part, so part 3 can be dropped:
+  delivery. One commit per part:
   1. **The tour's steps counted:** `tour` with '1' to '4' (once a page load for each step shown: a city loaded,
      in a car, a package on board, the first delivery) or 'skip' ("Skip the tour" before the last step).
      **The migration `play_counts_tour` is on the server** (the owner's "Yes", applied 28 Nov, 14:31 UTC,
@@ -22,7 +23,8 @@ lives.
      a 390×844 phone, now 28 words and 153 px); step 4 keeps one line on the police and drops cooling off and
      the fine (README, "Heat", still has them). German wording for the owner to check. Offered, not built: a
      one-time toast when the heat badges first light up, with the cooling-off and fine rule.
-  3. **Owner to decide: a start screen for a first visit** (its own commit). While the tour is not finished
+  3. **A start screen for a first visit; the owner: "Keep part 3"** (commits `52e657a` and `7ee7c51`, the German
+     label "Verschiedene Spieloptionen" in the owner's wording). While the tour is not finished
      (`3da-coached`), the three ways to play fold under "Other ways to play" and the first city chip is the one
      big yellow button, "Play in Berlin"; such a browser starts on a run of three (a stored "Do jobs" is put
      back to the run until it is picked again). Search, the other cities, "Where I am", Scoreboard and the
@@ -32,8 +34,6 @@ lives.
      animation-frame callback asked for in a step. With one, `src/clearOf.ts` took the game's loop away and the
      game froze (a race with its one-second timer, so sometimes before `cruise` was printed, sometimes only
      while filming: 268 of 270 frames the same). `film.mjs cruise` now prints `cruise 10`, all 270 frames move.
-  Worth knowing: `main` tracks a `node_modules` symlink to `/home/user/3dcity-games/node_modules` (added by
-  accident in `85e44d8`); `npm ci` replaces it with a folder, so stage files by name, not with `git add -A`.
 
 ## Earlier the same day (28 November 2026, morning)
 

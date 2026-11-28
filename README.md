@@ -366,6 +366,8 @@ bridge pass the cars on it.
 - `tools/story-test.mjs`: the story played through in a browser on real map tiles: a first visit to the first flat,
   a chapter on each following day with the people's messages, a player who is further on, the story away from the
   home town, and a phone. `SHOTS=<folder>` keeps a screenshot of each step.
+- `tools/preview-steps.mjs`: steps the preview check (`tools/preview-check.mjs`) runs once the city is up, to
+  play the change being looked at and take its own pictures; each change replaces them (now: driving skill).
 - `tools/stand-in-map.mjs`: a stand-in map (flat ground, a grid of streets and blocks) answered to a
   Playwright page in place of the map servers, for trying the game where those can't be reached (the cloud
   sessions). `tools/skill-test.mjs` uses it to play a drift and a near miss and check what is kept; it runs

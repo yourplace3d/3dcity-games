@@ -1,0 +1,22 @@
+name: Search check (temporary)
+on:
+  push:
+    branches: [claude/project-thread-z9mftg]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for q in Doha Bruges Hallstatt "Rothenburg ob der Tauber" Perth Sydney Kyoto Munich Venice Florence Seville Cologne Lisbon Prague Zermatt Brugge "Den Haag" "The Hague" Antwerp Gent Ghent Nice Valletta Marrakesh Dubrovnik Reykjavik "Key West" Hamburg; do
+            for lang in "" en de; do
+              enc=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1]))" "$q")
+              echo "== $q lang=$lang"
+              curl -s -m 15 "https://photon.komoot.io/api/?limit=5&q=$enc${lang:+&lang=$lang}" | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          for f in d.get('features',[]):
+              p=f['properties']; print(' ',[round(c,4) for c in f['geometry']['coordinates']], p.get('name'), p.get('osm_type'), p.get('osm_key')+'='+p.get('osm_value',''), p.get('type'), p.get('country'), p.get('state'), 'extent' if 'extent' in p else '')
+          "
+              sleep 1
+            done
+          done

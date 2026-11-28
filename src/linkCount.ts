@@ -175,9 +175,10 @@ export function countVisit(query: URLSearchParams): void {
 
 /**
  * Something in play: a run started (its first package on board) or finished, a home bought, rent
- * collected on a return, a round of Where am I? begun.
+ * collected on a return, a round of Where am I? begun, a step of the first-time tour shown ("1" to "4")
+ * or the tour skipped ("skip").
  */
-export function countPlay(kind: 'start' | 'run' | 'home' | 'rent' | 'guess' | 'chapter', detail = ''): void {
+export function countPlay(kind: 'start' | 'run' | 'home' | 'rent' | 'guess' | 'chapter' | 'tour', detail = ''): void {
   send(kind, detail);
 }
 

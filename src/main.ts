@@ -916,6 +916,8 @@ let step = -1;
 let lastFor = 0;
 /** seconds with no package anywhere to point at */
 let noTarget = 0;
+/** the tour's steps shown on this page, each counted once (it goes back from 3 to 2 when a package runs out) */
+const toured = new Set<number>();
 
 function endTour(): void {
   step = -1;
@@ -949,6 +951,10 @@ function tour(h: Hud, dt: number): void {
     if (lastFor > 14) return endTour();
   }
   $('coach').hidden = false;
+  if (!toured.has(step)) {
+    toured.add(step);
+    if (!BAKED) countPlay('tour', String(step + 1));
+  }
   put('coach-n', T.tourStep(step + 1, TOUR.length));
   const touch = document.body.classList.contains('touch');
   // out of the car in the middle of it all: the next thing is to get back into one
@@ -956,7 +962,11 @@ function tour(h: Hud, dt: number): void {
   put('coach-text', onFoot ? (touch ? T.tourOnFootTouch : T.tourOnFootKeys) : touch ? TOUR[step].touch : TOUR[step].keys);
   put('coach-skip', last ? T.gotIt : T.skipTour);
 }
-$('coach-skip').addEventListener('click', endTour);
+$('coach-skip').addEventListener('click', () => {
+  // the last step's button says "Got it": that is the end of the tour, not a skip
+  if (step >= 0 && step < TOUR.length - 1 && !BAKED) countPlay('tour', 'skip');
+  endTour();
+});
 
 /** "52.5, 13.4" typed straight in. */
 function parseLatLon(q: string): LngLat | null {

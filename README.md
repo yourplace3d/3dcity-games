@@ -164,7 +164,8 @@ the streets, buildings, water and hills come from the same map squares as
   100 km). It also counts how it is played, per day: a visit, once a day for each browser and only once
   the page is touched, as "new" (first time) or "back", with where it came from in one word (direct,
   youtube, search, challenge, link); a run begun, and a run of three finished; a home bought; rent
-  collected on a return; a Where am I? round; how long a visit played, as one of four spans; and which
+  collected on a return; a Where am I? round; how long a visit played, as one of four spans; each step
+  of the first-time tour shown (1 to 4, once a page for each) and the tour skipped; and which
   city is played, once for each city in a visit: one of the well-known cities by name, or any other
   place as its square of one degree. What a visitor types is not sent, nor is "Where I am" or a
   Where am I? round (that is where they are, or a place they were not asked to pick).

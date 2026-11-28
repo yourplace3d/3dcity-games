@@ -10,18 +10,23 @@ lives.
   it's maybe time to introduce a cycle… sort of random… always a little more difficult", "one more mission…
   a nice car which is not allowed to have a dent", "special cars… buy a garage so one can save that car",
   "Let's plan this together first. then look for the trophies again. Shouldn't be too overwhelming as
-  well"). The proposal and its eight questions: `docs/brainstorm-story.md`, section 19. In short: chapters 1
-  to 5 stay in order, 6 to 8 open a day apart without waiting for each other (chapter 7's saving up holds
-  chapter 8 back today); missions played once in the story come round again like a shuffled pack, one a day
-  by itself and any other by asking, each with a level of its own up to a limit; a car delivery from the
-  pump that a new dent ends; a handful of special cars; a garage (at a home, recommended, or a bay at a fuel
-  station as planned on 14 November) where a car of one's own waits. It would replace the written daily
-  story (step D) and the five written jobs per person (step C). **Wait for the owner's answers before
-  building any of it.**
-- **The trophies wait for that plan:** the owner found 30 on one list a lot. Proposed in the same section:
-  steps on one disc (homes 5 and 10, towns 2 and 5, deliveries 100 and 500, places 5 and 20), the tab
-  showing only what is next, "Not a dent" moved to the car delivery. The branch below stays as it is until
-  the owner has answered.
+  well"). All of it: `docs/brainstorm-story.md`, section 19, with round 2 at its end.
+  - *Decided (the owner's "Yes", twice):* the first time a mission is played in the story's order, then it
+    comes round again as chance and the player pick; chapters 6 to 8 open a day apart without waiting for
+    each other (chapter 7's saving up holds chapter 8 back today).
+  - *Proposed in round 2, waiting for the owner's word:* missions come round like a shuffled pack, one a day
+    by itself and any other by asking, each with a level of its own up to a limit, nothing ever running out
+    of time; the written stories stay, as the first times a person asks (the owner: "Can't they coexist?");
+    **one place for cars, the garage,** a fourth kind of place from the map's car dealers and repair garages
+    (made up where there is none), which hands out the car delivery (a new dent ends it), sells the special
+    cars once delivered without a dent, and keeps them; in the home town the player's car stands beside
+    them at the start of a visit. No garage at a home and no bay at a pump: the owner feared that would
+    confuse, and it would.
+  - **Wait for the owner's answers before building any of it.**
+- **The trophies wait for that plan.** The owner: "We should not need to reinvent it too much. There's lots
+  of solutions already existent in games". Proposed: the list stays as built; a counting trophy says how far
+  along it is ("312 of 500"); "Not a dent" waits for the car delivery (29 now, 30 with the garage). The
+  branch below stays as it is until the owner has answered.
 - **Built, not live: twelve more trophies, 30 in all** (the owner, 28 November, with all but one of the 18
   earned: "We can now add some more of these maybe?"). Branch `claude/more-trophies`, from `main` at
   `8bc9651`; no pull request yet. **The choice of the twelve is this session's, for the owner to strike from

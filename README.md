@@ -242,6 +242,15 @@ the streets, buildings, water and hills come from the same map squares as
   own driving levels", not one player level): the level and a bar to the next sit under the cash, the open
   combo shown paler on the bar, and reaching a level brings a "Level up!" banner with a fanfare. The counts of
   each move are at the top of the Trophies tab. Kept as `3da-skill`, so saving online carries it.
+  More since (the owner, 28 November: "We need to get more additional points, successfully escaped the police.
+  180? Certain missions with a perfect time… beating the friend's challenge"): a **180** (the handbrake held at
+  full lock until the car has turned 140° in one slide (on a touch screen: the brake held at speed with the
+  stick pointed back, and the slide holds as the car swings round); the handbrake now swings the car you drive round at up to
+  3 rad/s, `HANDBRAKE_YAW` in `cars.ts`, where before a slide stopped at about 110°) is a move worth 40 in the
+  combo. Three **bonuses** go straight to the total, outside any combo: shaking off a chase (30 a star, so up to
+  120; the police letting the wrong way go pays nothing), a perfect delivery (40% of its clock left, in the car it
+  came on board in, no dent: 30, a rush job 45, a mission's package 60) and beating a friend's challenge (150,
+  once for each run sent, kept as `3da-beaten`).
   On a touch screen, which has no handbrake, holding the brake in a hard turn at speed slides the car. Every
   number is one line in `src/game/skill.ts`, to tune from play. Also new: tyre marks while sliding, a burst
   and the pay floating up at each delivery, a slow moment after a run's last, and a camera that can turn with
@@ -344,7 +353,7 @@ terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-
 - `src/full.ts`: a tester's way to extras that are not public: a private key in the address (`?full=<key>`)
   asks a gate for an add-on. Without a key the game contacts no one. `?full=off` forgets the key.
 - `src/challenge.ts`: a run as a link (`?c=…`): the places of its deliveries and the score to beat.
-- `src/game/skill.ts`: driving skill (near misses, drifts, combos, levels), fed by `Game.drivingSkill`.
+- `src/game/skill.ts`: driving skill (near misses, drifts, 180s, combos, bonuses, levels), fed by `Game.drivingSkill`.
 - `src/game/input.ts`, `src/main.ts`: keys and touch, the start screen and the numbers on screen.
 - `src/geo/`, `src/scene/`, `src/export/`, `src/data/`: the 3D engine, copied from Walk it 3D / Your Place
   (MIT). Changed here: the tile cache's name, and `geo/tiles.ts` also hands on the colours mappers recorded for buildings and each building's map number. It also marks which footpaths are stairways, and which streets are one-way.
@@ -371,7 +380,7 @@ bridge pass the cars on it.
   a chapter on each following day with the people's messages, a player who is further on, the story away from the
   home town, and a phone. `SHOTS=<folder>` keeps a screenshot of each step.
 - `tools/preview-steps.mjs`: steps the preview check (`tools/preview-check.mjs`) runs once the city is up, to
-  play the change being looked at and take its own pictures; each change replaces them (now: driving skill).
+  play the change being looked at and take its own pictures; each change replaces them (now: driving skill's 180 and bonuses).
 - `tools/stand-in-map.mjs`: a stand-in map (flat ground, a grid of streets and blocks) answered to a
   Playwright page in place of the map servers, for trying the game where those can't be reached (the cloud
   sessions). `tools/skill-test.mjs` uses it to play a drift and a near miss and check what is kept; it runs

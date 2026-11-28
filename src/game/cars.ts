@@ -114,6 +114,9 @@ const CLIMB = 1.5;
 /** the least share of a hill's pull that is always felt, so a light touch on the throttle does not cancel it */
 const HILL_FLOOR = 0.3;
 
+/** how fast the handbrake swings the car you drive round, at full lock and 6 m/s or more (radians a second) */
+export const HANDBRAKE_YAW = 3;
+
 export class Car {
   x = 0;
   y = 0;
@@ -199,7 +202,15 @@ export class Car {
     const v0 = this.vx * fx + this.vy * fy;
     // steering: the faster, the less the wheels turn (about 2 g sideways at most)
     const maxSteer = Math.min(0.55, Math.atan(57 / Math.max(1, v0 * v0)));
-    this.th += ((v0 * Math.tan(c.steer * maxSteer)) / 2.6) * dt;
+    let yaw = (v0 * Math.tan(c.steer * maxSteer)) / 2.6;
+    // the handbrake locks the back wheels: the car you drive swings round on its nose, on past sideways and
+    // round, so a handbrake 180 can be done (the owner, 28 November: "180?"). Without it the turn follows the
+    // speed along the car, which runs out at sideways, and a slide stopped at about 110°.
+    if (c.handbrake && this.driver === 'player') {
+      const swing = HANDBRAKE_YAW * c.steer * Math.min(1, Math.hypot(this.vx, this.vy) / 6);
+      if (Math.abs(swing) > Math.abs(yaw)) yaw = swing;
+    }
+    this.th += yaw * dt;
     fx = Math.cos(this.th);
     fy = Math.sin(this.th);
     let vf = this.vx * fx + this.vy * fy;

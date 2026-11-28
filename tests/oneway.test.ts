@@ -5,6 +5,7 @@ import { Game } from '../src/game/game';
 import type { LineFeature } from '../src/geo/osm';
 import { laneOffset, mayGo, RoadNet } from '../src/game/roads';
 import { World } from '../src/game/world';
+import { ESCAPE_POINTS, PERFECT_POINTS, type SkillEvent } from '../src/game/skill';
 
 vi.mock('three', async (importOriginal) => {
   const actual = await importOriginal<typeof import('three')>();
@@ -316,6 +317,45 @@ describe('the player on one-way streets', () => {
     // following: nearer than it means to be, it eases off; chasing: foot down
     expect(await speedAt(false)).toBeLessThan(0);
     expect(await speedAt(true)).toBeGreaterThan(0);
+  });
+
+  it('shaking off a chase is driving skill, more for more stars; the police letting the wrong way go is not', async () => {
+    const { g, inside } = await driving(true, true, true);
+    const got: SkillEvent[] = [];
+    g.onSkill = (e) => got.push(e);
+    inside.offence(2, 'You knocked someone over');
+    expect(g.heat).toBe(2);
+    pass(inside, 30);
+    expect(g.heat).toBe(0);
+    expect(got.filter((e) => e.kind === 'bonus')).toMatchObject([{ what: 'escape', points: ESCAPE_POINTS * 2 }]);
+
+    const follow = await driving(false, true);
+    const none: SkillEvent[] = [];
+    follow.g.onSkill = (e) => none.push(e);
+    follow.inside.law(0.05);
+    follow.me.vx = 10;
+    pass(follow.inside, 8);
+    expect(follow.g.heat).toBe(0);
+    expect(none.filter((e) => e.kind === 'bonus')).toEqual([]);
+  });
+
+  it('a delivery in good time, in the car it came in and without a dent, is a perfect delivery: driving skill', async () => {
+    const deliver = async (left: number, kind = 'plain', dent = false, special = false) => {
+      const { g, inside, me } = await driving(true, false);
+      const got: SkillEvent[] = [];
+      g.onSkill = (e) => got.push(e);
+      if (dent) me.hp = 80;
+      g.job = { kind, to: { at: { lon: 100, lat: 1 }, mesh: new Group() }, left, clock0: 60, pay: 100, metres: 99, hp0: 100, car0: me, ...(special ? { special: true } : {}) } as unknown as typeof g.job;
+      (inside as unknown as { jobs: (dt: number) => void }).jobs(0.05);
+      expect(g.job).toBeNull();
+      return got.filter((e) => e.kind === 'bonus');
+    };
+    expect(await deliver(40)).toMatchObject([{ what: 'perfect', points: PERFECT_POINTS }]);
+    expect(await deliver(40, 'rush')).toMatchObject([{ points: PERFECT_POINTS * 1.5 }]);
+    expect(await deliver(40, 'plain', false, true)).toMatchObject([{ points: PERFECT_POINTS * 2 }]);
+    // late in the clock, or dented: a delivery, not a perfect one
+    expect(await deliver(10)).toEqual([]);
+    expect(await deliver(40, 'plain', true)).toEqual([]);
   });
 
   it('crossing a one-way street at a junction is no offence', async () => {

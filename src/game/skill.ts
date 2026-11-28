@@ -18,13 +18,24 @@
  * No screen and no sound here: `Game` feeds it each frame and passes on what it says.
  */
 
-export type Move = 'near' | 'drift';
+export type Move = 'near' | 'drift' | 'spin';
+
+/**
+ * Points that come on their own, straight to the total and outside any chain (the owner, 28 November: "We need
+ * to get more additional points, successfully escaped the police ... Certain missions with a perfect time ...
+ * beating the friend's challenge"): shaking off the police, a perfect delivery, beating a friend's run.
+ */
+export type Bonus = 'escape' | 'perfect' | 'rival';
 
 /** what is kept */
 export interface SkillSave {
   total: number;
   near: number;
   drift: number;
+  spin: number;
+  escape: number;
+  perfect: number;
+  rival: number;
   /** the most points one chain banked */
   bestChain: number;
   /** the most moves in one chain */
@@ -55,6 +66,7 @@ export type SkillEvent =
   | { kind: 'move'; move: Move; points: number; combo: number; pending: number }
   | { kind: 'banked'; points: number; combo: number; total: number; levelUp: number | null }
   | { kind: 'lost'; points: number }
+  | { kind: 'bonus'; what: Bonus; points: number; total: number; levelUp: number | null }
   /** a crash took `points` from the total (0 at the floor of the level) */
   | { kind: 'crash'; points: number; total: number };
 
@@ -72,10 +84,21 @@ const NEAR_AGAIN_S = 8;
 export const DRIFT_SLIP = 0.33;
 export const DRIFT_SPEED = 5;
 export const DRIFT_MIN_S = 0.45;
+/** past this (radians, 150°) the car is going backwards, not sliding */
+const DRIFT_BACK = (150 * Math.PI) / 180;
 /** a slide may straighten for this long (s) and still be one drift */
 const DRIFT_GAP_S = 0.25;
 /** the most a single drift is worth before the chain */
 const DRIFT_MAX = 60;
+/**
+ * A 180: the car turning this far round (radians, 140°: the first few degrees come before the slide does) in one slide that began as a drift at `DRIFT_SPEED`
+ * or more; the slide may end going backwards. Backing and turning alone never starts one.
+ */
+export const SPIN_RAD = (140 * Math.PI) / 180;
+/** the slow end of a spin (m/s): below this it is over */
+const SPIN_SLOW = 2;
+/** a spin's worth, before the chain */
+export const SPIN_POINTS = 40;
 /** seconds without a move before a chain is banked */
 export const CHAIN_S = 3;
 /** the most a chain multiplies */
@@ -124,6 +147,16 @@ export function nearPoints(gap: number, len: number): number {
   return Math.round(10 + 15 * close) + (len > 7 ? 5 : 0);
 }
 
+/**
+ * What each bonus is worth: shaking off the police 30 a star (up to 4 stars, 120), a perfect delivery 30 (a
+ * rush job 45, a mission's package 60), beating a friend's run 150.
+ */
+export const ESCAPE_POINTS = 30;
+export const PERFECT_POINTS = 30;
+export const RIVAL_POINTS = 150;
+/** a delivery is perfect with this share of its clock left, in the car it came on board in, without a dent */
+export const PERFECT_LEFT = 0.4;
+
 /** A drift's worth: 8 and 14 a second, up to `DRIFT_MAX`. */
 export function driftPoints(seconds: number): number {
   return Math.min(DRIFT_MAX, Math.round(8 + 14 * seconds));
@@ -131,13 +164,23 @@ export function driftPoints(seconds: number): number {
 
 const STORE = '3da-skill';
 
-const EMPTY: SkillSave = { total: 0, near: 0, drift: 0, bestChain: 0, bestCombo: 0 };
+const EMPTY: SkillSave = { total: 0, near: 0, drift: 0, spin: 0, escape: 0, perfect: 0, rival: 0, bestChain: 0, bestCombo: 0 };
 
 export function readSkill(raw: string | null): SkillSave {
   try {
     const k = JSON.parse(raw ?? '') as Partial<Record<keyof SkillSave, unknown>>;
     const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
-    return { total: n(k.total), near: n(k.near), drift: n(k.drift), bestChain: n(k.bestChain), bestCombo: n(k.bestCombo) };
+    return {
+      total: n(k.total),
+      near: n(k.near),
+      drift: n(k.drift),
+      spin: n(k.spin),
+      escape: n(k.escape),
+      perfect: n(k.perfect),
+      rival: n(k.rival),
+      bestChain: n(k.bestChain),
+      bestCombo: n(k.bestCombo),
+    };
   } catch {
     return { ...EMPTY };
   }
@@ -185,6 +228,16 @@ export function slipOf(b: Body): number {
   return Math.atan2(Math.abs(vl), vf);
 }
 
+/** How far the car moves off its nose (radians, 0 to π: π is straight backwards); 0 when slow. */
+function offNose(b: Body): number {
+  const fx = Math.cos(b.th);
+  const fy = Math.sin(b.th);
+  if (Math.hypot(b.vx, b.vy) < 1) return 0;
+  return Math.atan2(Math.abs(b.vx * fy - b.vy * fx), b.vx * fx + b.vy * fy);
+}
+
+const turnOf = (a: number): number => Math.atan2(Math.sin(a), Math.cos(a));
+
 interface Pass {
   /** narrowest gap so far, and the speed between the two then */
   gap: number;
@@ -207,6 +260,12 @@ export class SkillTracker {
   private readonly passed = new Map<object, number>();
   private clock = 0;
   private crashAt = -99;
+  /** the spin under way: how far round so far (radians, signed), whether it has paid, the last heading */
+  private spinRot = 0;
+  private spinOn = false;
+  private spun = false;
+  private spinOff = 0;
+  private lastTh: number | null = null;
 
   constructor(save: SkillSave = { ...EMPTY }, private readonly keep: (s: SkillSave) => void = () => undefined) {
     this.save = save;
@@ -222,11 +281,14 @@ export class SkillTracker {
     if (!me) {
       this.passing.clear();
       this.driftS = 0;
+      this.endSpin();
+      this.lastTh = null;
       this.bank(emit);
       return;
     }
     if (crash || me.knock >= CRASH_KNOCK) {
       this.driftS = 0;
+      this.endSpin();
       // whatever was being passed is not a clean pass now
       for (const p of this.passing.values()) p.touched = true;
       if (this.pending > 0) emit({ kind: 'lost', points: this.pending });
@@ -270,7 +332,9 @@ export class SkillTracker {
     for (const [key, p] of this.passing) if (!seen.has(key)) this.endPass(key, p, emit);
 
     // drifts
-    const sliding = speed >= DRIFT_SPEED && slipOf(me) >= DRIFT_SLIP;
+    // sideways, or more: a slide that swings past sideways is still a drift, until the car goes backwards
+    const off = offNose(me);
+    const sliding = speed >= DRIFT_SPEED && off >= DRIFT_SLIP && off <= DRIFT_BACK;
     if (sliding) {
       this.driftS += dt;
       this.straightS = 0;
@@ -279,10 +343,27 @@ export class SkillTracker {
     } else if (this.driftS > 0) {
       this.straightS += dt;
       if (this.straightS >= DRIFT_GAP_S) {
-        const s = this.driftS - this.straightS;
+        const s = this.driftS;
         this.driftS = 0;
         this.straightS = 0;
         if (s >= DRIFT_MIN_S) this.add('drift', driftPoints(s), emit);
+      }
+    }
+
+    // a 180: one slide that turns the car round
+    const turned = this.lastTh === null ? 0 : turnOf(me.th - this.lastTh);
+    this.lastTh = me.th;
+    if (!this.spinOn && sliding) this.spinOn = true;
+    if (this.spinOn) {
+      if (speed >= SPIN_SLOW && offNose(me) >= DRIFT_SLIP) {
+        this.spinRot += turned;
+        this.spinOff = 0;
+        // a long spin keeps the chain open
+        this.quiet = 0;
+      } else if ((this.spinOff += dt) >= DRIFT_GAP_S || speed < SPIN_SLOW) this.endSpin();
+      if (this.spinOn && !this.spun && Math.abs(this.spinRot) >= SPIN_RAD) {
+        this.spun = true;
+        this.add('spin', SPIN_POINTS, emit);
       }
     }
 
@@ -290,6 +371,29 @@ export class SkillTracker {
       this.quiet += dt;
       if (this.quiet >= CHAIN_S && this.driftS === 0) this.bank(emit);
     }
+  }
+
+  private endSpin(): void {
+    this.spinOn = false;
+    this.spun = false;
+    this.spinRot = 0;
+    this.spinOff = 0;
+  }
+
+  /**
+   * Points on their own, straight to the total (the chain open stays open). `escape` takes how many stars the
+   * chase reached, `perfect` what the delivery was worth (1, 1.5 for a rush job, 2 for a mission's package).
+   */
+  bonus(what: Bonus, emit: (e: SkillEvent) => void, times = 1): void {
+    const base = what === 'escape' ? ESCAPE_POINTS : what === 'perfect' ? PERFECT_POINTS : RIVAL_POINTS;
+    const points = Math.round(base * Math.max(1, times));
+    const s = this.save;
+    const before = levelOf(s.total).level;
+    s.total += points;
+    s[what]++;
+    const after = levelOf(s.total).level;
+    this.keep(s);
+    emit({ kind: 'bonus', what, points, total: s.total, levelUp: after > before ? after : null });
   }
 
   private endPass(key: object, p: Pass, emit: (e: SkillEvent) => void): void {

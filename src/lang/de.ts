@@ -765,7 +765,8 @@ export const de: Texts = {
   // ---------------------------------------------------------------- Fahrkönnen (skill.ts, main.ts)
   skillLabel: 'Fahrkönnen',
   skillLevels: ['Neuling', 'Routine', 'Geübt', 'Profi', 'Ass', 'Meisterklasse', 'Legende'],
-  skillMove: { near: 'Knapp vorbei', drift: 'Drift' },
+  skillMove: { near: 'Knapp vorbei', drift: 'Drift', spin: '180er' },
+  skillBonus: { escape: 'Polizei abgehängt', perfect: 'Perfekte Lieferung', rival: 'Herausforderung geschlagen' },
   skillCombo: (n) => `Combo ×${n}`,
   skillBanked: (points) => `Fahrkönnen +${points}`,
   skillChainLost: 'Combo verloren',
@@ -778,6 +779,10 @@ export const de: Texts = {
   skillNext: (left, next) => `Noch ${left.toLocaleString('de')} bis ${next}`,
   skillTop: 'Die höchste Stufe. Weiter so.',
   skillCounts: (near, drift, best, combo) => `${near}× knapp vorbei · ${drift} ${drift === 1 ? 'Drift' : 'Drifts'} · beste Combo ×${combo} (${best} Punkte)`,
+  skillMore: (spin, escape, perfect, rival) =>
+    `${spin}× 180er · ${escape}× Polizei abgehängt · ${perfect} perfekte ${perfect === 1 ? 'Lieferung' : 'Lieferungen'} · ${rival} ${rival === 1 ? 'Herausforderung' : 'Herausforderungen'} geschlagen`,
+  skillBonusHow:
+    'Obendrauf gibt es mehr: für einen 180er (Handbremse bei vollem Einschlag halten, oder auf dem Touchscreen bei Tempo die Bremse halten und den Stick zurück in die Richtung zeigen, aus der du kommst), wenn du die Polizei abhängst (je mehr Sterne, desto mehr), für eine perfekte Lieferung (mit viel Zeit übrig und ohne Delle) und wenn du die Herausforderung eines Freundes schlägst.',
   skillHow: 'Du verdienst es beim Fahren: Zieh mit Tempo knapp an fahrendem Verkehr vorbei oder drifte durch eine Kurve (Leertaste, oder auf dem Touchscreen in einer scharfen Kurve die Bremse halten). Manöver kurz nacheinander bauen eine Combo auf, die multipliziert. Ein Unfall kostet die Combo und ein paar Punkte, aber nie eine Stufe. Es gibt 30 Stufen, jede dauert länger als die davor, und Stufen schalten später neue Fahrzeuge und versteckte Orte frei.',
   cameraNorth: 'Kamera: Norden oben',
   cameraTurns: 'Kamera: dreht mit dem Auto',

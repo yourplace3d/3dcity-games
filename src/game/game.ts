@@ -39,7 +39,7 @@ import type { Ears, Sfx } from '../sound';
 import { DROP, JOB_OF, jobCash, jobWorth, openPay, RING, ringAlong, type JobKind } from './services';
 import { partyClock } from './party';
 import { money, T } from '../i18n';
-import { loadSkill, SkillTracker, slipOf, storeSkill, type SkillEvent } from './skill';
+import { loadSkill, PERFECT_LEFT, SkillTracker, slipOf, storeSkill, type Bonus, type SkillEvent } from './skill';
 
 const FOV = 42;
 /** A place opens seen from this high (m): about a kilometre of it, to show where you are. */
@@ -66,6 +66,8 @@ const SKID_S = 7;
 /** on a touch screen, the brake held in a turn this sharp (radians off the nose) at this speed (m/s) is a slide */
 const TOUCH_SLIDE_ERR = 0.5;
 const TOUCH_SLIDE_SPEED = 9;
+/** a touch slide under way holds down to this speed (m/s), however the car is turned */
+const TOUCH_SLIDE_HOLD = 3;
 /** the slow moment after a run's last delivery: how long (real seconds) and how slow */
 const SLOW_S = 0.9;
 const SLOW = 0.3;
@@ -288,6 +290,8 @@ export class Game {
   }
   delivered = 0;
   heat = 0;
+  /** the most stars the chase under way has reached: shaking it off is worth driving skill by them */
+  private heatTop = 0;
   job: Job | null = null;
   private pickups: Marker[] = [];
   private cam = { x: 0, y: 0, h: 90 };
@@ -434,6 +438,8 @@ export class Game {
   private slowT = 0;
   /** the car you drive was wrecked or went into water: one crash for the skill, however long it lasts */
   private skillDown = false;
+  /** a slide on a touch screen is under way (`steerMine`) */
+  private touchSlide = false;
   /** marks of tyres sliding on the road, fading */
   private readonly skids: Array<{ mesh: Mesh<PlaneGeometry, MeshBasicMaterial>; life: number }> = [];
   private skidNext = 0;
@@ -1744,12 +1750,17 @@ export class Game {
       const vf = c.forward;
       // a touch screen has no handbrake: the brake held in a hard turn at speed throws the car into a
       // slide instead of stopping it (the owner plays on an iPad, and drifts earn driving skill)
-      if (input.brake && vf > TOUCH_SLIDE_SPEED && Math.abs(err) > TOUCH_SLIDE_ERR) {
+      // once sliding it holds while the brake does, as the car swings round and its speed along it runs out,
+      // nearly until it points where the stick does: so a 180 can be done with the stick pointed back
+      const held = this.touchSlide && c.speed > TOUCH_SLIDE_HOLD && Math.abs(err) > TOUCH_SLIDE_ERR / 5;
+      if (input.brake && ((vf > TOUCH_SLIDE_SPEED && Math.abs(err) > TOUCH_SLIDE_ERR) || held)) {
+        this.touchSlide = true;
         k.handbrake = true;
         k.steer = clamp(err * 2.4, -1, 1);
         k.throttle = m;
         return;
       }
+      this.touchSlide = false;
       if (Math.abs(err) > 2.2 && vf < 4) {
         // pointing behind you: back up
         k.throttle = -m;
@@ -1821,8 +1832,10 @@ export class Game {
     if (this.heat <= 0) {
       this.caughtT = 0;
       this.soft = false;
+      this.heatTop = 0;
       return;
     }
+    if (!this.soft) this.heatTop = Math.max(this.heatTop, Math.ceil(this.heat));
     let seen = false;
     let close = false;
     for (const c of cops) {
@@ -1849,6 +1862,9 @@ export class Game {
         this.heat = 0;
         this.onToast(T.lostThem, 'good');
         this.emit({ kind: 'lost' });
+        // shaking off the police is driving skill too (the owner, 28 November)
+        this.skillBonus('escape', this.heatTop);
+        this.heatTop = 0;
       }
     }
     // more heat, more police
@@ -2001,6 +2017,9 @@ export class Game {
         this.endJob(true);
         if (j.special) this.onSpecialDone(dented);
         this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special, dented: harmed });
+        // a perfect delivery: in good time and without a dent is driving skill too (the owner, 28 November:
+        // "certain missions with a perfect time")
+        if (!dented && j.clock0 && j.left >= PERFECT_LEFT * j.clock0) this.skillBonus('perfect', j.special ? 2 : j.kind === 'rush' ? 1.5 : 1);
         this.onSave();
         if (!r.over && r.done >= r.of) {
           r.over = true;
@@ -2269,7 +2288,8 @@ export class Game {
     // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
     const light = isSpecial && kind === 'supply' && special!.light !== undefined ? { light: special!.light } : {};
     // an open job's own pay stops at its kind's top; a run's delivery keeps its worth, which is its score
-    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay: this.run.over ? openPay(kind, pay) : pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
+    const left = isSpecial ? clock * (special!.clock ?? 1) + 20 : clock;
+    this.job = { to: marker, metres, left, clock0: left, pay: this.run.over ? openPay(kind, pay) : pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;
@@ -3190,6 +3210,12 @@ export class Game {
     const others: Array<[object, Car]> = [];
     if (me) for (const o of this.cars) if (o !== me && !o.gone && o.hp > 0 && (o.driver === 'ai' || o.driver === 'cop') && o.speed > 1.5 && Math.abs(o.x - me.x) < 20 && Math.abs(o.y - me.y) < 20) others.push([o, o]);
     this.skill.step(dt, me, others, (e) => this.onSkill(e, c ? this.onScreen(c.x, c.y, 2) : null), crash);
+  }
+
+  /** Driving skill that comes on its own (`SkillTracker.bonus`): from the car you drive, or from you on foot. */
+  skillBonus(what: Bonus, times = 1): void {
+    const [x, y] = this.pos();
+    this.skill.bonus(what, (e) => this.onSkill(e, this.onScreen(x, y, 2)), times);
   }
 
   /** A delivery at the ring at (x, y): a burst of colour, the pay floating up, and after a run's last a slow moment. */

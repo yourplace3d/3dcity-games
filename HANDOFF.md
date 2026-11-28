@@ -44,6 +44,15 @@ lives.
   most, before deploying. A failed deploy: start a fresh run, as a re-run finds two artifacts and fails again.
   `publish-preview.yml` deploys the same way and has no wait yet.
 
+## Driving skill, more ways to earn it (28 November 2026, afternoon)
+
+- **In a pull request, not live.** Driving skill went live in the afternoon (PR 41). After playing it the owner:
+  "The points go back and forth with the driving. We need to get more additional points, successfully escaped
+  the police. 180? Certain missions with a perfect time… beating the friend's challenge". Added a 180 (a move in
+  the combo; the handbrake now swings the car round), and bonuses for shaking off the police, a perfect delivery
+  and beating a friend's challenge. README, "Driving skill". Asked the owner whether a crash should still cost
+  points or only lose the combo.
+
 ## Earlier the same day (28 November 2026, morning)
 
 - **Driving skill, in a pull request, not live** (the owner: "Driving skills which in future will open up

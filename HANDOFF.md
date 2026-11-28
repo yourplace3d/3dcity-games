@@ -71,11 +71,22 @@ Written by the session that built it, on the owner's "Handoff". **This note is o
   is live (Pages run 96, 28 November, 15:37 UTC: driving skill and the Story tab's tappable chapter).
   With that merge a car's hand-over got what every delivery has since driving skill, the burst of colour
   and the pay floating up (`Game.arrived`, called from `careTick`); nothing else of the garage changed.
-  Checked on that state: 442 unit tests, the browser tests `care`, `garage` and `ui`, and GitHub's
-  preview check at `9bc0086` (no errors on tablet or phone; its report gives the panel's box, which does
-  not scroll on a 390 px phone). **The story test stopped once at chapter 8** ("Your tenants have
-  something to say" never came: the chapter had not opened after the test's "next day"); a second run was
-  under way as this was written. `trophies`, `pay` and `find` were last run before this merge.
+  Checked on that state: 442 unit tests, all seven browser tests (`care`, `garage`, `ui`, `story`,
+  `trophies`, `pay`, `find`), and GitHub's preview check at `9bc0086` (no errors on tablet or phone; its
+  report gives the panel's box, which does not scroll on a 390 px phone).
+- **Two browser tests stopped on timing, and were made sturdier; nothing in the game was wrong.** The
+  test browser draws a real city in software and was slower this evening than before (a frame a second or
+  less, and a frame counts for a twentieth of a second of game time at most).
+  - `story`: stopped once at chapter 8 ("Your tenants have something to say" never came). Its "next day"
+    step changes the story's date in storage and loads the page again; the page writes its own copy of the
+    story whenever a message is shown, and a write in between put today's date back. The step now lets
+    nothing more be written of the story until the page is loaded again (`nextDay`).
+  - `find`: stopped twice at "nothing to buy meanwhile" (the homes' panel looks around every quarter
+    second of game time, which was more than the 4.5 real seconds the test gave it; it now waits for the
+    panel to go), and once at "Found, but wrecked" (the line was said and gone between two looks; the test
+    now keeps every line said from the moment the car is lost).
+  - If another test stops at a line or a panel it waits for, look for this first: a fixed wait, or a line
+    that has to be on screen at the moment the test looks.
 - **Seen in the phone's pictures, older than the garage, left alone:** in `phone-car-delivery.png` the last
   digit of the job line's pay is behind "★ Hamburg City Hall". That is a sight's name (`#sights`), drawn
   where the sight is and held at the screen's edge when it is far, so it lies over whatever is there. It

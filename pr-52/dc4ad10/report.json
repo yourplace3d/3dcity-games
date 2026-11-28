@@ -1,0 +1,65 @@
+{
+ "base": "http://127.0.0.1:4173/",
+ "runs": [
+  {
+   "size": "ipad",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 16,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "after the 180: move:near:18, move:spin:80, move:drift:57",
+    "after the pause: move:near:18, move:spin:80, move:drift:57, banked::155",
+    "after the bonuses: bonus::60, bonus::45; level shown: Lv 3 · Rookie"
+   ]
+  },
+  {
+   "size": "phone",
+   "place": "Hamburg",
+   "errors": [],
+   "failed": [],
+   "screen": "play",
+   "status": "",
+   "seconds": 13,
+   "steps": [
+    "after the near miss:  (closest 2.5 m between middles)",
+    "after the 180: move:spin:40, move:drift:38",
+    "after the pause: move:spin:40, move:drift:38, banked::78",
+    "after the bonuses: bonus::60, bonus::45; level shown: Lv 3 · Rookie"
+   ]
+  }
+ ],
+ "story": [
+  {
+   "size": "ipad",
+   "place": "story-tab",
+   "errors": [],
+   "failed": [],
+   "story": {
+    "text": "Dieses Kapitel spielt in Paris. Die Mieter in deinem Haus (Rue des Acacias) zahlen nicht mehr: Park in der Nähe, steig aus und geh zu ihrer Tür, dem kleinen grünen Ring, um mit ihnen zu reden.",
+    "button": "Hin: Paris",
+    "chapterTappable": true,
+    "messageTappable": true
+   },
+   "screen": "play",
+   "status": ""
+  },
+  {
+   "size": "phone",
+   "place": "story-tab",
+   "errors": [],
+   "failed": [],
+   "story": {
+    "text": "Dieses Kapitel spielt in Paris. Die Mieter in deinem Haus (Rue des Acacias) zahlen nicht mehr: Park in der Nähe, steig aus und geh zu ihrer Tür, dem kleinen grünen Ring, um mit ihnen zu reden.",
+    "button": "Hin: Paris",
+    "chapterTappable": true,
+    "messageTappable": true
+   },
+   "screen": "play",
+   "status": ""
+  }
+ ]
+}

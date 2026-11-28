@@ -16,7 +16,13 @@ lives.
   three still counts what each delivery is worth as its score,** above $300 too: the scoreboards in
   players' browsers and the runs friends sent hold scores made that way, and would be out of reach
   otherwise; only its cash stops at $300 ("+$420 for the run · $300 cash"). For the owner to say if the
-  score should stop as well. Tests: `tests/pay.test.ts`, `node tools/pay-test.mjs`.
+  score should stop as well. Tests: `tests/pay.test.ts`, `node tools/pay-test.mjs`. **One code review before
+  going live** (the owner's "yes"): no place that pays for a job is missed (rent, the tenants' tip and
+  rent that waited are no jobs, and come on top). It found the job's line on the screen showing a run's
+  uncapped pay as money: the line now shows the cash. Left as it is, and worth knowing: a fine is a share
+  of the cash carried and is taken off a run's score too, so with less cash a fined run scores a little
+  higher than it would have before; and the run's score still reads in dollars though it is no longer the
+  cash earned.
 - **Going live on the owner's word** ("Put it live", 28 November): **German** (pull request #35): the whole
   game in English and German, an English/Deutsch switch under the start screen, German for German browsers.
   README, "Languages": every new text goes into both `src/lang/en.ts` and `src/lang/de.ts`. Story messages

@@ -1244,8 +1244,8 @@ decided while building, each with its reason:
 - **A new dent ends it:** a knock that takes more than a point off the car, which is what the game counts as
   a dent (over about 29 km/h; the convertible dents at less, being more delicate). Wrecked, sunk or left
   behind by the town, it is lost the same way. Nothing is paid and nothing is taken.
-- **No clock** (the owner's plan: "no clock at first"). The line reads "Car delivery · 420 m · $200 · not a
-  dent". It counts as a delivery, so it brings a home point and counts for the story like one.
+- **No clock** (the owner's plan: "no clock at first"). The line reads "Car, no dent · 420 m · $200": short,
+  as a longer one broke over two lines on a phone. It counts as a delivery, so it brings a home point and counts for the story like one.
 - **Handed over stopped at the ring, sitting in it** (within 7.5 m, slower than 2.5 m/s, as the car found
   for the pump is). The car is its owner's then and leaves the game; an ordinary car is stood at the kerb
   where there is room, so the player is not left on foot across town.

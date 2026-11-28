@@ -1195,7 +1195,7 @@ function paint(h: Hud): void {
   } else if (h.job) {
     $('job').classList.toggle('late', !h.job.care && h.job.left < 10);
     $('job').dataset.kind = h.job.party ? 'party' : h.job.kind;
-    if (h.job.care) put('job', `${T.careJob} · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b> · ${T.careRule}`);
+    if (h.job.care) put('job', `${T.careLine} · ${fmtM(h.job.metres)} · <b>${fmtMoney(h.job.pay)}</b>`);
     else if (h.job.party) put('job', `${party?.hudLabel() ?? T.party} · <b class="time">${fmtTime(h.job.left)}</b> · ${fmtM(h.job.metres)}`);
     else {
       const what = { plain: T.jobPlain, supply: T.jobSupply, rush: T.jobRush, clean: T.jobClean }[h.job.kind];

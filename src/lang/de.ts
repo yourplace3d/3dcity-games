@@ -806,7 +806,7 @@ export const de: Texts = {
   garagePainted: 'Der Bus hat neuen Lack. Jetzt lässt er sich verkaufen.',
   garageCustomers: 'Dieser Wagen gehört einem Kunden: Er lässt sich nicht behalten.',
   careJob: 'Autolieferung',
-  careRule: 'keine Delle',
+  careLine: 'Auto ohne Delle',
   careText: 'Der Wagen eines Kunden geht zu seinem Besitzer. Eine neue Delle unterwegs, und der Auftrag ist weg.',
   careOffer: (pay) => `Ein Auto liefern  ${pay}`,
   careNone: 'Gerade wartet kein Kunde auf ein Auto. Versuch es gleich noch einmal.',

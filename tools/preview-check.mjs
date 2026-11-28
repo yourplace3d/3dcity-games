@@ -2,7 +2,7 @@
 // goes live. Run by .github/workflows/preview-check.yml on every pull request.
 //   node tools/preview-check.mjs <dist folder> <out folder>
 // Writes a picture per place and screen size, and report.json with what happened.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { preview } from 'vite';
 const { chromium } = createRequire(import.meta.url)('playwright');
@@ -46,6 +46,20 @@ for (const size of sizes) {
     await page.screenshot({ path: `${out}/${size.name}-${place}.png` });
     report.runs.push(run);
     await ctx.close();
+  }
+}
+// Scenes of their own for what a pull request changes: each file in tools/preview-scenes/ plays its own,
+// takes its pictures into the same folder and gives what it saw for the report, under its file's name. A
+// scene never fails the check: it is there to be looked at. (One file a scene, so that two pull requests
+// adding scenes at the same time do not meet in this file.)
+const scenes = new URL('./preview-scenes/', import.meta.url);
+for (const file of existsSync(scenes) ? readdirSync(scenes).filter((f) => f.endsWith('.mjs')).sort() : []) {
+  const name = file.replace(/\.mjs$/, '');
+  try {
+    const { default: scene } = await import(new URL(file, scenes).href);
+    report[name] = await scene({ browser, base, out, sizes });
+  } catch (e) {
+    report[name] = { failed: String(e?.message ?? e).slice(0, 300) };
   }
 }
 writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 1));

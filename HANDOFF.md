@@ -6,6 +6,17 @@ lives.
 
 ## Right now (28 November 2026)
 
+- **How a change goes live from now on** (the owner, 28 November, of another session's setup: "The preview
+  is switched on and working. From now on each change is played in a browser on GitHub first, I read the
+  screenshots, and you get a play link", and to this session: "Yes can you do it this way now?"). So: open a
+  pull request; GitHub builds it as a preview and posts the play link on it; the preview check plays it and
+  keeps pictures on the `preview-shots` branch, which the session reads; the owner plays the link; only
+  then, on the owner's word, is it merged and deployed. A pull request shows what it changes with a file in
+  `tools/preview-scenes/` (README, "The preview check").
+- **In the preview, waiting for the owner: the garage, its job and the trophies** (`claude/garage`, as one
+  pull request). Its scenes: `tools/preview-scenes/garage.mjs`. Played here first: the panel fits a phone;
+  the job's line was shortened to "Car, no dent · 650 m · $215", as the longer one broke over two lines
+  there.
 - **Built, not live: the garage's own job, a car to deliver** (the owner's "yes", 28 November; branch
   `claude/garage`, no pull request). "Deliver a car" in the garage's panel stands a special car by the
   garage with the player in it; a new dent on the way and the job is gone; no clock; handed over stopped at

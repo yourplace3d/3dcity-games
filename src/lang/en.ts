@@ -790,7 +790,8 @@ export const en = {
   garageCustomers: 'This car is a customer’s: it cannot be kept.',
   // the garage's own job: a car to deliver (`game/specials.ts`)
   careJob: 'Car delivery',
-  careRule: 'not a dent',
+  /** the job's line on the screen while it is on: its name with its rule in it, short enough for a phone */
+  careLine: 'Car, no dent',
   careText: 'A customer’s car goes to its owner. A new dent on the way, and the job is gone.',
   careOffer: (pay: string) => `Deliver a car  ${pay}`,
   careNone: 'No customer is waiting for a car just now. Try again in a moment.',

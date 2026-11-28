@@ -95,10 +95,10 @@ try {
   let job = await page.evaluate(() => game.job && { care: game.job.care === game.car, pay: game.job.pay, kind: game.job.kind, left: game.job.left, look: game.car.look, top: game.car.spec.top, dent: game.car.dent, driver: game.car.driver });
   assert.deepEqual(job, { care: true, pay: 200, kind: 'plain', left: 0, look: 'convertible', top: 24, dent: 1.6, driver: 'player' });
   assert.match(await line('An old cream convertible, for a customer'), /take it to the yellow ring and stop there\. A new dent, and the job is gone\.$/);
-  // the line on the screen: the job, the car's way, the pay and the rule, and no clock
-  await page.waitForFunction(() => !document.querySelector('#job').hidden && document.querySelector('#job').textContent.startsWith('Car delivery'));
+  // the line on the screen: the job with its rule, the car's way and the pay, and no clock
+  await page.waitForFunction(() => !document.querySelector('#job').hidden && document.querySelector('#job').textContent.startsWith('Car, no dent'));
   const hud = await page.locator('#job').textContent();
-  assert.match(hud, /^Car delivery · [\d.,]+ k?m · \$200 · not a dent$/);
+  assert.match(hud, /^Car, no dent · [\d.,]+ k?m · \$200$/);
   // no garage's panel, no other jobs meanwhile
   await page.waitForFunction(() => document.querySelector('#forsale').hidden || document.querySelector('#forsale > b')?.textContent !== 'Garage');
   assert.equal(await page.evaluate(() => game.pickups.length), 0);

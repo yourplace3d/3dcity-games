@@ -320,6 +320,15 @@ keeps its own store in the browser, starting from a copy of the live game's prog
 linked from anywhere, but anyone given the address can open one. Previews appear once `pages.yml` has run
 once with this setup.
 
+**The preview check.** Each pull request's build is also played in a browser on GitHub
+(`preview-check.yml`, `tools/preview-check.mjs`): the start screen and a city on a tablet and on a phone,
+with the pictures and a report kept on the `preview-shots` branch under `pr-<n>/<commit>/`. A pull request
+adds pictures of what it changes with a file in `tools/preview-scenes/`: each file there is played after
+the common scenes, takes its pictures into the same folder, and what it returns goes into the report under
+its name. `garage.mjs` is one: the garage's panel, a car delivery from the offer to the hand-over, and the
+Trophies tab. A scene never fails the check. To play it all here: `VITE_PREVIEW=pr-test npm run build`,
+then `NODE_PATH=$(npm root -g) node tools/preview-check.mjs dist <folder>`.
+
 **Without outside requests.** `VITE_BAKED_AT="52.5170,13.3889" npx vite build` makes a build that plays in the
 nine squares around that point and reads its map from `./map/` beside the page instead of the tile servers:
 terrain tiles as `t-{z}-{x}-{y}.png`, vector tiles as base64 text in `v-{z}-{x}-{y}.txt`.

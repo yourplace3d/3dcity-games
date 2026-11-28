@@ -8,7 +8,7 @@
 // (`game.update`), so it doesn't depend on how fast the test browser draws.
 
 export default async function steps(page, { size, out, note }) {
-  const shot = (name) => page.screenshot({ path: `${out}/${size}-skill-${name}.png` });
+  const shot = (name) => page.screenshot({ path: `${out}/${size}-skill-${name}.png`, timeout: 90000 });
   await page.evaluate(() => {
     for (const id of ['coach-skip']) document.getElementById(id)?.click();
     const g = window.game;
@@ -23,12 +23,16 @@ export default async function steps(page, { size, out, note }) {
   });
   const drive = (keys, frames) => page.evaluate(([keys, frames]) => {
     const g = window.game;
+    // the picture is drawn once at the end: a real city in software graphics is slow to draw
+    g.render = false;
     for (let i = 0; i < frames; i++) {
       const o = window.__o;
       if (o) Object.assign(o, { th: g.car.th + Math.PI, vx: -Math.cos(g.car.th) * 8, vy: -Math.sin(g.car.th) * 8 });
       if (o) window.__gap = Math.min(window.__gap ?? 99, Math.hypot(o.x - g.car.x, o.y - g.car.y));
       g.update(0.02, { moveX: 0, moveY: 0, stick: false, throttle: keys.up ? 1 : 0, steer: keys.left ? 1 : 0, brake: false, handbrake: !!keys.hb });
     }
+    g.render = true;
+    g.watch(0);
     return window.__ev.slice();
   }, [keys, frames]);
   // stand the car on the nearest street, pointing along it, at a speed (m/s)
@@ -62,8 +66,9 @@ export default async function steps(page, { size, out, note }) {
   await onStreet(14);
   await drive({ up: 1, left: 1, hb: 1 }, 50);
   await shot('2-drift');
-  await drive({ up: 1 }, 16);
+  // stop before the slide runs into anything; standing, it is judged a moment later
   await stop();
+  await drive({}, 16);
   note(`after the drift: ${(await drive({}, 10)).join(', ')}`);
   await shot('3-combo');
   note(`after the pause: ${(await drive({}, 180)).join(', ')}`);

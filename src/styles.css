@@ -198,7 +198,7 @@ body.touch #btn-menu { font-size: 22px; padding: 12px 15px; }
   #bigmap-buttons { grid-area: buttons; grid-template-columns: 1fr; }
 }
 /* touch: the left of the screen is the stick, so the map sits under the numbers */
-body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto; top: calc(150px + env(safe-area-inset-top)); width: 132px; height: 132px; }
+body.touch #minimap { left: calc(12px + env(safe-area-inset-left)); bottom: auto; top: calc(178px + env(safe-area-inset-top)); width: 132px; height: 132px; }
 @media (max-width: 640px) {
   body.touch #minimap, #minimap { left: auto; right: calc(12px + env(safe-area-inset-right)); bottom: auto; top: calc(160px + env(safe-area-inset-top)); width: 104px; height: 104px; border-radius: 12px; }
   #toasts { top: calc(150px + env(safe-area-inset-top)); max-width: calc(100vw - 150px); left: calc(12px + env(safe-area-inset-left)); transform: none; justify-items: start; }
@@ -314,7 +314,7 @@ body.touch #btn-sound { font-size: 22px; padding: 12px 15px; right: calc(72px + 
    there: the cash panel (top left), the buttons and the speed (top right), the touch buttons (bottom right). */
 #minimap { touch-action: none; }
 #minimap.moving { opacity: 0.85; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6); }
-html body #minimap[data-corner='tl'] { left: calc(12px + env(safe-area-inset-left)); right: auto; top: calc(150px + env(safe-area-inset-top)); bottom: auto; }
+html body #minimap[data-corner='tl'] { left: calc(12px + env(safe-area-inset-left)); right: auto; top: calc(178px + env(safe-area-inset-top)); bottom: auto; }
 html body #minimap[data-corner='tr'] { left: auto; right: calc(12px + env(safe-area-inset-right)); top: calc(118px + env(safe-area-inset-top)); bottom: auto; }
 html body #minimap[data-corner='bl'] { left: calc(12px + env(safe-area-inset-left)); right: auto; top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }
 html body #minimap[data-corner='br'] { left: auto; right: calc(12px + env(safe-area-inset-right)); top: auto; bottom: calc(12px + env(safe-area-inset-bottom)); }

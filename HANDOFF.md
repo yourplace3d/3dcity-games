@@ -4,8 +4,24 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (28 November 2026, morning)
+## Right now (28 November 2026)
 
+- **Being planned with the owner, nothing built: what comes after the story** (the owner, 28 November: "now
+  it's maybe time to introduce a cycle… sort of random… always a little more difficult", "one more mission…
+  a nice car which is not allowed to have a dent", "special cars… buy a garage so one can save that car",
+  "Let's plan this together first. then look for the trophies again. Shouldn't be too overwhelming as
+  well"). The proposal and its eight questions: `docs/brainstorm-story.md`, section 19. In short: chapters 1
+  to 5 stay in order, 6 to 8 open a day apart without waiting for each other (chapter 7's saving up holds
+  chapter 8 back today); missions played once in the story come round again like a shuffled pack, one a day
+  by itself and any other by asking, each with a level of its own up to a limit; a car delivery from the
+  pump that a new dent ends; a handful of special cars; a garage (at a home, recommended, or a bay at a fuel
+  station as planned on 14 November) where a car of one's own waits. It would replace the written daily
+  story (step D) and the five written jobs per person (step C). **Wait for the owner's answers before
+  building any of it.**
+- **The trophies wait for that plan:** the owner found 30 on one list a lot. Proposed in the same section:
+  steps on one disc (homes 5 and 10, towns 2 and 5, deliveries 100 and 500, places 5 and 20), the tab
+  showing only what is next, "Not a dent" moved to the car delivery. The branch below stays as it is until
+  the owner has answered.
 - **Built, not live: twelve more trophies, 30 in all** (the owner, 28 November, with all but one of the 18
   earned: "We can now add some more of these maybe?"). Branch `claude/more-trophies`, from `main` at
   `8bc9651`; no pull request yet. **The choice of the twelve is this session's, for the owner to strike from
@@ -17,7 +33,8 @@ lives.
   its reason: the subway (rides are off), anything for links (the owner's word of 23 November), days in a row.
   All of it: `docs/plan-returning-players.md`, section 12. Code: `src/trophies.ts` (`earnedBy` for what a
   player has, `earnedIn` for what happens in play), the game's new event `found`. Tests:
-  `tests/trophies.test.ts`, `node tools/trophies-test.mjs`.
+  `tests/trophies.test.ts`, `node tools/trophies-test.mjs`. On this branch 372 unit tests pass, and the
+  browser tests for the trophies, the car search, the menu and the story, one at a time.
 - **Live:** `main` at `8bc9651`, deploy run 79 (27 November, 23:30 UTC), on the owner's word ("Yes put it
   live"). In it: **the story debugged** (pull request #34 from `claude/find-the-car`; told in full just
   below). Checked on the live site: the page and its bundle are byte-identical to the ones built from the

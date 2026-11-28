@@ -891,3 +891,153 @@ failing test, then fixed. One fix changes a rule of section 4, so it is first he
   review's cases on Nuremberg's tiles: a job of each kind on day 1 and chapter 5 on its day all the same;
   chapter 6 opened 3 km from the flat, with the way back to it; and in chapter 8 a walk into the next part of
   town, after which the part still goes to the building.
+
+## 19. After the story: missions that come round again, a nice car, a garage (28 November; a plan, nothing built)
+
+The owner, 28 November: "Is it imminently important to do the stories in an order? Because now it's maybe time
+to introduce a cycle and this would be good if it would be sort of random. So maybe not with all of the
+stories but with some it's pretty easy to make them infinite. Maybe always a little more difficult (but
+actually not with all of them necessarily possible) so if the consequence is important for the first time
+after that they should be available on how the player wants to solve them. BTW add one more mission where the
+clean run is not a clean one by the police but a nice car which is not allowed to have a dent during the
+mission. Maybe that's how we could also introduce some special cars which makes it then interesting to buy a
+garage so one can save that car. Let's plan this together first. then look for the trophies again. Shouldn't
+be too overwhelming as well".
+
+Read here as (**to confirm**): the first time, a mission is played where the story puts it; after that it
+comes round again, in an order that is partly chance, a little harder each time where that can be done, and
+the player may also pick which one to do. One new mission: a nice car to deliver without a dent. Special cars
+come with it, and a garage to keep one. Then the trophies again, and neither they nor the cycle may be too
+much at once.
+
+### Does the order matter?
+
+| Chapters | What they need | Does the order matter? |
+|---|---|---|
+| 1 Arrival, 2 Making rent, 3 A roof over your head | each needs the one before: a car, a package, the money, the flat | yes |
+| 5 The regulars | nothing; it is where the three at the stations are met | it has to come before anything they ask |
+| 4 Safe money, 6 Housewarming, 7 The whole building, 8 Landlord | the first flat, and nothing of each other | no: it is only the order of the telling |
+
+- **What the strict order costs today:** the story opens the lowest chapter not done, and nothing after it
+  (`nextOf` in `src/game/story.ts`). Chapter 7 is the one that takes money and several visits: the rest of the
+  first building, a package for each of its 3 to 5 flats, then the paint. Until it is done, chapter 8 cannot
+  open, so the tenants' dispute, the one chapter with a choice in it, waits behind the saving up.
+- **Proposed:** chapters 1 to 5 stay in order, one a day from chapter 4, as now. From chapter 6 on, a new
+  chapter opens on each new day played whether or not the one before is finished. Two or three may then be
+  open; the Story tab lists them and the player picks. "The whole story" is still all eight.
+
+### The cycle: missions that come round again
+
+- **From when:** a mission joins the cycle once it has been played the first time in the story. So the cycle
+  begins the day after chapter 5, with what Mira's car search is today, and grows as chapters are done.
+- **What comes round,** by who asks:
+
+| Who | The mission | Built? | Harder each time? |
+|---|---|---|---|
+| The pump | find the car and drive it back | yes, played once today | yes: parked further off, a wider circle that closes in later |
+| The pump | the nice car (below) | new | yes: a longer way, later a clock, a car that dents more easily |
+| The fire station | "beat my time": a rush job against the time they drove | the job, yes; the words, new | yes: the clock a little shorter |
+| The police | a lost thing back to its owner: a clean run | the job, yes; the words, new | a little: a longer way |
+| Your friends | "party at yours tonight?" | yes; today only the player starts one | no: a party has its own best time to beat |
+| Your tenants | a dispute; a renovation | yes, and they come round already (section 16; the plan for returning players, section 4) | no |
+| Later | the tail and the wild chase (section 17); help at a station in another town (section 14) | no | to be seen |
+
+- **Sort of random:** like a shuffled pack of cards. Every mission in the cycle comes up once, in an order
+  left to chance, before any comes a second time; then the pack is shuffled again. It feels random, the same
+  one never comes twice in a row, and none is left out for weeks.
+- **How many:** one a day comes by itself, as a message from its person, with "Not now" (it goes back in the
+  pack). The day's chapter still comes first, and nothing new begins while something is on (the rules of
+  sections 13 and 16).
+- **As the player wants:** the Story tab lists the people met and what each has ("Mira · Find the car ·
+  level 3"), each with a button to ask for it now, once a day each. So a player who only likes the car search
+  can do it every day, and one who never asks still gets one a day.
+- **A little harder each time:** each mission keeps a level of its own, one step up each time it is done
+  well, shown plainly. One number changes per step (how far, how long on the clock), and the pay grows with
+  it. It stops at a level that is still fair (estimate: 8 to 10 steps) and stays there; from then on only
+  the car, the place and the way change. Failing loses nothing and the level stays. The owner on chases, 27
+  November: it mustn't get too difficult.
+- **Not everything has levels:** disputes, renovations and parties stay as they are.
+- **To watch:** more pay from the cycle means homes come faster. The numbers are to be tuned from play, as
+  the others are.
+
+### The new mission: a nice car, and not a dent
+
+- **Who asks:** the pump (recommended): a customer's car is found there already, and a place for cars fits.
+  The other way is a fourth kind of place on the map, a car dealer, made up where a town has none; that is
+  more to build and one more symbol on the map.
+- **How it plays:** a car stands at the pump that looks like no other in the game. Get in; a yellow ring
+  lies at its owner's address, 600 to 1,500 m away (estimate). Arrive with no new dent: paid like a clean
+  run. **A new dent on the way, and the job is gone**, as an offence ends a clean run; no fine, and it can be
+  asked for again the next day.
+- **What a dent is:** what the game counts already: a knock harder than a hard bump (over 8 m/s, about
+  29 km/h). Touching a kerb or a wall slowly is none. A knock from another car counts, whoever caused it.
+- **No clock at first:** the care is the test, and the car is quick enough to tempt. A clock joins at a
+  later level. Offences don't end it; a police car that rams you does, through the dent.
+- **Working name:** "Car delivery". A better one is welcome.
+
+### Special cars
+
+- **A handful to start** (estimate: five), each with a look of its own, built from boxes like every car, in
+  colours no car in traffic has, each with its own numbers (top speed, pull, how easily it dents; `Game.place`
+  takes these already). First ideas, in plain words, no makes and no names of real cars: an old cream
+  convertible (slow, dents easily), a dark-green sports coupé (fast), a long black limousine, a small
+  two-tone city car (short, turns on the spot), a silver racing car (the fastest, the most delicate).
+- **Seen only in the car delivery at first.** They are not parked in the streets to be taken.
+- **How one becomes yours:** deliver the same kind three times without a dent and its owner offers it for
+  sale. Saying yes needs a garage.
+
+### The garage
+
+- **What it does:** a car of your own waits there at the start of every visit, yours to take with no
+  offence, repaired each new day. One bay at first.
+- **Where: two ways.**
+  1. *At one of your homes* (recommended): "Add a garage" on the home's panel. The car stands at the door
+     where the visit starts, a garage is something a home can have in every town, and it is one more thing
+     to own in the game's own line, real estate.
+  2. *A bay at a fuel station:* the missions plan of 14 November (step 3) and Mira's choice (sections 13
+     and 14, point 10; the owner's "Yes"). It ties the garage to her story, but only in the home town, and the car
+     is a drive away at the start of a visit.
+- **A car wrecked** comes back the next day for a repair bill. A car of your own is never lost (section 4,
+  rule 7).
+- **Elsewhere:** in a town without a garage of yours, cars are taken as now.
+- **This is the first car of one's own.** The owner, 16 November: "houses before cars… cars belong to
+  individuals, later". The houses are there now.
+
+### What this does to the plan so far
+
+- **Step D, a written short story each day** (section 10; the owner's "6 yes"), is replaced by the cycle:
+  the day's mission fills the gaps instead. No list of 14 episodes to write, and it never runs out.
+- **Step C, five written jobs for each of the three** (section 7), becomes their missions in the cycle. What
+  was decided for it stays and joins as it is built: the pump's choice (lend or buy in, section 14), the
+  chases (section 17), the trips to other towns (section 14).
+
+### Trophies
+
+Thirty flat on one list is a lot (section 12 of the plan for returning players; built, not live). Proposed,
+for after this plan is settled:
+
+- **Steps on one disc** where trophies are the same thing at higher numbers: homes 5 and 10, towns 2 and 5,
+  deliveries 100 and 500, places 5 and 20. A mission of the cycle gets one disc that fills with its levels.
+- **Show what is next:** the tab shows what is earned and, for each group, the next one or two to earn; the
+  rest opens with "Show all".
+- **"Not a dent"** moves from the supply run to the car delivery, where it is the whole point.
+
+### Build order (proposed)
+
+1. The trophies, reshaped (they are built and waiting).
+2. The car delivery, with two or three special cars: the smallest piece.
+3. Chapters 6 to 8 opening a day apart, and the cycle with its levels: the middle piece.
+4. The garage and a car of one's own: the biggest piece.
+
+Each shown to the owner before it goes live.
+
+### Questions for the owner
+
+1. **The reading above:** first time in the story's order, then round again as chance and the player pick?
+2. **Chapters 6 to 8** open a day apart whether or not the last is finished? *Recommended: yes.*
+3. **The cycle:** one a day by itself, any other by asking, harder up to a limit? *Recommended: yes.*
+4. **The cycle replaces** the written daily story and the five written jobs per person? *Recommended: yes.*
+5. **The car delivery** from the pump; a new dent ends it; no clock at first. And its name?
+6. **The garage** at a home, or a bay at a fuel station? *Recommended: at a home.*
+7. **A car becomes yours** after three deliveries without a dent, for a price, with a garage; never lost?
+8. **The trophies:** steps on one disc, and only what is next shown?

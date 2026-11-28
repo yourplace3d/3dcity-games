@@ -6,6 +6,22 @@ lives.
 
 ## Right now (28 November 2026)
 
+- **Built, not live: the garage's own job, a car to deliver** (the owner's "yes", 28 November; branch
+  `claude/garage`, no pull request). "Deliver a car" in the garage's panel stands a special car by the
+  garage with the player in it; a new dent on the way and the job is gone; no clock; handed over stopped at
+  the ring. Each one done well is a level up, to the eighth (a longer way, $200 to $300). Three special
+  cars: an old convertible, a limousine, a coupé; one delivered without a dent is for sale at the garages
+  ($2,000 to $4,000) and kept like any car. "Not a dent" is the 30th trophy. Everything decided and why:
+  `docs/brainstorm-story.md`, section 21; the README, "A garage has its own job". Code:
+  `src/game/specials.ts` (the rules), `Game.startCare` and `careTick` in `src/game/game.ts`, the panel in
+  `src/garageUi.ts`. Tests: `tests/specials.test.ts`, `node tools/care-test.mjs`. **Next, from the plan
+  (section 19):** chapters 6 to 8 opening a day apart, and the cycle with its levels.
+- **A mistake to know of, repaired:** the fix to the job's line in pull request #40 was made in a second
+  checkout that borrowed this one's `node_modules` through a link, and the link was committed and reached
+  `main`. It did nothing to the built game, but on checking out `main` git put the link where the folder
+  was, and that checkout lost its tools. Pull request #44 took the link out and made `.gitignore` cover a
+  link of that name. **A checkout that took `main` between 09:46 and 14:07 UTC on 28 November needs
+  `npm ci` once.** In a second checkout, never `git add -A` with a borrowed `node_modules` in it.
 - **Built, not live: the garage, first piece** (branch `claude/garage`, on top of `claude/more-trophies`; no
   pull request). The owner, asked which cars can be kept: "Any car you can get hold of can be parked there.
   And you can sell it if your spots is full". A fourth kind of place, from the map's car dealers and repair
@@ -21,7 +37,9 @@ lives.
   merged into it, and the garage's words are in both language tables. **Next on this branch, once the owner has
   seen this:** the garage's own job, the car delivery (a new dent ends it), with two or three special cars,
   and "Not a dent" as the 30th trophy.
-- **Built, not live: no job pays more than $300** (branch `claude/job-pay-cap`, from `main`; no pull request).
+- **Live: no job pays more than $300** (pull request #40, deploy run 84, 28 November, 09:46 UTC, on the
+  owner's "yes"; the live script checked byte for byte against a build of `main`, and the live game
+  opened and played in a test browser with no errors).
   The owner, 28 November: "Jobs should not pay more than 300 ever... with rents there's already too much
   money involved". Open jobs had come to pay about a thousand dollars and more after fifty deliveries, a
   clean run 70 % more. Now the cash a delivered job pays stops at $300 with everything on top (`JOB_MAX` in
@@ -31,7 +49,13 @@ lives.
   three still counts what each delivery is worth as its score,** above $300 too: the scoreboards in
   players' browsers and the runs friends sent hold scores made that way, and would be out of reach
   otherwise; only its cash stops at $300 ("+$420 for the run · $300 cash"). For the owner to say if the
-  score should stop as well. Tests: `tests/pay.test.ts`, `node tools/pay-test.mjs`.
+  score should stop as well. Tests: `tests/pay.test.ts`, `node tools/pay-test.mjs`. **One code review before
+  going live** (the owner's "yes"): no place that pays for a job is missed (rent, the tenants' tip and
+  rent that waited are no jobs, and come on top). It found the job's line on the screen showing a run's
+  uncapped pay as money: the line now shows the cash. Left as it is, and worth knowing: a fine is a share
+  of the cash carried and is taken off a run's score too, so with less cash a fined run scores a little
+  higher than it would have before; and the run's score still reads in dollars though it is no longer the
+  cash earned.
 - **Going live on the owner's word** ("Put it live", 28 November): **German** (pull request #35): the whole
   game in English and German, an English/Deutsch switch under the start screen, German for German browsers.
   README, "Languages": every new text goes into both `src/lang/en.ts` and `src/lang/de.ts`. Story messages
@@ -60,7 +84,8 @@ lives.
     cars can be added (recommended: any the player arrives in that was not taken from its driver, free; a
     special car is bought once delivered without a dent).
   - **Wait for the owner's word before building the garage, the cars or the cycle.**
-- **The trophies after the owner's look: 29 for now, built, not live.** The owner: "Shouldn't be too
+- **The trophies after the owner's look, built, not live** (29 on `claude/more-trophies`, 30 on
+  `claude/garage`, where "Not a dent" is the car delivery's). The owner: "Shouldn't be too
   overwhelming", then "We should not need to reinvent it too much. There's lots of solutions already
   existent in games". So the list stays the usual one, and a trophy that counts something says how far
   along it is (a thin bar and "312 of 500"; `counted`, `Trophies.sofar` in `src/trophies.ts`). "Not a dent"

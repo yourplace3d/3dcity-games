@@ -21,10 +21,10 @@ await page.goto(BASE + '#' + place);
 await page.waitForFunction(() => window.game?.world && document.body.dataset.screen === 'play', null, { timeout: 90000 });
 await page.evaluate(() => {
   // a clock we turn by hand: animation frames and timers only move when a frame is filmed
-  let vt = performance.now(); let raf = null; const timers = [];
-  window.requestAnimationFrame = (cb) => { raf = cb; return 1; };
+  let vt = performance.now(); let cbs = []; const timers = [];
+  window.requestAnimationFrame = (cb) => { cbs.push(cb); return cbs.length; };
   window.setTimeout = (fn, ms = 0) => { timers.push({ at: vt + ms, fn }); return 0; };
-  window.__step = (ms) => { vt += ms; for (const t of timers.splice(0)) { if (t.at <= vt) t.fn(); else timers.push(t); } const cb = raf; raf = null; if (cb) cb(vt + 1000); };
+  window.__step = (ms) => { vt += ms; for (const t of timers.splice(0)) { if (t.at <= vt) t.fn(); else timers.push(t); } const run = cbs; cbs = []; for (const cb of run) cb(vt + 1000); };
   const st = document.createElement('style');
   st.textContent = '.toast,#flash{animation:none!important;opacity:1!important}#btn-menu,#next{display:none!important}';
   document.head.append(st);

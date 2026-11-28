@@ -138,7 +138,7 @@ try {
     Object.assign(game.car, { x, y, vx: 0, vy: 0 });
   });
   await page.waitForFunction(() => !game.job);
-  assert.equal(await line('Handed over without a dent'), 'Handed over without a dent: +$200. The old convertible is for sale at the garages now.');
+  assert.equal(await line('Handed over without a dent'), 'Handed over without a dent: +$200. The convertible is for sale at the garages now.');
   const after = await page.evaluate(() => ({ cash: game.cash, delivered: game.delivered, onFoot: game.car === null, trophy: JSON.parse(localStorage.getItem('3da-trophies') ?? '{"got":{}}').got.care > 0 }));
   assert.deepEqual(after, { cash: cash + 200, delivered: before.delivered + 1, onFoot: true, trophy: true });
   await line('Trophy: Not a dent');
@@ -154,7 +154,7 @@ try {
   p = await panel();
   assert.deepEqual(p.heads, ['Garage', 'Car delivery', 'For sale']);
   // $1,200 in the pocket: not enough
-  assert.deepEqual(p.rows, ['Old convertible: Buy $2,000 (off)']);
+  assert.deepEqual(p.rows, ['Convertible: Buy $2,000 (off)']);
   await page.evaluate(() => (game.cash = 5000));
   await page.waitForFunction(() => document.querySelector('#forsale .kept.sale button')?.disabled === false);
   await shot('04-for-sale', page.locator('#forsale'));
@@ -169,7 +169,7 @@ try {
   assert.equal(kept.cars[0].special, 'convertible');
   await page.waitForFunction(() => document.querySelectorAll('#forsale .kept:not(.sale)').length === 1);
   p = await panel();
-  assert.deepEqual(p.rows, ['Old convertible: Take it | Sell $800', 'Old convertible: Buy $2,000']);
+  assert.deepEqual(p.rows, ['Convertible: Take it | Sell $800', 'Convertible: Buy $2,000']);
 
   console.log('Taken out: the car it is, and the player’s own');
   await page.locator('#forsale .kept:not(.sale)').getByText('Take it').click();
@@ -177,7 +177,7 @@ try {
   assert.deepEqual(mine, { look: 'convertible', top: 24, dent: 1.6, kind: 'sedan' });
   await toGarage();
   await page.waitForFunction(() => document.querySelector('#forsale > button:not(.care)')?.textContent === 'Leave it here');
-  assert.ok((await panel()).lines.includes('This old convertible is kept here. Leave it anywhere: it comes back.'));
+  assert.ok((await panel()).lines.includes('This convertible is kept here. Leave it anywhere: it comes back.'));
   await shot('05-own');
 
   assert.deepEqual(errors, [], 'no errors on the page');

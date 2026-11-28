@@ -69,6 +69,13 @@ try {
   });
   await reload();
   await page.locator('#coach-skip').click();
+  // a first visit plays a run of three, whatever way to play was kept (the first minute for new players, 28
+  // November), and the first flat is offered once the run is over: here the open jobs follow at once, and
+  // "Do jobs" is the way to play kept for the days after, as picking it under "Other ways to play" keeps it
+  await page.evaluate(() => {
+    game.openPlay();
+    localStorage.setItem('3da-mode', 'jobs');
+  });
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-story') ?? '{}').open === 1);
   await page.evaluate(() => (game.delivered = 1));
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('3da-story')).open === 2);

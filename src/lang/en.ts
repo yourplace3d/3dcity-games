@@ -10,7 +10,7 @@ import type { TrophyId } from '../trophies';
 
 const COUNT = ['no', 'one', 'two', 'three', 'four', 'five'];
 /** a car a garage keeps, in words: a kind of car, or a special car (`game/specials.ts`) */
-const CAR: Record<KeptKind | SpecialId, string> = { sedan: 'car', sport: 'sports car', van: 'van', police: 'police car', bus: 'bus', convertible: 'old convertible', limo: 'limousine', coupe: 'coupé' };
+const CAR: Record<KeptKind | SpecialId, string> = { sedan: 'car', sport: 'sports car', van: 'van', police: 'police car', bus: 'bus', convertible: 'convertible', limo: 'limousine', coupe: 'coupé' };
 /** a special car as it is first spoken of: plain words, no makes */
 const SPECIAL_A: Record<SpecialId, string> = { convertible: 'an old cream convertible', limo: 'a long black limousine', coupe: 'a dark-green coupé' };
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);

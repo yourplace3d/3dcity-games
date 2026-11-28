@@ -15,7 +15,7 @@ const CAR: Record<KeptKind | SpecialId, { name: string; this: string; thisAcc: s
   van: { name: 'Transporter', this: 'Dieser Transporter', thisAcc: 'Diesen Transporter' },
   police: { name: 'Polizeiauto', this: 'Dieses Polizeiauto', thisAcc: 'Dieses Polizeiauto' },
   bus: { name: 'Bus', this: 'Dieser Bus', thisAcc: 'Diesen Bus' },
-  convertible: { name: 'Altes Cabrio', this: 'Dieses Cabrio', thisAcc: 'Dieses Cabrio' },
+  convertible: { name: 'Cabrio', this: 'Dieses Cabrio', thisAcc: 'Dieses Cabrio' },
   limo: { name: 'Limousine', this: 'Diese Limousine', thisAcc: 'Diese Limousine' },
   coupe: { name: 'Coupé', this: 'Dieses Coupé', thisAcc: 'Dieses Coupé' },
 };

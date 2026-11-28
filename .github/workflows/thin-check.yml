@@ -14,4 +14,4 @@ jobs:
       - run: |
           npx vite preview --host 127.0.0.1 --port 4173 --strictPort &
           sleep 3
-                    node tools/thin-check.mjs "Perth" "Perth, Scotland" "Perth, Western Australia" "-31.95590,115.86058" "-31.9505,115.8605" "Sydney" "Melbourne" "Brisbane" "Adelaide" "Auckland" "Canberra" "Dallas" "Houston" "Denver" "Calgary" "Phoenix" "Atlanta" "Dubai" "Singapore" "Hong Kong" "Glasgow" "Edinburgh" "Manchester" "Berlin" "Hamburg" "London" "Paris" "New York" "Tokyo" "Rio"
+                    node tools/thin-check.mjs "Perth" "Perth, Scotland" "Perth, Western Australia" "-31.95590,115.86058" "-31.9505,115.8605" "Sydney" "Melbourne" "Brisbane" "Adelaide" "Auckland" "Canberra" "Dallas" "Houston" "Denver" "Calgary" "Phoenix" "Atlanta" "Dubai" "Singapore" "Hong Kong" "Glasgow" "Edinburgh" "Manchester" "Berlin" "Hamburg" "London" "Paris" "New York" "Tokyo" "Rio" "Zermatt" "Hallstatt" "Rothenburg ob der Tauber" "Bruges" "St Ives, Cornwall" "Fremantle" "Kalgoorlie" "Darwin" "Hobart" "Las Vegas" "Los Angeles" "Kuala Lumpur" "Doha"

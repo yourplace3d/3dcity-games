@@ -487,9 +487,19 @@ export class RoadNet {
     return best;
   }
 
-  /** Kilometres of real streets, for telling how well a place is mapped. */
+  /**
+   * Kilometres of real streets inside the square, for telling how well a place is mapped. The lines
+   * come with the whole map tiles, up to four times the square when it sits on a tile corner, while
+   * the buildings counted beside them are the square's own: the streets are cut to the square too.
+   * Uncut, Perth's centre had 235 km of streets to its 935 buildings and was called empty (28 November).
+   */
   get streetKm(): number {
-    return this.trafficLines.reduce((a, i) => a + this.lines[i].len, 0) / 1000;
+    let m = 0;
+    for (const i of this.trafficLines) {
+      const pts = this.lines[i].pts;
+      for (let j = 1; j < pts.length; j++) m += insideLength(pts[j - 1], pts[j], this.half);
+    }
+    return m / 1000;
   }
 
   get hasTrams(): boolean {
@@ -670,4 +680,22 @@ export function laneOffset(l: RoadLine, dir: 1 | -1 = 1): number {
 /** Whether traffic may go this way along a line: not against a one-way street. */
 export function mayGo(l: RoadLine, dir: 1 | -1): boolean {
   return !l.oneway || l.oneway === dir;
+}
+
+/** How much of the segment a-b lies in the square of half-side `h` around the origin (Liang-Barsky). */
+export function insideLength(a: Pt, b: Pt, h: number): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  let t0 = 0;
+  let t1 = 1;
+  for (const [p, q] of [[-dx, a[0] + h], [dx, h - a[0]], [-dy, a[1] + h], [dy, h - a[1]]]) {
+    if (p === 0) {
+      if (q < 0) return 0;
+    } else {
+      const r = q / p;
+      if (p < 0) t0 = Math.max(t0, r);
+      else t1 = Math.min(t1, r);
+    }
+  }
+  return t1 > t0 ? (t1 - t0) * Math.hypot(dx, dy) : 0;
 }

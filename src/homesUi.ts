@@ -6,7 +6,7 @@
 
 import type { Game } from './game/game';
 import type { World } from './game/world';
-import { canBuy, dayOf, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHomes, type Home, type Homes, type Lot } from './game/homes';
+import { canBuy, dayOf, doorPoint, homesIn, loadHomes, opensAfter, PAINTS, rentFor, saveHomes, type Home, type Homes, type Lot } from './game/homes';
 import { FIXER_AFTER, FIXER_MIN, jobLines, loadReno, rentShare, storeReno, UNITS_MAX, UNITS_MIN, wantsJob, WORN, type Reno } from './game/renovation';
 import { homePlate, inPlate, loadSaved, payFrom, storeSaved, type Plate } from './game/bank';
 import { caughtCost, lessonDue, loadLesson, nearestBank, remindAt, remindDue, REMIND_ARROW_S, REMIND_GAP_S, storeLesson, type Lesson, type LessonNow } from './game/bankMission';
@@ -27,6 +27,10 @@ import type { Case } from './lang/en';
 const toMenu = () => (document.body.classList.contains('touch') ? T.toMenuTouch : T.toMenuClick);
 /** how near a building one has to stop for its panel (m) */
 const BESIDE_M = 7;
+/** on foot, this near a home's door (its green ring) to go in (m) */
+const DOOR_M = 3.5;
+/** in the car, stopped this near a door: a word to get out and walk there (m) */
+const PARK_NEAR_DOOR_M = 45;
 /** how near a bank one has to stop: its spot on the road, or the bank itself on foot (m) */
 const BANK_ROAD_M = 9;
 const BANK_M = 14;
@@ -219,8 +223,12 @@ export class HomesUi {
   private carrying: string | null = null;
   /** the deliveries when the court's order was carried out: the next one brings the new tenants */
   private movingAfter = -1;
-  /** the building where the tenants were asked to talk, until the player drives off, so the card comes once a stop */
-  private talked: Lot | null = null;
+  /** the home whose tenants were asked to talk, until the player walks away from its door, so the card comes once a visit */
+  private talked: Home | null = null;
+  /** the home whose door the player was told to walk to, until they drive off, so it is said once a stop */
+  private toldDoor: Home | null = null;
+  /** a home's door, worked out once for the square loaded (`doorPoint`) */
+  private doorKept: { world: World; home: Home; at: { x: number; y: number } } | null = null;
   /** the bank the arrow points at, and the point it shows (kept, so the arrow can be told from others') */
   private bankTarget: HomesUi['banks'][number] | null = null;
   private bankGuide: { x: number; y: number } | null = null;
@@ -490,7 +498,18 @@ export class HomesUi {
         this.host.toast(T.restAffordable(money(Math.max(0, lot.whole - first.paid))), 'good', 9000);
       }
     }
-    if (this.wayTo) {
+    // tenants who want to talk: their door shows as a small green ring, and a way asked for leads to it,
+    // not to the street in front (which in Paris can be a block away from a house in a courtyard)
+    const talking = this.talkingHome();
+    const door = talking ? this.doorOf(talking) : null;
+    game.visit = door;
+    if (this.wayTo && this.wayTo === talking && door) {
+      if (!game.job && !game.party) {
+        // kept the same, so that the story's arrow can tell it is the home's
+        if (!this.homeGuide || this.homeGuide.x !== door.x || this.homeGuide.y !== door.y) this.homeGuide = { ...door };
+        game.guide = this.homeGuide;
+      }
+    } else if (this.wayTo) {
       const lot = this.lotOf(this.wayTo);
       const n = lot && world.roads.nearest(lot.x, lot.y, 200, 'traffic');
       const [px, py] = game.pos();
@@ -1118,6 +1137,65 @@ export class HomesUi {
 
   // ------------------------------------------------------------ the tenants' dispute (`game/dispute.ts`)
 
+  /** The home here whose tenants wait to talk, if there is one. */
+  private talkingHome(): Home | null {
+    const e = this.events.open.find((o) => o.kind === 'dispute' && (o.stage ?? 'talk') === 'talk' && this.lotOf(this.homeOfEvent(o)));
+    return (e && this.homeOfEvent(e)) || null;
+  }
+
+  /** Where one walks in to a home: its door (`doorPoint`), from the street the way to it leads to. */
+  private doorOf(h: Home): { x: number; y: number } | null {
+    const world = this.world;
+    const lot = this.lotOf(h);
+    if (!world || !lot) return null;
+    const kept = this.doorKept;
+    if (kept && kept.world === world && kept.home === h) return kept.at;
+    const n = world.roads.nearest(lot.x, lot.y, 200, 'traffic');
+    if (!n) return null;
+    const [x, y] = doorPoint(lot.poly.outer, world.roads.point(n.line, n.s), (fx, fy) => world.free(fx, fy, 0.4));
+    this.doorKept = { world, home: h, at: { x, y } };
+    return this.doorKept.at;
+  }
+
+  /**
+   * The tenants talk to the player who has got out and walked in: on foot at their door (the green ring) or
+   * beside their building. In the car, stopped near it, a word to get out; the card comes once a visit.
+   */
+  private doorTick(): void {
+    const { game } = this.host;
+    const h = this.talkingHome();
+    const door = h && this.doorOf(h);
+    const lot = h && this.lotOf(h);
+    if (!h || !door || !lot) {
+      this.talked = this.toldDoor = null;
+      return;
+    }
+    const [px, py] = game.pos();
+    const toDoor = Math.hypot(door.x - px, door.y - py);
+    const ready = !!this.host.card && !this.host.blocked?.() && !this.host.quiet?.() && !game.job && !game.party && !game.find;
+    if (game.car) {
+      this.talked = null;
+      const near = toDoor < PARK_NEAR_DOOR_M || distanceTo(lot, px, py) < BESIDE_M;
+      if (!near || game.speed() >= 1.2) {
+        if (game.speed() >= 1.2) this.toldDoor = null;
+        return;
+      }
+      if (this.toldDoor !== h && ready) {
+        this.toldDoor = h;
+        this.host.toast(T.tenantsGetOut, 'info', 7000);
+      }
+      return;
+    }
+    const at = toDoor < DOOR_M || distanceTo(lot, px, py) < BESIDE_M;
+    if (!at) {
+      if (toDoor > DOOR_M * 3) this.talked = null;
+      return;
+    }
+    if (this.talked === h || !ready) return;
+    this.talked = h;
+    this.talk(h);
+  }
+
   /** A home's tenants: the same until the court's order brings new ones. */
   private tenantsAt(h: Home): Tenants {
     const key = homeKey(h);
@@ -1228,6 +1306,8 @@ export class HomesUi {
     const e = this.eventOf(h);
     if (!e || e.kind !== 'dispute' || (e.stage ?? 'talk') !== 'talk') return;
     this.setEvents({ ...this.events, open: this.events.open.map((o) => (o === e ? { ...o, stage } : o)) });
+    // the way to their door is done: the stations' rings are next
+    if (this.wayTo === h) this.dropWay();
     this.syncSpecial();
     const fit = fits(e.mood ?? 'broken', stage);
     const when = T.ringsGreen(this.host.game.run.over);
@@ -1572,14 +1652,7 @@ export class HomesUi {
       }
     }
     if (bank) found = null;
-    // tenants who want to talk: their card, once a stop
-    if (!game.held && game.speed() >= 1.2) this.talked = null;
-    const talker = found && found !== this.talked ? this.homeOf(found) : undefined;
-    const talks = talker && this.eventOf(talker);
-    if (talker && talks?.kind === 'dispute' && (talks.stage ?? 'talk') === 'talk' && this.host.card && !this.host.blocked?.() && !this.host.quiet?.()) {
-      this.talked = found;
-      this.talk(talker);
-    }
+    this.doorTick();
     const shown = bank ? `bank ${game.cash} ${this.saved}` : found ? `${world!.lots.indexOf(found)} ${game.cash} ${this.saved} ${this.homes.homes.length} ${this.homeOf(found)?.colour ?? ''} ${this.reno?.stage ?? ''} ${this.reno?.fixed ?? ''} ${this.points} ${this.dailyNow()} ${this.host.party?.tag() ?? ''}` : '';
     if (shown === this.shown) return;
     this.shown = shown;
@@ -1652,7 +1725,8 @@ export class HomesUi {
       const note = this.eventNote(had);
       line(note ? T.panelNotePays(note, money(had.rent)) : T.panelPays(money(had.rent)));
       const open = this.eventOf(had);
-      if (open?.kind === 'dispute' && (open.stage ?? 'talk') === 'talk') {
+      if (open?.kind === 'dispute' && (open.stage ?? 'talk') === 'talk' && game.car) line(T.tenantsGetOut);
+      else if (open?.kind === 'dispute' && (open.stage ?? 'talk') === 'talk') {
         const b = document.createElement('button');
         b.className = 'talk';
         b.textContent = T.talkTenants;

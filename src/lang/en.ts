@@ -400,7 +400,7 @@ export const en = {
   seeHomes: (text: string, how: string) => `${text} ${how} to see your homes.`,
   soFar: (money: string) => ` (${money} so far)`,
   needsRenovating: (so: string) => `Needs renovating: its rent waits until then${so}. A package from any station in its part of town renovates it`,
-  disputeNote: { talk: 'Stop beside it to talk to them', insist: 'They wait for the part: a rush job from a fire station', accept: 'They wait for what it needs: a supply run from a fuel station, with no new dent', court: 'The court’s order: drive the officers from a police station to it, by the book', replace: 'The old boiler gave up: a package from any station brings a new one', moving: 'New tenants move in with your next delivery' } as Record<string, string>,
+  disputeNote: { talk: 'Park near it, get out and walk to their door (the small green ring) to talk to them', insist: 'They wait for the part: a rush job from a fire station', accept: 'They wait for what it needs: a supply run from a fuel station, with no new dent', court: 'The court’s order: drive the officers from a police station to it, by the book', replace: 'The old boiler gave up: a package from any station brings a new one', moving: 'New tenants move in with your next delivery' } as Record<string, string>,
   tenantsNote: (moved: boolean, so: string, rest: string) => `${moved ? 'The tenants have moved out' : 'The tenants have stopped paying'}: its rent waits until it is settled${so}. ${rest}`,
   heldLine: (held: string, where: string, many: boolean, done: 'renovate' | 'dispute' | 'mixed') =>
     ` ${held} waits at ${where} until ${many ? 'they are' : 'it is'} ${done === 'renovate' ? 'renovated' : done === 'dispute' ? 'settled' : 'sorted out'}.`,
@@ -456,6 +456,7 @@ export const en = {
   panelPays: (rent: string) => `Pays ${rent} rent each day you come back.`,
   panelNotePays: (note: string, rent: string) => `${note}. Then it pays ${rent} rent each day you come back.`,
   talkTenants: 'Talk to the tenants',
+  tenantsGetOut: 'Get out and walk to your tenants’ door: the small green ring.',
   colourLater: 'The colour you choose goes on once it is renovated.',
   forSale: 'For sale',
   forSaleWorn: 'For sale, worn down',
@@ -601,7 +602,7 @@ export const en = {
   /** chapter 8, by the dispute's stage; `at` is the home, as the lines name it (`homeRef`), in the case each needs */
   goal8: (stage: string, at: (c: Case) => string, town: string, first: string) =>
     ({
-      talk: `The tenants in ${at('dat')} have stopped paying: stop beside it and talk to them.`,
+      talk: `The tenants in ${at('dat')} have stopped paying: park near it, get out and walk to their door, the small green ring, to talk to them.`,
       insist: `Bring the part for ${at('acc')} from a fire station, in time.`,
       accept: `Bring what ${at('nom')} needs from a fuel station, with no new dent.`,
       court: `Drive the officers from a police station to ${at('dat')}, by the book.`,
@@ -668,7 +669,21 @@ export const en = {
   wayFlatsNone: 'No worn-down flats near here: drive on, and the arrow shows the next.',
   wayElsewhere: (where: string) => `That is ${where}: the menu's Story tab takes you there.`,
   noHomeHere: 'None of your homes is in this part of town.',
-  wayTenants: 'The arrow shows the way to your tenants.',
+  wayTenants: 'The arrow shows the way to your tenants’ door. Park near it, get out and walk into the small green ring.',
+  /** the line over the game while a customer's car is looked for, by the step the player is at */
+  findLine: (stage: 'search' | 'look' | 'seen' | 'back', car: (c: Case) => string, far: string) =>
+    ({
+      search: `Find ${car('acc')} · <b class="find">orange circle</b>${far}`,
+      look: `Look around the circle for ${car('acc')}`,
+      seen: `There it is: get in${far}`,
+      back: `Drive it back to the pump · <b>yellow ring</b>${far}`,
+    })[stage],
+  /** the line over the game while the open chapter's way is shown: its name, and the tenants' step */
+  storyLine: (chapter: string, step: string, far: string) => `${chapter}${step ? ` · ${step}` : ''}${far}`,
+  lineTenantsDrive: 'drive to their door',
+  lineTenantsWalk: 'get out, walk into the <b class="home">green ring</b>',
+  /** a message that belongs to what is on now */
+  msgNow: 'Now',
   wayHome: 'The arrow shows the way to your home.',
   wayStation: 'The arrow shows the nearest station.',
   noStation: 'No station in this part of town: drive on, and the next one shows.',
@@ -713,7 +728,7 @@ export const en = {
   twoOfficers: 'Two officers',
   noteTitle: 'A note from your tenants',
   noteText: (words: string, names: string, what: string, home: string, rent: string) =>
-    `“${words}” ${names}, ${what}, in ${home}. Until it is settled, its rent of ${rent} a day waits at the building: it is not lost. Stop beside it to talk to them.`,
+    `“${words}” ${names}, ${what}, in ${home}. Until it is settled, its rent of ${rent} a day waits at the building: it is not lost. Park near it, get out and walk to their door, the small green ring, to talk to them.`,
   talkTitle: 'Your tenants want to talk',
   insistAll: 'Insist on all of it',
   acceptPart: 'Accept part of it',

@@ -161,6 +161,12 @@ export interface Hud {
   sights: Array<{ name: string; ndcX: number; ndcY: number; metres: number | null }>;
   /** the run of deliveries being scored: which one is next, and the score so far */
   run: { n: number; of: number; score: number } | null;
+  /**
+   * A car being looked for, so the task can be read while playing: `search` on the way to the orange circle,
+   * `look` inside it, `seen` once the car has been seen (get in), `back` driving it to the pump's ring;
+   * `metres` to where the arrow points, null inside the circle.
+   */
+  find: { stage: 'search' | 'look' | 'seen' | 'back'; metres: number | null } | null;
 }
 
 /** What happened in play, for whoever listens (the trophies). */
@@ -362,6 +368,11 @@ export class Game {
   held = false;
   /** A spot an add-on sends the player to (a mission's): the arrow points there, unless a package is on board. */
   guide: { x: number; y: number } | null = null;
+  /** a door to walk to, on foot (a home's tenants who want to talk): a small green ring there */
+  visit: { x: number; y: number } | null = null;
+  private readonly visitMesh = markerMesh(RING.home);
+  /** the way to `guide` as a marker, for the little map's line: made again when the guide changes */
+  private guideMark: { for: { x: number; y: number }; m: Marker } | null = null;
   /**
    * A mission's drop-off, such as the player's own building. While it is set, the packages at the
    * stations flash green in open play, and whichever is taken goes there, with the line for its kind.
@@ -519,6 +530,8 @@ export class Game {
     this.ghost.visible = false;
     this.mineRing.rotation.x = -Math.PI / 2;
     this.mineRing.visible = false;
+    this.visitMesh.visible = false;
+    this.scene.add(this.visitMesh);
     this.routeLine.visible = false;
     this.camera.up.set(0, 0, -1);
     const geo = new SphereGeometry(0.6, 8, 6);
@@ -2235,6 +2248,15 @@ export class Game {
   private goal(): Marker | null {
     if (this.job) return this.job.to;
     if (this.find) return this.findStage === 'back' ? this.findDrop : this.findRing;
+    // a way asked for (a home, the bank, a station): the little map shows it too, not the nearest package
+    // (the owner, 28 November 2026: at the tenants' home, the arrow to the pump showed instead)
+    if (this.guide && !this.party) {
+      if (this.guideMark?.for !== this.guide) {
+        const at = this.world.proj.toLngLat(this.guide.x, this.guide.y);
+        this.guideMark = { for: this.guide, m: { at, mesh: new Group(), colour: RING.home } };
+      }
+      return this.guideMark.m;
+    }
     const [px, py] = this.pos();
     let best: Marker | null = null;
     let bd = Infinity;
@@ -2437,6 +2459,16 @@ export class Game {
     return Math.hypot(zx - px, zy - py) > f.r * 0.85 ? { x: zx, y: zy, drop: false } : null;
   }
 
+  /** The step of the search the player is at, for the line on the screen. */
+  private findHud(): Hud['find'] {
+    if (!this.find) return null;
+    const t = this.findTarget();
+    const [px, py] = this.pos();
+    const metres = t ? Math.hypot(t.x - px, t.y - py) : null;
+    if (this.findStage === 'search') return { stage: t ? 'search' : 'look', metres };
+    return { stage: this.findStage, metres };
+  }
+
   private findTick(dt: number): void {
     const f = this.find!;
     const w = this.world;
@@ -2610,6 +2642,13 @@ export class Game {
 
   private placeMarkers(): void {
     const pulse = 1 + 0.08 * Math.sin(this.clock * 5);
+    const v = this.visit;
+    this.visitMesh.visible = !!v;
+    if (v) {
+      this.visitMesh.position.set(v.x, this.world.groundY(v.x, v.y) + 0.05, -v.y);
+      // a door's ring: about a person wide, not a car's
+      this.visitMesh.scale.set(0.42 * pulse, 1, 0.42 * pulse);
+    }
     // a home waits for a package from a station: those rings flash green, the colour of homes
     const blink = (this.flash = this.specialHere() && this.run.over && !this.job && Math.sin(this.clock * 7) < -0.35);
     for (const m of [...this.pickups, ...(this.job ? [this.job.to] : []), ...(this.findRing ? [this.findRing] : []), ...(this.findDrop ? [this.findDrop] : [])]) {
@@ -3025,6 +3064,7 @@ export class Game {
         return [{ name: s.name, ndcX: v.x / over, ndcY: v.y / over, metres: d }];
       }),
       run: this.run.over ? null : { n: this.run.done + 1, of: this.run.of, score: this.run.score },
+      find: this.findHud(),
     };
   }
 }

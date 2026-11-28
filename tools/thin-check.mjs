@@ -1,6 +1,6 @@
 // Which places the start screen calls "not much on the map", and why: the place a name or a link
 // lands on, and the counts the check reads. Usage: node tools/thin-check.mjs Perth "Perth, Scotland" -31.95,115.86 ...
-// (needs the preview server on 4173)
+// (needs the preview server on 4173: npx vite preview --host 127.0.0.1)
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');

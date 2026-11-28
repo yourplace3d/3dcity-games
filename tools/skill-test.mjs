@@ -67,6 +67,24 @@ await page.evaluate(() => { window.__o = null; });
 console.log(near);
 assert.ok(near.ev.some((e) => e.startsWith('move:near')), 'a close pass is a near miss');
 await shot('3-near');
+// a 180: back up to speed, then the handbrake held at full lock until the car has come round
+await page.evaluate(() => { const c = window.game.car; c.th = 0; c.vx = 18; c.vy = 0; });
+const spin = await drive({ up: 1, left: 1, hb: 1 }, 90);
+await shot('2b-spin');
+console.log(spin);
+assert.ok(spin.ev.some((e) => e.startsWith('move:spin')), 'a handbrake held round is a 180');
+await page.evaluate(() => { const c = window.game.car; c.vx = 0; c.vy = 0; });
+await drive({}, 200);
+// bonuses: straight to the total, with a word floating up
+const bonus = await page.evaluate(() => {
+  const g = window.game;
+  const was = g.skill.save.total;
+  g.skillBonus('escape', 2);
+  return g.skill.save.total - was;
+});
+await page.evaluate(() => new Promise((r) => setTimeout(r, 200)));
+await shot('2c-bonus');
+assert.equal(bonus, 60, 'shaking off two stars is 60');
 // the delivery burst and the pay floating up
 await page.evaluate(() => { const g = window.game; g.arrived(g.car.x + 25, g.car.y, '+$240', false); });
 await page.evaluate(() => new Promise((r) => setTimeout(r, 150)));
@@ -76,9 +94,10 @@ await page.evaluate(() => { const c = window.game.car; c.vx = 0; c.vy = 0; });
 const quiet = await drive({}, 200);
 console.log(quiet);
 // 30 + the chain banked: level 2 (the banner's own seconds have gone by while the game was stepped by hand)
-if (quiet.ev.some((e) => e.startsWith('banked'))) assert.equal(await page.evaluate(() => document.getElementById('skill-lv').textContent), lang === 'de' ? 'Stufe 2 · Neuling' : 'Lv 2 · Rookie');
+// 30 + the moves and bonuses: past level 1 now
+assert.match(await page.evaluate(() => document.getElementById('skill-lv').textContent), lang === 'de' ? /^Stufe [23] · Neuling$/ : /^Lv [23] · Rookie$/);
 const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('3da-skill')));
 console.log(kept);
-assert.ok(kept.total > 0 && kept.drift === 1 && kept.near === 1, 'kept in the browser');
+assert.ok(kept.total > 0 && kept.drift >= 1 && kept.near === 1 && kept.spin === 1 && kept.escape === 1, 'kept in the browser');
 console.log('skill test passed');
 await browser.close(); await server.close();

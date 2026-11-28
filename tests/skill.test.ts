@@ -6,11 +6,14 @@ import {
   CHAIN_S,
   CRASH_COST,
   CRASH_KNOCK,
+  ESCAPE_POINTS,
   DRIFT_SLIP,
   DRIFT_SPEED,
   levelOf,
   LEVELS,
   MAX_LEVEL,
+  PERFECT_POINTS,
+  RIVAL_POINTS,
   rankOf,
   readSkill,
   SkillTracker,
@@ -153,7 +156,17 @@ describe('driving skill: levels', () => {
   });
 
   it('reads what was kept, and nothing broken', () => {
-    expect(readSkill('{"total":120,"near":4,"drift":"x","bestChain":-3}')).toEqual({ total: 120, near: 4, drift: 0, bestChain: 0, bestCombo: 0 });
+    expect(readSkill('{"total":120,"near":4,"drift":"x","bestChain":-3}')).toEqual({
+      total: 120,
+      near: 4,
+      drift: 0,
+      spin: 0,
+      escape: 0,
+      perfect: 0,
+      rival: 0,
+      bestChain: 0,
+      bestCombo: 0,
+    });
     expect(readSkill('nonsense').total).toBe(0);
   });
 });
@@ -183,11 +196,56 @@ describe('driving skill: drifts, with the real car', () => {
   }
 
   it('counts a handbrake turn at speed as a drift', () => {
-    const r = corner(18, true);
+    const r = corner(18, true, 0.8);
     expect(r.moves).toMatchObject([{ move: 'drift' }]);
+  });
+
+  it('counts a handbrake held round at full lock as a 180, in the same combo as its drift', () => {
+    for (const v of [14, 18, 24]) {
+      const r = corner(v, true, 1.6);
+      expect(r.moves.map((m) => (m as { move: string }).move).sort(), `${v} m/s`).toEqual(['drift', 'spin']);
+      expect(r.moves.map((m) => (m as { combo: number }).combo).sort()).toEqual([1, 2]);
+    }
+  });
+
+  it('does not count backing round in a circle as a 180', () => {
+    const car = new Car('sedan', '#c8362e');
+    car.driver = 'player';
+    const tr = tracker();
+    for (let i = 0; i < 8 / 0.02; i++) {
+      Object.assign(car.controls, { throttle: -1, steer: 1, handbrake: false });
+      car.step(0.02, flat);
+      tr.t.step(0.02, car, [], tr.emit);
+    }
+    expect(Math.abs(car.th)).toBeGreaterThan(Math.PI);
+    expect(tr.events.filter((e) => e.kind === 'move')).toEqual([]);
   });
 
   it('does not count an ordinary full-lock turn, slow or fast', () => {
     for (const v of [9, 14, 22, 30]) expect(corner(v, false).moves, `${v} m/s`).toEqual([]);
+  });
+});
+
+describe('driving skill: bonuses', () => {
+  it('pays each bonus straight to the total, outside the chain, and counts it', () => {
+    const tr = tracker();
+    pass(tr, 0.6);
+    const open = tr.t.pending;
+    tr.t.bonus('escape', tr.emit, 3);
+    tr.t.bonus('perfect', tr.emit, 1.5);
+    tr.t.bonus('rival', tr.emit);
+    const got = tr.events.filter((e) => e.kind === 'bonus');
+    expect(got.map((e) => (e as { points: number }).points)).toEqual([ESCAPE_POINTS * 3, PERFECT_POINTS * 1.5, RIVAL_POINTS]);
+    expect(tr.t.save.total).toBe(ESCAPE_POINTS * 3 + PERFECT_POINTS * 1.5 + RIVAL_POINTS);
+    expect(tr.t.save).toMatchObject({ escape: 1, perfect: 1, rival: 1 });
+    // the chain open is left as it was
+    expect(tr.t.pending).toBe(open);
+    expect(tr.kept.length).toBe(3);
+  });
+
+  it('says when a bonus reaches a new level', () => {
+    const tr = tracker(LEVELS[2] - 5);
+    tr.t.bonus('rival', tr.emit);
+    expect(tr.events.at(-1)).toMatchObject({ kind: 'bonus', what: 'rival', levelUp: 2 });
   });
 });

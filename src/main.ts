@@ -1047,11 +1047,30 @@ function drawBoard(): void {
   }
 }
 
+/** A run beats the one sent: a higher score, or the same in less time. */
+function beats(run: Score, sent: Challenge): boolean {
+  return run.score > sent.score || (run.score === sent.score && run.seconds < sent.seconds);
+}
+
+/** The first time this run sent has been beaten here: kept, so playing the same link again pays no more skill. */
+function firstWin(code: string): boolean {
+  const KEY = '3da-beaten';
+  try {
+    const had = JSON.parse(localStorage.getItem(KEY) ?? '[]') as unknown;
+    const list = Array.isArray(had) ? had.filter((c): c is string => typeof c === 'string') : [];
+    if (list.includes(code)) return false;
+    localStorage.setItem(KEY, JSON.stringify([...list, code].slice(-100)));
+  } catch {
+    /* no storage: it pays this once anyway */
+  }
+  return true;
+}
+
 /** Show the scoreboard over whatever is on screen; with a run that has just ended, its result too. */
 function showBoard(run: Score | null): void {
   fresh = run;
   $('result-home').hidden = true;
-  const won = !!run && !!rival && (run.score > rival.score || (run.score === rival.score && run.seconds < rival.seconds));
+  const won = !!run && !!rival && beats(run, rival);
   const them = rival?.name || T.runSent;
   $('result-title').textContent = !run ? T.scoreboard : !rival ? T.runComplete : won ? T.runBeat(rival.name) : T.runBehind(them);
   $('result-run').hidden = !run;
@@ -1102,6 +1121,8 @@ function runEnded(score: number, seconds: number): void {
   const course = game ? { start: game.course.start, legs: [...game.course.legs] } : null;
   addScore(run);
   if (!BAKED) countPlay('run');
+  // beating a friend's run is driving skill too (the owner, 28 November), once for each run sent
+  if (rival && beats(run, rival) && firstWin(packChallenge(rival))) game?.skillBonus('rival');
   // Save the completed run now, but let the final delivery's message be read. A new
   // run or a city/menu change during that delay must not receive the old result.
   const showResult = (): void => {
@@ -1332,6 +1353,15 @@ function skillSaid(e: SkillEvent, at: [number, number] | null): void {
     if (e.combo > 1) pop(T.skillBanked(e.points), [near[0], near[1] + 0.12], 'big');
     if (e.levelUp !== null) levelUp(e.levelUp);
     changed();
+  } else if (e.kind === 'bonus') {
+    pop(`+${e.points} ${T.skillBonus[e.what]}`, [near[0], near[1] + 0.12], 'big');
+    sound.play(e.levelUp !== null ? 'level' : 'bank');
+    const s = $('skill');
+    s.classList.remove('bump');
+    void s.offsetWidth;
+    s.classList.add('bump');
+    if (e.levelUp !== null) levelUp(e.levelUp);
+    changed();
   } else if (e.kind === 'lost') {
     pop(T.skillChainLost, near, 'bad');
     sound.play('chainLost');
@@ -1402,10 +1432,16 @@ function drawSkill(box: HTMLElement): void {
   const counts = document.createElement('p');
   counts.className = 'small';
   counts.textContent = T.skillCounts(s?.near ?? 0, s?.drift ?? 0, s?.bestChain ?? 0, s?.bestCombo ?? 0);
+  const more = document.createElement('p');
+  more.className = 'small';
+  more.textContent = T.skillMore(s?.spin ?? 0, s?.escape ?? 0, s?.perfect ?? 0, s?.rival ?? 0);
   const how = document.createElement('p');
   how.className = 'small';
   how.textContent = T.skillHow;
-  box.append(head, meter, to, counts, how);
+  const bonus = document.createElement('p');
+  bonus.className = 'small';
+  bonus.textContent = T.skillBonusHow;
+  box.append(head, meter, to, counts, more, how, bonus);
 }
 
 const TURN_VIEW = '3da-turnview';

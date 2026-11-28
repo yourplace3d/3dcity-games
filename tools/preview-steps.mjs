@@ -3,8 +3,8 @@
 // with your own change's steps; delete the file for none.
 //   export default async (page, { size, place, out, note }) => { … }
 //
-// Now: driving skill (PR 41). Sit in the nearest car, pass a car close by, drift with the handbrake,
-// let the chain bank across into level 2, and look at the menu's card. The game is stepped by hand
+// Now: more driving skill. Sit in the nearest car, pass a car close by, hold the handbrake round for a 180,
+// then the bonuses (police shaken off, a perfect delivery), and look at the menu's card. The game is stepped by hand
 // (`game.update`), so it doesn't depend on how fast the test browser draws.
 
 export default async function steps(page, { size, out, note }) {
@@ -62,26 +62,22 @@ export default async function steps(page, { size, out, note }) {
   note(`after the near miss: ${(await drive({}, 60)).join(', ')} (closest ${(await page.evaluate(() => window.__gap))?.toFixed(1)} m between middles)`);
   await shot('1-near');
   await page.evaluate(() => { window.__o = null; });
-  // the handbrake round to the left; judged once the car runs straight again, then stop
-  await onStreet(14);
-  await drive({ up: 1, left: 1, hb: 1 }, 50);
-  await shot('2-drift');
-  // stop before the slide runs into anything; standing, it is judged a moment later
+  // a 180: the handbrake held at full lock until the car has come round; judged as it goes
+  await onStreet(18);
+  await drive({ up: 1, left: 1, hb: 1 }, 90);
+  await shot('2-spin');
   await stop();
   await drive({}, 16);
-  note(`after the drift: ${(await drive({}, 10)).join(', ')}`);
-  await shot('3-combo');
+  note(`after the 180: ${(await drive({}, 10)).join(', ')}`);
   note(`after the pause: ${(await drive({}, 180)).join(', ')}`);
-  note(`level shown: ${await page.evaluate(() => document.getElementById('skill-lv')?.textContent)}`);
-  await page.waitForTimeout(300);
-  await shot('4-level');
-  // a level-up as the banner shows it (stepping by hand above takes longer than the banner stays)
-  await page.evaluate(() => window.game.onSkill({ kind: 'banked', points: 60, combo: 2, total: 420, levelUp: 2 }, [0, 0]));
-  await page.waitForTimeout(900);
-  await shot('5-banner');
+  // the bonuses: shaking off two stars of police, and a perfect rush delivery, each straight to the total
+  await page.evaluate(() => { window.game.skillBonus('escape', 2); window.game.skillBonus('perfect', 1.5); });
+  await page.waitForTimeout(350);
+  await shot('3-bonus');
+  note(`after the bonuses: ${(await page.evaluate(() => window.__ev.slice(-2))).join(', ')}; level shown: ${await page.evaluate(() => document.getElementById('skill-lv')?.textContent)}`);
   await page.evaluate(() => document.getElementById('btn-menu')?.click());
   await page.waitForTimeout(300);
   await page.evaluate(() => document.getElementById('tab-trophies')?.click());
   await page.waitForTimeout(400);
-  await shot('6-menu');
+  await shot('4-menu');
 }

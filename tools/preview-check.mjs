@@ -11,7 +11,7 @@ const [dist = 'dist', out = 'shots'] = process.argv.slice(2);
 mkdirSync(out, { recursive: true });
 const server = await preview({ build: { outDir: dist }, preview: { host: '127.0.0.1', port: 4173 }, logLevel: 'error' });
 const base = server.resolvedUrls.local[0];
-const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+const browser = await chromium.launch({ channel: process.env.CHROME_CHANNEL || undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const report = { base, runs: [] };
 const sizes = [
   { name: 'ipad', viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: false },

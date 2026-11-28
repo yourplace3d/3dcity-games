@@ -44,13 +44,16 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
           npm init -y >/dev/null
-          npm install --no-audit --no-fund playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npm install --no-audit --no-fund playwright
+          # the runner's own Google Chrome: Playwright's download may not support a new runner image yet
+          google-chrome --version
           echo "NODE_PATH=$RUNNER_TEMP/pw/node_modules" >> "$GITHUB_ENV"
 
       - name: Play it
         id: play
         continue-on-error: true
+        env:
+          CHROME_CHANNEL: chrome
         run: node tools/preview-check.mjs dist shots
 
       - name: Keep the pictures

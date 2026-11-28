@@ -776,7 +776,7 @@ export const de: Texts = {
   skillNext: (left, next) => `Noch ${left.toLocaleString('de')} bis ${next}`,
   skillTop: 'Die höchste Stufe. Weiter so.',
   skillCounts: (near, drift, best, combo) => `${near}× knapp vorbei · ${drift} ${drift === 1 ? 'Drift' : 'Drifts'} · beste Combo ×${combo} (${best} Punkte)`,
-  skillHow: 'Du verdienst es beim Fahren: Zieh mit Tempo knapp an fahrendem Verkehr vorbei oder drifte durch eine Kurve (Leertaste, oder auf dem Touchscreen in einer scharfen Kurve die Bremse halten). Manöver kurz nacheinander bauen eine Combo auf, die multipliziert. Ein Unfall kostet die Combo und ein paar Punkte, aber nie eine Stufe. Stufen schalten später neue Fahrzeuge und versteckte Orte frei.',
+  skillHow: 'Du verdienst es beim Fahren: Zieh mit Tempo knapp an fahrendem Verkehr vorbei oder drifte durch eine Kurve (Leertaste, oder auf dem Touchscreen in einer scharfen Kurve die Bremse halten). Manöver kurz nacheinander bauen eine Combo auf, die multipliziert. Ein Unfall kostet die Combo und ein paar Punkte, aber nie eine Stufe. Es gibt 30 Stufen, jede dauert länger als die davor, und Stufen schalten später neue Fahrzeuge und versteckte Orte frei.',
   cameraNorth: 'Kamera: Norden oben',
   cameraTurns: 'Kamera: dreht mit dem Auto',
   cameraTitle: 'Nur mit Tasten. Mit dem Touch-Stick bleibt Norden oben. C schaltet um, während du fährst.',

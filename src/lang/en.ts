@@ -772,7 +772,7 @@ export const en = {
   skillTop: 'The top level. Keep going.',
   skillCounts: (near: number, drift: number, best: number, combo: number) =>
     `${near} near ${near === 1 ? 'miss' : 'misses'} · ${drift} ${drift === 1 ? 'drift' : 'drifts'} · best combo ×${combo} (${best} points)`,
-  skillHow: 'Earn it by driving: scrape past moving traffic at speed, or drift through a bend (Space, or hold the brake in a hard turn on a touch screen). Moves in quick succession build a combo that multiplies. A crash loses the combo and costs a few points, but never a level. Levels will open up new vehicles and hidden places.',
+  skillHow: 'Earn it by driving: scrape past moving traffic at speed, or drift through a bend (Space, or hold the brake in a hard turn on a touch screen). Moves in quick succession build a combo that multiplies. A crash loses the combo and costs a few points, but never a level. There are 30 levels, each taking longer than the one before, and levels will open up new vehicles and hidden places.',
   cameraNorth: 'Camera: north up',
   cameraTurns: 'Camera: turns with the car',
   cameraTitle: 'Keys only. With the touch stick the view stays north up. C switches it while you drive.',

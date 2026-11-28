@@ -27,7 +27,7 @@ import { wireRadio } from './radio';
 import { keepClear } from './clearOf';
 import { jobCash, RING, serviceIcon, type ServiceKind } from './game/services';
 import { Controls } from './game/input';
-import { levelOf, LEVELS, type SkillEvent } from './game/skill';
+import { levelOf, rankOf, type SkillEvent } from './game/skill';
 import { Minimap } from './game/minimap';
 import { areaKey, squaresAround, World } from './game/world';
 import { findPlace, nearCity, placeAt, placeFromHash } from './places';
@@ -1297,7 +1297,7 @@ function skillSaid(e: SkillEvent, at: [number, number] | null): void {
 let levelT = 0;
 function levelUp(level: number): void {
   $('levelup-title').textContent = T.levelUpTitle;
-  $('levelup-name').textContent = T.levelUpName(level + 1, T.skillLevels[level]);
+  $('levelup-name').textContent = T.levelUpName(level + 1, T.skillLevels[rankOf(level)]);
   $('levelup-next').textContent = T.levelUpNext;
   const el = $('levelup');
   el.hidden = true;
@@ -1312,7 +1312,7 @@ function paintSkill(h: Hud): void {
   const s = h.skill;
   // the level and a bar to the next, the open combo shown paler on top of it
   const { level, from, next } = levelOf(s.total);
-  put('skill-lv', T.skillHud(level + 1, T.skillLevels[level]));
+  put('skill-lv', T.skillHud(level + 1, T.skillLevels[rankOf(level)]));
   const share = (n: number) => (next === null ? 100 : Math.min(100, Math.round(((n - from) / (next - from)) * 1000) / 10));
   const fill = share(s.total);
   const pend = share(s.total + s.pending);
@@ -1341,7 +1341,7 @@ function drawSkill(box: HTMLElement): void {
   const name = document.createElement('b');
   name.textContent = T.skillLabel;
   const sub = document.createElement('small');
-  sub.textContent = T.skillHead(level + 1, T.skillLevels[level], total);
+  sub.textContent = T.skillHead(level + 1, T.skillLevels[rankOf(level)], total);
   head.append(name, sub);
   const meter = document.createElement('div');
   meter.className = 'meter';
@@ -1350,7 +1350,7 @@ function drawSkill(box: HTMLElement): void {
   meter.append(fill);
   const to = document.createElement('p');
   to.className = 'small';
-  to.textContent = next === null ? T.skillTop : T.skillNext(next - total, T.skillLevels[LEVELS.indexOf(next)]);
+  to.textContent = next === null ? T.skillTop : T.skillNext(next - total, T.levelUpName(level + 2, T.skillLevels[rankOf(level + 1)]));
   const counts = document.createElement('p');
   counts.className = 'small';
   counts.textContent = T.skillCounts(s?.near ?? 0, s?.drift ?? 0, s?.bestChain ?? 0, s?.bestCombo ?? 0);

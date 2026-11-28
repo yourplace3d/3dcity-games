@@ -19,7 +19,7 @@ export default async function steps(page, { size, out, note }) {
       .sort((a, b) => Math.hypot(a.x - g.me.x, a.y - g.me.y) - Math.hypot(b.x - g.me.x, b.y - g.me.y))[0];
     g.seat(c);
     // just short of level 2, so the chain below brings a level-up
-    g.skill.save.total = 90;
+    g.skill.save.total = 30;
   });
   const drive = (keys, frames) => page.evaluate(([keys, frames]) => {
     const g = window.game;

@@ -234,7 +234,10 @@ the streets, buildings, water and hills come from the same map squares as
   (sliding about 19° or more off the nose for half a second) each earn points, shown popping up beside the car.
   Moves within 3 seconds build a combo that multiplies (up to ×5), banked when it goes quiet or you get out. A
   crash loses the combo and takes 10 off the total, never below the start of the level reached. Skill is never
-  spent; seven levels (Rookie to Legend) are where later unlocks will hang. Driving has its own levels (the owner's choice: "its
+  spent; 30 levels are where later unlocks will hang, each taking longer than the one before, "like Diablo"
+  (the owner): level n+1 takes 40 × n² more, so level 2 comes after a couple of good moves, 5 in about an
+  hour, 10 in an evening or two, 20 in weeks and 30 in months (at a guessed 1,000 to 2,000 points an hour).
+  Ranks name them in fives: Rookie, Regular, Skilled, Pro, Ace, Master, and Legend at 30. Driving has its own levels (the owner's choice: "its
   own driving levels", not one player level): the level and a bar to the next sit under the cash, the open
   combo shown paler on the bar, and reaching a level brings a "Level up!" banner with a fanfare. The counts of
   each move are at the top of the Trophies tab. Kept as `3da-skill`, so saving online carries it.

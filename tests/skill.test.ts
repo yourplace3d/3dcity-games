@@ -10,6 +10,8 @@ import {
   DRIFT_SPEED,
   levelOf,
   LEVELS,
+  MAX_LEVEL,
+  rankOf,
   readSkill,
   SkillTracker,
   slipOf,
@@ -124,6 +126,16 @@ describe('driving skill: levels', () => {
     expect(levelOf(0)).toEqual({ level: 0, from: 0, next: LEVELS[1] });
     expect(levelOf(LEVELS[2])).toEqual({ level: 2, from: LEVELS[2], next: LEVELS[3] });
     expect(levelOf(1e9).next).toBeNull();
+  });
+
+  it('levels come slowly, each taking longer than the last', () => {
+    expect(LEVELS.length).toBe(MAX_LEVEL);
+    expect([LEVELS[1], LEVELS[2], LEVELS[4], LEVELS[9], LEVELS[19], LEVELS[29]]).toEqual([40, 200, 1200, 11400, 98800, 342200]);
+    for (let i = 2; i < LEVELS.length; i++) expect(LEVELS[i] - LEVELS[i - 1]).toBeGreaterThan(LEVELS[i - 1] - LEVELS[i - 2]);
+  });
+
+  it('names levels by rank in fives, Legend only at the top', () => {
+    expect([0, 4, 5, 9, 25, 28, 29].map(rankOf)).toEqual([0, 0, 1, 1, 5, 5, 6]);
   });
 
   it('never takes a crash below the level reached', () => {

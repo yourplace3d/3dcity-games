@@ -87,8 +87,24 @@ export const CRASH_KNOCK = 4;
 export const CRASH_COST = 10;
 const CRASH_AGAIN_S = 2;
 
-/** Where each level begins (skill points). The levels' names are in the language tables (`skillLevels`). */
-export const LEVELS = [0, 100, 400, 1000, 2500, 6000, 15000];
+/**
+ * Where each level begins (skill points): slow, and slower the higher (the owner, 28 November: "The leveling
+ * up should go slowly ... the later the level the more it takes. Like Diablo"). Level n+1 takes 40 × n² more
+ * than level n: level 2 at 40 (a couple of good moves), 3 at 200, 5 at 1,200, 10 at 11,400, 20 at 98,800 and
+ * the top, 30, at 342,200. At a guessed 1,000 to 2,000 points an hour of play: level 2 in the first minutes,
+ * 5 in about an hour, 10 in an evening or two, 20 in weeks and 30 in months.
+ */
+export const MAX_LEVEL = 30;
+const STEP = 40;
+export const LEVELS = Array.from({ length: MAX_LEVEL }, (_, n) => (STEP * n * (n + 1) * (2 * n + 1)) / 6);
+
+/**
+ * The rank a level is at, for its name (the language tables' `skillLevels`): levels 1 to 5 Rookie, 6 to 10
+ * Regular, and so on to Master at 26 to 29, and Legend only at the top. `level` counts from 0.
+ */
+export function rankOf(level: number): number {
+  return level >= MAX_LEVEL - 1 ? 6 : Math.min(5, Math.floor(level / 5));
+}
 
 /** The level a total is at, and where it and the next one begin (`next` null at the top). */
 export function levelOf(total: number): { level: number; from: number; next: number | null } {

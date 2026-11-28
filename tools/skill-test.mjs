@@ -30,7 +30,7 @@ await page.evaluate(() => {
   const c = g.cars.filter((c) => c.driver === 'none' || c.driver === 'ai').sort((a, b) => Math.hypot(a.x - g.me.x, a.y - g.me.y) - Math.hypot(b.x - g.me.x, b.y - g.me.y))[0];
   g.seat(c);
   // just short of level 2, so the chain banked below brings the level-up
-  g.skill.save.total = 90;
+  g.skill.save.total = 30;
   // stop the clock's own pace: drive the game by hand at 50 frames a second of game time
 });
 // a drift: up to speed by stepping the game by hand, then the handbrake round a bend
@@ -75,8 +75,8 @@ await shot('4-burst');
 await page.evaluate(() => { const c = window.game.car; c.vx = 0; c.vy = 0; });
 const quiet = await drive({}, 200);
 console.log(quiet);
-// 90 + the chain banked: level 2 (the banner's own seconds have gone by while the game was stepped by hand)
-if (quiet.ev.some((e) => e.startsWith('banked'))) assert.equal(await page.evaluate(() => document.getElementById('skill-lv').textContent), lang === 'de' ? 'Stufe 2 · Routine' : 'Lv 2 · Regular');
+// 30 + the chain banked: level 2 (the banner's own seconds have gone by while the game was stepped by hand)
+if (quiet.ev.some((e) => e.startsWith('banked'))) assert.equal(await page.evaluate(() => document.getElementById('skill-lv').textContent), lang === 'de' ? 'Stufe 2 · Neuling' : 'Lv 2 · Rookie');
 const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('3da-skill')));
 console.log(kept);
 assert.ok(kept.total > 0 && kept.drift === 1 && kept.near === 1, 'kept in the browser');

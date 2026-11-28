@@ -4,7 +4,47 @@ Written 12 November 2026 for a Claude Code session running on the owner's Mac. E
 knew that isn't obvious from the code is here. Read `README.md` first for what the game is and where the code
 lives.
 
-## Right now (28 November 2026, morning)
+## Right now (28 November 2026, afternoon)
+
+- **Live: the first minute for new players** ("Keep part 3 and put it live", 28 November; pull request #47,
+  `main` at `ad99dc2`, Pages run 88, 14:47 UTC; the `site` branch's files byte-identical to a local build of
+  `ad99dc2`; its migration was on the server first). Then the German police line of step 4 in the owner's
+  words, "…ruft Streifenwagen herbei" for "…holt Streifenwagen" (next pull request and Pages run). The owner's check of 28 November: about
+  4 in 10 timed visits end in under a minute (277 of 672, 22–27 Nov), and on 27 Nov 37 browsers finished
+  chapter 1 (a first delivery) while 96 new ones arrived; nothing was counted between a city loaded and that
+  delivery. One commit per part:
+  1. **The tour's steps counted:** `tour` with '1' to '4' (once a page load for each step shown: a city loaded,
+     in a car, a package on board, the first delivery) or 'skip' ("Skip the tour" before the last step).
+     **The migration `play_counts_tour` is on the server** (the owner's "Yes", applied 28 Nov, 14:31 UTC,
+     version 20261128143107), so the game code can go live whenever: `docs/supabase/play_counts.sql`. Tried
+     first inside `begin; … rollback;`, and called once more after, the same way (as `anon`: steps and 'skip'
+     counted, anything else dropped, `chapter` still counted; nothing kept). No `tour` rows until the game code
+     is live. Read it next to `new` with the queries in that file's header.
+  2. **The tour shorter**, English and German: step 2 no longer explains station rings (42 words and 212 px on
+     a 390×844 phone, now 28 words and 153 px); step 4 keeps one line on the police and drops cooling off and
+     the fine (README, "Heat", still has them). German wording checked by the owner. **The rule comes back
+     once, where it matters** (the owner: "build it and put it live", 28 Nov): the first time the heat badges
+     light up for a chase, a line for 7 s, "Stay out of their sight to cool off; stop next to a patrol car and
+     you pay a fine." (German too). Not for the wrong way alone (`Hud.soft`: followed, never fined), once a
+     browser (`3da-heat-told`); `tools/film.mjs` sets the flag so a filmed chase looks as before.
+  3. **A start screen for a first visit; the owner: "Keep part 3"** (commits `52e657a` and `7ee7c51`, the German
+     label "Verschiedene Spieloptionen" in the owner's wording). While the tour is not finished
+     (`3da-coached`), the three ways to play fold under "Other ways to play" and the first city chip is the one
+     big yellow button, "Play in Berlin"; such a browser starts on a run of three (a stored "Do jobs" is put
+     back to the run until it is picked again). Search, the other cities, "Where I am", Scoreboard and the
+     languages are as before; once the tour is done or skipped the start screen is the full one again. The
+     city button is now in view without scrolling at 390×664 (it was at y=669, below the fold).
+  4. **The film tools run again:** `tools/film.mjs`, `intro.mjs` and `spawn-test.mjs` keep every
+     animation-frame callback asked for in a step. With one, `src/clearOf.ts` took the game's loop away and the
+     game froze (a race with its one-second timer, so sometimes before `cruise` was printed, sometimes only
+     while filming: 268 of 270 frames the same). `film.mjs cruise` now prints `cruise 10`, all 270 frames move.
+- **The Pages deploy waits for its artifact** (the owner: "Add the pause to the Pages workflow", 28 November):
+  the deploy step looked for the uploaded artifact in the same second and found none, twice on 28 November (runs
+  89 and 91; fresh runs 90 and 92 went through). `pages.yml` now waits until the artifact is listed, a minute at
+  most, before deploying. A failed deploy: start a fresh run, as a re-run finds two artifacts and fails again.
+  `publish-preview.yml` deploys the same way and has no wait yet.
+
+## Earlier the same day (28 November 2026, morning)
 
 - **Built, not live: no job pays more than $300** (branch `claude/job-pay-cap`, from `main`; no pull request).
   The owner, 28 November: "Jobs should not pay more than 300 ever... with rents there's already too much

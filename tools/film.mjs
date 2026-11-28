@@ -12,14 +12,16 @@ mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({ ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {}), args: process.env.SOFTWARE_GL ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] });
 const page = await browser.newPage({ viewport: { width: Number((process.env.VIEW ?? '1920x1080').split('x')[0]), height: Number((process.env.VIEW ?? '1920x1080').split('x')[1]) }, deviceScaleFactor: Number(process.env.SCALE ?? 1) });
 page.on('pageerror', (e) => console.log('pageerror: ' + e.message));
+// the one-time line on how to get away from the police would show over a filmed chase
+await page.addInitScript(() => { try { localStorage.setItem('3da-heat-told', '1'); } catch { /* private window */ } });
 await page.goto(BASE + '#' + place);
 await page.waitForFunction(() => window.game?.world && document.body.dataset.screen === 'play', null, { timeout: 90000 });
 await page.evaluate((caption) => {
   // a clock we turn by hand: animation frames and timers only move when a frame is filmed
-  let vt = 0; let raf = null; const timers = [];
-  window.requestAnimationFrame = (cb) => { raf = cb; return 1; };
+  let vt = 0; let cbs = []; const timers = [];
+  window.requestAnimationFrame = (cb) => { cbs.push(cb); return cbs.length; };
   window.setTimeout = (fn, ms = 0) => { timers.push({ at: vt + ms, fn }); return 0; };
-  window.__step = (ms) => { vt += ms; for (const t of timers.splice(0)) { if (t.at <= vt) t.fn(); else timers.push(t); } const cb = raf; raf = null; if (cb) cb(vt + 1000); };
+  window.__step = (ms) => { vt += ms; for (const t of timers.splice(0)) { if (t.at <= vt) t.fn(); else timers.push(t); } const run = cbs; cbs = []; for (const cb of run) cb(vt + 1000); };
   const st = document.createElement('style');
   st.textContent = '.toast,#flash{animation:none!important;opacity:1!important}#btn-menu{display:none}#cap{position:fixed;left:0;right:0;bottom:54px;text-align:center;font:800 40px/1.1 ui-rounded,system-ui,sans-serif;color:#fff;text-shadow:0 2px 0 #000,0 0 18px rgba(0,0,0,.85);letter-spacing:.01em;pointer-events:none}#cap small{display:block;font-size:20px;font-weight:600;color:#ffd400;margin-top:8px}.hint{display:none!important}';
   document.head.append(st);

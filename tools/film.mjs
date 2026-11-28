@@ -12,6 +12,8 @@ mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({ ...(process.env.HTTPS_PROXY ? { proxy: { server: process.env.HTTPS_PROXY, bypass: '127.0.0.1,localhost' } } : {}), args: process.env.SOFTWARE_GL ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] });
 const page = await browser.newPage({ viewport: { width: Number((process.env.VIEW ?? '1920x1080').split('x')[0]), height: Number((process.env.VIEW ?? '1920x1080').split('x')[1]) }, deviceScaleFactor: Number(process.env.SCALE ?? 1) });
 page.on('pageerror', (e) => console.log('pageerror: ' + e.message));
+// the one-time line on how to get away from the police would show over a filmed chase
+await page.addInitScript(() => { try { localStorage.setItem('3da-heat-told', '1'); } catch { /* private window */ } });
 await page.goto(BASE + '#' + place);
 await page.waitForFunction(() => window.game?.world && document.body.dataset.screen === 'play', null, { timeout: 90000 });
 await page.evaluate((caption) => {

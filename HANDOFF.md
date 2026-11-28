@@ -6,9 +6,10 @@ lives.
 
 ## Right now (28 November 2026, afternoon)
 
-- **Going live on the owner's word: the first minute for new players** ("Keep part 3 and put it live", 28
-  November; branch `claude/modest-noether-w3tul1`, from `main` at `38fd1df` with `main` merged in at `955f64e`,
-  by pull request into `main`, then the Pages workflow on `main`; its migration was on the server first). The owner's check of 28 November: about
+- **Live: the first minute for new players** ("Keep part 3 and put it live", 28 November; pull request #47,
+  `main` at `ad99dc2`, Pages run 88, 14:47 UTC; the `site` branch's files byte-identical to a local build of
+  `ad99dc2`; its migration was on the server first). Then the German police line of step 4 in the owner's
+  words, "…ruft Streifenwagen herbei" for "…holt Streifenwagen" (next pull request and Pages run). The owner's check of 28 November: about
   4 in 10 timed visits end in under a minute (277 of 672, 22–27 Nov), and on 27 Nov 37 browsers finished
   chapter 1 (a first delivery) while 96 new ones arrived; nothing was counted between a city loaded and that
   delivery. One commit per part:
@@ -21,8 +22,11 @@ lives.
      is live. Read it next to `new` with the queries in that file's header.
   2. **The tour shorter**, English and German: step 2 no longer explains station rings (42 words and 212 px on
      a 390×844 phone, now 28 words and 153 px); step 4 keeps one line on the police and drops cooling off and
-     the fine (README, "Heat", still has them). German wording for the owner to check. Offered, not built: a
-     one-time toast when the heat badges first light up, with the cooling-off and fine rule.
+     the fine (README, "Heat", still has them). German wording checked by the owner. **The rule comes back
+     once, where it matters** (the owner: "build it and put it live", 28 Nov): the first time the heat badges
+     light up for a chase, a line for 7 s, "Stay out of their sight to cool off; stop next to a patrol car and
+     you pay a fine." (German too). Not for the wrong way alone (`Hud.soft`: followed, never fined), once a
+     browser (`3da-heat-told`); `tools/film.mjs` sets the flag so a filmed chase looks as before.
   3. **A start screen for a first visit; the owner: "Keep part 3"** (commits `52e657a` and `7ee7c51`, the German
      label "Verschiedene Spieloptionen" in the owner's wording). While the tour is not finished
      (`3da-coached`), the three ways to play fold under "Other ways to play" and the first city chip is the one

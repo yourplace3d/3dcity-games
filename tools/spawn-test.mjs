@@ -32,10 +32,10 @@ async function one(spec) {
       };
     }));
     await page.evaluate(() => {
-      let vt = performance.now(); let raf = null; const timers = []; const realRaf = window.requestAnimationFrame.bind(window); const realTo = window.setTimeout.bind(window);
-      window.requestAnimationFrame = (cb) => { raf = cb; return 1; };
+      let vt = performance.now(); let cbs = []; const timers = []; const realRaf = window.requestAnimationFrame.bind(window); const realTo = window.setTimeout.bind(window);
+      window.requestAnimationFrame = (cb) => { cbs.push(cb); return cbs.length; };
       window.setTimeout = (fn, ms = 0, ...a) => { if (typeof fn !== 'function') return realTo(fn, ms, ...a); timers.push({ at: vt + ms, fn }); return 0; };
-      window.__step = (ms) => { vt += ms; for (const t of timers.splice(0)) { if (t.at <= vt) t.fn(); else timers.push(t); } const cb = raf; raf = null; if (cb) cb(vt + 1000); };
+      window.__step = (ms) => { vt += ms; for (const t of timers.splice(0)) { if (t.at <= vt) t.fn(); else timers.push(t); } const run = cbs; cbs = []; for (const cb of run) cb(vt + 1000); };
       window.game.auto = true; window.game.render = false; window.__auto = true;
     });
     res.at = {};

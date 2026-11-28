@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>// Put into a preview build only (see vite.config.ts): it runs before the game and gives the preview
+// a browser store of its own. A preview lives on the same address as the live game, so without this
+// it would read and write the player's real saved game.
+//
+// The first time a preview is opened it starts from a copy of the live game's progress; from then
+// on everything it keeps is under its own prefix, and the live game's keys are never written.
+(function () {
+  var name = "pr-46";
+  var real;
+  try {
+    real = window.localStorage;
+  } catch (e) {
+    return;
+  }
+  if (!real) return;
+  var pre = '3da-preview/' + name + '/';
+  var copied = '3da-preview-copied/' + name;
+  var ours = function (k) {
+    return k.indexOf('3da-preview') !== 0 && (k.indexOf('3da-') === 0 || k === 'drive-it-3d');
+  };
+  var all = function () {
+    var out = [];
+    for (var i = 0; i < real.length; i++) out.push(real.key(i));
+    return out;
+  };
+  var keys = function () {
+    return all()
+      .filter(function (k) { return k && k.indexOf(pre) === 0; })
+      .map(function (k) { return k.slice(pre.length); });
+  };
+  try {
+    if (real.getItem(copied) === null) {
+      all().forEach(function (k) {
+        if (k && ours(k)) real.setItem(pre + k, real.getItem(k));
+      });
+      real.setItem(copied, new Date().toISOString());
+    }
+  } catch (e) {
+    /* a full store: the preview starts with what it could copy */
+  }
+  var store = {
+    getItem: function (k) { return real.getItem(pre + k); },
+    setItem: function (k, v) { real.setItem(pre + k, String(v)); },
+    removeItem: function (k) { real.removeItem(pre + k); },
+    key: function (i) { var k = keys()[i]; return k === undefined ? null : k; },
+    clear: function () { keys().forEach(function (k) { real.removeItem(pre + k); }); },
+  };
+  Object.defineProperty(store, 'length', { get: function () { return keys().length; } });
+  Object.defineProperty(window, 'localStorage', { value: store, configurable: true });
+  var robots = document.createElement('meta');
+  robots.name = 'robots';
+  robots.content = 'noindex';
+  document.head.appendChild(robots);
+})();
+</script>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>3DA: drive any city</title>
+    <meta name="description" content="A small top-down driving game on the real 3D map of any city: borrow cars, run deliveries, lose the police." />
+    <meta name="theme-color" content="#1c1f24" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="3DA" />
+    <meta property="og:title" content="3DA: drive any city" />
+    <meta property="og:description" content="Borrow a car in any city. A top-down driving game on the real 3D map of any place on Earth." />
+    <meta property="og:image" content="https://yourplace3d.github.io/3dcity-games/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <script type="module" crossorigin src="./assets/index-B44uG7JV.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-SRBbcFF7.css">
+  </head>
+  <body data-screen="start">
+    <div id="stage"><canvas id="scene"></canvas></div>
+
+    <div id="bigmap" hidden>
+      <div class="panel" id="bigmap-card" role="dialog" aria-label="Map" data-ta="aria-label:mapLabel">
+        <div id="bigmap-top"><b id="bigmap-place"></b><small id="bigmap-note" data-t="mapNote">1.5 km across · north is up · the game waits</small></div>
+        <canvas id="bigmap-canvas"></canvas>
+        <div id="bigmap-key">
+          <span><i class="dot me"></i><span data-t="keyYou">you</span></span>
+          <span><i class="dot ring"></i><span data-t="keyPackage">package</span></span>
+          <span><i class="dot ring fuel"></i><i class="dot ring fire"></i><i class="dot ring police"></i><span data-t="keyStation">a station’s job</span></span>
+          <span><i class="dot ring party"></i><span data-t="keyParty">food for your party</span></span>
+          <span><i class="dot ring home"></i><span data-t="keyHome">flashing: a job for your home</span></span>
+          <span><i class="dot ring drop"></i><span data-t="keyDrop">deliver here</span></span>
+          <span><i class="dot zone"></i><span data-t="keyZone">a car to find is in the circle</span></span>
+          <span><i class="dot sub"></i><span data-t="keySubway">subway entrance</span></span>
+          <span data-t="keyStreets">main streets are named</span>
+          <span><b class="star">★</b><span data-t="keySight">a well-known sight</span></span>
+          <span><i class="ico" data-kind="fuel"></i><span data-t="keyFuel">fuel</span></span>
+          <span><i class="ico" data-kind="fire"></i><span data-t="keyFire">fire station</span></span>
+          <span><i class="ico" data-kind="police"></i><span data-t="keyPolice">police</span></span>
+          <span><i class="ico" data-kind="bank"></i><span data-t="keyBank">bank, in your home town</span></span>
+          <span><i class="ico" data-kind="fuel" data-invented="1"></i><span data-t="keyInvented">dashed ring: not on the map</span></span>
+        </div>
+        <div id="bigmap-buttons">
+          <button id="btn-line" aria-pressed="false">Line on the road: off</button>
+          <button id="btn-map-close" data-t="backToGame">Back to the game</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud" aria-live="off">
+      <div class="panel stats">
+        <b id="cash">$0</b>
+        <small id="saved" role="button" tabindex="0" data-ta="title:savedTitle" title="Money in the bank, safe from fines. Click for the way to the nearest bank." hidden></small>
+        <span id="heat" aria-label="Police heat" data-ta="aria-label:heatLabel"><i></i><i></i><i></i><i></i></span>
+        <span class="bar" title="You" data-ta="title:barYou"><i id="health"></i></span>
+        <span class="bar car" id="carbar" title="Car" data-ta="title:barCar" hidden><i id="carhp"></i></span>
+        <small id="run" hidden></small>
+      </div>
+      <div class="panel job" id="job" hidden></div>
+      <div class="panel speed" id="speed" hidden></div>
+      <div class="panel hint" id="hint" hidden></div>
+      <div class="panel" id="fps" hidden></div>
+      <div class="panel loading" id="next" hidden data-t="loadingNext">Loading the next streets…</div>
+      <div id="arrow" hidden><svg viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0,-10 L8,8 L0,3 L-8,8 Z" /></svg><span id="arrow-m"></span></div>
+      <canvas id="minimap" data-ta="title:minimapTitle" title="Map. Click to open the big map. Drag it to another corner."></canvas>
+      <div id="sights"></div>
+      <div class="panel" id="openjobs" hidden>
+        <b data-t="openJobs">Open jobs</b>
+        <p data-t="openJobsText">Drive to one of these signs. Each gives its own kind of job, as often as you like, and its ring has the sign’s colour: orange, red or blue.</p>
+        <ul>
+          <li><i class="ico" data-kind="fuel"></i><span data-th="openSupply"><b>Supply run:</b> a heavy load, slow uphill. More pay for a car without a new dent.</span></li>
+          <li><i class="ico" data-kind="fire"></i><span data-th="openRush"><b>Rush job:</b> a short clock. Every second left over pays three times.</span></li>
+          <li><i class="ico" data-kind="police"></i><span data-th="openClean"><b>Clean run:</b> pays well. Break the law on the way and the job is gone.</span></li>
+        </ul>
+        <small data-t="openJobsArrow">The arrow points to the nearest. All of them are on the map: tap the little map.</small>
+        <button id="btn-openjobs" data-t="gotIt">Got it</button>
+      </div>
+      <div class="panel" id="forsale" hidden></div>
+      <button class="panel" id="btn-guess" hidden></button>
+      <div id="toasts"></div>
+      <div class="panel" id="coach" hidden><small id="coach-n"></small><p id="coach-text"></p><button id="coach-skip" data-t="skipTour">Skip the tour</button></div>
+      <button class="panel" id="btn-menu" aria-label="Menu: pause, real estate, trophies" data-ta="aria-label:menuLabel">☰</button>
+      <button class="panel" id="btn-sound" aria-label="Sound" data-ta="aria-label:soundLabel">♪</button>
+      <button class="panel" id="btn-estate" aria-label="Real estate and trophies" data-ta="aria-label:estateLabel"><svg viewBox="0 0 44 44" aria-hidden="true"><circle class="track" cx="22" cy="22" r="18.5"/><circle class="fill" cx="22" cy="22" r="18.5" pathLength="100" stroke-dasharray="0 100"/><path class="house" d="M22 11.5l10 9.2h-3V31H15V20.7h-3z"/></svg><b id="estate-free" hidden></b></button>
+      <button class="panel" id="btn-radio" aria-label="Radio" data-ta="aria-label:radioLabel" hidden>FM</button>
+      <div class="panel" id="radio-bar" hidden><span class="name"></span><button class="next" aria-label="Next station" data-ta="aria-label:radioNextLabel" data-t="radioNext">next ›</button></div>
+    </div>
+
+    <div id="touch">
+      <div id="pad"></div>
+      <div id="stick" hidden><div id="knob"></div></div>
+      <button id="btn-brake" class="off" aria-label="Brake" data-ta="aria-label:brake"><i class="ribs"></i><b data-t="brake">Brake</b></button>
+      <button id="btn-action" class="off" data-mode="in"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="door" d="M13 3.5h6.5v17H13"/><circle class="knob" cx="15.6" cy="12.6" r="1.1"/><path class="go-in" d="M2.5 12h9M8 8.2l3.8 3.8L8 15.8"/><path class="go-out" d="M11 12H2.5M6.3 8.2L2.5 12l3.8 3.8"/></svg><span id="action-label" data-t="actGetIn">Get in</span></button>
+    </div>
+
+    <div id="arrive" hidden><b id="arrive-place"></b><span id="arrive-line"></span></div>
+    <div id="flash" hidden></div>
+
+    <section id="start">
+      <div class="card">
+        <h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 368 160" class="wordmark" role="img" aria-label="3DA"><g transform="translate(20,20) scale(1)" fill="none" stroke="#f4f1ea" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"><path d="M14,18 H52 a21,21 0 0 1 0,42 H34"/><path d="M52,60 a21,21 0 0 1 0,42 H14"/></g><g transform="translate(134,20) scale(1)" fill="none" stroke="#f4f1ea" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"><path d="M18,18 V102 H44 a42,42 0 0 0 0,-84 Z"/></g><polygon points="288.0,26.0 308.0,26.0 348.0,134.0 248.0,134.0" fill="#ffd400"/><polygon points="292.5,33.0 303.5,33.0 334.0,134.0 262.0,134.0" fill="#565b63"/><polygon points="297.2,42.0 298.8,42.0 299.1,51.0 296.9,51.0" fill="#f4f1ea"/><polygon points="296.6,61.0 299.4,61.0 299.9,75.0 296.1,75.0" fill="#f4f1ea"/><polygon points="295.7,87.0 300.3,87.0 301.0,107.0 295.0,107.0" fill="#f4f1ea"/><polygon points="294.5,120.0 301.5,120.0 302.0,134.0 294.0,134.0" fill="#f4f1ea"/></svg></h1>
+        <p class="tag" data-t="tagline">Drive any city.</p>
+        <p data-t="startIntro">The real streets and buildings of any place on Earth, seen from above. Walk up to a car and take it, run deliveries against the clock for cash (three make a run, for the scoreboard or to send to a friend to beat), and shake off the police when you've been careless.</p>
+        <div id="modes" role="group" aria-label="What to play" data-ta="aria-label:modesLabel">
+          <button type="button" id="mode-run" aria-pressed="true"><b data-t="modeRun">Compare with friends</b><span data-t="modeRunText">A run of three deliveries against the clock. Send it to a friend to beat.</span></button>
+          <button type="button" id="mode-jobs" aria-pressed="false"><b data-t="modeJobs">Do jobs</b><span data-t="modeJobsText">As many as you like: supply runs, rush jobs and clean runs from the stations in town.</span></button>
+          <button type="button" id="mode-guess" aria-pressed="false"><b data-t="whereAmI">Where am I?</b><span data-t="modeGuessText">You are put down in a city without its name. Drive around and pick it from four.</span></button>
+        </div>
+        <button type="button" class="primary" id="btn-drop" hidden data-t="dropMe">Put me down somewhere</button>
+        <form id="search">
+          <input id="q" type="search" placeholder="City, street or lat, lon" data-ta="placeholder:searchPlaceholder" autocomplete="off" enterkeyhint="go" />
+          <button class="primary" data-t="go">Go</button>
+        </form>
+        <!-- little on the map at the place just searched: right under the search field, the way on first, so it is seen without scrolling -->
+        <div id="thin" hidden>
+          <button id="btn-anyway" data-t="playAnyway">Play here anyway</button>
+          <p data-th="thinText"><b>There isn't much on the map here yet.</b> You can play, but the streets will feel empty. We'd recommend adding to the map first: this game is built from OpenStreetMap, which anyone can edit.</p>
+          <p><a id="thin-map" href="https://www.openstreetmap.org/" target="_blank" rel="noopener" data-t="thinSee">See this place on OpenStreetMap</a> · <a href="https://wiki.openstreetmap.org/wiki/Beginners%27_guide" target="_blank" rel="noopener" data-t="thinHow">How to add buildings and streets</a></p>
+          <p data-t="thinLater">New map material shows up in the game after some days. Or play one of the recommended cities below.</p>
+        </div>
+        <div class="places" id="places"></div>
+        <!-- saving the game online under a name: optional, filled in by cloudUi.ts -->
+        <div id="account" hidden></div>
+        <p class="small" id="where" hidden data-t="bakedWhere">This page carries the map of central Berlin, about 3 km across. The full game loads any city.</p>
+        <div class="row"><button id="btn-resume" hidden data-t="backToGame">Back to the game</button><button id="btn-scores" data-t="scoreboard">Scoreboard</button><button id="btn-homes" hidden data-t="trophiesBtn">Your homes</button></div>
+        <div class="row lang" id="lang" role="group" aria-label="Language" data-ta="aria-label:language"></div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <div id="busy" hidden><b id="busy-text" data-t="searching">Searching</b><i aria-hidden="true"></i></div>
+        <dl class="keys">
+          <dt data-t="keysTitle">Keys</dt>
+          <dd data-th="keysText"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: walk, drive · <kbd>E</kbd> in and out of cars · <kbd>Space</kbd> handbrake · <kbd>M</kbd> big map · <kbd>P</kbd> pause · <kbd>G</kbd> route line on the road · <kbd>R</kbd> unstick</dd>
+          <dt data-t="touchTitle">Touch</dt>
+          <dd data-t="touchText">Drag anywhere on the left to walk or drive that way. Buttons on the right: get in or out, and the brake pedal while you drive. Tap the little map for a big one of the streets around you.</dd>
+          <dt data-t="ringsTitle">Rings</dt>
+          <dd data-th="ringsText"><span class="dot plain"></span> pick up a package · <span class="dot fuel"></span> <span class="dot fire"></span> <span class="dot police"></span> a job from the fuel, fire or police station · <span class="dot party"></span> food for a party at your home · <span class="dot home"></span> flashing: a job for your home · <span class="dot drop"></span> deliver it before the time runs out</dd>
+          <dt data-t="transitTitle">Transit</dt>
+          <dd data-th="transitText"><span class="dot sub"></span> subway entrance (no rides for now) · buses stop at <span class="dot bus"></span>, trams at <span class="dot tram"></span></dd>
+        </dl>
+        <p class="small" data-t="credits">Map data © OpenStreetMap contributors, tiles by OpenFreeMap; terrain: Mapzen on AWS. Stops and stations from OpenStreetMap. Search by Photon (komoot) and Nominatim. Built on the Your Place 3D engine.</p>
+        <p class="small" id="discord-start" hidden></p>
+      </div>
+    </section>
+    <section id="pause" class="over" hidden>
+      <div class="card menu" role="dialog" aria-label="Menu" data-ta="aria-label:menu">
+        <div class="menu-head">
+          <div class="tabs" role="tablist">
+            <button id="tab-game" role="tab" aria-selected="true" aria-label="Paused" title="Paused" data-ta="aria-label:paused;title:paused">❚❚</button>
+            <button id="tab-story" role="tab" aria-selected="false" hidden data-t="tabStory">Story</button>
+            <button id="tab-estate" role="tab" aria-selected="false" data-t="tabEstate">Real estate</button>
+            <button id="tab-trophies" role="tab" aria-selected="false" data-t="tabTrophies">Trophies</button>
+          </div>
+          <button id="btn-menu-close" aria-label="Close" data-ta="aria-label:close">✕</button>
+        </div>
+        <div id="pane-game" role="tabpanel">
+          <p class="small" id="pause-line"></p>
+          <div class="row">
+            <button class="primary" id="btn-continue" data-t="continue">Continue</button>
+            <button id="btn-switch"></button>
+            <button id="btn-city" data-t="mainMenu">Main menu</button>
+          </div>
+          <p class="small" data-t="pauseHow">☰, P or Esc opens this; P, Esc or ✕ closes it. The game waits while it is open.</p>
+          <p class="small" id="discord-menu" hidden></p>
+        </div>
+        <div id="pane-story" role="tabpanel" hidden></div>
+        <div id="pane-estate" role="tabpanel" hidden>
+          <div class="points" id="estate-points"></div>
+          <p id="homes-line"></p>
+          <button id="btn-bank-way" hidden data-t="bankWay">Show the way to the nearest bank</button>
+          <div id="homes-list"></div>
+          <p class="small" data-t="estateKept">Your cash, homes and trophies are kept in this browser and come along to every place you play. Each home pays rent on your first visit of a day, wherever you are.</p>
+        </div>
+        <div id="pane-trophies" role="tabpanel" hidden>
+          <p class="small" id="trophies-line"></p>
+          <div id="trophies-list"></div>
+        </div>
+      </div>
+    </section>
+    <section id="firsthome" class="over" hidden>
+      <div class="card">
+        <h2 data-t="firstHome">Your first home</h2>
+        <p id="firsthome-what"></p>
+        <p data-t="firstHomeText">This town is now your home plate. Its banks are on the map: stop at one to pay in your cash, and fines can't touch it. Money in the bank pays for homes here.</p>
+        <p id="firsthome-save"></p>
+        <div class="row"><button class="primary" id="btn-firsthome-save" data-t="saveOnline">Save my game online</button><button id="btn-firsthome-go" data-t="keepDriving">Keep driving</button></div>
+      </div>
+    </section>
+    <section id="mission" class="over" hidden>
+      <div class="card">
+        <small class="kicker" id="mission-kicker" data-t="missionKicker">Private mission open now</small>
+        <h2 id="mission-title"></h2>
+        <p id="mission-text"></p>
+        <div class="row"><button class="primary" id="btn-mission-yes"></button><button id="btn-mission-no"></button><button id="btn-mission-later" hidden></button></div>
+      </div>
+    </section>
+    <section id="party" class="over" hidden>
+      <div class="card">
+        <small class="kicker" data-t="party">Party</small>
+        <h2 id="party-title"></h2>
+        <p id="party-text"></p>
+        <div id="party-invite">
+          <p id="party-ask"></p>
+          <input id="party-name" type="text" maxlength="16" placeholder="Your name (optional)" data-ta="placeholder:yourNameOpt" autocomplete="off" enterkeyhint="done" />
+          <div class="row"><button class="primary" id="btn-party-send"></button><button id="btn-party-no"></button></div>
+          <p class="small" id="party-note"></p>
+          <input id="party-link" type="text" readonly hidden aria-label="Link to this party" data-ta="aria-label:partyLinkLabel" />
+        </div>
+      </div>
+    </section>
+    <section id="guess" class="over" hidden>
+      <div class="card">
+        <h2 id="guess-title"></h2>
+        <p class="score" id="guess-score"></p>
+        <p class="small" id="guess-line"></p>
+        <div id="guess-options"></div>
+        <div id="guess-after" hidden>
+          <p class="small" id="guess-rival" hidden></p>
+          <input id="guess-name" type="text" maxlength="16" placeholder="Your name (optional)" data-ta="placeholder:yourNameOpt" autocomplete="off" enterkeyhint="done" />
+          <button class="primary" id="btn-guess-send" data-t="guessSend">Send it to a friend to guess</button>
+          <p class="small" id="guess-note"></p>
+          <input id="guess-link" type="text" readonly hidden aria-label="Link to this city" data-ta="aria-label:guessLinkLabel" />
+          <div class="row"><button id="btn-guess-next" data-t="nextCity">Next city</button><button id="btn-guess-stay" data-t="keepDrivingHere">Keep driving here</button></div>
+        </div>
+        <div class="row" id="guess-before"><button id="btn-guess-back" data-t="lookMore">Look around some more</button></div>
+        <p class="small" id="guess-tally"></p>
+      </div>
+    </section>
+    <section id="result" hidden>
+      <div class="card">
+        <h2 id="result-title" data-t="scoreboard">Scoreboard</h2>
+        <div id="result-run" hidden>
+          <p class="score" id="result-score"></p>
+          <p class="small" id="result-line"></p>
+          <p class="small" id="result-rival" hidden></p>
+          <div id="result-home" hidden></div>
+          <form id="result-form">
+            <input id="result-name" type="text" maxlength="16" placeholder="Your name (optional)" data-ta="placeholder:yourNameOpt" autocomplete="off" enterkeyhint="done" />
+            <button data-t="putOnBoard">Put it on the board</button>
+          </form>
+          <div id="challenge" hidden>
+            <button class="primary" id="btn-challenge" data-t="challenge">Challenge a friend to beat this</button>
+            <p class="small" id="challenge-note"></p>
+            <p class="small" id="challenge-tally" data-t="challengeTally">Links are counted: one when made, one when opened, with the region of the map the run is in. Nothing about you or your friend is kept.</p>
+            <input id="challenge-link" type="text" readonly hidden aria-label="Link to this run" data-ta="aria-label:runLinkLabel" />
+          </div>
+        </div>
+        <ol id="board"></ol>
+        <p class="small" id="board-empty" hidden data-t="boardEmpty">No runs yet. Three deliveries make a run; what they earn, less any fines, is the score.</p>
+        <div class="row">
+          <button id="btn-newrun" data-t="newRun">New run</button>
+          <button id="btn-close" data-t="keepDriving">Keep driving</button>
+        </div>
+        <p class="small" data-t="scoresKept">Scores are kept on this device.</p>
+      </div>
+    </section>
+  </body>
+</html>

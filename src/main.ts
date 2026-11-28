@@ -1182,10 +1182,31 @@ function put(id: string, html: string): void {
   $(id).innerHTML = html;
 }
 
+/** The first chase in this browser has been told how to get away (the tour no longer says it). */
+const HEAT_TOLD = '3da-heat-told';
+let heatTold = ((): boolean => {
+  try {
+    return localStorage.getItem(HEAT_TOLD) === '1';
+  } catch {
+    return true;
+  }
+})();
+
 function paint(h: Hud): void {
   put('cash', fmtMoney(h.cash));
   const heat = $('heat').children;
   for (let i = 0; i < heat.length; i++) heat[i].classList.toggle('on', i < h.heat);
+  // the badges light up for the first time in a chase: how to cool off, and the fine. Not for the wrong way
+  // alone, where the police only follow and never fine
+  if (h.heat > 0 && !h.soft && !heatTold) {
+    heatTold = true;
+    toast(T.heatFirst, 'info', 7000);
+    try {
+      localStorage.setItem(HEAT_TOLD, '1');
+    } catch {
+      /* it is told once in this visit */
+    }
+  }
   const health = $('health');
   health.style.width = `${h.health}%`;
   health.classList.toggle('low', h.health < 35);

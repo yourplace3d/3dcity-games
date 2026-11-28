@@ -22,8 +22,11 @@ lives.
      is live. Read it next to `new` with the queries in that file's header.
   2. **The tour shorter**, English and German: step 2 no longer explains station rings (42 words and 212 px on
      a 390×844 phone, now 28 words and 153 px); step 4 keeps one line on the police and drops cooling off and
-     the fine (README, "Heat", still has them). German wording for the owner to check. Offered, not built: a
-     one-time toast when the heat badges first light up, with the cooling-off and fine rule.
+     the fine (README, "Heat", still has them). German wording checked by the owner. **The rule comes back
+     once, where it matters** (the owner: "build it and put it live", 28 Nov): the first time the heat badges
+     light up for a chase, a line for 7 s, "Stay out of their sight to cool off; stop next to a patrol car and
+     you pay a fine." (German too). Not for the wrong way alone (`Hud.soft`: followed, never fined), once a
+     browser (`3da-heat-told`); `tools/film.mjs` sets the flag so a filmed chase looks as before.
   3. **A start screen for a first visit; the owner: "Keep part 3"** (commits `52e657a` and `7ee7c51`, the German
      label "Verschiedene Spieloptionen" in the owner's wording). While the tour is not finished
      (`3da-coached`), the three ways to play fold under "Other ways to play" and the first city chip is the one

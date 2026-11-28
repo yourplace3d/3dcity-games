@@ -149,6 +149,8 @@ export type FindEvent = 'spotted' | 'in' | 'out' | 'closer' | 'done' | 'wrecked'
 export interface Hud {
   cash: number;
   heat: number;
+  /** the heat is for the wrong way down a one-way street only: the police follow and never fine (`soft`) */
+  soft: boolean;
   health: number;
   carHp: number | null;
   kmh: number;
@@ -3068,6 +3070,7 @@ export class Game {
     return {
       cash: this.cash,
       heat: Math.ceil(this.heat),
+      soft: this.soft,
       health: Math.max(0, this.me.hp),
       carHp: this.car ? this.car.hp : null,
       kmh: this.speed() * 3.6,

@@ -36,7 +36,7 @@ import { Strip, drawnOverGround } from './roadMesh';
 import { laneOffset, mayGo, RAIL_ON, SPEED_LIMIT, type PathState, type Pick, type RouteField } from './roads';
 import { areaCentre, riseUnder, SUBWAY_RIDES, World } from './world';
 import type { Ears, Sfx } from '../sound';
-import { DROP, JOB_OF, RING, ringAlong, type JobKind } from './services';
+import { DROP, JOB_OF, jobCash, jobWorth, openPay, RING, ringAlong, type JobKind } from './services';
 import { partyClock } from './party';
 import { money, T } from '../i18n';
 import { loadSkill, SkillTracker, slipOf, storeSkill, type SkillEvent } from './skill';
@@ -1978,10 +1978,11 @@ export class Game {
       }
       if (j.metres < 6.5) {
         // what comes on top: time left over, three times as much on a rush job; on a supply run a
-        // fifth more for a car that took no harm
-        let bonus = Math.round((j.left * (j.kind === 'rush' ? 6 : 2)) / 10) * 10;
-        if (j.kind === 'supply' && this.car && this.car.hp >= j.hp0 - 1) bonus += Math.round((j.pay * 0.2) / 10) * 10;
-        this.cash += j.pay + bonus;
+        // fifth more for a car that took no harm. The cash is never more than a job's most; a run of
+        // three counts the whole worth as its score, so that runs compare with those made before
+        const worth = jobWorth(j.kind, j.pay, j.left, !!this.car && this.car.hp >= j.hp0 - 1);
+        const cash = jobCash(worth);
+        this.cash += cash;
         this.delivered++;
         // a new dent on the car the load came on board in; a load moved to another car counts as dented
         const harmed = !!j.car0 && j.car0.hp < j.hp0 - 1;
@@ -1989,12 +1990,12 @@ export class Game {
         const r = this.run;
         if (!r.over) {
           r.done++;
-          r.score += j.pay + bonus;
+          r.score += worth;
           if (this.from) this.course.legs.push({ from: this.from, to: j.to.at, kind: j.kind });
-          this.onToast(`${T.deliveryOf(r.done, r.of)}  +${money(j.pay + bonus)}`, 'good');
-        } else this.onToast(`${T.delivered}  +${money(j.pay + bonus)}`, 'good');
+          this.onToast(`${T.deliveryOf(r.done, r.of)}  ${cash < worth ? T.forRunAndCash(money(worth), money(cash)) : `+${money(worth)}`}`, 'good');
+        } else this.onToast(`${T.delivered}  +${money(cash)}`, 'good');
         this.onSound(!r.over && r.done >= r.of ? 'run' : 'deliver');
-        this.arrived(x, y, `+${money(j.pay + bonus)}`, !r.over && r.done >= r.of);
+        this.arrived(x, y, `+${money(cash)}`, !r.over && r.done >= r.of);
         this.endJob(true);
         if (j.special) this.onSpecialDone(dented);
         this.emit({ kind: 'delivered', job: j.kind, left: j.left, special: !!j.special, dented: harmed });
@@ -2253,7 +2254,8 @@ export class Game {
       } else this.scene.remove(cand.mesh);
     }
     if (!marker) return false;
-    // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows
+    // open jobs pay more the more one has delivered, up to the 50th delivery: after that it no longer grows.
+    // Since no job pays more than `JOB_MAX`, that shows on short ways only: a longer one is at its kind's top
     const base = Math.max(50, Math.round((metres * (0.5 + (this.run.over ? Math.min(this.delivered, OPEN_JOBS_GROW) : this.run.done) * 0.03)) / 10) * 10);
     // each kind of job has its own clock and its own pay
     const [clock, pay, say] = {
@@ -2264,7 +2266,8 @@ export class Game {
     }[kind] as [number, number, string];
     // a mission's package: a little more time, for a drop-off that was not chosen to suit the clock
     const light = isSpecial && kind === 'supply' && special!.light !== undefined ? { light: special!.light } : {};
-    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
+    // an open job's own pay stops at its kind's top; a run's delivery keeps its worth, which is its score
+    this.job = { to: marker, metres, left: isSpecial ? clock * (special!.clock ?? 1) + 20 : clock, pay: this.run.over ? openPay(kind, pay) : pay, kind, hp0: this.car ? this.car.hp : 100, car0: this.car, ...(isSpecial ? { special: true } : {}), ...light };
     this.from = m.at;
     this.lastFrom = m.at;
     this.routeT = 0;

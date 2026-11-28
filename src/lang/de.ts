@@ -312,6 +312,7 @@ export const de: Texts = {
   splash: 'Platsch!',
   delivered: 'Geliefert',
   deliveryOf: (n, of) => `Lieferung ${n} von ${of}`,
+  forRunAndCash: (worth, cash) => `+${worth} für die Runde · ${cash} bar`,
   // ---------------------------------------------------------------- Radio, online speichern, Discord, Extras
   radioInCar: 'Das Radio spielt im Auto',
   radioNone: 'Hier spielt kein Sender',

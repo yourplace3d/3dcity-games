@@ -303,6 +303,8 @@ export const en = {
   splash: 'Splash!',
   delivered: 'Delivered',
   deliveryOf: (n: number, of: number) => `Delivery ${n} of ${of}`,
+  /** a run's delivery worth more than a job pays: what it adds to the run's score, and the cash paid */
+  forRunAndCash: (worth: string, cash: string) => `+${worth} for the run · ${cash} cash`,
 
   // ---------------------------------------------------------------- radio, saving online, Discord, extras
   radioInCar: 'The radio plays in a car',

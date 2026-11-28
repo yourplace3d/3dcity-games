@@ -6,9 +6,10 @@ lives.
 
 ## Right now (28 November 2026, afternoon)
 
-- **Going live on the owner's word: the first minute for new players** ("Keep part 3 and put it live", 28
-  November; branch `claude/modest-noether-w3tul1`, from `main` at `38fd1df` with `main` merged in at `955f64e`,
-  by pull request into `main`, then the Pages workflow on `main`; its migration was on the server first). The owner's check of 28 November: about
+- **Live: the first minute for new players** ("Keep part 3 and put it live", 28 November; pull request #47,
+  `main` at `ad99dc2`, Pages run 88, 14:47 UTC; the `site` branch's files byte-identical to a local build of
+  `ad99dc2`; its migration was on the server first). Then the German police line of step 4 in the owner's
+  words, "…ruft Streifenwagen herbei" for "…holt Streifenwagen" (next pull request and Pages run). The owner's check of 28 November: about
   4 in 10 timed visits end in under a minute (277 of 672, 22–27 Nov), and on 27 Nov 37 browsers finished
   chapter 1 (a first delivery) while 96 new ones arrived; nothing was counted between a city loaded and that
   delivery. One commit per part:

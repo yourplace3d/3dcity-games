@@ -219,7 +219,7 @@ export const de: Texts = {
   tourDeliverKeys: 'Bring es jetzt zum <b class="y">gelben Ring</b>, bevor die Uhr oben abläuft. Übrige Zeit bringt einen Bonus. <kbd>G</kbd> zeichnet den Weg auf die Straße.',
   tourDeliverTouch: 'Bring es jetzt zum <b class="y">gelben Ring</b>, bevor die Uhr oben abläuft. Übrige Zeit bringt einen Bonus. Tipp auf die kleine Karte für eine große.',
   tourPolice: (n) =>
-    `${cap(deliveries(n))} sind eine Runde für die Bestenliste, und eine Runde kannst du Freunden als Wettkampf schicken. Pass auf die Polizei auf: Wer Leute umfährt oder rammt, holt Streifenwagen.`,
+    `${cap(deliveries(n))} sind eine Runde für die Bestenliste, und eine Runde kannst du Freunden als Wettkampf schicken. Pass auf die Polizei auf: Wer Leute umfährt oder rammt, ruft Streifenwagen herbei.`,
   tourNoDeliveries: 'Hier gibt es keine Lieferungen: zu wenige Straßen. Versuch über das Menü einen anderen Ort.',
   tourStep: (n, of) => `${n} von ${of}`,
   tourOnFootTouch: 'Du bist zu Fuß. Geh zu einem Auto und tipp auf <b>Einsteigen</b>. Ein geparktes kannst du einfach nehmen.',
